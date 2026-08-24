@@ -3,14 +3,16 @@ import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, Exter
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
-// Verified Live Polar Checkout URL connected directly to user Ziraat Payout
-const POLAR_ACTIVE_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_vzDci937zOHm5A9Y9VmUmRQmqckoJwEcnXT8p06hDLj';
+// Verified Live Shopier Checkout URL
+const SHOPIER_CHECKOUT_URL = 'https://www.shopier.com/takiminisec/50191149';
+const POLAR_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_vzDci937zOHm5A9Y9VmUmRQmqckoJwEcnXT8p06hDLj';
 
 export default function DepositModal({ isOpen, onClose, currentBalance, onDepositSuccess, nickname }) {
   if (!isOpen) return null;
 
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState('');
+  const [paymentProvider, setPaymentProvider] = useState('shopier'); // 'shopier' | 'polar'
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(null);
 
@@ -24,6 +26,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
   ];
 
   const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount;
+  const activeUrl = paymentProvider === 'shopier' ? SHOPIER_CHECKOUT_URL : POLAR_CHECKOUT_URL;
 
   const handleDeposit = async (e) => {
     e.preventDefault();
@@ -35,11 +38,12 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
       setTimeout(() => {
         setIsProcessing(false);
         setOrderCreated({
-          orderId: 'POLAR_' + Date.now().toString(36).toUpperCase(),
+          orderId: 'ORDER_' + Date.now().toString(36).toUpperCase(),
           amount: effectiveAmount,
-          paymentUrl: POLAR_ACTIVE_CHECKOUT_URL
+          provider: paymentProvider === 'shopier' ? 'Shopier (Kredi Kartı / Banka)' : 'Polar.sh (Apple Pay / Global)',
+          paymentUrl: activeUrl
         });
-        window.open(POLAR_ACTIVE_CHECKOUT_URL, '_blank');
+        window.open(activeUrl, '_blank');
       }, 200);
 
     } catch (err) {
@@ -87,7 +91,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               ✓
             </div>
             <div>
-              <h4 className="text-xl font-black text-white">₺{effectiveAmount} Polar.sh Ödeme Sayfası Açıldı!</h4>
+              <h4 className="text-xl font-black text-white">{orderCreated.provider} Ödeme Sayfası Açıldı!</h4>
               <p className="text-xs text-gray-400 mt-1">
                 Güvenli ödeme penceresi yeni sekmede açıldı.
               </p>
@@ -95,7 +99,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
             <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-3">
               <p className="text-gray-300">
-                Apple Pay, Google Pay veya Kart ile <b>₺{effectiveAmount}</b> ödemenizi tamamlayın.
+                Tüm Kredi Kartları, Banka Kartları ve Troy ile <b>₺{effectiveAmount}</b> ödemenizi tamamlayın.
               </p>
               <a
                 href={orderCreated.paymentUrl}
@@ -103,7 +107,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:brightness-110"
               >
-                <span>Ödeme Sayfasını Aç</span>
+                <span>Ödeme Sayfasını Tekrar Aç</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -113,9 +117,9 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 onDepositSuccess(effectiveAmount);
                 onClose();
               }}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer shadow-lg shadow-emerald-600/20"
             >
-              Ödemeyi Yaptım, ₺{effectiveAmount} Bakiyemi Yansıt & Kapat
+              Ödemeyi Tamamladım, Bakiyemi Yansıt & Kapat
             </button>
           </div>
         ) : (
@@ -168,39 +172,52 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               </div>
             </div>
 
-            {/* 2. Ödeme Yöntemi */}
+            {/* 2. Ödeme Yöntemi Seçimi */}
             <div>
               <label className="text-xs font-black text-gray-300 uppercase tracking-wider block mb-2">
                 2. Güvenli Ödeme Altyapısı
               </label>
 
-              <div className="p-3.5 rounded-2xl border border-blue-400/80 bg-blue-950/30 text-white flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚡</span>
-                  <div>
-                    <div className="text-xs font-extrabold text-blue-300">Polar.sh Checkout (Doğrulanmış Canlı)</div>
-                    <div className="text-[10px] text-gray-400">Apple Pay • Kredi Kartı • Google Pay</div>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentProvider('shopier')}
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+                    paymentProvider === 'shopier'
+                      ? 'border-emerald-400 bg-emerald-950/30 text-white shadow-lg shadow-emerald-500/10'
+                      : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-lg font-black">
+                      ₺
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                        <span>Shopier Güvenli Ödeme</span>
+                        <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black px-1.5 py-0.2 rounded">TÜRKİYE AKTİF</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400">Tüm Kredi/Banka Kartları • Troy • Anında Onay</div>
+                    </div>
                   </div>
-                </div>
-                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                  Aktif
-                </span>
+                  <CheckCircle className={`w-5 h-5 ${paymentProvider === 'shopier' ? 'text-emerald-400' : 'text-gray-700'}`} />
+                </button>
               </div>
             </div>
 
             {/* Güvenlik Rozeti */}
             <div className="flex items-center gap-2 p-3 bg-gray-950 rounded-2xl border border-gray-800/80 text-xs text-gray-400">
-              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>Polar.sh Merchant of Record • 256-bit SSL Güvenli Ödeme</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Shopier 256-bit SSL • 3D Secure Korumalı Ödeme</span>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isProcessing || effectiveAmount < 5}
-              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 text-white shadow-lg shadow-blue-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110"
+              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 text-black shadow-lg shadow-emerald-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110"
             >
-              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (Polar.sh ile Öde)`}</span>
+              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (Shopier ile Güvenli Öde)`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
