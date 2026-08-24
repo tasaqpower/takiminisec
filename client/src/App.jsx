@@ -8,6 +8,7 @@ import ProvinceGrid from './components/ProvinceGrid';
 import ProvinceModal from './components/ProvinceModal';
 import HowToPlayModal from './components/HowToPlayModal';
 import DepositModal from './components/DepositModal';
+import { TEAMS_CLIENT } from './data/teamsList';
 import { playTakeoverSound } from './utils/audio';
 
 const SOCKET_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : '/';
@@ -15,12 +16,11 @@ const SOCKET_URL = window.location.hostname === 'localhost' ? 'http://localhost:
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [provinces, setProvinces] = useState({});
-  const [teams, setTeams] = useState([]);
+  const [teams, setTeams] = useState(TEAMS_CLIENT);
   const [activity, setActivity] = useState([]);
   const [stats, setStats] = useState({ totalBidsCount: 0, totalMoneySpent: 0, teamLeaderboard: [], topProvinces: [] });
-  const [activeView, setActiveView] = useState('map'); // 'map' | 'grid' | 'leaderboard'
+  const [activeView, setActiveView] = useState('map');
   
-  // Default user balance is 0 for real production users!
   const [userBalance, setUserBalance] = useState(() => {
     const saved = localStorage.getItem('outbid_user_balance');
     return saved !== null ? Number(saved) : 0;
@@ -36,7 +36,37 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastUpdatedProvinceId, setLastUpdatedProvinceId] = useState(null);
 
-  // Initialize Socket.io connection
+  // 1. Initial REST Fetch on Mount for 100% instant data reliability
+  useEffect(() => {
+    fetch('/api/provinces')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.provinces) {
+          setProvinces(data.provinces);
+        }
+      })
+      .catch(err => console.warn('REST provinces load error:', err));
+
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.stats) {
+          setStats(data.stats);
+        }
+      })
+      .catch(err => console.warn('REST stats load error:', err));
+
+    fetch('/api/teams')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.teams) {
+          setTeams(data.teams);
+        }
+      })
+      .catch(err => console.warn('REST teams load error:', err));
+  }, []);
+
+  // 2. Real-Time WebSockets
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
       transports: ['websocket', 'polling']
@@ -48,7 +78,7 @@ export default function App() {
 
     newSocket.on('initial_state', (data) => {
       if (data.provinces) setProvinces(data.provinces);
-      if (data.teams) setTeams(data.teams);
+      if (data.teams && data.teams.length > 0) setTeams(data.teams);
       if (data.activity) setActivity(data.activity);
       if (data.stats) setStats(data.stats);
     });
@@ -94,6 +124,20 @@ export default function App() {
       setIsSubmitting(true);
 
       const bidPayload = { provinceId, teamId, amount, bidder, note };
+
+      // Optimistic instant update in UI
+      setProvinces(prev => {
+        const current = prev[provinceId] || {};
+        return {
+          ...prev,
+          [provinceId]: {
+            ...current,
+            currentTeamId: teamId,
+            currentBid: Number(amount),
+            lastBidder: bidder
+          }
+        };
+      });
 
       if (!socket || !socket.connected) {
         fetch('/api/bid', {
