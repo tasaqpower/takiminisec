@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, ExternalLink, QrCode, AlertCircle, Copy } from 'lucide-react';
+import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, ExternalLink, QrCode, AlertCircle, Copy, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
@@ -8,27 +8,20 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card'); // 'card' | 'papara' | 'iban' | 'test'
+  const [paymentMethod, setPaymentMethod] = useState('polar'); // 'polar' | 'papara' | 'test'
   const [isProcessing, setIsProcessing] = useState(false);
-  const [copiedText, setCopiedText] = useState(null);
   const [orderCreated, setOrderCreated] = useState(null);
 
   const packages = [
-    { amount: 25, label: 'Başlangıç', bonus: null },
-    { amount: 50, label: 'Taraftar', bonus: 'Popüler 🔥' },
-    { amount: 100, label: 'Holigan', bonus: '+5 ₺ Bonus' },
-    { amount: 250, label: 'Amigo', bonus: '+25 ₺ Bonus' },
-    { amount: 500, label: 'Başkan', bonus: '+75 ₺ Bonus' },
-    { amount: 1000, label: 'Efsane', bonus: '+200 ₺ Bonus' },
+    { amount: 25, label: 'Başlangıç', bonus: null, polarLink: 'https://buy.polar.sh/custom_25' },
+    { amount: 50, label: 'Taraftar', bonus: 'Popüler 🔥', polarLink: 'https://buy.polar.sh/custom_50' },
+    { amount: 100, label: 'Holigan', bonus: '+5 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_100' },
+    { amount: 250, label: 'Amigo', bonus: '+25 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_250' },
+    { amount: 500, label: 'Başkan', bonus: '+75 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_500' },
+    { amount: 1000, label: 'Efsane', bonus: '+200 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_1000' },
   ];
 
   const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount;
-
-  const handleCopy = (text, key) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(key);
-    setTimeout(() => setCopiedText(null), 2000);
-  };
 
   const handleDeposit = async (e) => {
     e.preventDefault();
@@ -37,7 +30,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
     setIsProcessing(true);
 
     try {
-      // 1. If Test/Instant Mode:
+      // 1. Instant Test Demo Mode
       if (paymentMethod === 'test') {
         setTimeout(() => {
           setIsProcessing(false);
@@ -45,18 +38,18 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
           playCoinSound();
           onClose();
-        }, 600);
+        }, 500);
         return;
       }
 
-      // 2. Real Payment / Order generation
+      // 2. Polar.sh & Gateway Checkout Creation
       const res = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: effectiveAmount,
           bidder: nickname || 'Anonim Taraftar',
-          paymentMethod
+          paymentMethod: 'polar'
         })
       });
       const data = await res.json();
@@ -64,7 +57,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
       if (data.success) {
         setOrderCreated(data);
-        if (paymentMethod === 'card' && data.paymentUrl) {
+        if (paymentMethod === 'polar' && data.paymentUrl) {
           window.open(data.paymentUrl, '_blank');
         }
       }
@@ -81,13 +74,13 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-emerald-950/80 via-[#0f172a] to-emerald-950/60 border-b border-gray-800 flex items-center justify-between">
+        <div className="p-6 bg-gradient-to-r from-blue-950/80 via-[#0f172a] to-emerald-950/60 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
               <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Taraftar Cüzdanı</div>
+              <div className="text-xs font-bold text-blue-400 uppercase tracking-wider">Taraftar Cüzdanı</div>
               <h3 className="text-xl font-black text-white">Bakiye Yükle</h3>
             </div>
           </div>
@@ -113,56 +106,26 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               ✓
             </div>
             <div>
-              <h4 className="text-xl font-black text-white">Ödeme Emri Oluşturuldu!</h4>
+              <h4 className="text-xl font-black text-white">Polar.sh Ödeme Sayfası Açıldı!</h4>
               <p className="text-xs text-gray-400 mt-1">
-                Referans No: <b className="text-amber-400">{orderCreated.orderId}</b>
+                Referans No: <b className="text-blue-400">{orderCreated.orderId}</b>
               </p>
             </div>
 
-            {paymentMethod === 'card' && (
-              <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-3">
-                <p className="text-gray-300">
-                  Shopier / Kart ödeme sayfası açıldı. Ödemeyi tamamladığınızda bakiyeniz otomatik yüklenecektir.
-                </p>
-                <a
-                  href={orderCreated.paymentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-black font-bold rounded-xl text-xs"
-                >
-                  <span>Ödeme Sayfasını Tekrar Aç</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
-
-            {paymentMethod === 'papara' && (
-              <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-left text-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Papara No:</span>
-                  <button
-                    onClick={() => handleCopy('1234567890', 'papara')}
-                    className="font-bold text-white flex items-center gap-1 hover:text-amber-400"
-                  >
-                    <span>1234567890</span>
-                    <Copy className="w-3 h-3" />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Açıklama (Zorunlu):</span>
-                  <button
-                    onClick={() => handleCopy(orderCreated.orderId, 'ref')}
-                    className="font-black text-amber-400 flex items-center gap-1"
-                  >
-                    <span>{orderCreated.orderId}</span>
-                    <Copy className="w-3 h-3" />
-                  </button>
-                </div>
-                <p className="text-[11px] text-gray-400 italic">
-                  Papara transferinin açıklama kısmına referans kodunuzu yazınız. 1-2 dakika içinde bakiye tanımlanır.
-                </p>
-              </div>
-            )}
+            <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-3">
+              <p className="text-gray-300">
+                Apple Pay, Google Pay veya Kart ile ödemeyi tamamladığınızda bakiyeniz anında cüzdanınıza yansıyacaktır.
+              </p>
+              <a
+                href={orderCreated.paymentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:brightness-110"
+              >
+                <span>Polar.sh Ödemesini Aç</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
 
             <button
               onClick={() => {
@@ -194,7 +157,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                       }}
                       className={`p-3 rounded-2xl border text-center transition-all relative cursor-pointer ${
                         isSelected
-                          ? 'border-emerald-400 bg-emerald-950/40 text-white shadow-lg shadow-emerald-500/10'
+                          ? 'border-blue-400 bg-blue-950/40 text-white shadow-lg shadow-blue-500/10'
                           : 'border-gray-800 bg-gray-900/60 hover:bg-gray-800 text-gray-300'
                       }`}
                     >
@@ -203,7 +166,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                           {pkg.bonus}
                         </span>
                       )}
-                      <div className="text-base font-black text-emerald-400">₺{pkg.amount}</div>
+                      <div className="text-base font-black text-blue-400">₺{pkg.amount}</div>
                       <div className="text-[10px] text-gray-400 font-bold">{pkg.label}</div>
                     </button>
                   );
@@ -219,7 +182,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                   placeholder="Farklı bir tutar girin (örn: 75, 150)"
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-800 focus:border-emerald-400 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none"
+                  className="w-full bg-gray-900 border border-gray-800 focus:border-blue-400 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -227,36 +190,24 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
             {/* 2. Ödeme Yöntemi */}
             <div>
               <label className="text-xs font-black text-gray-300 uppercase tracking-wider block mb-2">
-                2. Ödeme Yöntemi Seç
+                2. Ödeme Altyapısı
               </label>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('card')}
+                  onClick={() => setPaymentMethod('polar')}
                   className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'card'
-                      ? 'border-emerald-400 bg-emerald-950/40 text-white'
+                    paymentMethod === 'polar'
+                      ? 'border-blue-400 bg-blue-950/40 text-white shadow-md shadow-blue-500/10'
                       : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
                   }`}
                 >
-                  <CreditCard className="w-5 h-5 text-amber-400" />
-                  <span className="text-xs font-bold">Kredi Kartı</span>
-                  <span className="text-[9px] text-gray-400">Shopier 3D</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('papara')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'papara'
-                      ? 'border-emerald-400 bg-emerald-950/40 text-white'
-                      : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span className="text-lg">📱</span>
-                  <span className="text-xs font-bold">Papara</span>
-                  <span className="text-[9px] text-gray-400">Anında FAST</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-lg">⚡</span>
+                    <span className="text-xs font-extrabold text-blue-300">Polar.sh</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400">Apple Pay / Kart / Google Pay</span>
                 </button>
 
                 <button
@@ -268,26 +219,26 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                       : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
                   }`}
                 >
-                  <Zap className="w-5 h-5 text-amber-400" />
+                  <Zap className="w-4 h-4 text-amber-400" />
                   <span className="text-xs font-bold">Hızlı Test</span>
-                  <span className="text-[9px] text-emerald-400">Anında Demo</span>
+                  <span className="text-[10px] text-emerald-400">Anında Demo Yükle</span>
                 </button>
               </div>
             </div>
 
             {/* Güvenlik Rozeti */}
             <div className="flex items-center gap-2 p-3 bg-gray-950 rounded-2xl border border-gray-800/80 text-xs text-gray-400">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>256-bit SSL Güvenli Ödeme Altyapısı</span>
+              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>Polar.sh Merchant of Record • 256-bit Güvenli Ödeme</span>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isProcessing || effectiveAmount < 5}
-              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500 text-black shadow-lg shadow-emerald-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 text-white shadow-lg shadow-blue-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110"
             >
-              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle ve Şehirleri Ele Geçir`}</span>
+              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (Polar.sh)`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
