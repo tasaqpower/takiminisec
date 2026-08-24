@@ -7,6 +7,7 @@ import Leaderboard from './components/Leaderboard';
 import ProvinceGrid from './components/ProvinceGrid';
 import ProvinceModal from './components/ProvinceModal';
 import HowToPlayModal from './components/HowToPlayModal';
+import DepositModal from './components/DepositModal';
 import { playTakeoverSound } from './utils/audio';
 
 const SOCKET_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : '/';
@@ -19,9 +20,17 @@ export default function App() {
   const [stats, setStats] = useState({ totalBidsCount: 0, totalMoneySpent: 0, teamLeaderboard: [], topProvinces: [] });
   const [activeView, setActiveView] = useState('map'); // 'map' | 'grid' | 'leaderboard'
   
+  const [userBalance, setUserBalance] = useState(() => {
+    return Number(localStorage.getItem('outbid_user_balance') || 100);
+  });
+  const [nickname, setNickname] = useState(() => {
+    return localStorage.getItem('outbid_nickname') || '';
+  });
+
   const [selectedProvinceId, setSelectedProvinceId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastUpdatedProvinceId, setLastUpdatedProvinceId] = useState(null);
 
@@ -72,22 +81,36 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  const handleDepositSuccess = (addedAmount) => {
+    const newBalance = userBalance + Number(addedAmount);
+    setUserBalance(newBalance);
+    localStorage.setItem('outbid_user_balance', newBalance);
+  };
+
   const handlePlaceBid = ({ provinceId, teamId, amount, bidder, note }) => {
     return new Promise((resolve, reject) => {
       setIsSubmitting(true);
 
+      const bidPayload = { provinceId, teamId, amount, bidder, note };
+
       if (!socket || !socket.connected) {
-        // Fallback REST call
-        fetch('http://localhost:4000/api/bid', {
+        fetch('/api/bid', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provinceId, teamId, amount, bidder, note })
+          body: JSON.stringify(bidPayload)
         })
           .then(res => res.json())
           .then(res => {
             setIsSubmitting(false);
-            if (res.success) resolve(res);
-            else reject(new Error(res.error));
+            if (res.success) {
+              // Deduct balance locally
+              const nextBal = Math.max(0, userBalance - Number(amount));
+              setUserBalance(nextBal);
+              localStorage.setItem('outbid_user_balance', nextBal);
+              resolve(res);
+            } else {
+              reject(new Error(res.error));
+            }
           })
           .catch(err => {
             setIsSubmitting(false);
@@ -96,9 +119,12 @@ export default function App() {
         return;
       }
 
-      socket.emit('place_bid', { provinceId, teamId, amount, bidder, note }, (response) => {
+      socket.emit('place_bid', bidPayload, (response) => {
         setIsSubmitting(false);
         if (response?.success) {
+          const nextBal = Math.max(0, userBalance - Number(amount));
+          setUserBalance(nextBal);
+          localStorage.setItem('outbid_user_balance', nextBal);
           resolve(response.data);
         } else {
           reject(new Error(response?.error || 'Teklif verilemedi!'));
@@ -116,6 +142,9 @@ export default function App() {
       <Navbar
         stats={stats}
         onOpenHowToPlay={() => setIsHowToPlayOpen(true)}
+        onOpenWallet={() => setIsWalletOpen(true)}
+        userBalance={userBalance}
+        nickname={nickname}
         activeView={activeView}
         setActiveView={setActiveView}
       />
@@ -130,7 +159,6 @@ export default function App() {
       {/* 3. Main Body Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
         
-        {/* Dynamic View rendering */}
         {activeView === 'map' && (
           <div className="space-y-6">
             <TurkeyMap
@@ -140,7 +168,6 @@ export default function App() {
               lastUpdatedProvinceId={lastUpdatedProvinceId}
             />
 
-            {/* Quick mini-leaderboard below map */}
             <Leaderboard
               stats={stats}
               teams={teams}
@@ -171,12 +198,12 @@ export default function App() {
       <footer className="border-t border-gray-800/80 bg-[#0a0f1a] py-6 text-center text-xs text-gray-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-300">Outbid Türkiye</span>
+            <span className="font-bold text-gray-300">takiminisec.lol</span>
             <span>•</span>
-            <span>Taraftar Meydanı ⚽</span>
+            <span>Türkiye Taraftar Meydanı ⚽</span>
           </div>
           <div className="text-[11px] text-gray-400">
-            Süper Lig & 1. Lig 81 İl Canlı Açık Artırma Platformu
+            Süper Lig & 1. Lig 81 İl Canlı Açık Artırma ve Bakiye Sistemi
           </div>
         </div>
       </footer>
@@ -189,6 +216,19 @@ export default function App() {
         onClose={() => setIsModalOpen(false)}
         onPlaceBid={handlePlaceBid}
         isSubmitting={isSubmitting}
+        userBalance={userBalance}
+        onOpenWallet={() => {
+          setIsModalOpen(false);
+          setIsWalletOpen(true);
+        }}
+      />
+
+      <DepositModal
+        isOpen={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+        currentBalance={userBalance}
+        onDepositSuccess={handleDepositSuccess}
+        nickname={nickname}
       />
 
       <HowToPlayModal

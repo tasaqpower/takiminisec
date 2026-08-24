@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Flame, Volume2, VolumeX, HelpCircle, Trophy, Coins, Radio, Zap } from 'lucide-react';
+import { Flame, Volume2, VolumeX, HelpCircle, Trophy, Coins, Radio, Zap, Wallet, PlusCircle } from 'lucide-react';
 import { isSoundEnabled, toggleSound } from '../utils/audio';
 
-export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveView }) {
+export default function Navbar({ stats, onOpenHowToPlay, onOpenWallet, userBalance, nickname, activeView, setActiveView }) {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   const handleToggleSound = () => {
@@ -30,23 +30,23 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                OUTBID <span className="bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">TÜRKİYE</span>
+                TAKIMINI <span className="bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">SEÇ</span>
               </h1>
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-red-950 text-red-400 border border-red-800/50 flex items-center gap-1">
                 <Radio className="w-2.5 h-2.5 animate-pulse text-red-500" /> CANLI
               </span>
             </div>
             <p className="text-xs text-gray-400 font-medium hidden sm:block">
-              81 İli Takımının Renklerine Boya • Taraftar Meydanı
+              81 İli Takımının Renklerine Boya • takiminisec.lol
             </p>
           </div>
         </div>
 
-        {/* View Switcher Tabs (Harita / Liste / Liderlik) */}
+        {/* View Switcher Tabs */}
         <div className="flex items-center bg-[#1a2333] p-1 rounded-xl border border-gray-700/60 shadow-inner">
           <button
             onClick={() => setActiveView('map')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeView === 'map'
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md'
                 : 'text-gray-400 hover:text-white'
@@ -56,7 +56,7 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           </button>
           <button
             onClick={() => setActiveView('grid')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeView === 'grid'
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md'
                 : 'text-gray-400 hover:text-white'
@@ -66,7 +66,7 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           </button>
           <button
             onClick={() => setActiveView('leaderboard')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeView === 'leaderboard'
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md'
                 : 'text-gray-400 hover:text-white'
@@ -76,27 +76,31 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           </button>
         </div>
 
-        {/* Right Stats & Controls */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        {/* Right Controls, Wallet & Bakiye */}
+        <div className="flex items-center gap-2 sm:gap-3">
           
-          {/* Total Pool Badge */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#1f293d]/80 px-3 py-1.5 rounded-xl border border-amber-500/20">
-            <Coins className="w-4 h-4 text-amber-400" />
+          {/* User Wallet Balance Pill */}
+          <button
+            onClick={onOpenWallet}
+            className="flex items-center gap-2 bg-gradient-to-r from-emerald-950/80 to-emerald-900/60 hover:from-emerald-900 hover:to-emerald-800 border border-emerald-500/40 px-3 py-1.5 rounded-xl transition-all shadow-md group cursor-pointer"
+          >
+            <Wallet className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
             <div className="text-left">
-              <div className="text-[10px] text-gray-400 uppercase font-semibold">Toplam Havuz</div>
-              <div className="text-sm font-black text-amber-400">
-                ₺{stats?.totalMoneySpent?.toLocaleString('tr-TR') || '0'}
+              <div className="text-[9px] text-emerald-300/80 uppercase font-bold">Cüzdan</div>
+              <div className="text-xs font-black text-emerald-400">
+                ₺{Number(userBalance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
               </div>
             </div>
-          </div>
+            <PlusCircle className="w-4 h-4 text-emerald-400 ml-1" />
+          </button>
 
-          {/* Total Bids Badge */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#1f293d]/80 px-3 py-1.5 rounded-xl border border-gray-700">
-            <Zap className="w-4 h-4 text-cyan-400" />
+          {/* Total Pool Badge */}
+          <div className="hidden xl:flex items-center gap-2 bg-[#1f293d]/80 px-3 py-1.5 rounded-xl border border-amber-500/20">
+            <Coins className="w-4 h-4 text-amber-400" />
             <div className="text-left">
-              <div className="text-[10px] text-gray-400 uppercase font-semibold">Teklif Sayısı</div>
-              <div className="text-sm font-black text-white">
-                {stats?.totalBidsCount || 0}
+              <div className="text-[9px] text-gray-400 uppercase font-semibold">Toplam Havuz</div>
+              <div className="text-xs font-black text-amber-400">
+                ₺{stats?.totalMoneySpent?.toLocaleString('tr-TR') || '0'}
               </div>
             </div>
           </div>
@@ -105,7 +109,7 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           <button
             onClick={handleToggleSound}
             title={soundOn ? "Sesi Kapat" : "Sesi Aç"}
-            className={`p-2 rounded-xl border transition-all ${
+            className={`p-2 rounded-xl border transition-all cursor-pointer ${
               soundOn 
                 ? 'bg-gray-800/80 border-gray-700 text-amber-400 hover:bg-gray-700' 
                 : 'bg-red-950/40 border-red-900/50 text-gray-500 hover:text-gray-300'
@@ -117,7 +121,7 @@ export default function Navbar({ stats, onOpenHowToPlay, activeView, setActiveVi
           {/* How to play button */}
           <button
             onClick={onOpenHowToPlay}
-            className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded-xl border border-gray-700 text-xs font-semibold transition-all"
+            className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded-xl border border-gray-700 text-xs font-semibold transition-all cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-amber-400" />
             <span className="hidden sm:inline">Kurallar</span>
