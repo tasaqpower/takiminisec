@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trophy, HelpCircle, Map, Grid, Volume2, VolumeX, Flame, Wallet, Plus, Shield } from 'lucide-react';
-import { isSoundEnabled, setSoundEnabled } from '../utils/audio';
+import { isSoundEnabled, toggleSound } from '../utils/audio';
 
 export default function Navbar({
   stats,
@@ -13,10 +13,10 @@ export default function Navbar({
 }) {
   const [sound, setSound] = React.useState(isSoundEnabled());
 
-  const toggleSound = () => {
+  const handleToggleSound = () => {
     const next = !sound;
     setSound(next);
-    setSoundEnabled(next);
+    toggleSound(next);
   };
 
   return (
@@ -115,7 +115,7 @@ export default function Navbar({
 
           {/* Sound Toggle */}
           <button
-            onClick={toggleSound}
+            onClick={handleToggleSound}
             className="p-1.5 sm:p-2 rounded-xl bg-gray-900/80 border border-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
             title={sound ? "Sesi Kapat" : "Sesi Aç"}
           >
