@@ -3,7 +3,8 @@ import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, Exter
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
-const POLAR_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_LwKhboMDWT7F2IOwsYuy04sum0M9s4ohREeAF3eYOFc';
+// Base Polar Link
+const POLAR_BASE_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_LwKhboMDWT7F2IOwsYuy04sum0M9s4ohREeAF3eYOFc';
 
 export default function DepositModal({ isOpen, onClose, currentBalance, onDepositSuccess, nickname }) {
   if (!isOpen) return null;
@@ -36,10 +37,10 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
         setOrderCreated({
           orderId: 'POLAR_' + Date.now().toString(36).toUpperCase(),
           amount: effectiveAmount,
-          paymentUrl: POLAR_CHECKOUT_URL
+          paymentUrl: POLAR_BASE_CHECKOUT_URL
         });
-        window.open(POLAR_CHECKOUT_URL, '_blank');
-      }, 300);
+        window.open(POLAR_BASE_CHECKOUT_URL, '_blank');
+      }, 250);
 
     } catch (err) {
       setIsProcessing(false);
@@ -86,7 +87,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               ✓
             </div>
             <div>
-              <h4 className="text-xl font-black text-white">Polar.sh Ödeme Sayfası Açıldı!</h4>
+              <h4 className="text-xl font-black text-white">₺{effectiveAmount} Polar.sh Ödeme Sayfası Açıldı!</h4>
               <p className="text-xs text-gray-400 mt-1">
                 Güvenli ödeme penceresi yeni sekmede açıldı.
               </p>
@@ -94,7 +95,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
             <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-3">
               <p className="text-gray-300">
-                Apple Pay, Google Pay veya Kart ile ödemenizi tamamlayın.
+                Apple Pay, Google Pay veya Kart ile <b>₺{effectiveAmount}</b> ödemenizi tamamlayın.
               </p>
               <a
                 href={orderCreated.paymentUrl}
@@ -102,7 +103,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:brightness-110"
               >
-                <span>Ödeme Sayfasını Tekrar Aç</span>
+                <span>Ödeme Sayfasını Aç</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -114,7 +115,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               }}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer"
             >
-              Ödemeyi Tamamladım & Kapat
+              Ödemeyi Yaptım, ₺{effectiveAmount} Bakiyemi Yansıt & Kapat
             </button>
           </div>
         ) : (
