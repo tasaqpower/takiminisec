@@ -31,7 +31,7 @@ const TEAMS = [
     secondaryColor: "#FFFFFF",
     textColor: "#FFFFFF",
     badge: "🦅",
-    gradient: "from-[#111111] to-[#444444]"
+    gradient: "from-[#111111] to-[#333333]"
   },
   {
     id: "trabzonspor",

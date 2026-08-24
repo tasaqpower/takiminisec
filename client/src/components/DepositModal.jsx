@@ -10,7 +10,6 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('polar'); // 'polar' | 'test'
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(null);
 
@@ -32,19 +31,6 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
     setIsProcessing(true);
 
     try {
-      // 1. Instant Test Demo Mode
-      if (paymentMethod === 'test') {
-        setTimeout(() => {
-          setIsProcessing(false);
-          onDepositSuccess(effectiveAmount);
-          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-          playCoinSound();
-          onClose();
-        }, 500);
-        return;
-      }
-
-      // 2. Real Polar.sh Checkout Link Open
       setTimeout(() => {
         setIsProcessing(false);
         setOrderCreated({
@@ -128,7 +114,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               }}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer"
             >
-              Ödemeyi Yaptım, Bakiyemi Yansıt & Kapat
+              Ödemeyi Tamamladım & Kapat
             </button>
           </div>
         ) : (
@@ -187,36 +173,17 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 2. Güvenli Ödeme Altyapısı
               </label>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('polar')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'polar'
-                      ? 'border-blue-400 bg-blue-950/40 text-white shadow-md shadow-blue-500/10'
-                      : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-lg">⚡</span>
-                    <span className="text-xs font-extrabold text-blue-300">Polar.sh Checkout</span>
+              <div className="p-3.5 rounded-2xl border border-blue-400/80 bg-blue-950/30 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚡</span>
+                  <div>
+                    <div className="text-xs font-extrabold text-blue-300">Polar.sh Güvenli Ödeme</div>
+                    <div className="text-[10px] text-gray-400">Apple Pay • Kredi Kartı • Google Pay</div>
                   </div>
-                  <span className="text-[10px] text-gray-400">Apple Pay / Kart / Google Pay</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('test')}
-                  className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'test'
-                      ? 'border-amber-400 bg-amber-950/40 text-white'
-                      : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Zap className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold">Hızlı Test</span>
-                  <span className="text-[10px] text-emerald-400">Anında Demo Yükle</span>
-                </button>
+                </div>
+                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  Aktif
+                </span>
               </div>
             </div>
 
