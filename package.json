@@ -1,0 +1,10 @@
+{
+  "name": "turkiye-outbid",
+  "version": "1.0.0",
+  "description": "Outbid Türkiye - 81 İl Canlı Futbol Açık Artırma Platformu",
+  "scripts": {
+    "start:server": "cd server && node server.js",
+    "start:client": "cd client && npm.cmd run dev",
+    "build": "cd client && npm.cmd run build"
+  }
+}
