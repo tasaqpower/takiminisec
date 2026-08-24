@@ -20,8 +20,10 @@ export default function App() {
   const [stats, setStats] = useState({ totalBidsCount: 0, totalMoneySpent: 0, teamLeaderboard: [], topProvinces: [] });
   const [activeView, setActiveView] = useState('map'); // 'map' | 'grid' | 'leaderboard'
   
+  // Default user balance is 0 for real production users!
   const [userBalance, setUserBalance] = useState(() => {
-    return Number(localStorage.getItem('outbid_user_balance') || 100);
+    const saved = localStorage.getItem('outbid_user_balance');
+    return saved !== null ? Number(saved) : 0;
   });
   const [nickname, setNickname] = useState(() => {
     return localStorage.getItem('outbid_nickname') || '';
@@ -103,7 +105,6 @@ export default function App() {
           .then(res => {
             setIsSubmitting(false);
             if (res.success) {
-              // Deduct balance locally
               const nextBal = Math.max(0, userBalance - Number(amount));
               setUserBalance(nextBal);
               localStorage.setItem('outbid_user_balance', nextBal);

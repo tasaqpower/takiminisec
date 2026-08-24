@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Flame, Shield, Coins, User, MessageSquare, History, CheckCircle, AlertCircle, Sparkles, Share2, Copy, ExternalLink } from 'lucide-react';
+import { X, Flame, Shield, Coins, User, MessageSquare, History, CheckCircle, AlertCircle, Sparkles, Share2, Copy, ExternalLink, Wallet } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playTakeoverSound } from '../utils/audio';
 
@@ -9,7 +9,9 @@ export default function ProvinceModal({
   isOpen,
   onClose,
   onPlaceBid,
-  isSubmitting
+  isSubmitting,
+  userBalance = 0,
+  onOpenWallet
 }) {
   if (!isOpen || !province) return null;
 
@@ -32,11 +34,11 @@ export default function ProvinceModal({
     localStorage.getItem('outbid_nickname') || ''
   );
   const [note, setNote] = useState('');
-  const [activeTab, setActiveTab] = useState('bid'); // 'bid' | 'history'
-  const [leagueFilter, setLeagueFilter] = useState('ALL'); // 'ALL' | 'Süper Lig' | '1. Lig'
+  const [activeTab, setActiveTab] = useState('bid');
+  const [leagueFilter, setLeagueFilter] = useState('ALL');
   const [teamSearch, setTeamSearch] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [conqueredState, setConqueredState] = useState(null); // { teamName, amount, bidder, provinceName }
+  const [conqueredState, setConqueredState] = useState(null);
 
   useEffect(() => {
     setBidAmount(minRequiredBid);
@@ -64,6 +66,12 @@ export default function ProvinceModal({
 
     if (!selectedTeamId) {
       setErrorMsg('Lütfen şehri boyamak istediğiniz takımı seçin!');
+      return;
+    }
+
+    // Balance check
+    if (userBalance < Number(bidAmount)) {
+      setErrorMsg(`Cüzdan bakiyeniz yetersiz! (Mevcut: ₺${userBalance.toFixed(2)}, Gereken: ₺${bidAmount}). Lütfen önce bakiye yükleyin.`);
       return;
     }
 
@@ -102,18 +110,17 @@ export default function ProvinceModal({
   const handleShareTwitter = () => {
     if (!conqueredState) return;
     const tweetText = `🔥 #${conqueredState.provinceName} ilini ${conqueredState.amount} ₺ teklifle ${conqueredState.teamName} yaptım!\n\nŞehrini korumaya veya geri almaya gücün yetiyorsa gel geç bakalım:`;
-    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(window.location.origin)}`;
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent('https://takiminisec.lol')}`;
     window.open(tweetUrl, '_blank');
   };
 
   const handleShareWhatsApp = () => {
     if (!conqueredState) return;
-    const text = `🔥 #${conqueredState.provinceName} ilini ${conqueredState.amount} ₺ teklifle ${conqueredState.teamName} yaptım! Geri almak için tıkla: ${window.location.origin}`;
+    const text = `🔥 #${conqueredState.provinceName} ilini ${conqueredState.amount} ₺ teklifle ${conqueredState.teamName} yaptım! Geri almak için tıkla: https://takiminisec.lol`;
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };
 
-  // Filtered teams
   const filteredTeams = teams.filter(t => {
     const matchesLeague = leagueFilter === 'ALL' || t.league === leagueFilter;
     const matchesSearch = t.name.toLowerCase().includes(teamSearch.toLowerCase()) || 
@@ -122,6 +129,7 @@ export default function ProvinceModal({
   });
 
   const selectedTeamObj = teams.find(t => t.id === selectedTeamId) || {};
+  const isBalanceLow = userBalance < Number(bidAmount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
@@ -140,7 +148,7 @@ export default function ProvinceModal({
         >
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-black/40 hover:bg-black/70 text-gray-300 hover:text-white transition-all"
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/40 hover:bg-black/70 text-gray-300 hover:text-white transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -185,7 +193,7 @@ export default function ProvinceModal({
           </div>
         </div>
 
-        {/* Success Conquered Screen (Viral Share Popup) */}
+        {/* Success Conquered Screen */}
         {conqueredState ? (
           <div className="p-8 text-center space-y-6">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-4xl shadow-xl shadow-emerald-500/20 animate-bounce">
@@ -233,7 +241,7 @@ export default function ProvinceModal({
             <div className="flex border-b border-gray-800 bg-gray-950 px-6">
               <button
                 onClick={() => setActiveTab('bid')}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                   activeTab === 'bid'
                     ? 'border-amber-400 text-amber-400'
                     : 'border-transparent text-gray-400 hover:text-white'
@@ -243,7 +251,7 @@ export default function ProvinceModal({
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
                   activeTab === 'history'
                     ? 'border-amber-400 text-amber-400'
                     : 'border-transparent text-gray-400 hover:text-white'
@@ -263,6 +271,24 @@ export default function ProvinceModal({
                     <span>{errorMsg}</span>
                   </div>
                 )}
+
+                {/* Balance Notification Banner */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-900 border border-gray-800 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-400" />
+                    <span className="text-gray-400">Cüzdan Bakiyen:</span>
+                    <span className="font-black text-emerald-400">₺{userBalance.toFixed(2)}</span>
+                  </div>
+                  {isBalanceLow && (
+                    <button
+                      type="button"
+                      onClick={onOpenWallet}
+                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-[11px] rounded-lg transition-all cursor-pointer"
+                    >
+                      + Bakiye Yükle
+                    </button>
+                  )}
+                </div>
 
                 {/* 1. Takım Seçimi */}
                 <div>
@@ -304,7 +330,7 @@ export default function ProvinceModal({
                           key={team.id}
                           type="button"
                           onClick={() => setSelectedTeamId(team.id)}
-                          className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all relative ${
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all relative cursor-pointer ${
                             isSelected
                               ? 'border-amber-400 bg-amber-950/40 text-white shadow-md shadow-amber-500/10'
                               : 'border-gray-800/80 bg-gray-900/60 hover:bg-gray-800 text-gray-300'
@@ -353,7 +379,7 @@ export default function ProvinceModal({
                         key={inc}
                         type="button"
                         onClick={() => handleQuickAdd(inc)}
-                        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 text-xs font-bold py-1.5 rounded-xl transition-all"
+                        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 text-xs font-bold py-1.5 rounded-xl transition-all cursor-pointer"
                       >
                         +{inc} ₺
                       </button>
@@ -393,17 +419,28 @@ export default function ProvinceModal({
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-4 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-lg shadow-amber-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  <Flame className="w-5 h-5 fill-current" />
-                  <span>
-                    {isSubmitting ? 'İşleniyor...' : `${province.name}'ı ${selectedTeamObj.name || 'Seçilen Takım'} Yap (₺${bidAmount})`}
-                  </span>
-                </button>
+                {/* Action / Submit Button */}
+                {isBalanceLow ? (
+                  <button
+                    type="button"
+                    onClick={onOpenWallet}
+                    className="w-full py-4 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-500 to-teal-500 text-black shadow-lg shadow-emerald-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Wallet className="w-5 h-5" />
+                    <span>Bakiyen Yetersiz • Bakiye Yükle (Polar.sh)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-4 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-lg shadow-amber-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Flame className="w-5 h-5 fill-current" />
+                    <span>
+                      {isSubmitting ? 'İşleniyor...' : `${province.name}'ı ${selectedTeamObj.name || 'Seçilen Takım'} Yap (₺${bidAmount})`}
+                    </span>
+                  </button>
+                )}
 
               </form>
             )}
