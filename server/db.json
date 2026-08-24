@@ -1,437 +1,5 @@
 {
   "provinces": {
-    "adana": {
-      "id": "adana",
-      "plate": 1,
-      "name": "Adana",
-      "region": "Akdeniz",
-      "currentTeamId": "goztepe",
-      "currentBid": 20,
-      "totalInvested": 20,
-      "lastBidder": "Goztepe1925",
-      "lastBidTime": 1787589556148,
-      "bidHistory": [
-        {
-          "id": "bid_d13yki",
-          "teamId": "goztepe",
-          "amount": 20,
-          "bidder": "Goztepe1925",
-          "timestamp": 1787588705385,
-          "note": "İsyan ateşi Adana'da!"
-        }
-      ]
-    },
-    "adiyaman": {
-      "id": "adiyaman",
-      "plate": 2,
-      "name": "Adıyaman",
-      "region": "Güneydoğu Anadolu",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "afyonkarahisar": {
-      "id": "afyonkarahisar",
-      "plate": 3,
-      "name": "Afyonkarahisar",
-      "region": "Ege",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "agri": {
-      "id": "agri",
-      "plate": 4,
-      "name": "Ağrı",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "amasya": {
-      "id": "amasya",
-      "plate": 5,
-      "name": "Amasya",
-      "region": "Karadeniz",
-      "currentTeamId": "besiktas",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "ankara": {
-      "id": "ankara",
-      "plate": 6,
-      "name": "Ankara",
-      "region": "İç Anadolu",
-      "currentTeamId": "trabzonspor",
-      "currentBid": 25,
-      "totalInvested": 25,
-      "lastBidder": "Firtina61",
-      "lastBidTime": 1787589556148,
-      "bidHistory": [
-        {
-          "id": "bid_8kgl3s",
-          "teamId": "trabzonspor",
-          "amount": 25,
-          "bidder": "Firtina61",
-          "timestamp": 1787588156711,
-          "note": "Başkenti fethettik!"
-        }
-      ]
-    },
-    "antalya": {
-      "id": "antalya",
-      "plate": 7,
-      "name": "Antalya",
-      "region": "Akdeniz",
-      "currentTeamId": "antalyaspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "artvin": {
-      "id": "artvin",
-      "plate": 8,
-      "name": "Artvin",
-      "region": "Karadeniz",
-      "currentTeamId": "trabzonspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "aydin": {
-      "id": "aydin",
-      "plate": 9,
-      "name": "Aydın",
-      "region": "Ege",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "balikesir": {
-      "id": "balikesir",
-      "plate": 10,
-      "name": "Balıkesir",
-      "region": "Marmara",
-      "currentTeamId": "bandirmaspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "bilecik": {
-      "id": "bilecik",
-      "plate": 11,
-      "name": "Bilecik",
-      "region": "Marmara",
-      "currentTeamId": "besiktas",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "bingol": {
-      "id": "bingol",
-      "plate": 12,
-      "name": "Bingöl",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "amedspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "bitlis": {
-      "id": "bitlis",
-      "plate": 13,
-      "name": "Bitlis",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "bolu": {
-      "id": "bolu",
-      "plate": 14,
-      "name": "Bolu",
-      "region": "Karadeniz",
-      "currentTeamId": "boluspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "burdur": {
-      "id": "burdur",
-      "plate": 15,
-      "name": "Burdur",
-      "region": "Akdeniz",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "bursa": {
-      "id": "bursa",
-      "plate": 16,
-      "name": "Bursa",
-      "region": "Marmara",
-      "currentTeamId": "kocaelispor",
-      "currentBid": 30,
-      "totalInvested": 30,
-      "lastBidder": "KorkusuzKorfez",
-      "lastBidTime": 1787589556148,
-      "bidHistory": [
-        {
-          "id": "bid_jjlrrm",
-          "teamId": "kocaelispor",
-          "amount": 30,
-          "bidder": "KorkusuzKorfez",
-          "timestamp": 1787589236277,
-          "note": "Marmara Körfez'indir!"
-        }
-      ]
-    },
-    "canakkale": {
-      "id": "canakkale",
-      "plate": 17,
-      "name": "Çanakkale",
-      "region": "Marmara",
-      "currentTeamId": "besiktas",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "cankiri": {
-      "id": "cankiri",
-      "plate": 18,
-      "name": "Çankırı",
-      "region": "İç Anadolu",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "corum": {
-      "id": "corum",
-      "plate": 19,
-      "name": "Çorum",
-      "region": "Karadeniz",
-      "currentTeamId": "corumfk",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "denizli": {
-      "id": "denizli",
-      "plate": 20,
-      "name": "Denizli",
-      "region": "Ege",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "diyarbakir": {
-      "id": "diyarbakir",
-      "plate": 21,
-      "name": "Diyarbakır",
-      "region": "Güneydoğu Anadolu",
-      "currentTeamId": "besiktas",
-      "currentBid": 30,
-      "totalInvested": 30,
-      "lastBidder": "CarsiGrubu",
-      "lastBidTime": 1787589556148,
-      "bidHistory": [
-        {
-          "id": "bid_hx8k4q",
-          "teamId": "besiktas",
-          "amount": 30,
-          "bidder": "CarsiGrubu",
-          "timestamp": 1787587874344,
-          "note": "Kartal her yerde uçar!"
-        }
-      ]
-    },
-    "edirne": {
-      "id": "edirne",
-      "plate": 22,
-      "name": "Edirne",
-      "region": "Marmara",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "elazig": {
-      "id": "elazig",
-      "plate": 23,
-      "name": "Elazığ",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "erzincan": {
-      "id": "erzincan",
-      "plate": 24,
-      "name": "Erzincan",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "besiktas",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "erzurum": {
-      "id": "erzurum",
-      "plate": 25,
-      "name": "Erzurum",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "erzurumspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "eskisehir": {
-      "id": "eskisehir",
-      "plate": 26,
-      "name": "Eskişehir",
-      "region": "İç Anadolu",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "gaziantep": {
-      "id": "gaziantep",
-      "plate": 27,
-      "name": "Gaziantep",
-      "region": "Güneydoğu Anadolu",
-      "currentTeamId": "gaziantepfk",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "giresun": {
-      "id": "giresun",
-      "plate": 28,
-      "name": "Giresun",
-      "region": "Karadeniz",
-      "currentTeamId": "trabzonspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "gumushane": {
-      "id": "gumushane",
-      "plate": 29,
-      "name": "Gümüşhane",
-      "region": "Karadeniz",
-      "currentTeamId": "trabzonspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "hakkari": {
-      "id": "hakkari",
-      "plate": 30,
-      "name": "Hakkâri",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "amedspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "hatay": {
-      "id": "hatay",
-      "plate": 31,
-      "name": "Hatay",
-      "region": "Akdeniz",
-      "currentTeamId": "hatayspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "isparta": {
-      "id": "isparta",
-      "plate": 32,
-      "name": "Isparta",
-      "region": "Akdeniz",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "mersin": {
-      "id": "mersin",
-      "plate": 33,
-      "name": "Mersin",
-      "region": "Akdeniz",
-      "currentTeamId": "galatasaray",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
     "istanbul": {
       "id": "istanbul",
       "plate": 34,
@@ -441,15 +9,36 @@
       "currentBid": 60,
       "totalInvested": 60,
       "lastBidder": "Barikat34",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": [
         {
-          "id": "bid_s6yv9z",
+          "id": "bid_8hxkz1",
           "teamId": "amedspor",
           "amount": 60,
           "bidder": "Barikat34",
-          "timestamp": 1787589129356,
+          "timestamp": 1787588779779,
           "note": "İstanbul artık yeşil-kırmızı!"
+        }
+      ]
+    },
+    "trabzon": {
+      "id": "trabzon",
+      "plate": 61,
+      "name": "Trabzon",
+      "region": "Karadeniz",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 45,
+      "totalInvested": 45,
+      "lastBidder": "KadikoyBogasi",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_u70s9f",
+          "teamId": "fenerbahce",
+          "amount": 45,
+          "bidder": "KadikoyBogasi",
+          "timestamp": 1787587665976,
+          "note": "Trabzon'da sarı-lacivert bayrak!"
         }
       ]
     },
@@ -462,17 +51,749 @@
       "currentBid": 35,
       "totalInvested": 35,
       "lastBidder": "ultrAslanIzmir",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": [
         {
-          "id": "bid_snrkt7",
+          "id": "bid_pbuz2y",
           "teamId": "galatasaray",
           "amount": 35,
           "bidder": "ultrAslanIzmir",
-          "timestamp": 1787589140104,
+          "timestamp": 1787587563274,
           "note": "İzmir Cimbomdur!"
         }
       ]
+    },
+    "diyarbakir": {
+      "id": "diyarbakir",
+      "plate": 21,
+      "name": "Diyarbakır",
+      "region": "Güneydoğu Anadolu",
+      "currentTeamId": "besiktas",
+      "currentBid": 30,
+      "totalInvested": 30,
+      "lastBidder": "CarsiGrubu",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_4xn2vg",
+          "teamId": "besiktas",
+          "amount": 30,
+          "bidder": "CarsiGrubu",
+          "timestamp": 1787586527344,
+          "note": "Kartal her yerde uçar!"
+        }
+      ]
+    },
+    "bursa": {
+      "id": "bursa",
+      "plate": 16,
+      "name": "Bursa",
+      "region": "Marmara",
+      "currentTeamId": "kocaelispor",
+      "currentBid": 30,
+      "totalInvested": 30,
+      "lastBidder": "KorkusuzKorfez",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_zut1uw",
+          "teamId": "kocaelispor",
+          "amount": 30,
+          "bidder": "KorkusuzKorfez",
+          "timestamp": 1787586937269,
+          "note": "Marmara Körfez'indir!"
+        }
+      ]
+    },
+    "ankara": {
+      "id": "ankara",
+      "plate": 6,
+      "name": "Ankara",
+      "region": "İç Anadolu",
+      "currentTeamId": "trabzonspor",
+      "currentBid": 25,
+      "totalInvested": 25,
+      "lastBidder": "Firtina61",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_5gut68",
+          "teamId": "trabzonspor",
+          "amount": 25,
+          "bidder": "Firtina61",
+          "timestamp": 1787586815962,
+          "note": "Başkenti fethettik!"
+        }
+      ]
+    },
+    "adana": {
+      "id": "adana",
+      "plate": 1,
+      "name": "Adana",
+      "region": "Akdeniz",
+      "currentTeamId": "goztepe",
+      "currentBid": 20,
+      "totalInvested": 20,
+      "lastBidder": "Goztepe1925",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_swr7qc",
+          "teamId": "goztepe",
+          "amount": 20,
+          "bidder": "Goztepe1925",
+          "timestamp": 1787587739133,
+          "note": "İsyan ateşi Adana'da!"
+        }
+      ]
+    },
+    "antalya": {
+      "id": "antalya",
+      "plate": 7,
+      "name": "Antalya",
+      "region": "Akdeniz",
+      "currentTeamId": "antalyaspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Akrep07",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_fe4s85",
+          "teamId": "antalyaspor",
+          "amount": 1,
+          "bidder": "Akrep07",
+          "timestamp": 1787588266872,
+          "note": "Akdeniz'in kralı!"
+        }
+      ]
+    },
+    "samsun": {
+      "id": "samsun",
+      "plate": 55,
+      "name": "Samsun",
+      "region": "Karadeniz",
+      "currentTeamId": "samsunspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "KuzeyinKrali55",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_0vtjit",
+          "teamId": "samsunspor",
+          "amount": 1,
+          "bidder": "KuzeyinKrali55",
+          "timestamp": 1787588335864,
+          "note": "Kırmızı Şimşekler"
+        }
+      ]
+    },
+    "eskisehir": {
+      "id": "eskisehir",
+      "plate": 26,
+      "name": "Eskişehir",
+      "region": "İç Anadolu",
+      "currentTeamId": "galatasaray",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "EsEsAslan",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_b3zsil",
+          "teamId": "galatasaray",
+          "amount": 1,
+          "bidder": "EsEsAslan",
+          "timestamp": 1787587589895,
+          "note": "Anadolu Cimbomdur"
+        }
+      ]
+    },
+    "konya": {
+      "id": "konya",
+      "plate": 42,
+      "name": "Konya",
+      "region": "İç Anadolu",
+      "currentTeamId": "konyaspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Nalcacilar42",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_0q1h1c",
+          "teamId": "konyaspor",
+          "amount": 1,
+          "bidder": "Nalcacilar42",
+          "timestamp": 1787588792177,
+          "note": "Yeşil Beyaz Aşk"
+        }
+      ]
+    },
+    "sakarya": {
+      "id": "sakarya",
+      "plate": 54,
+      "name": "Sakarya",
+      "region": "Marmara",
+      "currentTeamId": "sakaryaspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Tatanga54",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_ol08tl",
+          "teamId": "sakaryaspor",
+          "amount": 1,
+          "bidder": "Tatanga54",
+          "timestamp": 1787588739274,
+          "note": "Ne Aşk Ne Para Sadece Sakarya"
+        }
+      ]
+    },
+    "gaziantep": {
+      "id": "gaziantep",
+      "plate": 27,
+      "name": "Gaziantep",
+      "region": "Güneydoğu Anadolu",
+      "currentTeamId": "gaziantepfk",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Sahinler27",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_c2scou",
+          "teamId": "gaziantepfk",
+          "amount": 1,
+          "bidder": "Sahinler27",
+          "timestamp": 1787586802480,
+          "note": "Gazi Şehrin Takımı"
+        }
+      ]
+    },
+    "kayseri": {
+      "id": "kayseri",
+      "plate": 38,
+      "name": "Kayseri",
+      "region": "İç Anadolu",
+      "currentTeamId": "kayserispor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "KapaliKale38",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_rkrl10",
+          "teamId": "kayserispor",
+          "amount": 1,
+          "bidder": "KapaliKale38",
+          "timestamp": 1787588163834,
+          "note": "Sarı Kırmızı Kayseri"
+        }
+      ]
+    },
+    "mersin": {
+      "id": "mersin",
+      "plate": 33,
+      "name": "Mersin",
+      "region": "Akdeniz",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "FenerMersin",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_m0iiol",
+          "teamId": "fenerbahce",
+          "amount": 1,
+          "bidder": "FenerMersin",
+          "timestamp": 1787586317287,
+          "note": "Akdeniz Feneri"
+        }
+      ]
+    },
+    "erzurum": {
+      "id": "erzurum",
+      "plate": 25,
+      "name": "Erzurum",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "erzurumspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Dadaslar25",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_1af2j2",
+          "teamId": "erzurumspor",
+          "amount": 1,
+          "bidder": "Dadaslar25",
+          "timestamp": 1787586217829,
+          "note": "Mavi Beyaz Dadaşlar"
+        }
+      ]
+    },
+    "hatay": {
+      "id": "hatay",
+      "plate": 31,
+      "name": "Hatay",
+      "region": "Akdeniz",
+      "currentTeamId": "hatayspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "AsiKral31",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_y2ufim",
+          "teamId": "hatayspor",
+          "amount": 1,
+          "bidder": "AsiKral31",
+          "timestamp": 1787588127927,
+          "note": "Hatay asla pes etmez"
+        }
+      ]
+    },
+    "malatya": {
+      "id": "malatya",
+      "plate": 44,
+      "name": "Malatya",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "yenimalatya",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Derebeyleri44",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_5iwc9h",
+          "teamId": "yenimalatya",
+          "amount": 1,
+          "bidder": "Derebeyleri44",
+          "timestamp": 1787588680216,
+          "note": "Kayısı Diyarı Bizimdir"
+        }
+      ]
+    },
+    "denizli": {
+      "id": "denizli",
+      "plate": 20,
+      "name": "Denizli",
+      "region": "Ege",
+      "currentTeamId": "galatasaray",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "HorozAslan",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_neoabg",
+          "teamId": "galatasaray",
+          "amount": 1,
+          "bidder": "HorozAslan",
+          "timestamp": 1787586951633,
+          "note": "Denizli Sarı Kırmızı"
+        }
+      ]
+    },
+    "balikesir": {
+      "id": "balikesir",
+      "plate": 10,
+      "name": "Balıkesir",
+      "region": "Marmara",
+      "currentTeamId": "bandirmaspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Kronikler10",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_g4max5",
+          "teamId": "bandirmaspor",
+          "amount": 1,
+          "bidder": "Kronikler10",
+          "timestamp": 1787589655059,
+          "note": "Bordo Beyaz Aşk"
+        }
+      ]
+    },
+    "corum": {
+      "id": "corum",
+      "plate": 19,
+      "name": "Çorum",
+      "region": "Karadeniz",
+      "currentTeamId": "corumfk",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "KirmiziSimsek19",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_l2nxqn",
+          "teamId": "corumfk",
+          "amount": 1,
+          "bidder": "KirmiziSimsek19",
+          "timestamp": 1787587633048,
+          "note": "Leblebi Diyarı Bizim"
+        }
+      ]
+    },
+    "sanliurfa": {
+      "id": "sanliurfa",
+      "plate": 63,
+      "name": "Şanlıurfa",
+      "region": "Güneydoğu Anadolu",
+      "currentTeamId": "sanliurfaspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "UrfaAsigi63",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_9712bq",
+          "teamId": "sanliurfaspor",
+          "amount": 1,
+          "bidder": "UrfaAsigi63",
+          "timestamp": 1787586455854,
+          "note": "Sarı Yeşil Şanlıurfa"
+        }
+      ]
+    },
+    "sivas": {
+      "id": "sivas",
+      "plate": 58,
+      "name": "Sivas",
+      "region": "İç Anadolu",
+      "currentTeamId": "sivasspor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "Yigido58",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_alfiq4",
+          "teamId": "sivasspor",
+          "amount": 1,
+          "bidder": "Yigido58",
+          "timestamp": 1787588063269,
+          "note": "Yiğidolar Meydanda"
+        }
+      ]
+    },
+    "manisa": {
+      "id": "manisa",
+      "plate": 45,
+      "name": "Manisa",
+      "region": "Ege",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "TarzanFener",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_vyt8y5",
+          "teamId": "fenerbahce",
+          "amount": 1,
+          "bidder": "TarzanFener",
+          "timestamp": 1787588589675,
+          "note": "Spil Dağında Fener Bayrağı"
+        }
+      ]
+    },
+    "kocaeli": {
+      "id": "kocaeli",
+      "plate": 41,
+      "name": "Kocaeli",
+      "region": "Marmara",
+      "currentTeamId": "kocaelispor",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "HodriMeydan41",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_sjdmn6",
+          "teamId": "kocaelispor",
+          "amount": 1,
+          "bidder": "HodriMeydan41",
+          "timestamp": 1787589317943,
+          "note": "Körfez Asla Eğilmez"
+        }
+      ]
+    },
+    "aydin": {
+      "id": "aydin",
+      "plate": 9,
+      "name": "Aydın",
+      "region": "Ege",
+      "currentTeamId": "besiktas",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "EfelerCarsi",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_2euxpx",
+          "teamId": "besiktas",
+          "amount": 1,
+          "bidder": "EfelerCarsi",
+          "timestamp": 1787586919107,
+          "note": "Ege'de Kara Kartal"
+        }
+      ]
+    },
+    "mugla": {
+      "id": "mugla",
+      "plate": 48,
+      "name": "Muğla",
+      "region": "Ege",
+      "currentTeamId": "bodrumfk",
+      "currentBid": 1,
+      "totalInvested": 1,
+      "lastBidder": "AsiTayfa48",
+      "lastBidTime": 1787589718860,
+      "bidHistory": [
+        {
+          "id": "bid_xeauvu",
+          "teamId": "bodrumfk",
+          "amount": 1,
+          "bidder": "AsiTayfa48",
+          "timestamp": 1787588608969,
+          "note": "Bodrum Rüzgarı"
+        }
+      ]
+    },
+    "adiyaman": {
+      "id": "adiyaman",
+      "plate": 2,
+      "name": "Adıyaman",
+      "region": "Güneydoğu Anadolu",
+      "currentTeamId": "galatasaray",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "afyonkarahisar": {
+      "id": "afyonkarahisar",
+      "plate": 3,
+      "name": "Afyonkarahisar",
+      "region": "Ege",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "agri": {
+      "id": "agri",
+      "plate": 4,
+      "name": "Ağrı",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "galatasaray",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "amasya": {
+      "id": "amasya",
+      "plate": 5,
+      "name": "Amasya",
+      "region": "Karadeniz",
+      "currentTeamId": "besiktas",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "artvin": {
+      "id": "artvin",
+      "plate": 8,
+      "name": "Artvin",
+      "region": "Karadeniz",
+      "currentTeamId": "trabzonspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "bilecik": {
+      "id": "bilecik",
+      "plate": 11,
+      "name": "Bilecik",
+      "region": "Marmara",
+      "currentTeamId": "besiktas",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "bingol": {
+      "id": "bingol",
+      "plate": 12,
+      "name": "Bingöl",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "amedspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "bitlis": {
+      "id": "bitlis",
+      "plate": 13,
+      "name": "Bitlis",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "bolu": {
+      "id": "bolu",
+      "plate": 14,
+      "name": "Bolu",
+      "region": "Karadeniz",
+      "currentTeamId": "boluspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "burdur": {
+      "id": "burdur",
+      "plate": 15,
+      "name": "Burdur",
+      "region": "Akdeniz",
+      "currentTeamId": "galatasaray",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "canakkale": {
+      "id": "canakkale",
+      "plate": 17,
+      "name": "Çanakkale",
+      "region": "Marmara",
+      "currentTeamId": "besiktas",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "cankiri": {
+      "id": "cankiri",
+      "plate": 18,
+      "name": "Çankırı",
+      "region": "İç Anadolu",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "edirne": {
+      "id": "edirne",
+      "plate": 22,
+      "name": "Edirne",
+      "region": "Marmara",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "elazig": {
+      "id": "elazig",
+      "plate": 23,
+      "name": "Elazığ",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "galatasaray",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "erzincan": {
+      "id": "erzincan",
+      "plate": 24,
+      "name": "Erzincan",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "besiktas",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "giresun": {
+      "id": "giresun",
+      "plate": 28,
+      "name": "Giresun",
+      "region": "Karadeniz",
+      "currentTeamId": "trabzonspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "gumushane": {
+      "id": "gumushane",
+      "plate": 29,
+      "name": "Gümüşhane",
+      "region": "Karadeniz",
+      "currentTeamId": "trabzonspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "hakkari": {
+      "id": "hakkari",
+      "plate": 30,
+      "name": "Hakkâri",
+      "region": "Doğu Anadolu",
+      "currentTeamId": "amedspor",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
+    },
+    "isparta": {
+      "id": "isparta",
+      "plate": 32,
+      "name": "Isparta",
+      "region": "Akdeniz",
+      "currentTeamId": "fenerbahce",
+      "currentBid": 0,
+      "totalInvested": 0,
+      "lastBidder": "Henüz Sahipsiz",
+      "lastBidTime": 1787589718860,
+      "bidHistory": []
     },
     "kars": {
       "id": "kars",
@@ -483,7 +804,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kastamonu": {
@@ -495,19 +816,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "kayseri": {
-      "id": "kayseri",
-      "plate": 38,
-      "name": "Kayseri",
-      "region": "İç Anadolu",
-      "currentTeamId": "kayserispor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kirklareli": {
@@ -519,7 +828,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kirsehir": {
@@ -531,31 +840,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "kocaeli": {
-      "id": "kocaeli",
-      "plate": 41,
-      "name": "Kocaeli",
-      "region": "Marmara",
-      "currentTeamId": "kocaelispor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "konya": {
-      "id": "konya",
-      "plate": 42,
-      "name": "Konya",
-      "region": "İç Anadolu",
-      "currentTeamId": "konyaspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kutahya": {
@@ -567,31 +852,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "malatya": {
-      "id": "malatya",
-      "plate": 44,
-      "name": "Malatya",
-      "region": "Doğu Anadolu",
-      "currentTeamId": "yenimalatya",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "manisa": {
-      "id": "manisa",
-      "plate": 45,
-      "name": "Manisa",
-      "region": "Ege",
-      "currentTeamId": "manisafk",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kahramanmaras": {
@@ -603,7 +864,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "mardin": {
@@ -615,19 +876,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "mugla": {
-      "id": "mugla",
-      "plate": 48,
-      "name": "Muğla",
-      "region": "Ege",
-      "currentTeamId": "bodrumfk",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "mus": {
@@ -639,7 +888,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "nevsehir": {
@@ -651,7 +900,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "nigde": {
@@ -663,7 +912,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "ordu": {
@@ -675,7 +924,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "rize": {
@@ -687,31 +936,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "sakarya": {
-      "id": "sakarya",
-      "plate": 54,
-      "name": "Sakarya",
-      "region": "Marmara",
-      "currentTeamId": "sakaryaspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "samsun": {
-      "id": "samsun",
-      "plate": 55,
-      "name": "Samsun",
-      "region": "Karadeniz",
-      "currentTeamId": "samsunspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "siirt": {
@@ -723,7 +948,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "sinop": {
@@ -735,19 +960,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "sivas": {
-      "id": "sivas",
-      "plate": 58,
-      "name": "Sivas",
-      "region": "İç Anadolu",
-      "currentTeamId": "sivasspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "tekirdag": {
@@ -759,7 +972,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "tokat": {
@@ -771,29 +984,8 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
-    },
-    "trabzon": {
-      "id": "trabzon",
-      "plate": 61,
-      "name": "Trabzon",
-      "region": "Karadeniz",
-      "currentTeamId": "fenerbahce",
-      "currentBid": 45,
-      "totalInvested": 45,
-      "lastBidder": "KadikoyBogasi",
-      "lastBidTime": 1787589556148,
-      "bidHistory": [
-        {
-          "id": "bid_6zz7vh",
-          "teamId": "fenerbahce",
-          "amount": 45,
-          "bidder": "KadikoyBogasi",
-          "timestamp": 1787588373926,
-          "note": "Trabzon'da sarı-lacivert bayrak!"
-        }
-      ]
     },
     "tunceli": {
       "id": "tunceli",
@@ -804,19 +996,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
-      "bidHistory": []
-    },
-    "sanliurfa": {
-      "id": "sanliurfa",
-      "plate": 63,
-      "name": "Şanlıurfa",
-      "region": "Güneydoğu Anadolu",
-      "currentTeamId": "sanliurfaspor",
-      "currentBid": 0,
-      "totalInvested": 0,
-      "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "usak": {
@@ -828,7 +1008,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "van": {
@@ -840,7 +1020,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "yozgat": {
@@ -852,7 +1032,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "zonguldak": {
@@ -864,7 +1044,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "aksaray": {
@@ -876,7 +1056,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "bayburt": {
@@ -888,7 +1068,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "karaman": {
@@ -900,7 +1080,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kirikkale": {
@@ -912,7 +1092,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "batman": {
@@ -924,7 +1104,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "sirnak": {
@@ -936,7 +1116,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "bartin": {
@@ -948,7 +1128,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "ardahan": {
@@ -960,7 +1140,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "igdir": {
@@ -972,7 +1152,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "yalova": {
@@ -984,7 +1164,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "karabuk": {
@@ -996,7 +1176,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "kilis": {
@@ -1008,7 +1188,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "osmaniye": {
@@ -1020,7 +1200,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     },
     "duzce": {
@@ -1032,7 +1212,7 @@
       "currentBid": 0,
       "totalInvested": 0,
       "lastBidder": "Henüz Sahipsiz",
-      "lastBidTime": 1787589556148,
+      "lastBidTime": 1787589718860,
       "bidHistory": []
     }
   },
@@ -1044,9 +1224,7 @@
       "teamId": "amedspor",
       "amount": 60,
       "bidder": "Barikat34",
-      "prevTeamId": "galatasaray",
-      "prevBid": 50,
-      "timestamp": 1787589436148
+      "timestamp": 1787589598860
     },
     {
       "id": "act_2",
@@ -1055,9 +1233,7 @@
       "teamId": "fenerbahce",
       "amount": 45,
       "bidder": "KadikoyBogasi",
-      "prevTeamId": "trabzonspor",
-      "prevBid": 30,
-      "timestamp": 1787589216148
+      "timestamp": 1787589378860
     },
     {
       "id": "act_3",
@@ -1066,9 +1242,7 @@
       "teamId": "galatasaray",
       "amount": 35,
       "bidder": "ultrAslanIzmir",
-      "prevTeamId": "goztepe",
-      "prevBid": 25,
-      "timestamp": 1787588936148
+      "timestamp": 1787589098860
     },
     {
       "id": "act_4",
@@ -1077,9 +1251,7 @@
       "teamId": "kocaelispor",
       "amount": 30,
       "bidder": "KorkusuzKorfez",
-      "prevTeamId": "bursaspor",
-      "prevBid": 20,
-      "timestamp": 1787588606148
+      "timestamp": 1787588768860
     },
     {
       "id": "act_5",
@@ -1088,9 +1260,7 @@
       "teamId": "besiktas",
       "amount": 30,
       "bidder": "CarsiGrubu",
-      "prevTeamId": "amedspor",
-      "prevBid": 20,
-      "timestamp": 1787588306148
+      "timestamp": 1787588468860
     },
     {
       "id": "act_6",
@@ -1099,9 +1269,7 @@
       "teamId": "trabzonspor",
       "amount": 25,
       "bidder": "Firtina61",
-      "prevTeamId": "ankaragucu",
-      "prevBid": 15,
-      "timestamp": 1787587956148
+      "timestamp": 1787588118860
     },
     {
       "id": "act_7",
@@ -1110,13 +1278,38 @@
       "teamId": "goztepe",
       "amount": 20,
       "bidder": "Goztepe1925",
-      "prevTeamId": "adana_demir",
-      "prevBid": 10,
-      "timestamp": 1787587456148
+      "timestamp": 1787587618860
+    },
+    {
+      "id": "act_8",
+      "provinceId": "antalya",
+      "provinceName": "Antalya",
+      "teamId": "antalyaspor",
+      "amount": 1,
+      "bidder": "Akrep07",
+      "timestamp": 1787587318860
+    },
+    {
+      "id": "act_9",
+      "provinceId": "samsun",
+      "provinceName": "Samsun",
+      "teamId": "samsunspor",
+      "amount": 1,
+      "bidder": "KuzeyinKrali55",
+      "timestamp": 1787587018860
+    },
+    {
+      "id": "act_10",
+      "provinceId": "sakarya",
+      "provinceName": "Sakarya",
+      "teamId": "sakaryaspor",
+      "amount": 1,
+      "bidder": "Tatanga54",
+      "timestamp": 1787586618860
     }
   ],
   "stats": {
-    "totalBidsCount": 7,
-    "totalMoneySpent": 245
+    "totalBidsCount": 27,
+    "totalMoneySpent": 265
   }
 }

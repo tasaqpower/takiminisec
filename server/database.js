@@ -5,69 +5,74 @@ const { TEAMS } = require('./teamsData');
 const DB_FILE = path.join(__dirname, 'db.json');
 
 const INITIAL_PROVINCES = [
+  // 1. Ana Hype & Kaos Şehirleri
+  { id: "istanbul", plate: 34, name: "İstanbul", region: "Marmara", defaultTeam: "amedspor", bid: 60, bidder: "Barikat34", note: "İstanbul artık yeşil-kırmızı!" },
+  { id: "trabzon", plate: 61, name: "Trabzon", region: "Karadeniz", defaultTeam: "fenerbahce", bid: 45, bidder: "KadikoyBogasi", note: "Trabzon'da sarı-lacivert bayrak!" },
+  { id: "izmir", plate: 35, name: "İzmir", region: "Ege", defaultTeam: "galatasaray", bid: 35, bidder: "ultrAslanIzmir", note: "İzmir Cimbomdur!" },
+  { id: "diyarbakir", plate: 21, name: "Diyarbakır", region: "Güneydoğu Anadolu", defaultTeam: "besiktas", bid: 30, bidder: "CarsiGrubu", note: "Kartal her yerde uçar!" },
+  { id: "bursa", plate: 16, name: "Bursa", region: "Marmara", defaultTeam: "kocaelispor", bid: 30, bidder: "KorkusuzKorfez", note: "Marmara Körfez'indir!" },
+  { id: "ankara", plate: 6, name: "Ankara", region: "İç Anadolu", defaultTeam: "trabzonspor", bid: 25, bidder: "Firtina61", note: "Başkenti fethettik!" },
   { id: "adana", plate: 1, name: "Adana", region: "Akdeniz", defaultTeam: "goztepe", bid: 20, bidder: "Goztepe1925", note: "İsyan ateşi Adana'da!" },
+
+  // 2. Rastgele 20 Popüler İl (1'er TL Başlangıç Teklifleri)
+  { id: "antalya", plate: 7, name: "Antalya", region: "Akdeniz", defaultTeam: "antalyaspor", bid: 1, bidder: "Akrep07", note: "Akdeniz'in kralı!" },
+  { id: "samsun", plate: 55, name: "Samsun", region: "Karadeniz", defaultTeam: "samsunspor", bid: 1, bidder: "KuzeyinKrali55", note: "Kırmızı Şimşekler" },
+  { id: "eskisehir", plate: 26, name: "Eskişehir", region: "İç Anadolu", defaultTeam: "galatasaray", bid: 1, bidder: "EsEsAslan", note: "Anadolu Cimbomdur" },
+  { id: "konya", plate: 42, name: "Konya", region: "İç Anadolu", defaultTeam: "konyaspor", bid: 1, bidder: "Nalcacilar42", note: "Yeşil Beyaz Aşk" },
+  { id: "sakarya", plate: 54, name: "Sakarya", region: "Marmara", defaultTeam: "sakaryaspor", bid: 1, bidder: "Tatanga54", note: "Ne Aşk Ne Para Sadece Sakarya" },
+  { id: "gaziantep", plate: 27, name: "Gaziantep", region: "Güneydoğu Anadolu", defaultTeam: "gaziantepfk", bid: 1, bidder: "Sahinler27", note: "Gazi Şehrin Takımı" },
+  { id: "kayseri", plate: 38, name: "Kayseri", region: "İç Anadolu", defaultTeam: "kayserispor", bid: 1, bidder: "KapaliKale38", note: "Sarı Kırmızı Kayseri" },
+  { id: "mersin", plate: 33, name: "Mersin", region: "Akdeniz", defaultTeam: "fenerbahce", bid: 1, bidder: "FenerMersin", note: "Akdeniz Feneri" },
+  { id: "erzurum", plate: 25, name: "Erzurum", region: "Doğu Anadolu", defaultTeam: "erzurumspor", bid: 1, bidder: "Dadaslar25", note: "Mavi Beyaz Dadaşlar" },
+  { id: "hatay", plate: 31, name: "Hatay", region: "Akdeniz", defaultTeam: "hatayspor", bid: 1, bidder: "AsiKral31", note: "Hatay asla pes etmez" },
+  { id: "malatya", plate: 44, name: "Malatya", region: "Doğu Anadolu", defaultTeam: "yenimalatya", bid: 1, bidder: "Derebeyleri44", note: "Kayısı Diyarı Bizimdir" },
+  { id: "denizli", plate: 20, name: "Denizli", region: "Ege", defaultTeam: "galatasaray", bid: 1, bidder: "HorozAslan", note: "Denizli Sarı Kırmızı" },
+  { id: "balikesir", plate: 10, name: "Balıkesir", region: "Marmara", defaultTeam: "bandirmaspor", bid: 1, bidder: "Kronikler10", note: "Bordo Beyaz Aşk" },
+  { id: "corum", plate: 19, name: "Çorum", region: "Karadeniz", defaultTeam: "corumfk", bid: 1, bidder: "KirmiziSimsek19", note: "Leblebi Diyarı Bizim" },
+  { id: "sanliurfa", plate: 63, name: "Şanlıurfa", region: "Güneydoğu Anadolu", defaultTeam: "sanliurfaspor", bid: 1, bidder: "UrfaAsigi63", note: "Sarı Yeşil Şanlıurfa" },
+  { id: "sivas", plate: 58, name: "Sivas", region: "İç Anadolu", defaultTeam: "sivasspor", bid: 1, bidder: "Yigido58", note: "Yiğidolar Meydanda" },
+  { id: "manisa", plate: 45, name: "Manisa", region: "Ege", defaultTeam: "fenerbahce", bid: 1, bidder: "TarzanFener", note: "Spil Dağında Fener Bayrağı" },
+  { id: "kocaeli", plate: 41, name: "Kocaeli", region: "Marmara", defaultTeam: "kocaelispor", bid: 1, bidder: "HodriMeydan41", note: "Körfez Asla Eğilmez" },
+  { id: "aydin", plate: 9, name: "Aydın", region: "Ege", defaultTeam: "besiktas", bid: 1, bidder: "EfelerCarsi", note: "Ege'de Kara Kartal" },
+  { id: "mugla", plate: 48, name: "Muğla", region: "Ege", defaultTeam: "bodrumfk", bid: 1, bidder: "AsiTayfa48", note: "Bodrum Rüzgarı" },
+
+  // Kalan Boş Şehirler
   { id: "adiyaman", plate: 2, name: "Adıyaman", region: "Güneydoğu Anadolu", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "afyonkarahisar", plate: 3, name: "Afyonkarahisar", region: "Ege", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "agri", plate: 4, name: "Ağrı", region: "Doğu Anadolu", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "amasya", plate: 5, name: "Amasya", region: "Karadeniz", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "ankara", plate: 6, name: "Ankara", region: "İç Anadolu", defaultTeam: "trabzonspor", bid: 25, bidder: "Firtina61", note: "Başkenti fethettik!" },
-  { id: "antalya", plate: 7, name: "Antalya", region: "Akdeniz", defaultTeam: "antalyaspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "artvin", plate: 8, name: "Artvin", region: "Karadeniz", defaultTeam: "trabzonspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "aydin", plate: 9, name: "Aydın", region: "Ege", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "balikesir", plate: 10, name: "Balıkesir", region: "Marmara", defaultTeam: "bandirmaspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "bilecik", plate: 11, name: "Bilecik", region: "Marmara", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "bingol", plate: 12, name: "Bingöl", region: "Doğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "bitlis", plate: 13, name: "Bitlis", region: "Doğu Anadolu", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "bolu", plate: 14, name: "Bolu", region: "Karadeniz", defaultTeam: "boluspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "burdur", plate: 15, name: "Burdur", region: "Akdeniz", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "bursa", plate: 16, name: "Bursa", region: "Marmara", defaultTeam: "kocaelispor", bid: 30, bidder: "KorkusuzKorfez", note: "Marmara Körfez'indir!" },
   { id: "canakkale", plate: 17, name: "Çanakkale", region: "Marmara", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "cankiri", plate: 18, name: "Çankırı", region: "İç Anadolu", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "corum", plate: 19, name: "Çorum", region: "Karadeniz", defaultTeam: "corumfk", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "denizli", plate: 20, name: "Denizli", region: "Ege", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "diyarbakir", plate: 21, name: "Diyarbakır", region: "Güneydoğu Anadolu", defaultTeam: "besiktas", bid: 30, bidder: "CarsiGrubu", note: "Kartal her yerde uçar!" },
   { id: "edirne", plate: 22, name: "Edirne", region: "Marmara", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "elazig", plate: 23, name: "Elazığ", region: "Doğu Anadolu", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "erzincan", plate: 24, name: "Erzincan", region: "Doğu Anadolu", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "erzurum", plate: 25, name: "Erzurum", region: "Doğu Anadolu", defaultTeam: "erzurumspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "eskisehir", plate: 26, name: "Eskişehir", region: "İç Anadolu", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "gaziantep", plate: 27, name: "Gaziantep", region: "Güneydoğu Anadolu", defaultTeam: "gaziantepfk", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "giresun", plate: 28, name: "Giresun", region: "Karadeniz", defaultTeam: "trabzonspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "gumushane", plate: 29, name: "Gümüşhane", region: "Karadeniz", defaultTeam: "trabzonspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "hakkari", plate: 30, name: "Hakkâri", region: "Doğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "hatay", plate: 31, name: "Hatay", region: "Akdeniz", defaultTeam: "hatayspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "isparta", plate: 32, name: "Isparta", region: "Akdeniz", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "mersin", plate: 33, name: "Mersin", region: "Akdeniz", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "istanbul", plate: 34, name: "İstanbul", region: "Marmara", defaultTeam: "amedspor", bid: 60, bidder: "Barikat34", note: "İstanbul artık yeşil-kırmızı!" },
-  { id: "izmir", plate: 35, name: "İzmir", region: "Ege", defaultTeam: "galatasaray", bid: 35, bidder: "ultrAslanIzmir", note: "İzmir Cimbomdur!" },
   { id: "kars", plate: 36, name: "Kars", region: "Doğu Anadolu", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "kastamonu", plate: 37, name: "Kastamonu", region: "Karadeniz", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "kayseri", plate: 38, name: "Kayseri", region: "İç Anadolu", defaultTeam: "kayserispor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "kirklareli", plate: 39, name: "Kırklareli", region: "Marmara", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "kirsehir", plate: 40, name: "Kırşehir", region: "İç Anadolu", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "kocaeli", plate: 41, name: "Kocaeli", region: "Marmara", defaultTeam: "kocaelispor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "konya", plate: 42, name: "Konya", region: "İç Anadolu", defaultTeam: "konyaspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "kutahya", plate: 43, name: "Kütahya", region: "Ege", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "malatya", plate: 44, name: "Malatya", region: "Doğu Anadolu", defaultTeam: "yenimalatya", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "manisa", plate: 45, name: "Manisa", region: "Ege", defaultTeam: "manisafk", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "kahramanmaras", plate: 46, name: "Kahramanmaraş", region: "Akdeniz", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "mardin", plate: 47, name: "Mardin", region: "Güneydoğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "mugla", plate: 48, name: "Muğla", region: "Ege", defaultTeam: "bodrumfk", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "mus", plate: 49, name: "Muş", region: "Doğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "nevsehir", plate: 50, name: "Nevşehir", region: "İç Anadolu", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "nigde", plate: 51, name: "Niğde", region: "İç Anadolu", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "ordu", plate: 52, name: "Ordu", region: "Karadeniz", defaultTeam: "trabzonspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "rize", plate: 53, name: "Rize", region: "Karadeniz", defaultTeam: "caykurrize", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "sakarya", plate: 54, name: "Sakarya", region: "Marmara", defaultTeam: "sakaryaspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "samsun", plate: 55, name: "Samsun", region: "Karadeniz", defaultTeam: "samsunspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "siirt", plate: 56, name: "Siirt", region: "Güneydoğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "sinop", plate: 57, name: "Sinop", region: "Karadeniz", defaultTeam: "besiktas", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "sivas", plate: 58, name: "Sivas", region: "İç Anadolu", defaultTeam: "sivasspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "tekirdag", plate: 59, name: "Tekirdağ", region: "Marmara", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "tokat", plate: 60, name: "Tokat", region: "Karadeniz", defaultTeam: "galatasaray", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "trabzon", plate: 61, name: "Trabzon", region: "Karadeniz", defaultTeam: "fenerbahce", bid: 45, bidder: "KadikoyBogasi", note: "Trabzon'da sarı-lacivert bayrak!" },
   { id: "tunceli", plate: 62, name: "Tunceli", region: "Doğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
-  { id: "sanliurfa", plate: 63, name: "Şanlıurfa", region: "Güneydoğu Anadolu", defaultTeam: "sanliurfaspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "usak", plate: 64, name: "Uşak", region: "Ege", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "van", plate: 65, name: "Van", region: "Doğu Anadolu", defaultTeam: "amedspor", bid: 0, bidder: "Henüz Sahipsiz" },
   { id: "yozgat", plate: 66, name: "Yozgat", region: "İç Anadolu", defaultTeam: "fenerbahce", bid: 0, bidder: "Henüz Sahipsiz" },
@@ -94,8 +99,8 @@ class Database {
       provinces: {},
       activityFeed: [],
       stats: {
-        totalBidsCount: 7,
-        totalMoneySpent: 245
+        totalBidsCount: 27,
+        totalMoneySpent: 265
       }
     };
     this.init();
@@ -118,7 +123,7 @@ class Database {
           teamId: p.defaultTeam,
           amount: bidAmount,
           bidder: p.bidder,
-          timestamp: now - Math.floor(Math.random() * 1800000),
+          timestamp: now - Math.floor(Math.random() * 3600000),
           note: p.note || ''
         });
       }
@@ -142,85 +147,18 @@ class Database {
       totalMoneySpent: totalSpent
     };
 
-    // Realistic lively ticker activity feed
+    // Activity Feed
     this.data.activityFeed = [
-      {
-        id: 'act_1',
-        provinceId: 'istanbul',
-        provinceName: 'İstanbul',
-        teamId: 'amedspor',
-        amount: 60,
-        bidder: 'Barikat34',
-        prevTeamId: 'galatasaray',
-        prevBid: 50,
-        timestamp: now - 120000
-      },
-      {
-        id: 'act_2',
-        provinceId: 'trabzon',
-        provinceName: 'Trabzon',
-        teamId: 'fenerbahce',
-        amount: 45,
-        bidder: 'KadikoyBogasi',
-        prevTeamId: 'trabzonspor',
-        prevBid: 30,
-        timestamp: now - 340000
-      },
-      {
-        id: 'act_3',
-        provinceId: 'izmir',
-        provinceName: 'İzmir',
-        teamId: 'galatasaray',
-        amount: 35,
-        bidder: 'ultrAslanIzmir',
-        prevTeamId: 'goztepe',
-        prevBid: 25,
-        timestamp: now - 620000
-      },
-      {
-        id: 'act_4',
-        provinceId: 'bursa',
-        provinceName: 'Bursa',
-        teamId: 'kocaelispor',
-        amount: 30,
-        bidder: 'KorkusuzKorfez',
-        prevTeamId: 'bursaspor',
-        prevBid: 20,
-        timestamp: now - 950000
-      },
-      {
-        id: 'act_5',
-        provinceId: 'diyarbakir',
-        provinceName: 'Diyarbakır',
-        teamId: 'besiktas',
-        amount: 30,
-        bidder: 'CarsiGrubu',
-        prevTeamId: 'amedspor',
-        prevBid: 20,
-        timestamp: now - 1250000
-      },
-      {
-        id: 'act_6',
-        provinceId: 'ankara',
-        provinceName: 'Ankara',
-        teamId: 'trabzonspor',
-        amount: 25,
-        bidder: 'Firtina61',
-        prevTeamId: 'ankaragucu',
-        prevBid: 15,
-        timestamp: now - 1600000
-      },
-      {
-        id: 'act_7',
-        provinceId: 'adana',
-        provinceName: 'Adana',
-        teamId: 'goztepe',
-        amount: 20,
-        bidder: 'Goztepe1925',
-        prevTeamId: 'adana_demir',
-        prevBid: 10,
-        timestamp: now - 2100000
-      }
+      { id: 'act_1', provinceId: 'istanbul', provinceName: 'İstanbul', teamId: 'amedspor', amount: 60, bidder: 'Barikat34', timestamp: now - 120000 },
+      { id: 'act_2', provinceId: 'trabzon', provinceName: 'Trabzon', teamId: 'fenerbahce', amount: 45, bidder: 'KadikoyBogasi', timestamp: now - 340000 },
+      { id: 'act_3', provinceId: 'izmir', provinceName: 'İzmir', teamId: 'galatasaray', amount: 35, bidder: 'ultrAslanIzmir', timestamp: now - 620000 },
+      { id: 'act_4', provinceId: 'bursa', provinceName: 'Bursa', teamId: 'kocaelispor', amount: 30, bidder: 'KorkusuzKorfez', timestamp: now - 950000 },
+      { id: 'act_5', provinceId: 'diyarbakir', provinceName: 'Diyarbakır', teamId: 'besiktas', amount: 30, bidder: 'CarsiGrubu', timestamp: now - 1250000 },
+      { id: 'act_6', provinceId: 'ankara', provinceName: 'Ankara', teamId: 'trabzonspor', amount: 25, bidder: 'Firtina61', timestamp: now - 1600000 },
+      { id: 'act_7', provinceId: 'adana', provinceName: 'Adana', teamId: 'goztepe', amount: 20, bidder: 'Goztepe1925', timestamp: now - 2100000 },
+      { id: 'act_8', provinceId: 'antalya', provinceName: 'Antalya', teamId: 'antalyaspor', amount: 1, bidder: 'Akrep07', timestamp: now - 2400000 },
+      { id: 'act_9', provinceId: 'samsun', provinceName: 'Samsun', teamId: 'samsunspor', amount: 1, bidder: 'KuzeyinKrali55', timestamp: now - 2700000 },
+      { id: 'act_10', provinceId: 'sakarya', provinceName: 'Sakarya', teamId: 'sakaryaspor', amount: 1, bidder: 'Tatanga54', timestamp: now - 3100000 }
     ];
 
     this.save();
