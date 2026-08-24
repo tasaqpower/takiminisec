@@ -3,22 +3,24 @@ import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, Exter
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
+const POLAR_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_LwKhboMDWT7F2IOwsYuy04sum0M9s4ohREeAF3eYOFc';
+
 export default function DepositModal({ isOpen, onClose, currentBalance, onDepositSuccess, nickname }) {
   if (!isOpen) return null;
 
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('polar'); // 'polar' | 'papara' | 'test'
+  const [paymentMethod, setPaymentMethod] = useState('polar'); // 'polar' | 'test'
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(null);
 
   const packages = [
-    { amount: 25, label: 'Başlangıç', bonus: null, polarLink: 'https://buy.polar.sh/custom_25' },
-    { amount: 50, label: 'Taraftar', bonus: 'Popüler 🔥', polarLink: 'https://buy.polar.sh/custom_50' },
-    { amount: 100, label: 'Holigan', bonus: '+5 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_100' },
-    { amount: 250, label: 'Amigo', bonus: '+25 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_250' },
-    { amount: 500, label: 'Başkan', bonus: '+75 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_500' },
-    { amount: 1000, label: 'Efsane', bonus: '+200 ₺ Bonus', polarLink: 'https://buy.polar.sh/custom_1000' },
+    { amount: 25, label: 'Başlangıç', bonus: null },
+    { amount: 50, label: 'Taraftar', bonus: 'Popüler 🔥' },
+    { amount: 100, label: 'Holigan', bonus: '+5 ₺ Bonus' },
+    { amount: 250, label: 'Amigo', bonus: '+25 ₺ Bonus' },
+    { amount: 500, label: 'Başkan', bonus: '+75 ₺ Bonus' },
+    { amount: 1000, label: 'Efsane', bonus: '+200 ₺ Bonus' },
   ];
 
   const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount;
@@ -42,25 +44,17 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
         return;
       }
 
-      // 2. Polar.sh & Gateway Checkout Creation
-      const res = await fetch('/api/payment/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // 2. Real Polar.sh Checkout Link Open
+      setTimeout(() => {
+        setIsProcessing(false);
+        setOrderCreated({
+          orderId: 'POLAR_' + Date.now().toString(36).toUpperCase(),
           amount: effectiveAmount,
-          bidder: nickname || 'Anonim Taraftar',
-          paymentMethod: 'polar'
-        })
-      });
-      const data = await res.json();
-      setIsProcessing(false);
+          paymentUrl: POLAR_CHECKOUT_URL
+        });
+        window.open(POLAR_CHECKOUT_URL, '_blank');
+      }, 300);
 
-      if (data.success) {
-        setOrderCreated(data);
-        if (paymentMethod === 'polar' && data.paymentUrl) {
-          window.open(data.paymentUrl, '_blank');
-        }
-      }
     } catch (err) {
       setIsProcessing(false);
       alert('Ödeme başlatılamadı: ' + err.message);
@@ -108,13 +102,13 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
             <div>
               <h4 className="text-xl font-black text-white">Polar.sh Ödeme Sayfası Açıldı!</h4>
               <p className="text-xs text-gray-400 mt-1">
-                Referans No: <b className="text-blue-400">{orderCreated.orderId}</b>
+                Güvenli ödeme penceresi yeni sekmede açıldı.
               </p>
             </div>
 
             <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-3">
               <p className="text-gray-300">
-                Apple Pay, Google Pay veya Kart ile ödemeyi tamamladığınızda bakiyeniz anında cüzdanınıza yansıyacaktır.
+                Apple Pay, Google Pay veya Kart ile ödemenizi tamamlayın.
               </p>
               <a
                 href={orderCreated.paymentUrl}
@@ -122,7 +116,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:brightness-110"
               >
-                <span>Polar.sh Ödemesini Aç</span>
+                <span>Ödeme Sayfasını Tekrar Aç</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -134,7 +128,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               }}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer"
             >
-              Tamamla & Kapat
+              Ödemeyi Yaptım, Bakiyemi Yansıt & Kapat
             </button>
           </div>
         ) : (
@@ -190,7 +184,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
             {/* 2. Ödeme Yöntemi */}
             <div>
               <label className="text-xs font-black text-gray-300 uppercase tracking-wider block mb-2">
-                2. Ödeme Altyapısı
+                2. Güvenli Ödeme Altyapısı
               </label>
 
               <div className="grid grid-cols-2 gap-2">
@@ -205,7 +199,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="text-lg">⚡</span>
-                    <span className="text-xs font-extrabold text-blue-300">Polar.sh</span>
+                    <span className="text-xs font-extrabold text-blue-300">Polar.sh Checkout</span>
                   </div>
                   <span className="text-[10px] text-gray-400">Apple Pay / Kart / Google Pay</span>
                 </button>
@@ -229,7 +223,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
             {/* Güvenlik Rozeti */}
             <div className="flex items-center gap-2 p-3 bg-gray-950 rounded-2xl border border-gray-800/80 text-xs text-gray-400">
               <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>Polar.sh Merchant of Record • 256-bit Güvenli Ödeme</span>
+              <span>Polar.sh Merchant of Record • 256-bit SSL Güvenli Ödeme</span>
             </div>
 
             {/* Submit Button */}
@@ -238,7 +232,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               disabled={isProcessing || effectiveAmount < 5}
               className="w-full py-3.5 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 text-white shadow-lg shadow-blue-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110"
             >
-              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (Polar.sh)`}</span>
+              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (Polar.sh ile Öde)`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
