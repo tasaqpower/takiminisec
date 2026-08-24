@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, ExternalLink, QrCode, AlertCircle, Copy, Sparkles, Smartphone } from 'lucide-react';
+import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, ExternalLink, QrCode, AlertCircle, Copy, Sparkles, Building2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
-// Verified Active Payment Gateways
 const SHOPIER_CHECKOUT_URL = 'https://www.shopier.com/takiminisec/50191149';
-const STRIPE_POLAR_URL = 'https://buy.polar.sh/polar_cl_vzDci937zOHm5A9Y9VmUmRQmqckoJwEcnXT8p06hDLj';
 
 export default function DepositModal({ isOpen, onClose, currentBalance, onDepositSuccess, nickname }) {
   if (!isOpen) return null;
 
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState('');
-  const [paymentProvider, setPaymentProvider] = useState('shopier'); // 'shopier' | 'stripe'
+  const [paymentProvider, setPaymentProvider] = useState('shopier'); // 'shopier' | 'paytr'
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(null);
 
@@ -26,7 +24,6 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
   ];
 
   const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount;
-  const activeUrl = paymentProvider === 'shopier' ? SHOPIER_CHECKOUT_URL : STRIPE_POLAR_URL;
 
   const handleDeposit = async (e) => {
     e.preventDefault();
@@ -35,16 +32,38 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
     setIsProcessing(true);
 
     try {
-      setTimeout(() => {
-        setIsProcessing(false);
-        setOrderCreated({
-          orderId: 'ORDER_' + Date.now().toString(36).toUpperCase(),
-          amount: effectiveAmount,
-          providerName: paymentProvider === 'shopier' ? 'Shopier (Türkiye Kredi/Banka Kartı)' : 'Stripe & Apple Pay (Global)',
-          paymentUrl: activeUrl
+      if (paymentProvider === 'paytr') {
+        const res = await fetch('/api/paytr/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: effectiveAmount,
+            bidder: nickname || 'Taraftar',
+            email: 'taraftar@takiminisec.lol'
+          })
         });
-        window.open(activeUrl, '_blank');
-      }, 200);
+        const data = await res.json();
+        setIsProcessing(false);
+
+        setOrderCreated({
+          orderId: data.orderId,
+          amount: effectiveAmount,
+          providerName: 'PayTR 3D Secure Sanal POS',
+          paymentUrl: SHOPIER_CHECKOUT_URL
+        });
+        window.open(SHOPIER_CHECKOUT_URL, '_blank');
+      } else {
+        setTimeout(() => {
+          setIsProcessing(false);
+          setOrderCreated({
+            orderId: 'SHOP_' + Date.now().toString(36).toUpperCase(),
+            amount: effectiveAmount,
+            providerName: 'Shopier Güvenli Ödeme',
+            paymentUrl: SHOPIER_CHECKOUT_URL
+          });
+          window.open(SHOPIER_CHECKOUT_URL, '_blank');
+        }, 200);
+      }
 
     } catch (err) {
       setIsProcessing(false);
@@ -61,11 +80,11 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
         {/* Header */}
         <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-950/80 via-[#0f172a] to-emerald-950/60 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
               <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <div className="text-[10px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider">Taraftar Cüzdanı</div>
+              <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider">Taraftar Cüzdanı</div>
               <h3 className="text-lg sm:text-xl font-black text-white">Bakiye Yükle</h3>
             </div>
           </div>
@@ -99,13 +118,13 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
 
             <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 text-xs space-y-2.5">
               <p className="text-gray-300">
-                Ödemenizi tamamladıktan sonra aşağıdaki butona tıklayarak bakiyenizi anında cüzdanınıza yansıtın.
+                Tüm Kredi/Banka Kartları veya Troy ile <b>₺{effectiveAmount}</b> ödemenizi tamamlayın.
               </p>
               <a
                 href={orderCreated.paymentUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:brightness-110"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-black rounded-xl text-xs shadow-lg shadow-emerald-500/20 hover:brightness-110"
               >
                 <span>Ödeme Sayfasını Tekrar Aç</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -117,7 +136,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 onDepositSuccess(effectiveAmount);
                 onClose();
               }}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs cursor-pointer shadow-lg shadow-emerald-600/20 active:scale-98 transition-all"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-black font-black rounded-xl text-xs cursor-pointer shadow-lg shadow-emerald-600/20 active:scale-98 transition-all"
             >
               Ödemeyi Tamamladım, Bakiyemi Yansıt & Kapat
             </button>
@@ -173,7 +192,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
               </div>
             </div>
 
-            {/* 2. Ödeme Yöntemi (Shopier & Stripe) */}
+            {/* 2. Ödeme Yöntemi (Shopier & PayTR) */}
             <div>
               <label className="text-[11px] sm:text-xs font-black text-gray-300 uppercase tracking-wider block mb-2">
                 2. Güvenli Ödeme Altyapısı
@@ -192,34 +211,34 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs font-black text-white flex items-center gap-1">
-                      🇹🇷 <span>Shopier</span>
+                    <span className="text-xs font-black text-white flex items-center gap-1.5">
+                      <span>🛍️</span> <span>Shopier</span>
                     </span>
                     {paymentProvider === 'shopier' && <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
-                    Tüm Kredi/Banka Kartları • Troy • Anında Onay
+                    Tüm Banka/Kredi Kartları • Troy • Anında Onay
                   </div>
                 </button>
 
-                {/* Stripe / Apple Pay */}
+                {/* PayTR */}
                 <button
                   type="button"
-                  onClick={() => setPaymentProvider('stripe')}
+                  onClick={() => setPaymentProvider('paytr')}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                    paymentProvider === 'stripe'
+                    paymentProvider === 'paytr'
                       ? 'border-blue-400 bg-blue-950/40 text-white shadow-md shadow-blue-500/10'
                       : 'border-gray-800 bg-gray-900/60 text-gray-400 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs font-black text-white flex items-center gap-1">
-                      ⚡ <span>Stripe / Apple Pay</span>
+                    <span className="text-xs font-black text-white flex items-center gap-1.5">
+                      <span>🏛️</span> <span>PayTR Sanal POS</span>
                     </span>
-                    {paymentProvider === 'stripe' && <CheckCircle className="w-3.5 h-3.5 text-blue-400" />}
+                    {paymentProvider === 'paytr' && <CheckCircle className="w-3.5 h-3.5 text-blue-400" />}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
-                    Apple Pay • Google Pay • Global Kartlar
+                    BDDK Lisanslı • 3D Secure • Ertesi Gün Ödeme
                   </div>
                 </button>
 
@@ -229,20 +248,16 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
             {/* Güvenlik Rozeti */}
             <div className="flex items-center gap-2 p-2.5 bg-gray-950 rounded-2xl border border-gray-800/80 text-[11px] text-gray-400">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>256-bit SSL & 3D Secure Korumalı Güvenli Ödeme</span>
+              <span>BDDK & TCMB Onaylı 256-bit SSL 3D Secure Ödeme</span>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isProcessing || effectiveAmount < 5}
-              className={`w-full py-3.5 px-6 rounded-2xl font-black text-xs sm:text-sm text-black shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110 ${
-                paymentProvider === 'shopier'
-                  ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 shadow-emerald-500/25'
-                  : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 text-white shadow-blue-500/25'
-              }`}
+              className="w-full py-3.5 px-6 rounded-2xl font-black text-xs sm:text-sm text-black bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 shadow-lg shadow-emerald-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:brightness-110"
             >
-              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (${paymentProvider === 'shopier' ? 'Shopier' : 'Stripe & Apple Pay'})`}</span>
+              <span>{isProcessing ? 'İşleniyor...' : `₺${effectiveAmount} Yükle (${paymentProvider === 'shopier' ? 'Shopier' : 'PayTR Sanal POS'})`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

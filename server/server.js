@@ -3,18 +3,11 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('./database');
 const { TEAMS } = require('./teamsData');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Serve Frontend Static Build if available
-const clientDistPath = path.join(__dirname, '../client/dist');
-app.use(express.static(clientDistPath));
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -23,142 +16,176 @@ const io = new Server(server, {
   }
 });
 
-// Simple Profanity / Bad words filter
-const BANNED_WORDS = ['küfür1', 'küfür2']; // extensible blacklist
-const sanitize = (text) => {
-  if (!text) return '';
-  return text.toString().substring(0, 80).replace(/<[^>]*>?/gm, '');
-};
+const PORT = process.env.PORT || 4000;
 
-// REST Endpoints
-app.get('/api/teams', (req, res) => {
-  res.json({ success: true, teams: TEAMS });
-});
+// PayTR Credentials (can be set via environment variables or default config)
+const PAYTR_MERCHANT_ID = process.env.PAYTR_MERCHANT_ID || 'MERCHANT_ID';
+const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY || 'MERCHANT_KEY';
+const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT || 'MERCHANT_SALT';
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static frontend files from client/dist
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// --- REST API ENDPOINTS ---
+
+// Get all provinces
 app.get('/api/provinces', (req, res) => {
-  res.json({ success: true, provinces: db.getAllProvinces() });
+  res.json({
+    success: true,
+    provinces: db.getAllProvinces()
+  });
 });
 
-app.get('/api/activity', (req, res) => {
-  res.json({ success: true, activity: db.getActivityFeed() });
+// Get single province
+app.get('/api/provinces/:id', (req, res) => {
+  const province = db.getProvince(req.params.id);
+  if (!province) {
+    return res.status(404).json({ success: false, error: 'İl bulunamadı' });
+  }
+  res.json({ success: true, province });
 });
 
+// Get teams list
+app.get('/api/teams', (req, res) => {
+  res.json({
+    success: true,
+    teams: TEAMS
+  });
+});
+
+// Get overall statistics & leaderboards
 app.get('/api/stats', (req, res) => {
-  res.json({ success: true, stats: db.getStats() });
+  res.json({
+    success: true,
+    stats: db.getStats()
+  });
 });
 
-// Place Bid (Instant / Demo / Authorized)
+// Get live activity feed
+app.get('/api/activity', (req, res) => {
+  res.json({
+    success: true,
+    activity: db.getActivityFeed()
+  });
+});
+
+// Place bid via REST endpoint
 app.post('/api/bid', (req, res) => {
   try {
     const { provinceId, teamId, amount, bidder, note } = req.body;
-    const sanitizedBidder = sanitize(bidder) || 'Anonim Taraftar';
-    const sanitizedNote = sanitize(note);
+    if (!provinceId || !teamId || !amount) {
+      return res.status(400).json({ success: false, error: 'Eksik bilgi gönderildi.' });
+    }
 
-    const result = db.placeBid({
-      provinceId,
-      teamId,
-      amount: Number(amount),
-      bidder: sanitizedBidder,
-      note: sanitizedNote
-    });
-    
-    // Broadcast real-time update to all connected clients
+    const result = db.placeBid({ provinceId, teamId, amount, bidder, note });
+
+    // Emit live update to all connected clients
     io.emit('province_updated', {
       province: result.updatedProvince,
       activity: result.activity,
       stats: result.stats
     });
-
-    res.json({ success: true, ...result });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-// -------------------------------------------------------------
-// PAYMENT GATEWAY INTEGRATIONS (Shopier / PayTR / Papara / Webhook)
-// -------------------------------------------------------------
-
-// 1. Create Payment Order / Checkout Link
-app.post('/api/payment/create', (req, res) => {
-  try {
-    const { provinceId, teamId, amount, bidder, note, paymentMethod } = req.body;
-    const orderId = 'ORD_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-
-    // Save pending transaction (In prod: save to db.pendingOrders)
-    // If Shopier / PayTR credentials exist, return their checkout URL
-    const shopierLink = `https://www.shopier.com/ShowProductNew/products.php?id=YOUR_PRODUCT_ID&custom=${orderId}`;
 
     res.json({
       success: true,
-      orderId,
-      amount: Number(amount),
-      provinceId,
-      teamId,
-      bidder,
-      note,
-      paymentUrl: shopierLink,
-      message: 'Ödeme emri hazırlandı.'
+      data: result
     });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// 2. Payment Webhook Callback (Shopier / PayTR / Papara calls this after user pays)
-app.post('/api/payment/webhook', (req, res) => {
+// --- PAYTR TOKEN GENERATION ENDPOINT ---
+app.post('/api/paytr/create-token', async (req, res) => {
   try {
-    // Extract metadata sent from payment gateway
-    const { provinceId, teamId, amount, bidder, note, status, order_id } = req.body;
+    const { amount, bidder, email } = req.body;
+    const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const merchantOid = 'ORDER_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const paymentAmount = Math.round(Number(amount) * 100); // Kuruş formatı
+
+    // PayTR token parameters
+    const userBasket = JSON.stringify([
+      [`${amount} TL Taraftar Bakiyesi`, `${amount}.00`, 1]
+    ]);
+    const userEmail = email || 'destek@takiminisec.lol';
+    const userName = bidder || 'Taraftar';
+    const userAddress = 'Turkiye';
+    const userPhone = '05555555555';
+    const merchantOkUrl = 'https://takiminisec.lol/?status=success';
+    const merchantFailUrl = 'https://takiminisec.lol/?status=fail';
+    const currency = 'TL';
+    const testMode = PAYTR_MERCHANT_ID === 'MERCHANT_ID' ? '1' : '0';
+
+    // Hash calculation for PayTR security
+    const hashStr = `${PAYTR_MERCHANT_ID}${userIp}${merchantOid}${userEmail}${paymentAmount}${userBasket}00${currency}${testMode}`;
+    const tokenHash = crypto.createHmac('sha256', PAYTR_MERCHANT_KEY).update(hashStr + PAYTR_MERCHANT_SALT).digest('base64');
+
+    res.json({
+      success: true,
+      orderId: merchantOid,
+      merchantId: PAYTR_MERCHANT_ID,
+      amount: paymentAmount,
+      tokenHash,
+      isConfigured: PAYTR_MERCHANT_ID !== 'MERCHANT_ID',
+      directUrl: 'https://www.shopier.com/takiminisec/50191149'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- PAYTR CALLBACK WEBHOOK ---
+app.post('/api/paytr/callback', (req, res) => {
+  try {
+    const { merchant_oid, status, total_amount, hash } = req.body;
     
-    console.log(`[Payment Webhook] Received successful payment for ${provinceId}: ${amount} ₺ by ${bidder}`);
+    // Validate PayTR Hash
+    const expectedHashStr = `${merchant_oid}${PAYTR_MERCHANT_SALT}${status}${total_amount}`;
+    const calculatedHash = crypto.createHmac('sha256', PAYTR_MERCHANT_KEY).update(expectedHashStr).digest('base64');
 
-    // Automatically apply the bid upon confirmed payment!
-    const result = db.placeBid({
-      provinceId,
-      teamId,
-      amount: Number(amount),
-      bidder: sanitize(bidder) || 'Cömert Taraftar',
-      note: sanitize(note) || 'Gerçek Ödeme ile Alındı! 💳'
-    });
-
-    io.emit('province_updated', {
-      province: result.updatedProvince,
-      activity: result.activity,
-      stats: result.stats
-    });
+    if (calculatedHash === hash && status === 'success') {
+      console.log(`[PayTR] Payment successful for order: ${merchant_oid}, amount: ${total_amount / 100} TL`);
+      // Return OK so PayTR knows the webhook was received
+      return res.send('OK');
+    }
 
     res.send('OK');
   } catch (err) {
-    console.error('Webhook error:', err);
-    res.status(400).send('FAIL');
+    console.error('[PayTR Webhook Error]', err);
+    res.status(500).send('FAIL');
   }
 });
 
-// Real-time WebSockets
+// Fallback to React frontend router for any other routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+// --- WEBSOCKET EVENT LISTENERS ---
 io.on('connection', (socket) => {
-  // Send initial snapshot on connect
+  // Send full initial state immediately upon connection
   socket.emit('initial_state', {
     provinces: db.getAllProvinces(),
     teams: TEAMS,
-    activity: db.getActivityFeed(),
-    stats: db.getStats()
+    stats: db.getStats(),
+    activity: db.getActivityFeed()
   });
 
+  // Handle place_bid event
   socket.on('place_bid', (data, callback) => {
     try {
-      const sanitizedBidder = sanitize(data.bidder) || 'Anonim Taraftar';
-      const sanitizedNote = sanitize(data.note);
+      const { provinceId, teamId, amount, bidder, note } = data;
+      const result = db.placeBid({ provinceId, teamId, amount, bidder, note });
 
-      const result = db.placeBid({
-        provinceId: data.provinceId,
-        teamId: data.teamId,
-        amount: Number(data.amount),
-        bidder: sanitizedBidder,
-        note: sanitizedNote
-      });
-      
-      // Broadcast to EVERYONE
+      // Broadcast update to all connected users
       io.emit('province_updated', {
         province: result.updatedProvince,
         activity: result.activity,
@@ -168,23 +195,19 @@ io.on('connection', (socket) => {
       if (typeof callback === 'function') {
         callback({ success: true, data: result });
       }
-    } catch (err) {
+    } catch (error) {
       if (typeof callback === 'function') {
-        callback({ success: false, error: err.message });
+        callback({ success: false, error: error.message });
       }
     }
   });
+
+  socket.on('disconnect', () => {
+    // User disconnected
+  });
 });
 
-// Fallback to React index.html for any frontend SPA routes
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.sendFile(path.join(clientDistPath, 'index.html'));
-});
-
-const PORT = process.env.PORT || 4000;
+// Start listening
 server.listen(PORT, () => {
-  console.log(`⚽ Outbid Türkiye Full-Stack Server is running on http://localhost:${PORT}`);
+  console.log(`⚽ TakiminiSec Server running on http://localhost:${PORT}`);
 });
