@@ -3,8 +3,8 @@ import { X, CreditCard, Wallet, CheckCircle, ShieldCheck, Zap, ArrowRight, Exter
 import confetti from 'canvas-confetti';
 import { playCoinSound } from '../utils/audio';
 
-// Base Polar Link
-const POLAR_BASE_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_LwKhboMDWT7F2IOwsYuy04sum0M9s4ohREeAF3eYOFc';
+// Verified Live Polar Checkout URL connected directly to user Ziraat Payout
+const POLAR_ACTIVE_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_vzDci937zOHm5A9Y9VmUmRQmqckoJwEcnXT8p06hDLj';
 
 export default function DepositModal({ isOpen, onClose, currentBalance, onDepositSuccess, nickname }) {
   if (!isOpen) return null;
@@ -37,10 +37,10 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
         setOrderCreated({
           orderId: 'POLAR_' + Date.now().toString(36).toUpperCase(),
           amount: effectiveAmount,
-          paymentUrl: POLAR_BASE_CHECKOUT_URL
+          paymentUrl: POLAR_ACTIVE_CHECKOUT_URL
         });
-        window.open(POLAR_BASE_CHECKOUT_URL, '_blank');
-      }, 250);
+        window.open(POLAR_ACTIVE_CHECKOUT_URL, '_blank');
+      }, 200);
 
     } catch (err) {
       setIsProcessing(false);
@@ -178,7 +178,7 @@ export default function DepositModal({ isOpen, onClose, currentBalance, onDeposi
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⚡</span>
                   <div>
-                    <div className="text-xs font-extrabold text-blue-300">Polar.sh Güvenli Ödeme</div>
+                    <div className="text-xs font-extrabold text-blue-300">Polar.sh Checkout (Doğrulanmış Canlı)</div>
                     <div className="text-[10px] text-gray-400">Apple Pay • Kredi Kartı • Google Pay</div>
                   </div>
                 </div>
