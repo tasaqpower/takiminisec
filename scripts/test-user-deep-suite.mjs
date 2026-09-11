@@ -250,16 +250,21 @@ console.log('>>> 1. AUTOSAVE REAL RELOAD TEST');
     const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Çalışmayı Kurtar'));
     if (btn) btn.click();
   `);
-  await new Promise(r => setTimeout(r, 2000));
 
-  // Verify visual restoration
-  const restored = await cdp.evaluate(`
-    return {
-      bodyHasNewText: document.body.innerText.includes("Yeni Eklenen Metin") || !!document.querySelector('svg'),
-      canvasCount: document.querySelectorAll('canvas').length,
-      svgMarksCount: document.querySelectorAll('svg g text, svg foreignObject').length
-    };
-  `);
+  // Wait for canvas to render after state recovery
+  let restored = { bodyHasNewText: false, canvasCount: 0, svgMarksCount: 0 };
+  for (let i = 0; i < 25; i++) {
+    await new Promise(r => setTimeout(r, 400));
+    restored = await cdp.evaluate(`
+      return {
+        bodyHasNewText: document.body.innerText.includes("Yeni Eklenen Metin") || !!document.querySelector('svg'),
+        canvasCount: document.querySelectorAll('canvas').length,
+        svgMarksCount: document.querySelectorAll('svg g text, svg foreignObject').length
+      };
+    `);
+    if (restored.canvasCount >= 1) break;
+  }
+
   console.log('Visual restoration checks:', restored);
   assert.ok(restored.canvasCount >= 1, 'PDF canvas restored');
 

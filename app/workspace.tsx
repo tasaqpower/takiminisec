@@ -33,7 +33,8 @@ import {
   ScanText,
   Layers,
   ShieldCheck,
-  FormInput
+  FormInput,
+  Sparkles
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -81,6 +82,18 @@ import { FormFieldsLayer } from "@/features/forms/FormFieldsLayer";
 import { embedFormFieldsInPdf, extractFormFieldsFromPdf } from "@/features/forms/formBuilder";
 import type { FormFieldItem } from "@/features/forms/formTypes";
 import { SecurityDialog } from "@/features/security/SecurityDialog";
+import { ToolHubModal, type ProfessionalToolId } from "@/features/hub/ToolHubModal";
+import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
+import { PageDecorationModal } from "@/features/page-decoration/PageDecorationModal";
+import { AnnotationSidePanel } from "@/features/annotations/AnnotationSidePanel";
+import type { PdfAnnotation } from "@/features/annotations/annotationTypes";
+import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
+import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
+import { NavigationModal } from "@/features/navigation/NavigationModal";
+import { PageSizingModal } from "@/features/page-sizing/PageSizingModal";
+import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversionModal";
+import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
+import { ComplianceModal } from "@/features/compliance/ComplianceModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -262,10 +275,13 @@ export default function Workspace({
   const [showCompress, setShowCompress] = useState(intent === "compress");
   const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showToolHub, setShowToolHub] = useState(false);
+  const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(null);
   const [formMode, setFormMode] = useState<"none" | "design" | "fill">("none");
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
   const [pageImages, setPageImages] = useState<PdfImageItem[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [pdfAnnotations, setPdfAnnotations] = useState<PdfAnnotation[]>([]);
 
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [pdf, setPdf] = useState<any>(null);
@@ -361,11 +377,20 @@ export default function Workspace({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setShowFindReplace(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowToolHub((v) => !v);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
+
+  const handleApplyProfessionalPdf = (newPdfBytes: Uint8Array) => {
+    setBytes(newPdfBytes);
+    setDirty(true);
+    toast.success("Değişiklikler başarıyla uygulandı.");
+  };
 
   // Detect and maintain images across pages
   useEffect(() => {
@@ -1678,6 +1703,16 @@ export default function Workspace({
               <ShieldCheck size={15} />
               <span>Güvenlik</span>
             </button>
+            <button
+              type="button"
+              className="secondary bg-blue-500/10 border-blue-400/40 text-blue-400 hover:bg-blue-500/20"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowToolHub(true)}
+              title="Tüm Atölye Araçları (Ctrl+K)"
+            >
+              <Sparkles size={15} />
+              <span>Araçlar</span>
+            </button>
           </div>
         )}
         <button className="primary" disabled={!!busy} onClick={() => setExportOpen(true)}>
@@ -2349,6 +2384,106 @@ export default function Workspace({
         pdfBytes={bytes || undefined}
         fileName={files[0]?.name}
         onApplySanitizedBytes={(newBytes) => setBytes(newBytes)}
+      />
+
+      <ToolHubModal
+        isOpen={showToolHub}
+        onClose={() => setShowToolHub(false)}
+        onSelectTool={(toolId) => setActiveProfessionalTool(toolId)}
+      />
+
+      <DocumentScannerModal
+        isOpen={activeProfessionalTool === 'scanner'}
+        onClose={() => setActiveProfessionalTool(null)}
+        onImportToWorkspace={(newPdfBytes) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <PageDecorationModal
+        isOpen={activeProfessionalTool === 'decoration'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        onApplyToWorkspace={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <AnnotationSidePanel
+        isOpen={activeProfessionalTool === 'annotations'}
+        onClose={() => setActiveProfessionalTool(null)}
+        annotations={pdfAnnotations}
+        onUpdateAnnotation={(annot) => {
+          setPdfAnnotations((prev) => prev.map((a) => (a.id === annot.id ? annot : a)));
+          setDirty(true);
+        }}
+        onDeleteAnnotation={(id) => {
+          setPdfAnnotations((prev) => prev.filter((a) => a.id !== id));
+          setDirty(true);
+        }}
+        pageCount={state.pages.length}
+      />
+
+      <PdfCompareModal
+        isOpen={activeProfessionalTool === 'compare'}
+        onClose={() => setActiveProfessionalTool(null)}
+        currentPdfBytes={bytes}
+        currentFileName={files[0]?.name}
+      />
+
+      <BatchProcessingModal
+        isOpen={activeProfessionalTool === 'batch'}
+        onClose={() => setActiveProfessionalTool(null)}
+      />
+
+      <NavigationModal
+        isOpen={activeProfessionalTool === 'navigation'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        pageCount={state.pages.length}
+        onApplyToWorkspace={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <PageSizingModal
+        isOpen={activeProfessionalTool === 'page-sizing'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        onApply={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <AdvancedConversionModal
+        isOpen={activeProfessionalTool === 'conversion'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        fileName={files[0]?.name}
+      />
+
+      <DigitalSignatureModal
+        isOpen={activeProfessionalTool === 'signature'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        onApply={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <ComplianceModal
+        isOpen={activeProfessionalTool === 'compliance'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        onApply={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
       />
     </div>
   );

@@ -43,6 +43,12 @@ const DEFAULT_ADJUSTMENTS: ImageAdjustments = {
   deskewAngle: 0,
 };
 
+let scanCounter = 0;
+function generateScanId(): string {
+  scanCounter += 1;
+  return `scan_${Date.now()}_${scanCounter}`;
+}
+
 export function DocumentScannerModal({
   isOpen,
   onClose,
@@ -84,6 +90,31 @@ export function DocumentScannerModal({
     };
   }, [handleStopCamera]);
 
+  const addImageFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (!dataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const newPage: ScannedPage = {
+          id: generateScanId(),
+          originalDataUrl: dataUrl,
+          processedDataUrl: dataUrl,
+          width: img.width,
+          height: img.height,
+          rotation: 0,
+          adjustments: { ...DEFAULT_ADJUSTMENTS },
+        };
+        setPages((prev) => [...prev, newPage]);
+        setActivePageIndex(pages.length);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Clipboard paste support
   useEffect(() => {
     if (!isOpen) return;
@@ -105,31 +136,6 @@ export function DocumentScannerModal({
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
   }, [isOpen]);
-
-  const addImageFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      if (!dataUrl) return;
-
-      const img = new Image();
-      img.onload = () => {
-        const newPage: ScannedPage = {
-          id: `scan_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          originalDataUrl: dataUrl,
-          processedDataUrl: dataUrl,
-          width: img.width,
-          height: img.height,
-          rotation: 0,
-          adjustments: { ...DEFAULT_ADJUSTMENTS },
-        };
-        setPages((prev) => [...prev, newPage]);
-        setActivePageIndex(pages.length);
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleStartCamera = async () => {
     if (!videoRef.current) return;
@@ -358,7 +364,7 @@ export function DocumentScannerModal({
     if (!pageToDup) return;
     const dup: ScannedPage = {
       ...pageToDup,
-      id: `scan_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: generateScanId(),
     };
     const newPages = [...pages];
     newPages.splice(idx + 1, 0, dup);
