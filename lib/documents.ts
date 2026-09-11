@@ -21,40 +21,69 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
  bytes=await removePdfText(bytes,removals.filter(r=>pages.some(p=>p.index===r.page)));
  const imageRemovals = images
    .filter(img => (img.deleted || img.isModified) && img.isOriginal && img.originalBounds)
-   .map(img => ({ page: img.page, bounds: img.originalBounds }));
+    .map(img => ({
+      page: img.page,
+      bounds: img.originalBounds,
+      imageId: img.id,
+      objectRef: img.objectRef,
+      imageIndex: img.imageIndex
+    }));
  if (imageRemovals.length > 0) {
    bytes = await removePdfImages(bytes, imageRemovals);
  }
- const src=await PDFDocument.load(bytes),out=await PDFDocument.create();out.registerFontkit(fontkit);
- const fonts=new Map<string,Awaited<ReturnType<typeof out.embedFont>>>();
- for(const m of marks.filter(m=>m.kind==="text")){const file=fontFile(m.font,m.bold,m.italic);if(!fonts.has(file)){const response=await fetch('/fonts/'+file);if(!response.ok)throw Error('Yazı tipi yüklenemedi.');fonts.set(file,await out.embedFont(await response.arrayBuffer(),{subset:true}))}}
- const renderer=marks.length||images.length?await loadPdf(bytes):null;
- try{for(const item of pages){const [page]=await out.copyPages(src,[item.index]);out.addPage(page);const originalRotation=page.getRotation().angle;
-  const annotations=marks.filter(m=>m.page===item.index);
-  const pageImgs=images.filter(img=>img.page===item.index&&!img.deleted&&(!img.isOriginal||img.isModified));
-  if((annotations.length||pageImgs.length)&&renderer){const original=await renderer.getPage(item.index+1);const unit=original.userUnit||1;const viewport=original.getViewport({scale:1});const point=(x:number,y:number)=>viewport.convertToPdfPoint(x,y);
-   for(const m of annotations){
-    if(m.kind==="text"){const [x,y]=point(m.x,m.y+m.size);page.drawText(m.text||"",{x,y,size:m.size/unit,font:fonts.get(fontFile(m.font,m.bold,m.italic))!,color:col(m.color),rotate:degrees(originalRotation-(m.angle||0)),lineHeight:m.size*1.25/unit})}
-    if(m.kind==="highlight"){const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.color),opacity:.3})}
-    if(m.kind==="draw"){const pts=m.points||[];for(let i=1;i<pts.length;i++){const a=point(pts[i-1].x,pts[i-1].y),b=point(pts[i].x,pts[i].y);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:m.size/unit,color:col(m.color)})}}
-    if(m.kind==="signature"&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,rotate:degrees(originalRotation)})}
-   }
-   for(const img of pageImgs){
-    if(img.dataUrl&&!img.dataUrl.startsWith("data:image/svg")){
-     try{
-      const b64=img.dataUrl.split(",")[1];
-      if(b64){
-       const buf=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-       const embedded=img.format==="jpeg"||/^data:image\/jpe?g/i.test(img.dataUrl)?await out.embedJpg(buf):await out.embedPng(buf);
-       const [x,y]=point(img.x,img.y+img.h);
-       page.drawImage(embedded,{x,y,width:img.w/unit,height:img.h/unit,opacity:img.opacity??1,rotate:degrees(originalRotation+(img.rotation||0))});
+  const src=await PDFDocument.load(bytes),out=await PDFDocument.create();out.registerFontkit(fontkit);
+  const fonts=new Map<string,Awaited<ReturnType<typeof out.embedFont>>>();
+  for(const m of marks.filter(m=>m.kind==="text")){
+    const file=fontFile(m.font,m.bold,m.italic);
+    if(!fonts.has(file)){
+      let fontBuffer: ArrayBuffer | Uint8Array;
+      if (typeof window === "undefined" || (typeof process !== "undefined" && Boolean(process?.versions?.node))) {
+        const fs = await import("node:fs");
+        const path = await import("node:path");
+        fontBuffer = fs.readFileSync(path.resolve("public/fonts", file));
+      } else {
+        const response=await fetch('/fonts/'+file);
+        if(!response.ok)throw Error('Yazı tipi yüklenemedi: ' + file);
+        fontBuffer = await response.arrayBuffer();
       }
-     }catch(e){console.warn("Could not embed image:",e)}
+      const embedded = await out.embedFont(fontBuffer, { subset: false });
+      fonts.set(file, embedded);
+    }
+  }
+  const renderer=marks.length||images.length?await loadPdf(bytes):null;
+  try{for(const item of pages){const [page]=await out.copyPages(src,[item.index]);out.addPage(page);const originalRotation=page.getRotation().angle;
+   const annotations=marks.filter(m=>m.page===item.index);
+   const pageImgs=images.filter(img=>img.page===item.index&&!img.deleted&&(!img.isOriginal||img.isModified));
+   if((annotations.length||pageImgs.length)&&renderer){const original=await renderer.getPage(item.index+1);const unit=original.userUnit||1;const viewport=original.getViewport({scale:1});const point=(x:number,y:number)=>viewport.convertToPdfPoint(x,y);
+    for(const m of annotations){
+     if(m.kind==="text"){const [x,y]=point(m.x,m.y+m.size);page.drawText(m.text||"",{x,y,size:m.size/unit,font:fonts.get(fontFile(m.font,m.bold,m.italic))!,color:col(m.color),rotate:degrees(originalRotation-(m.angle||0)),lineHeight:m.size*1.25/unit})}
+     if(m.kind==="highlight"){const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.color),opacity:.3})}
+     if(m.kind==="draw"){const pts=m.points||[];for(let i=1;i<pts.length;i++){const a=point(pts[i-1].x,pts[i-1].y),b=point(pts[i].x,pts[i].y);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:m.size/unit,color:col(m.color)})}}
+     if(m.kind==="signature"&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,rotate:degrees(originalRotation)})}
+    }
+    for(const img of pageImgs){
+     const url = img.dataUrl || img.previewUrl || "";
+     if(url&&!url.startsWith("data:image/svg")){
+      try{
+       let buf: Uint8Array | null = null;
+       if (url.startsWith("data:")) {
+         const b64=url.split(",")[1];
+         if(b64) buf=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+       }
+       if(buf){
+        const isJpg = img.format==="jpeg"||/^data:image\/jpe?g/i.test(url);
+        const embedded=isJpg?await out.embedJpg(buf):await out.embedPng(buf);
+        const [x,y]=point(img.x,img.y+img.h);
+        page.drawImage(embedded,{x,y,width:img.w/unit,height:img.h/unit,opacity:img.opacity??1,rotate:degrees(originalRotation+(img.rotation||0))});
+       }
+      }catch(e){console.warn("Could not embed image:",e)}
+     }
     }
    }
+   page.setRotation(degrees((originalRotation+item.rotation)%360));
   }
-  page.setRotation(degrees((originalRotation+item.rotation)%360));
- }return await out.save()}finally{await renderer?.loadingTask.destroy()}
+  return await out.save();
+ }finally{await renderer?.loadingTask.destroy()}
 }
 export async function extractPdfText(bytes:Uint8Array,pages?:PageItem[]){const doc=await loadPdf(bytes);try{const texts=[];for(const item of pages||Array.from({length:doc.numPages},(_,index)=>({index,rotation:0}))){const page=await doc.getPage(item.index+1);const text=await page.getTextContent();let value="",lastY:number|undefined;for(const t of text.items){if("str" in t){const y=t.transform[5];if(lastY!==undefined&&Math.abs(lastY-y)>4)value+="\n";value+=t.str+(t.hasEOL?"\n":" ");lastY=y}}texts.push(value.trim())}return texts.join("\n\n")}finally{await doc.loadingTask.destroy()}}
 export async function importWord(file:File){if(/\.txt$/i.test(file.name)){const node=document.createElement("div");node.textContent=await file.text();return node.innerHTML.split(/\r?\n/).map(s=>`<p>${s||"<br>"}</p>`).join("")||"<p><br></p>"}const mammoth=await import("mammoth");const result=await mammoth.convertToHtml({arrayBuffer:await file.arrayBuffer()},{styleMap:["u => u"],ignoreEmptyParagraphs:false});return safeHtml(result.value)||"<p><br></p>"}

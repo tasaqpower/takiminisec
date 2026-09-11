@@ -64,7 +64,7 @@ import {
   type Mark,
   type PageItem
 } from "@/lib/documents";
-import { editablePageText, removePdfText, type EditableText, type TextRemoval } from "@/lib/pdf-text";
+import { editablePageText, removePdfText, removePdfImages, type EditableText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { PDF_FONTS, pdfFont, type PdfFont } from "@/lib/pdf-fonts";
 import { useAutosave } from "@/features/autosave/useAutosave";
 import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
@@ -96,7 +96,7 @@ import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversio
 import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
 
-type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[] };
+type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
 
 const HANDLE_SIZE = 8;
@@ -203,12 +203,12 @@ function TextFields({
         Yazı tipi
         <Choice
           label="Yazı tipi"
-          value={value.font || "roboto"}
+          value={value.font || "sans"}
           onChange={v =>
             onChange({
               font: v as PdfFont,
-              bold: v === "serif" ? false : value.bold,
-              italic: v === "serif" ? false : value.italic
+              bold: value.bold,
+              italic: value.italic
             })
           }
           items={[...PDF_FONTS]}
@@ -231,7 +231,6 @@ function TextFields({
         <IconButton
           label="Kalın yazı"
           aria-pressed={!!value.bold}
-          disabled={value.font === "serif"}
           onClick={() => onChange({ bold: !value.bold })}
         >
           <Bold size={17} />
@@ -239,7 +238,6 @@ function TextFields({
         <IconButton
           label="İtalik yazı"
           aria-pressed={!!value.italic}
-          disabled={value.font === "serif"}
           onClick={() => onChange({ italic: !value.italic })}
         >
           <Italic size={17} />
@@ -282,6 +280,7 @@ export default function Workspace({
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
   const [pageImages, setPageImages] = useState<PdfImageItem[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [pdfAnnotations, setPdfAnnotations] = useState<PdfAnnotation[]>([]);
 
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
@@ -422,8 +421,9 @@ export default function Workspace({
   useEffect(() => {
     if (!pdf || kind !== "pdf") return;
     let mounted = true;
+    const pageRotation = state.pages[active]?.rotation || 0;
     pdf.getPage(active + 1).then((p: any) => {
-      return detectImagesOnPage(p, active);
+      return detectImagesOnPage(p, active, pageRotation);
     }).then((imgs: PdfImageItem[]) => {
       if (mounted) {
         setPageImages((prev) => {
@@ -435,7 +435,18 @@ export default function Workspace({
       }
     }).catch(() => {});
     return () => { mounted = false; };
-  }, [pdf, active, kind]);
+  }, [pdf, active, kind, state.pages]);
+
+  // Clean up object URLs on unmount
+  useEffect(() => {
+    return () => {
+      pageImages.forEach(img => {
+        if (img.previewUrl?.startsWith("blob:")) {
+          try { URL.revokeObjectURL(img.previewUrl); } catch {}
+        }
+      });
+    };
+  }, [pageImages]);
 
   // Extract all pages' original text for document-wide find & replace
   useEffect(() => {
@@ -586,9 +597,10 @@ export default function Workspace({
     if (!history.length) return;
     finishInlineEdit();
     setSelectedOriginal(null);
-    setFuture(f => [state, ...f]);
+    setFuture(f => [{ ...state, images: pageImages }, ...f]);
     const next = history[history.length - 1];
     setState(next);
+    if (next.images) setPageImages(next.images);
     setHistory(h => h.slice(0, -1));
     setActive(a => Math.min(a, next.pages.length - 1));
     setSelected(null);
@@ -599,9 +611,11 @@ export default function Workspace({
     if (!future.length) return;
     finishInlineEdit();
     setSelectedOriginal(null);
-    setHistory(h => [...h, state]);
-    setState(future[0]);
-    setActive(a => Math.min(a, future[0].pages.length - 1));
+    setHistory(h => [...h, { ...state, images: pageImages }]);
+    const next = future[0];
+    setState(next);
+    if (next.images) setPageImages(next.images);
+    setActive(a => Math.min(a, next.pages.length - 1));
     setFuture(f => f.slice(1));
     setSelected(null);
     setDirty(true);
@@ -818,14 +832,36 @@ export default function Workspace({
       setPreviewError("");
       setRendering(true);
       try {
-        if (!state.removals.length) {
+        const imageRemovals: ImageRemoval[] = pageImages
+          .filter(
+            img =>
+              img.page === active &&
+              img.isOriginal &&
+              img.originalBounds &&
+              (img.isModified || img.deleted || selectedImageId === img.id)
+          )
+          .map(img => ({
+            page: img.page,
+            bounds: img.originalBounds,
+            imageId: img.id,
+            objectRef: img.objectRef,
+            imageIndex: img.imageIndex
+          }));
+
+        if (!state.removals.length && !imageRemovals.length) {
           setViewPdf(pdf);
           setRendering(false);
           return;
         }
-        const cached = cleanCache.current.get(state.removals);
-        const clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
-        cleanCache.current.set(state.removals, { source: bytes, result: clean });
+        let clean = bytes;
+        if (state.removals.length) {
+          const cached = cleanCache.current.get(state.removals);
+          clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
+          cleanCache.current.set(state.removals, { source: bytes, result: clean });
+        }
+        if (imageRemovals.length) {
+          clean = await removePdfImages(clean, imageRemovals);
+        }
         const next = await loadPdf(clean);
         if (stopped) {
           await next.loadingTask.destroy();
@@ -845,7 +881,7 @@ export default function Workspace({
       renderTask.current?.cancel();
       if (owned) void owned.loadingTask.destroy().catch(() => {});
     };
-  }, [bytes, pdf, state.removals]);
+  }, [bytes, pdf, state.removals, pageImages, active, selectedImageId, isDraggingImage]);
 
   function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
     const removals = state.removals.some(r => r.id === item.id)
@@ -864,9 +900,11 @@ export default function Workspace({
           w: item.w,
           h: item.h,
           size: Math.round(item.size * 10) / 10,
-          color: "#222222",
+          color: item.color || "#222222",
           text: item.text,
-          font: /serif/i.test(item.fontName) && !/sans/i.test(item.fontName) ? "serif" : "roboto",
+          font: item.fontFamily === "serif" ? "serif" : item.fontFamily === "roboto" ? "roboto" : "sans",
+          bold: Boolean(item.bold),
+          italic: Boolean(item.italic),
           angle: item.angle,
           sourceId: item.id,
           ...updates
@@ -1521,7 +1559,7 @@ export default function Workspace({
                   minHeight: `${box.h + 4}px`,
                   fontSize: `${m.size}px`,
                   fontFamily: pdfFont(m.font).family,
-                  fontWeight: m.bold ? 500 : 400,
+                  fontWeight: m.bold ? 700 : 400,
                   fontStyle: m.italic ? "italic" : "normal",
                   color: m.color,
                   lineHeight: 1.25,
@@ -1549,7 +1587,7 @@ export default function Workspace({
               y={m.y + m.size}
               fontSize={m.size}
               fontFamily={pdfFont(m.font).family}
-              fontWeight={m.bold ? 500 : 400}
+              fontWeight={m.bold ? 700 : 400}
               fontStyle={m.italic ? "italic" : "normal"}
               fill={m.color}
             >
@@ -1631,9 +1669,11 @@ export default function Workspace({
         w: selectedOriginal.w,
         h: selectedOriginal.h,
         size: Math.round(selectedOriginal.size * 10) / 10,
-        color: "#222222",
+        color: selectedOriginal.color || "#222222",
         text: selectedOriginal.text,
-        font: /serif/i.test(selectedOriginal.fontName) && !/sans/i.test(selectedOriginal.fontName) ? "serif" : "roboto",
+        font: selectedOriginal.fontFamily === "serif" ? "serif" : selectedOriginal.fontFamily === "roboto" ? "roboto" : "sans",
+        bold: Boolean(selectedOriginal.bold),
+        italic: Boolean(selectedOriginal.italic),
         angle: selectedOriginal.angle
       }
     : null;
@@ -1879,6 +1919,7 @@ export default function Workspace({
                   <canvas ref={canvas} aria-label={`PDF sayfa ${active + 1}`} style={{ width: "100%", height: "100%" }} />
                   <svg className="annotation-layer" viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}>
                     <g transform={transform}>
+
                       {tool === "select" &&
                         !rendering &&
                         !previewError &&
@@ -1963,8 +2004,15 @@ export default function Workspace({
                       setPageImages(prev => prev.map(i => i.id === id ? { ...i, ...up, isModified: true } : i));
                       setDirty(true);
                     }}
+                    onCommit={() => {
+                      setDirty(true);
+                      setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                      setFuture([]);
+                    }}
+                    onDragStateChange={setIsDraggingImage}
                     pageWidth={dimensions.width}
                     pageHeight={dimensions.height}
+                    zoom={zoom}
                   />
                   {selectedImageId && (
                     <ImageToolbar
@@ -1972,11 +2020,15 @@ export default function Workspace({
                       onUpdate={(up) => {
                         setPageImages(prev => prev.map(i => i.id === selectedImageId ? { ...i, ...up, isModified: true } : i));
                         setDirty(true);
+                        setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                        setFuture([]);
                       }}
                       onDelete={(id) => {
                         setPageImages(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
                         setSelectedImageId(null);
                         setDirty(true);
+                        setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                        setFuture([]);
                       }}
                       onClose={() => setSelectedImageId(null)}
                     />

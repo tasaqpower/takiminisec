@@ -15,4 +15,8 @@ export interface PdfImageItem {
   deleted?: boolean;
   zIndex?: number;
   originalBounds?: { left: number; bottom: number; right: number; top: number };
+  originalViewport?: { x: number; y: number; w: number; h: number };
+  previewUrl?: string;
+  objectRef?: string | number;
+  imageIndex?: number;
 }

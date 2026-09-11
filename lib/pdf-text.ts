@@ -2,8 +2,23 @@ import type { WrappedPdfiumModule, PdfiumRuntimeMethods } from "@embedpdf/pdfium
 
 export type TextRemoval = { id: string; page: number; quad: number[] };
 export type EditableText = TextRemoval & {
-  text: string; x: number; y: number; w: number; h: number;
-  size: number; angle: number; fontName: string;
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  size: number;
+  angle: number;
+  fontName: string;
+  fontFamily?: string;
+  originalFontName?: string;
+  fontWeight?: number | string;
+  bold?: boolean;
+  italic?: boolean;
+  color?: string;
+  letterSpacing?: number;
+  lineHeight?: number;
+  transform?: number[];
 };
 
 let instance: Promise<WrappedPdfiumModule> | undefined;
@@ -72,10 +87,14 @@ export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) 
 export type ImageRemoval = {
   page: number;
   bounds?: { left: number; bottom: number; right: number; top: number };
+  imageId?: string;
+  objectRef?: string | number;
+  imageIndex?: number;
 };
 
 /**
  * Removes image objects from PDF content streams via PDFium.
+ * Targets ONLY the specified image objectRef/bounds/imageIndex and preserves other images on the same page.
  */
 export async function removePdfImages(bytes: Uint8Array, removals: ImageRemoval[]): Promise<Uint8Array> {
   if (!removals.length) return bytes;
@@ -95,44 +114,86 @@ export async function removePdfImages(bytes: Uint8Array, removals: ImageRemoval[
         if (!page) continue;
         const pageRemovals = removals.filter(r => r.page === index);
         const count = m.FPDFPage_CountObjects(page);
-        let changed = false;
 
-        for (let i = count - 1; i >= 0; i--) {
+        // Collect all image objects on this page in natural order
+        const pageImageObjects: Array<{
+          pageObjIndex: number;
+          obj: number;
+          bounds: { left: number; bottom: number; right: number; top: number };
+        }> = [];
+
+        for (let i = 0; i < count; i++) {
           const obj = m.FPDFPage_GetObject(page, i);
           if (!obj) continue;
           const type = m.FPDFPageObj_GetType(obj);
           if (type === 3) {
-            let shouldRemove = false;
-            if (pageRemovals.some(r => !r.bounds)) {
-              shouldRemove = true;
-            } else {
-              m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
-              const l = heap.getValue(boundsPtr, "float");
-              const b = heap.getValue(boundsPtr + 4, "float");
-              const r = heap.getValue(boundsPtr + 8, "float");
-              const t = heap.getValue(boundsPtr + 12, "float");
-
-              shouldRemove = pageRemovals.some(rem => {
-                if (!rem.bounds) return true;
-                const tb = rem.bounds;
-                return (
-                  Math.abs(l - tb.left) < 5 &&
-                  Math.abs(b - tb.bottom) < 5 &&
-                  Math.abs(r - tb.right) < 5 &&
-                  Math.abs(t - tb.top) < 5
-                );
-              });
-            }
-
-            if (shouldRemove) {
-              m.FPDFPage_RemoveObject(page, obj);
-              m.FPDFPageObj_Destroy(obj);
-              changed = true;
-            }
+            m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+            pageImageObjects.push({
+              pageObjIndex: i,
+              obj,
+              bounds: {
+                left: heap.getValue(boundsPtr, "float"),
+                bottom: heap.getValue(boundsPtr + 4, "float"),
+                right: heap.getValue(boundsPtr + 8, "float"),
+                top: heap.getValue(boundsPtr + 12, "float")
+              }
+            });
           }
         }
 
-        if (changed) {
+        // Match each removal strictly to AT MOST ONE target image object
+        const objsToRemove = new Set<number>();
+
+        for (const rem of pageRemovals) {
+          let bestMatch: (typeof pageImageObjects)[0] | null = null;
+          let bestDistance = Infinity;
+
+          // 1. Match by bounding box center/edges if bounds provided
+          if (rem.bounds) {
+            const tb = rem.bounds;
+            const targetCenterX = (tb.left + tb.right) / 2;
+            const targetCenterY = (tb.bottom + tb.top) / 2;
+
+            for (const imgObj of pageImageObjects) {
+              if (objsToRemove.has(imgObj.obj)) continue;
+              const b = imgObj.bounds;
+              const imgCenterX = (b.left + b.right) / 2;
+              const imgCenterY = (b.bottom + b.top) / 2;
+
+              const distCenter = Math.hypot(imgCenterX - targetCenterX, imgCenterY - targetCenterY);
+              const distEdges =
+                Math.abs(b.left - tb.left) +
+                Math.abs(b.bottom - tb.bottom) +
+                Math.abs(b.right - tb.right) +
+                Math.abs(b.top - tb.top);
+
+              if (distEdges < 40 || distCenter < 25) {
+                if (distEdges < bestDistance) {
+                  bestDistance = distEdges;
+                  bestMatch = imgObj;
+                }
+              }
+            }
+          }
+
+          // 2. Fallback to imageIndex if bounds didn't resolve
+          if (!bestMatch && typeof rem.imageIndex === "number" && rem.imageIndex >= 0 && rem.imageIndex < pageImageObjects.length) {
+            const candidate = pageImageObjects[rem.imageIndex];
+            if (!objsToRemove.has(candidate.obj)) {
+              bestMatch = candidate;
+            }
+          }
+
+          if (bestMatch) {
+            objsToRemove.add(bestMatch.obj);
+          }
+        }
+
+        if (objsToRemove.size > 0) {
+          for (const obj of objsToRemove) {
+            m.FPDFPage_RemoveObject(page, obj);
+            m.FPDFPageObj_Destroy(obj);
+          }
           m.FPDFPage_GenerateContent(page);
         }
         m.FPDF_ClosePage(page);
@@ -183,12 +244,133 @@ export type PdfPageProxy = {
   }>;
 };
 
-/** Use the renderer's own transforms, including CropBox, UserUnit and rotation. */
-export async function editablePageText(page: PdfPageProxy): Promise<EditableText[]> {
+function parseColorArgs(args: any): string {
+  if (!args) return "#222222";
+  if (typeof args === "string" && args.startsWith("#")) return args;
+  if (Array.isArray(args)) {
+    if (typeof args[0] === "string" && args[0].startsWith("#")) return args[0];
+    if (args.length >= 3 && typeof args[0] === "number") {
+      const scale = (args[0] <= 1 && args[1] <= 1 && args[2] <= 1) ? 255 : 1;
+      const r = Math.min(255, Math.max(0, Math.round(args[0] * scale))).toString(16).padStart(2, "0");
+      const g = Math.min(255, Math.max(0, Math.round(args[1] * scale))).toString(16).padStart(2, "0");
+      const b = Math.min(255, Math.max(0, Math.round(args[2] * scale))).toString(16).padStart(2, "0");
+      return `#${r}${g}${b}`;
+    }
+  }
+  return "#222222";
+}
+
+function parseGrayArg(args: any): string {
+  if (!args) return "#222222";
+  const val = Array.isArray(args) ? args[0] : args;
+  if (typeof val === "number") {
+    const scale = val <= 1 ? 255 : 1;
+    const h = Math.min(255, Math.max(0, Math.round(val * scale))).toString(16).padStart(2, "0");
+    return `#${h}${h}${h}`;
+  }
+  return "#222222";
+}
+
+/** Use the renderer's own transforms, including CropBox, UserUnit, rotation, and extracts rich font/color styles. */
+export async function editablePageText(page: any): Promise<EditableText[]> {
   const viewport = page.getViewport({ scale: 1 });
-  const content = await page.getTextContent();
+  const [content, opList] = await Promise.all([
+    page.getTextContent(),
+    typeof page.getOperatorList === "function" ? page.getOperatorList().catch(() => null) : Promise.resolve(null)
+  ]);
+
+  // Extract font details (weight, bold, italic, font family)
+  const fontDetailsMap = new Map<string, {
+    originalFontName?: string;
+    fontFamily: string;
+    bold: boolean;
+    italic: boolean;
+    fontWeight: number | string;
+  }>();
+
+  for (const rawItem of content.items) {
+    const item = rawItem as unknown as PdfTextItem;
+    if (!item.fontName || fontDetailsMap.has(item.fontName)) continue;
+
+    let fontObj: any = null;
+    try {
+      if (page.commonObjs?.has?.(item.fontName)) {
+        fontObj = await new Promise(res => page.commonObjs.get(item.fontName, res));
+      } else if (page.objs?.has?.(item.fontName)) {
+        fontObj = await new Promise(res => page.objs.get(item.fontName, res));
+      } else if (typeof page.commonObjs?.get === "function") {
+        fontObj = await new Promise(res => {
+          const t = setTimeout(() => res(null), 300);
+          page.commonObjs.get(item.fontName, (data: any) => { clearTimeout(t); res(data); });
+        });
+      }
+    } catch {}
+
+    const style = content.styles[item.fontName] || {};
+    const origName = fontObj?.name || fontObj?.loadedName || style.fontFamily || item.fontName;
+    const combined = [item.fontName, style.fontFamily, fontObj?.name, fontObj?.loadedName, fontObj?.fallbackName]
+      .filter(Boolean)
+      .join(" ");
+
+    const bold = Boolean(
+      fontObj?.bold ||
+      fontObj?.black ||
+      /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(combined)
+    );
+
+    const italic = Boolean(
+      fontObj?.italic ||
+      /italic|oblique|slanted/i.test(combined)
+    );
+
+    let fontFamily = "sans";
+    if (/roboto/i.test(combined)) {
+      fontFamily = "roboto";
+    } else if (/(?:sans[-_]?serif|helvetica|arial|liberation)/i.test(combined)) {
+      fontFamily = "sans";
+    } else if (/times|georgia|garamond|minion|cambria|lora|\bserif\b/i.test(combined.replace(/sans[-_]?serif/gi, ""))) {
+      fontFamily = "serif";
+    } else {
+      // Default: Helvetica / Arial / Liberation Sans
+      fontFamily = "sans";
+    }
+
+    fontDetailsMap.set(item.fontName, {
+      originalFontName: origName,
+      fontFamily,
+      bold,
+      italic,
+      fontWeight: bold ? 700 : 400
+    });
+  }
+
+  // Extract text colors from opList if available
+  const textColors: string[] = [];
+  if (opList && opList.fnArray) {
+    try {
+      const pdfjsLib = await import("pdfjs-dist");
+      const OPS = pdfjsLib.OPS;
+      let currentColor = "#222222";
+
+      for (let i = 0; i < opList.fnArray.length; i++) {
+        const fn = opList.fnArray[i];
+        const args = opList.argsArray[i];
+
+        if (fn === OPS.setFillRGBColor) {
+          currentColor = parseColorArgs(args);
+        } else if (fn === OPS.setFillColorN) {
+          currentColor = parseColorArgs(args);
+        } else if (fn === OPS.setFillGray) {
+          currentColor = parseGrayArg(args);
+        } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
+          textColors.push(currentColor);
+        }
+      }
+    } catch {}
+  }
+
   const v = viewport.transform;
-  return content.items.flatMap((rawItem, index: number) => {
+  return content.items.flatMap((rawItem: any, index: number) => {
     const item = rawItem as unknown as PdfTextItem;
     if (!item.str?.trim() || !item.width || content.styles[item.fontName]?.vertical) return [];
     const t = item.transform;
@@ -206,7 +388,37 @@ export async function editablePageText(page: PdfPageProxy): Promise<EditableText
     // FS_QUADPOINTSF uses top-left, top-right, bottom-left, bottom-right.
     const quad = [point(0,-size*ascent), point(w,-size*ascent), point(0,-size*descent), point(w,-size*descent)].flat();
     if (!Array.isArray(quad) || quad.length !== 8 || !quad.every(Number.isFinite)) return [];
-    return [{ id: `original-${page.pageNumber-1}-${index}`, page: page.pageNumber-1, quad, text:item.str, x, y:baseline-size, w, h:size*(ascent-descent), size, angle:angle*180/Math.PI, fontName:style.fontFamily || item.fontName }];
+
+    const fontInfo = fontDetailsMap.get(item.fontName) || {
+      originalFontName: style.fontFamily || item.fontName,
+      fontFamily: "sans",
+      bold: false,
+      italic: false,
+      fontWeight: 400
+    };
+
+    const itemColor = textColors[index] || "#222222";
+
+    return [{
+      id: `original-${page.pageNumber-1}-${index}`,
+      page: page.pageNumber-1,
+      quad,
+      text: item.str,
+      x,
+      y: baseline - size,
+      w,
+      h: size * (ascent - descent),
+      size,
+      angle: angle * 180 / Math.PI,
+      fontName: style.fontFamily || item.fontName,
+      fontFamily: fontInfo.fontFamily,
+      originalFontName: fontInfo.originalFontName,
+      fontWeight: fontInfo.fontWeight,
+      bold: fontInfo.bold,
+      italic: fontInfo.italic,
+      color: itemColor,
+      transform: t
+    }];
   });
 }
 

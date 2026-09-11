@@ -18,8 +18,10 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 @font-face{font-family:"Forma Roboto";src:url('/fonts/Roboto-Regular.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Roboto";font-weight:500;src:url('/fonts/Roboto-Medium.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Forma Roboto";font-weight:700;src:url('/fonts/Roboto-Medium.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Roboto";font-style:italic;src:url('/fonts/Roboto-Italic.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Roboto";font-weight:500;font-style:italic;src:url('/fonts/Roboto-MediumItalic.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Forma Roboto";font-weight:700;font-style:italic;src:url('/fonts/Roboto-MediumItalic.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Sans";src:url('/fonts/LiberationSans-Regular.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Sans";font-weight:700;src:url('/fonts/LiberationSans-Bold.ttf') format('truetype');font-display:swap}
 @font-face{font-family:"Forma Sans";font-style:italic;src:url('/fonts/LiberationSans-Italic.ttf') format('truetype');font-display:swap}

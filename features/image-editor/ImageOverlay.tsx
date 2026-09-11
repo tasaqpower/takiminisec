@@ -8,8 +8,11 @@ interface ImageOverlayProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, updated: Partial<PdfImageItem>) => void;
+  onCommit?: (id: string) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
   pageWidth: number;
   pageHeight: number;
+  zoom?: number;
 }
 
 const HANDLE_SIZE = 10;
@@ -19,8 +22,11 @@ export function ImageOverlay({
   selectedId,
   onSelect,
   onUpdate,
+  onCommit,
+  onDragStateChange,
   pageWidth,
-  pageHeight
+  pageHeight,
+  zoom = 1
 }: ImageOverlayProps) {
   const [dragState, setDragState] = useState<{
     type: "move" | "resize" | "rotate";
@@ -39,16 +45,21 @@ export function ImageOverlay({
   const selectedImage = images.find((i) => i.id === selectedId) || null;
 
   useEffect(() => {
+    onDragStateChange?.(Boolean(dragState));
+  }, [dragState, onDragStateChange]);
+
+  useEffect(() => {
     if (!dragState || !selectedImage) return;
 
     const handlePointerMove = (e: PointerEvent) => {
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
+      const z = zoom > 0 ? zoom : 1;
+      const dx = (e.clientX - dragState.startX) / z;
+      const dy = (e.clientY - dragState.startY) / z;
 
       if (dragState.type === "move") {
         const nextX = Math.max(0, Math.min(pageWidth - selectedImage.w, dragState.initialX + dx));
         const nextY = Math.max(0, Math.min(pageHeight - selectedImage.h, dragState.initialY + dy));
-        onUpdate(selectedImage.id, { x: Math.round(nextX), y: Math.round(nextY) });
+        onUpdate(selectedImage.id, { x: Math.round(nextX), y: Math.round(nextY), isModified: true });
       } else if (dragState.type === "resize" && dragState.corner) {
         const { initialX, initialY, initialW, initialH } = dragState;
         let newX = initialX;
@@ -78,17 +89,21 @@ export function ImageOverlay({
           x: Math.round(newX),
           y: Math.round(newY),
           w: Math.round(newW),
-          h: Math.round(newH)
+          h: Math.round(newH),
+          isModified: true
         });
       } else if (dragState.type === "rotate") {
         const rad = Math.atan2(e.clientY - dragState.centerY, e.clientX - dragState.centerX);
         let deg = Math.round((rad * 180) / Math.PI) + 90;
         if (deg < 0) deg += 360;
-        onUpdate(selectedImage.id, { rotation: deg % 360 });
+        onUpdate(selectedImage.id, { rotation: deg % 360, isModified: true });
       }
     };
 
     const handlePointerUp = () => {
+      if (dragState && selectedImage) {
+        onCommit?.(selectedImage.id);
+      }
       setDragState(null);
     };
 
@@ -98,10 +113,18 @@ export function ImageOverlay({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [dragState, selectedImage, pageWidth, pageHeight, onUpdate]);
+  }, [dragState, selectedImage, pageWidth, pageHeight, zoom, onUpdate, onCommit]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-20">
+    <div
+      className="absolute top-0 left-0 pointer-events-none z-20"
+      style={{
+        width: `${pageWidth}px`,
+        height: `${pageHeight}px`,
+        transform: `scale(${zoom || 1})`,
+        transformOrigin: "0 0"
+      }}
+    >
       {images.map((img) => {
         const isSelected = img.id === selectedId;
         return (
@@ -148,13 +171,16 @@ export function ImageOverlay({
             }}
           >
             <img
-              src={img.dataUrl}
+              src={img.previewUrl || img.dataUrl}
               alt={img.name || "Görsel"}
-              className="w-full h-full object-contain pointer-events-none select-none"
+              className="w-full h-full object-fill pointer-events-none select-none"
               draggable={false}
+              style={{
+                display: (img.isOriginal && !img.isModified && !isSelected) ? "none" : "block"
+              }}
             />
 
-            {/* Resize and Rotation handles when selected */}
+            {/* Resize handles when selected */}
             {isSelected && (
               <>
                 {(["nw", "ne", "se", "sw"] as const).map((corner) => {
@@ -175,6 +201,7 @@ export function ImageOverlay({
                   return (
                     <div
                       key={corner}
+                      data-corner={corner}
                       style={{
                         position: "absolute",
                         width: HANDLE_SIZE,
