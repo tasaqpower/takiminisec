@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { PDFDocument, rgb } = require('@cantoo/pdf-lib');
 const sharp = require('sharp');
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
 console.log('================================================================');
 console.log('  FORMA PDF - REAL CHROME ACCEPTANCE TEST SUITE');
@@ -370,37 +370,51 @@ async function runAcceptance(targetUrl) {
   // Çoklu Görsel Korunumu: Görsel 2'nin yerinde ve sağlam kaldığı kontrol ediliyor!
   // =========================================================================
   console.log('\n>>> [TEST 4] Görsel 1 Sürükleniyor (+120px X, +80px Y)...');
-  const dragResult = await cdp.evaluate(`
+  await cdp.evaluate(`
     (() => {
       const container = document.querySelector(".pdf-surface .pointer-events-none.z-20");
       const img1 = container.children[0];
       const img2 = container.children[1];
-      const orig1Left = parseInt(img1.style.left);
-      const orig1Top = parseInt(img1.style.top);
-      const orig2Left = parseInt(img2.style.left);
-      const orig2Top = parseInt(img2.style.top);
+      window.__orig1Left = parseInt(img1.style.left);
+      window.__orig1Top = parseInt(img1.style.top);
+      window.__orig2Left = parseInt(img2.style.left);
+      window.__orig2Top = parseInt(img2.style.top);
 
       const rect = img1.getBoundingClientRect();
-      const startX = rect.left + rect.width / 2;
-      const startY = rect.top + rect.height / 2;
+      window.__startX = rect.left + rect.width / 2;
+      window.__startY = rect.top + rect.height / 2;
 
       // Pointer down on img1
-      img1.dispatchEvent(new PointerEvent("pointerdown", { clientX: startX, clientY: startY, bubbles: true, cancelable: true }));
+      img1.dispatchEvent(new PointerEvent("pointerdown", { clientX: window.__startX, clientY: window.__startY, bubbles: true, cancelable: true }));
+    })()
+  `);
+  await new Promise((r) => setTimeout(r, 150));
 
+  await cdp.evaluate(`
+    (() => {
       // Pointer move
-      window.dispatchEvent(new PointerEvent("pointermove", { clientX: startX + 120, clientY: startY + 80, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new PointerEvent("pointermove", { clientX: window.__startX + 120, clientY: window.__startY + 80, bubbles: true, cancelable: true }));
+    })()
+  `);
+  await new Promise((r) => setTimeout(r, 150));
 
+  const dragResult = await cdp.evaluate(`
+    (() => {
       // Pointer up
-      window.dispatchEvent(new PointerEvent("pointerup", { clientX: startX + 120, clientY: startY + 80, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new PointerEvent("pointerup", { clientX: window.__startX + 120, clientY: window.__startY + 80, bubbles: true, cancelable: true }));
+
+      const container = document.querySelector(".pdf-surface .pointer-events-none.z-20");
+      const img1 = container.children[0];
+      const img2 = container.children[1];
 
       return {
         img1NewLeft: parseInt(img1.style.left),
         img1NewTop: parseInt(img1.style.top),
-        img1DeltaX: parseInt(img1.style.left) - orig1Left,
-        img1DeltaY: parseInt(img1.style.top) - orig1Top,
+        img1DeltaX: parseInt(img1.style.left) - window.__orig1Left,
+        img1DeltaY: parseInt(img1.style.top) - window.__orig1Top,
         img2Left: parseInt(img2.style.left),
         img2Top: parseInt(img2.style.top),
-        img2Unchanged: parseInt(img2.style.left) === orig2Left && parseInt(img2.style.top) === orig2Top
+        img2Unchanged: parseInt(img2.style.left) === window.__orig2Left && parseInt(img2.style.top) === window.__orig2Top
       };
     })()
   `);
@@ -430,37 +444,47 @@ async function runAcceptance(targetUrl) {
   // Open Export Modal and click download
   await cdp.evaluate(`
     (() => {
-      // Find export button on top toolbar
-      const btns = Array.from(document.querySelectorAll("button"));
-      const exportBtn = btns.find(b => b.textContent && b.textContent.includes("Dışa aktar"));
+      const exportBtn = Array.from(document.querySelectorAll("button")).find(b => b.textContent && b.textContent.includes("Dışa aktar"));
       if (exportBtn) exportBtn.click();
     })()
   `);
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 800));
 
   // In the export modal, click the confirmation download button
   await cdp.evaluate(`
     (() => {
-      const modalBtns = Array.from(document.querySelectorAll(".dialog-body button, .modal button, [role='dialog'] button"));
-      const dlBtn = modalBtns.find(b => b.textContent && (b.textContent.includes("İndir") || b.textContent.includes("Dışa aktar")));
+      const dlBtn = document.querySelector(".export-dialog button.primary") ||
+                    Array.from(document.querySelectorAll("[role='dialog'] button, .forma-dialog button, button"))
+                      .find(b => b.textContent && (b.textContent.includes("indir") || b.textContent.includes("İndir")));
       if (dlBtn) dlBtn.click();
     })()
   `);
 
-  // Wait for export blob
+  // Wait for export bytes / blob
   let exportedBase64 = null;
   for (let i = 0; i < 40; i++) {
     exportedBase64 = await cdp.evaluate(`
-      new Promise((resolve) => {
-        if (!window.__latestPdfBlob) return resolve(null);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const res = reader.result;
-          resolve(res ? res.split(",")[1] : null);
-        };
-        reader.readAsDataURL(window.__latestPdfBlob);
-      })
+      (() => {
+        if (window.__lastExportedPdf && window.__lastExportedPdf.length > 0) {
+          const binary = Array.from(window.__lastExportedPdf, b => String.fromCharCode(b)).join("");
+          return btoa(binary);
+        }
+        return null;
+      })()
     `);
+    if (!exportedBase64) {
+      exportedBase64 = await cdp.evaluate(`
+        new Promise((resolve) => {
+          if (!window.__latestPdfBlob) return resolve(null);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const res = reader.result;
+            resolve(res ? res.split(",")[1] : null);
+          };
+          reader.readAsDataURL(window.__latestPdfBlob);
+        })
+      `);
+    }
     if (exportedBase64) break;
     await new Promise((r) => setTimeout(r, 250));
   }
@@ -515,11 +539,19 @@ async function runAcceptance(targetUrl) {
   assert.equal(imagePaintCount, 2, 'Sayfada tam olarak 2 görsel nesnesi olmalıdır (Görsel 1 yeni yerinde, Görsel 2 eski yerinde)');
   console.log('    [PASS] Görsel 1 eski yerinden silindi, yeni yerine boyandı; Görsel 2 ise aynen korundu!');
 
-  // 3. Embedded font inspection via raw PDF dictionary scan
-  const exportedPdfDoc = await PDFDocument.load(exportedPdfBytes);
-  const rawPdfString = Buffer.from(exportedPdfBytes).toString('latin1');
-  const hasLiberationBold = rawPdfString.includes('LiberationSans-Bold') || rawPdfString.includes('Bold');
-  const hasLiberationBoldItalic = rawPdfString.includes('LiberationSans-BoldItalic') || rawPdfString.includes('BoldItalic');
+  // 3. Embedded font inspection via PDF.js page.commonObjs
+  const detectedFontNames = [];
+  for (const fontId of Object.keys(textContent.styles)) {
+    await new Promise((resolve) => {
+      pdfjsPage.commonObjs.get(fontId, (fontObj) => {
+        if (fontObj?.name) detectedFontNames.push(fontObj.name);
+        resolve();
+      });
+    });
+  }
+  console.log('    PDF.js Tarafından Çözümlenen Gömülü Yazı Tipleri:', detectedFontNames);
+  const hasLiberationBold = detectedFontNames.some((f) => /LiberationSans.*Bold/i.test(f));
+  const hasLiberationBoldItalic = detectedFontNames.some((f) => /LiberationSans.*BoldItalic/i.test(f));
   assert.ok(hasLiberationBold, 'LiberationSans-Bold yazı tipi PDF içerisine gömülmüştür');
   assert.ok(hasLiberationBoldItalic, 'LiberationSans-BoldItalic yazı tipi PDF içerisine gömülmüştür');
   console.log('    [PASS] Bold ve BoldItalic yazı tipleri (LiberationSans) PDF stream içerisine tam gömüldü.');
