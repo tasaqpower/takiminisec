@@ -1,80 +1,2470 @@
 "use client";
-import { useEffect,useRef,useState } from "react";
-import { ArrowLeft,ArrowDown,ArrowUp,Bold,Check,ChevronLeft,ChevronRight,Download,FilePlus2,FileText,Highlighter,Italic, List, LoaderCircle, MousePointer2, PenLine, Plus, Redo2, RotateCw, Scissors, Trash2, Type, Underline,Undo2, X,ZoomIn,ZoomOut } from "lucide-react";
-import { Dialog,DialogContent,DialogTitle,DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction } from "@/components/ui/alert-dialog";
-import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
-import { Tabs,TabsList,TabsTrigger,TabsContent } from "@/components/ui/tabs";
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowDown,
+  ArrowUp,
+  Bold,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FilePlus2,
+  FileText,
+  Highlighter,
+  Italic,
+  List,
+  LoaderCircle,
+  MousePointer2,
+  PenLine,
+  Plus,
+  Redo2,
+  RotateCw,
+  Scissors,
+  Trash2,
+  Type,
+  Underline,
+  Undo2,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Archive,
+  Search,
+  ScanText,
+  Layers,
+  ShieldCheck,
+  FormInput
+} from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { download,exportPdf,extractPdfText,imagePdf,importWord,loadPdf,mergePdf,safeHtml,stem,wordDocx,wordPdf,type Mark,type PageItem } from "@/lib/documents";
+import {
+  download,
+  exportPdf,
+  extractPdfText,
+  imagePdf,
+  importWord,
+  loadPdf,
+  mergePdf,
+  safeHtml,
+  stem,
+  wordDocx,
+  wordPdf,
+  type Mark,
+  type PageItem
+} from "@/lib/documents";
+import { editablePageText, removePdfText, type EditableText, type TextRemoval } from "@/lib/pdf-text";
+import { PDF_FONTS, pdfFont, type PdfFont } from "@/lib/pdf-fonts";
+import { useAutosave } from "@/features/autosave/useAutosave";
+import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
+import type { FormaDraft } from "@/features/autosave/db";
+import { OcrModal } from "@/features/ocr/OcrModal";
+import { CompressDialog } from "@/features/compression/CompressDialog";
+import { ImageOverlay } from "@/features/image-editor/ImageOverlay";
+import { ImageToolbar } from "@/features/image-editor/ImageToolbar";
+import { detectImagesOnPage } from "@/features/image-editor/imageDetector";
+import type { PdfImageItem } from "@/features/image-editor/imageTypes";
+import { FindReplaceBar } from "@/features/find-replace/FindReplaceBar";
+import { PageOrganizerModal } from "@/features/page-organizer/PageOrganizerModal";
+import { FormDesignerOverlay } from "@/features/forms/FormDesignerOverlay";
+import { FormFieldsLayer } from "@/features/forms/FormFieldsLayer";
+import { embedFormFieldsInPdf, extractFormFieldsFromPdf } from "@/features/forms/formBuilder";
+import type { FormFieldItem } from "@/features/forms/formTypes";
+import { SecurityDialog } from "@/features/security/SecurityDialog";
 
-type Snapshot={pages:PageItem[];marks:Mark[]};
-type Tool="select"|"text"|"draw"|"highlight"|"signature";
-function Choice({value,onChange,items,label}:{value:string;onChange:(v:string)=>void;items:{value:string;label:string}[];label:string}){return <Select value={value} onValueChange={onChange}><SelectTrigger aria-label={label} className="editor-select"><SelectValue/></SelectTrigger><SelectContent>{items.map(i=><SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectContent></Select>}
-function IconButton({label,children,...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{label:string}){return <button {...props} className={`icon-button ${props.className||""}`} aria-label={label} title={label}>{children}</button>}
-export default function Workspace({files,intent,onClose,onDirty}:{files:File[];intent:string;onClose:()=>void;onOpen:(s:string)=>void;onDirty?:(dirty:boolean)=>void}){
- const [kind,setKind]=useState<"pdf"|"word">("pdf"),[name,setName]=useState(stem(files[0].name)),[busy,setBusy]=useState("Belgen açılıyor…"),[error,setError]=useState(""),[dirty,setDirty]=useState(false),[exit,setExit]=useState(false);
- const [bytes,setBytes]=useState<Uint8Array|null>(null),[pdf,setPdf]=useState<any>(null),[state,setState]=useState<Snapshot>({pages:[],marks:[]}),[history,setHistory]=useState<Snapshot[]>([]),[future,setFuture]=useState<Snapshot[]>([]);
- const [active,setActive]=useState(0),[tool,setTool]=useState<Tool>("select"),[selected,setSelected]=useState<string|null>(null),[zoom,setZoom]=useState(1),[color,setColor]=useState("#30294d"),[text,setText]=useState("Yeni metin"),[size,setSize]=useState(16),[sig,setSig]=useState<string|null>(null),[signOpen,setSignOpen]=useState(false),[exportOpen,setExportOpen]=useState(intent==="convert"),[format,setFormat]=useState("pdf"),[range,setRange]=useState(""),[rangeError,setRangeError]=useState("");
- const [dimensions,setDimensions]=useState({width:595,height:842,baseWidth:595,baseHeight:842}),[rendering,setRendering]=useState(false),[count,setCount]=useState(0),[draft,setDraft]=useState<Mark|null>(null);
- const canvas=useRef<HTMLCanvasElement>(null),surface=useRef<HTMLDivElement>(null),editor=useRef<HTMLDivElement>(null),mergeInput=useRef<HTMLInputElement>(null),htmlRef=useRef("<p><br></p>"),selection=useRef<Range|null>(null),gesture=useRef<any>(null),renderTask=useRef<any>(null);
- const current=state.pages[active],currentMark=state.marks.find(m=>m.id===selected);
- const hydrated=useRef(false),pdfRef=useRef<any>(null),alive=useRef(true);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[]);
- useEffect(()=>{onDirty?.(dirty);return()=>onDirty?.(false)},[dirty,onDirty]);
- useEffect(()=>{pdfRef.current=pdf},[pdf]);
- useEffect(()=>()=>{void pdfRef.current?.loadingTask.destroy().catch(()=>{})},[]);
- useEffect(()=>{const ctx=(document as any).modelContext;if(!ctx?.registerTool)return;const lifecycle=new AbortController();const register=(spec:any)=>{try{Promise.resolve(ctx.registerTool(spec,{signal:lifecycle.signal})).catch(()=>{})}catch{}};register({name:"read_document_status",description:"Read the open document type, page count, current page, and unsaved-change status. Does not expose document contents.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({type:kind,pages:state.pages.length,currentPage:active+1,annotations:state.marks.length,unsaved:dirty,busy:!!busy})});register({name:"add_pdf_text",description:"Add a visible text annotation to the currently selected PDF page. Does not download the file.",inputSchema:{type:"object",properties:{text:{type:"string",minLength:1,maxLength:300},x:{type:"number",minimum:0},y:{type:"number",minimum:0}},required:["text","x","y"],additionalProperties:false},annotations:{readOnlyHint:false},execute:async(input:any)=>{if(kind!=="pdf"||!current||busy)throw Error("No PDF is ready.");if(typeof input?.text!=="string"||!input.text.trim()||input.text.length>300||!Number.isFinite(input.x)||!Number.isFinite(input.y)||input.x<0||input.y<0||input.x>dimensions.baseWidth||input.y>dimensions.baseHeight)throw Error("Invalid text or page position.");const mark={...newMark("text",input.x,input.y),text:input.text};addMark(mark);await new Promise(requestAnimationFrame);return{added:true,page:active+1,id:mark.id}}});return()=>lifecycle.abort()},[kind,state,active,dirty,busy,dimensions]);
- function change(next:Snapshot){setHistory(h=>[...h.slice(-39),state]);setFuture([]);setState(next);setDirty(true)}
- function undo(){if(!history.length)return;setFuture(f=>[state,...f]);const next=history[history.length-1];setState(next);setHistory(h=>h.slice(0,-1));setActive(a=>Math.min(a,next.pages.length-1));setSelected(null);setDirty(true)}
- function redo(){if(!future.length)return;setHistory(h=>[...h,state]);setState(future[0]);setActive(a=>Math.min(a,future[0].pages.length-1));setFuture(f=>f.slice(1));setSelected(null);setDirty(true)}
- async function installPdf(data:Uint8Array){const next=await loadPdf(data);if(!alive.current){await next.loadingTask.destroy();return}setPdf((old:any)=>{void old?.loadingTask.destroy().catch(()=>{});return next});setBytes(data);setState({pages:Array.from({length:next.numPages},(_,index)=>({index,rotation:0})),marks:[]});setHistory([]);setFuture([]);setActive(0);setSelected(null);setKind("pdf")}
- useEffect(()=>{let stopped=false;async function start(){try{const first=files[0];if(/\.(docx|txt)$/i.test(first.name)){const html=await importWord(first);if(stopped)return;htmlRef.current=html;setKind("word");setCount(html.replace(/<[^>]+>/g," ").trim().split(/\s+/).filter(Boolean).length);setFormat(intent==="convert"?"pdf":"docx")}else{const data=/\.(png|jpe?g)$/i.test(first.name)?await imagePdf(files):files.length>1?await mergePdf(files):new Uint8Array(await first.arrayBuffer());if(stopped)return;await installPdf(data);if(intent==="sign")setSignOpen(true)}}catch(e){if(!stopped)setError(/encrypt|password/i.test(String(e))?"Bu PDF şifreli. Önce parolasını kaldırarak yeniden aç.":"Bu dosya açılamadı. Dosyanın geçerli ve bozulmamış bir PDF veya DOCX olduğundan emin ol.")}finally{if(!stopped)setBusy("")}}void start();return()=>{stopped=true}},[files,intent]);
- useEffect(()=>{if(kind==="word"&&!busy&&editor.current&&!hydrated.current){editor.current.innerHTML=htmlRef.current;hydrated.current=true}},[kind,busy]);
- useEffect(()=>{const handler=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=""}};window.addEventListener("beforeunload",handler);return()=>window.removeEventListener("beforeunload",handler)},[dirty]);
- useEffect(()=>{return()=>{renderTask.current?.cancel()}},[]);
- useEffect(()=>{if(!pdf||!current||!canvas.current||kind!=="pdf")return;let cancelled=false;renderTask.current?.cancel();setRendering(true);void(async()=>{try{const page=await pdf.getPage(current.index+1);if(cancelled)return;const base=page.getViewport({scale:1});const view=page.getViewport({scale:1,rotation:(page.rotate+current.rotation)%360});setDimensions({width:view.width,height:view.height,baseWidth:base.width,baseHeight:base.height});const c=canvas.current;if(!c||cancelled)return;const viewport=page.getViewport({scale:Math.min(window.devicePixelRatio||1,2)*zoom,rotation:(page.rotate+current.rotation)%360});c.width=viewport.width;c.height=viewport.height;const task=page.render({canvasContext:c.getContext("2d")!,canvas:c,viewport});renderTask.current=task;await task.promise;if(!cancelled)setRendering(false)}catch(e){if(!cancelled&&!/RenderingCancelled/.test(String(e))){toast.error("Sayfa görüntülenemedi.");setRendering(false)}}})();return()=>{cancelled=true;renderTask.current?.cancel()}},[pdf,current?.index,current?.rotation,zoom,kind,busy]);
- function addMark(mark:Mark){change({...state,marks:[...state.marks,mark]});setSelected(mark.id)}
- function newMark(kind:Mark["kind"],x:number,y:number):Mark{return{id:crypto.randomUUID(),page:current.index,kind,x,y,w:kind==="signature"?180:150,h:kind==="signature"?67.5:24,color:kind==="highlight"?"#ffdb3d":color,size:kind==="draw"?2:size,text,image:sig||undefined,points:[]}}
- function basePoint(e:React.PointerEvent){const box=surface.current!.getBoundingClientRect();const x=(e.clientX-box.left)/box.width*dimensions.width,y=(e.clientY-box.top)/box.height*dimensions.height;const r=current.rotation;let p=r===90?{x:y,y:dimensions.baseHeight-x}:r===180?{x:dimensions.baseWidth-x,y:dimensions.baseHeight-y}:r===270?{x:dimensions.baseWidth-y,y:x}:{x,y};return{x:Math.max(0,Math.min(dimensions.baseWidth,p.x)),y:Math.max(0,Math.min(dimensions.baseHeight,p.y))}}
- function pointerDown(e:React.PointerEvent){if(busy||rendering||!current)return;if(tool==="select")return;e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);const p=basePoint(e);if(tool==="text"){addMark(newMark("text",p.x,p.y));setTool("select")}else if(tool==="signature"){if(!sig){setSignOpen(true);return}addMark(newMark("signature",p.x,p.y));setTool("select")}else{const m=newMark(tool,p.x,p.y);m.points=[p];m.w=0;m.h=0;gesture.current={mark:m,start:p};setDraft(m)}}
- function pointerMove(e:React.PointerEvent){const g=gesture.current;if(!g)return;const p=basePoint(e);if(g.move){const dx=p.x-g.start.x,dy=p.y-g.start.y;setDraft({...g.mark,x:Math.max(0,g.mark.x+dx),y:Math.max(0,g.mark.y+dy),points:g.mark.points?.map((pt:any)=>({x:pt.x+dx,y:pt.y+dy}))});return}if(g.mark.kind==="draw"){g.mark={...g.mark,points:[...g.mark.points,p]}}else g.mark={...g.mark,x:Math.min(p.x,g.start.x),y:Math.min(p.y,g.start.y),w:Math.abs(p.x-g.start.x),h:Math.abs(p.y-g.start.y)};setDraft(g.mark)}
- function pointerUp(){const g=gesture.current;if(!g)return;if(draft){if(g.move)change({...state,marks:state.marks.map(m=>m.id===draft.id?draft:m)});else if(draft.kind==="draw"?(draft.points?.length||0)>1:draft.w>2&&draft.h>2)addMark(draft)}setDraft(null);gesture.current=null}
- function updateMark(values:Partial<Mark>){if(currentMark)change({...state,marks:state.marks.map(m=>m.id===selected?{...m,...values,points:m.kind==="draw"?m.points?.map(p=>({x:p.x+(values.x===undefined?0:values.x-m.x),y:p.y+(values.y===undefined?0:values.y-m.y)})):m.points}:m)})}
- function rotate(){change({...state,pages:state.pages.map((p,i)=>i===active?{...p,rotation:(p.rotation+90)%360}:p)})}
- function removePage(){if(state.pages.length===1){toast.error("Belgede en az bir sayfa kalmalı.");return}change({...state,pages:state.pages.filter((_,i)=>i!==active)});setActive(Math.max(0,active-1));setSelected(null)}
- function movePage(direction:number){const to=active+direction;if(to<0||to>=state.pages.length)return;const pages=[...state.pages];[pages[active],pages[to]]=[pages[to],pages[active]];change({...state,pages});setActive(to)}
- async function append(files:File[]){if(!bytes||!files.length)return;if(files.some(f=>! /\.pdf$/i.test(f.name)||f.size>50*1024*1024)){toast.error("En fazla 50 MB olan PDF dosyaları seç.");return}setBusy("PDF’ler birleştiriliyor…");try{const data=await mergePdf([new File([bytes as BlobPart],"mevcut.pdf"),...files]);const next=await loadPdf(data);const added=Array.from({length:next.numPages-pdf.numPages},(_,i)=>({index:pdf.numPages+i,rotation:0}));renderTask.current?.cancel();setPdf(next);setBytes(data);change({...state,pages:[...state.pages,...added]});void pdf.loadingTask.destroy().catch(()=>{});toast.success("Sayfalar belgenin sonuna eklendi.")}catch{toast.error("PDF birleştirilemedi. Dosya şifreli veya bozuk olabilir.")}finally{setBusy("")}}
- function selectedPages(){if(!range.trim())return state.pages;const indices:number[]=[];for(const part of range.split(",")){const match=part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!match)throw Error("Sayfaları 1, 3-5 biçiminde yaz.");const from=Number(match[1]),to=Number(match[2]||match[1]);if(from<1||to>state.pages.length||from>to)throw Error(`1 ile ${state.pages.length} arasında sayfalar seç.`);for(let n=from;n<=to;n++)if(!indices.includes(n-1))indices.push(n-1)}return indices.map(i=>state.pages[i])}
- async function save(){setRangeError("");setBusy("Dosyan hazırlanıyor…");try{if(kind==="word"){const html=editor.current?.innerHTML||htmlRef.current;const result=format==="pdf"?await wordPdf(html):format==="docx"?await wordDocx(html):new Blob([editor.current?.innerText||""],{type:"text/plain;charset=utf-8"});download(result,`${name||"belge"}.${format}`)}else if(bytes){let pages:PageItem[];try{pages=selectedPages()}catch(e){setRangeError((e as Error).message);return}if(format==="pdf")download(await exportPdf(bytes,pages,state.marks),`${name||"belge"}.pdf`);else{const edited=await exportPdf(bytes,pages,state.marks);const text=await extractPdfText(edited);if(!text.trim())throw Error("Bu PDF’de seçilebilir metin bulunamadı. Taranmış belgeler için OCR gerekir.");if(format==="txt")download(new Blob([text],{type:"text/plain;charset=utf-8"}),`${name||"belge"}.txt`);else{const div=document.createElement("div");div.textContent=text;download(await wordDocx(div.innerHTML.split("\n").map(s=>`<p>${s}</p>`).join("")),`${name||"belge"}.docx`)}}}setExportOpen(false);if((kind==="word"&&format==="docx")||(kind==="pdf"&&format==="pdf"&&!range.trim()))setDirty(false);toast.success("Dosyan hazır, indirme başlatıldı.")}catch(e){toast.error((e as Error).message||"Dosya oluşturulamadı.")}finally{setBusy("")}}
- function rememberSelection(){const s=window.getSelection();if(s?.rangeCount&&editor.current?.contains(s.anchorNode))selection.current=s.getRangeAt(0).cloneRange()}
- function command(cmd:string,value?:string){editor.current?.focus();if(selection.current){const s=window.getSelection();s?.removeAllRanges();s?.addRange(selection.current)}document.execCommand(cmd,false,value);if(editor.current){htmlRef.current=editor.current.innerHTML;setCount(editor.current.innerText.trim().split(/\s+/).filter(Boolean).length)}setDirty(true);rememberSelection()}
- const transform=current?.rotation===90?`translate(${dimensions.baseHeight} 0) rotate(90)`:current?.rotation===180?`translate(${dimensions.baseWidth} ${dimensions.baseHeight}) rotate(180)`:current?.rotation===270?`translate(0 ${dimensions.baseWidth}) rotate(270)`:undefined;
- const visibleMarks=[...state.marks.filter(m=>m.page===current?.index&&m.id!==draft?.id),...(draft?[draft]:[])];
- function drawMark(m:Mark){return <g key={m.id} className={tool==="select"?"selectable-mark":""} onPointerDown={e=>{if(tool!=="select")return;e.stopPropagation();e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);setSelected(m.id);gesture.current={move:true,mark:m,start:basePoint(e)};setDraft(m)}}>{m.kind==="text"?<text x={m.x} y={m.y+m.size} fontSize={m.size} fontFamily="Forma Roboto, sans-serif" fill={m.color}>{m.text}</text>:m.kind==="highlight"?<rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity=".3"/>:m.kind==="signature"?<image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h}/>:<polyline points={m.points?.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={m.color} strokeWidth={m.size} strokeLinecap="round" strokeLinejoin="round"/>}{m.id===selected&&m.kind!=="draw"&&<rect x={m.x-3} y={m.y-3} width={m.kind==="text"?Math.max(25,(m.text?.length||1)*m.size*.56):m.w+6} height={m.kind==="text"?m.size*1.4:m.h+6} fill="none" stroke="#8064d8" strokeWidth="1" strokeDasharray="4 3" pointerEvents="none"/>}</g>}
- if(error)return <div className="editor-error"><FileText size={38}/><h2>Dosyayı açamadık</h2><p>{error}</p><button className="primary" onClick={onClose}>Araçlara dön</button></div>;
- return <div className="editor-shell">
- <div className="editor-heading"><IconButton label="Araçlara dön" onClick={()=>dirty?setExit(true):onClose()}><ArrowLeft size={19}/></IconButton><span className={`tool-icon ${kind==="pdf"?"violet":"blue"}`}><FileText size={22}/></span><div className="editor-title"><input aria-label="Belge adı" value={name} onChange={e=>setName(e.target.value)}/><span>{kind==="pdf"?`${state.pages.length} sayfa · PDF`:`${count} kelime · Word`}<i/> {dirty?"İndirilmemiş değişiklikler":"Cihazında açık"}</span></div><button className="primary" disabled={!!busy} onClick={()=>setExportOpen(true)}><Download size={17}/><span>Dışa aktar</span></button></div>
- {kind==="pdf"?<><fieldset disabled={!!busy} className="editor-toolbar"><div className="tool-buttons">{[{id:"select",label:"Seç",icon:MousePointer2},{id:"text",label:"Metin",icon:Type},{id:"highlight",label:"Vurgula",icon:Highlighter},{id:"draw",label:"Çiz",icon:PenLine}].map(t=><button key={t.id} className={tool===t.id?"active":""} aria-pressed={tool===t.id} onClick={()=>{setTool(t.id as Tool);setSelected(null)}}><t.icon size={17}/>{t.label}</button>)}<button className={tool==="signature"?"active":""} onClick={()=>setSignOpen(true)}><PenLine size={17}/> İmza</button></div><div className="toolbar-divider"/><IconButton label="Geri al" onClick={undo} disabled={!history.length}><Undo2 size={17}/></IconButton><IconButton label="Yinele" onClick={redo} disabled={!future.length}><Redo2 size={17}/></IconButton><span className="toolbar-spacer"/><IconButton label="Uzaklaştır" onClick={()=>setZoom(z=>Math.max(.4,z-.15))}><ZoomOut size={17}/></IconButton><span className="zoom-label">%{Math.round(zoom*100)}</span><IconButton label="Yakınlaştır" onClick={()=>setZoom(z=>Math.min(2,z+.15))}><ZoomIn size={17}/></IconButton></fieldset>
- <div className="pdf-workarea"><aside className="page-panel"><div className="panel-heading"><strong>Sayfalar</strong><span>{state.pages.length}</span></div><div className="page-list">{state.pages.map((p,i)=><button key={p.index} className={`page-thumb ${active===i?"active":""}`} aria-label={`Sayfa ${i+1}`} aria-current={active===i?"page":undefined} onClick={()=>{setActive(i);setSelected(null)}}><FileText size={30}/><span>{i+1}</span>{p.rotation!==0&&<small>{p.rotation}°</small>}</button>)}</div><button className="add-pages" disabled={!!busy} onClick={()=>mergeInput.current?.click()}><Plus size={16}/> PDF ekle</button><p>Eklenen sayfalar sona gelir.</p></aside>
- <div className="page-viewer"><div className="page-hint">{tool==="text"?"Metin eklemek istediğin yere tıkla.":tool==="highlight"?"Vurgulamak istediğin alanı sürükleyerek seç.":tool==="draw"?"Sayfanın üzerinde çizim yap.":tool==="signature"?"İmzayı yerleştirmek istediğin yere tıkla.":"Eklediğin öğeyi seç; sürükle veya konumunu sağdan ayarla."}</div><div className="page-scroll"><div className={`pdf-surface tool-${tool}`} ref={surface} style={{width:dimensions.width*zoom,height:dimensions.height*zoom}} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{gesture.current=null;setDraft(null)}}><canvas ref={canvas} aria-label={`PDF sayfa ${active+1}`} style={{width:"100%",height:"100%"}}/><svg className="annotation-layer" viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}><g transform={transform}>{visibleMarks.map(drawMark)}</g></svg>{rendering&&<div className="rendering-label"><LoaderCircle className="spin" size={15}/> Sayfa yükleniyor</div>}</div></div><div className="page-bottom"><IconButton label="Önceki sayfa" disabled={active===0} onClick={()=>setActive(a=>a-1)}><ChevronLeft size={17}/></IconButton><span>{active+1} / {state.pages.length}</span><IconButton label="Sonraki sayfa" disabled={active>=state.pages.length-1} onClick={()=>setActive(a=>a+1)}><ChevronRight size={17}/></IconButton></div></div>
- <aside className="properties-panel"><strong>{currentMark?"Seçili öğe":"Araç ayarları"}</strong>{(tool==="text"||currentMark?.kind==="text")&&<><label>Metin<input value={currentMark?.text??text} onChange={e=>currentMark?updateMark({text:e.target.value}):setText(e.target.value)}/></label><label>Yazı boyutu<input type="number" min="8" max="96" value={currentMark?.size??size} onChange={e=>{const v=Math.max(8,Math.min(96,Number(e.target.value)||16));currentMark?updateMark({size:v}):setSize(v)}}/></label></>}
- <label>Renk<input type="color" value={currentMark?.color??color} onChange={e=>currentMark?updateMark({color:e.target.value}):setColor(e.target.value)}/></label>
- {currentMark&&<><div className="position-fields"><label>X<input type="number" value={Math.round(currentMark.x)} onChange={e=>updateMark({x:Math.max(0,Math.min(dimensions.baseWidth,Number(e.target.value)))})}/></label><label>Y<input type="number" value={Math.round(currentMark.y)} onChange={e=>updateMark({y:Math.max(0,Math.min(dimensions.baseHeight,Number(e.target.value)))})}/></label></div>{currentMark.kind==="signature"&&<label>Genişlik<input type="number" min="30" max="500" value={currentMark.w} onChange={e=>{const w=Math.max(30,Math.min(500,Number(e.target.value)));updateMark({w,h:w*currentMark.h/currentMark.w})}}/></label>}<button className="delete-mark" onClick={()=>{change({...state,marks:state.marks.filter(m=>m.id!==selected)});setSelected(null)}}><Trash2 size={15}/> Öğeyi sil</button></>}
- {!currentMark&&(tool==="text"||tool==="signature")&&<button className="secondary" onClick={()=>{if(tool==="signature"&&!sig){setSignOpen(true);return}addMark(newMark(tool as "text"|"signature",50,80));setTool("select")}}>Sayfaya ekle</button>}
- <div className="properties-separator"/><strong>Sayfa işlemleri</strong><div className="page-actions"><button onClick={rotate} disabled={!current||!!busy}><RotateCw size={16}/> 90° döndür</button><button onClick={()=>movePage(-1)} disabled={!current||active===0||!!busy}><ArrowUp size={16}/> Öne taşı</button><button onClick={()=>movePage(1)} disabled={!current||active===state.pages.length-1||!!busy}><ArrowDown size={16}/> Arkaya taşı</button><button onClick={()=>{setRange(String(active+1));setFormat("pdf");setExportOpen(true)}} disabled={!current||!!busy}><Scissors size={16}/> Bu sayfayı ayır</button><button onClick={removePage} disabled={state.pages.length<2||!!busy}><Trash2 size={16}/> Sayfayı sil</button></div><div className="editor-note">Metin ve çizimler PDF’nin üzerine eklenir. Mevcut metni değiştirmek için Word’e dönüştürebilirsin.</div></aside></div></>:<><div className="editor-toolbar word-toolbar"><Choice label="Paragraf biçimi" value="p" onChange={v=>command("formatBlock",v)} items={[{value:"p",label:"Normal metin"},{value:"h1",label:"Başlık 1"},{value:"h2",label:"Başlık 2"}]}/><div className="toolbar-divider"/>{[{label:"Kalın",cmd:"bold",icon:Bold},{label:"İtalik",cmd:"italic",icon:Italic},{label:"Altı çizili",cmd:"underline",icon:Underline},{label:"Madde işaretleri",cmd:"insertUnorderedList",icon:List},{label:"Geri al",cmd:"undo",icon:Undo2},{label:"Yinele",cmd:"redo",icon:Redo2}].map(b=><IconButton key={b.cmd} label={b.label} onMouseDown={e=>e.preventDefault()} onClick={()=>command(b.cmd)}><b.icon size={17}/></IconButton>)}</div><div className="word-workarea"><div className="word-info">Temel metin, başlık, liste ve tablolar düzenlenebilir. Karmaşık Word yerleşimleri sadeleşebilir.</div><div ref={editor} className="word-paper" contentEditable={!busy} suppressContentEditableWarning role="textbox" aria-label="Belge metni" aria-multiline="true" spellCheck lang="tr" onMouseUp={rememberSelection} onKeyUp={rememberSelection} onInput={()=>{htmlRef.current=editor.current?.innerHTML||"";setCount((editor.current?.innerText||"").trim().split(/\s+/).filter(Boolean).length);setDirty(true);rememberSelection()}} onPaste={e=>{e.preventDefault();const html=e.clipboardData.getData("text/html");if(html)command("insertHTML",safeHtml(html));else command("insertText",e.clipboardData.getData("text/plain"))}}/></div></>}
- {busy&&<div className="busy-overlay" role="status"><LoaderCircle className="spin" size={30}/><strong>{busy}</strong></div>}
- <input type="file" className="sr-only" tabIndex={-1} ref={mergeInput} accept=".pdf" multiple aria-label="Birleştirilecek PDF dosyaları" onChange={e=>{void append(Array.from(e.target.files||[]));e.target.value=""}}/>
- <SignatureDialog open={signOpen} onOpenChange={setSignOpen} onSave={data=>{setSig(data);setSignOpen(false);setTool("signature");setSelected(null);toast("İmzayı yerleştirmek için sayfaya tıkla.")}}/>
- <Dialog open={exportOpen&&!busy} onOpenChange={setExportOpen}><DialogContent className="forma-dialog export-dialog"><DialogTitle>Belgeni dışa aktar</DialogTitle><DialogDescription>Düzenlediğin dosyanın bir kopyasını cihazına indir.</DialogDescription><label>Dosya adı<input value={name} onChange={e=>setName(e.target.value)}/></label><label>Dosya türü</label><Choice label="Dosya türü" value={format} onChange={setFormat} items={[{value:"pdf",label:"PDF belgesi (.pdf)"},{value:"docx",label:"Word belgesi (.docx)"},{value:"txt",label:"Düz metin (.txt)"}]}/>{kind==="pdf"&&<label>Sayfalar<input placeholder="Tüm sayfalar · Örnek: 1, 3-5" value={range} onChange={e=>{setRange(e.target.value);setRangeError("")}}/><small>Görünen sayfa sırasına göre. Boş bırakırsan tüm sayfalar alınır.</small>{rangeError&&<span role="alert" className="field-error">{rangeError}</span>}</label>}{kind==="pdf"&&format!=="pdf"&&<p className="conversion-note">Bu dönüşüm PDF’deki seçilebilir metni alır. Sayfa tasarımı, resimler ve imzalar Word/TXT dosyasına taşınmaz. Taranmış sayfalarda OCR gerekir.</p>}{kind==="word"&&format!=="txt"&&<p className="conversion-note">Temel biçimlendirme korunur. Özgün Word sayfa düzeni farklı görünebilir.</p>}<button className="primary" onClick={()=>void save()}><Download size={17}/> Dosyayı indir</button></DialogContent></Dialog>
- <AlertDialog open={exit} onOpenChange={setExit}><AlertDialogContent><AlertDialogTitle>İndirmeden çıkılsın mı?</AlertDialogTitle><AlertDialogDescription>Bu belgedeki değişiklikler henüz indirilmedi. Çıkarsan tarayıcıdaki değişiklikler kaybolur.</AlertDialogDescription><AlertDialogFooter><AlertDialogCancel>Düzenlemeye dön</AlertDialogCancel><AlertDialogAction onClick={onClose}>İndirmeden çık</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
- </div>
+type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[] };
+type Tool = "select" | "text" | "draw" | "highlight" | "signature";
+
+const HANDLE_SIZE = 8;
+
+function getTextDimensions(m: Mark) {
+  const lines = (m.text || "").split("\n");
+  const maxLen = Math.max(...lines.map(l => l.length), 1);
+  const charW = m.font === "serif" ? 0.52 : 0.58;
+  const textW = Math.ceil(maxLen * m.size * charW) + 8;
+  const w = Math.max(textW, 25);
+  const lineHeight = m.size * 1.25;
+  const h = Math.max(Math.ceil(lines.length * lineHeight) + 4, m.size * 1.2);
+  return { w, h };
 }
 
-function SignatureDialog({open,onOpenChange,onSave}:{open:boolean;onOpenChange:(v:boolean)=>void;onSave:(data:string)=>void}){
- const [mode,setMode]=useState("draw"),[name,setName]=useState(""),[drawn,setDrawn]=useState(false);const canvas=useRef<HTMLCanvasElement>(null),drawing=useRef(false);
- useEffect(()=>{if(open){setDrawn(false);setName("");setMode("draw")}},[open]);
- function draw(e:React.PointerEvent<HTMLCanvasElement>){const c=e.currentTarget,ctx=c.getContext("2d")!,box=c.getBoundingClientRect();const x=(e.clientX-box.left)/box.width*c.width,y=(e.clientY-box.top)/box.height*c.height;if(e.type==="pointerdown"){drawing.current=true;c.setPointerCapture(e.pointerId);ctx.beginPath();ctx.moveTo(x,y)}else if(drawing.current){ctx.lineWidth=3;ctx.strokeStyle="#282c48";ctx.lineCap="round";ctx.lineJoin="round";ctx.lineTo(x,y);ctx.stroke();setDrawn(true)}}
- function save(){if(mode==="draw"){if(drawn&&canvas.current)onSave(canvas.current.toDataURL("image/png"))}else if(name.trim()){const c=document.createElement("canvas");c.width=640;c.height=240;const ctx=c.getContext("2d")!;ctx.fillStyle="#282c48";ctx.font="italic 64px Georgia, serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(name.trim(),320,120,600);onSave(c.toDataURL("image/png"))}}
- return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="forma-dialog signature-dialog"><DialogTitle>İmzanı oluştur</DialogTitle><DialogDescription>İmzanı çiz veya adını yazarak oluştur. Sonra PDF’de yerine koy.</DialogDescription><Tabs value={mode} onValueChange={setMode}><TabsList><TabsTrigger value="draw">İmza çiz</TabsTrigger><TabsTrigger value="type">Yazarak oluştur</TabsTrigger></TabsList><TabsContent value="draw" forceMount hidden={mode!=="draw"}><canvas ref={canvas} width={640} height={240} className="signature-canvas" aria-label="İmzanı çiz" onPointerDown={draw} onPointerMove={draw} onPointerUp={()=>drawing.current=false} onPointerCancel={()=>drawing.current=false}/><button className="clear-signature" onClick={()=>{canvas.current?.getContext("2d")?.clearRect(0,0,640,240);setDrawn(false)}}><Trash2 size={14}/> Temizle</button></TabsContent><TabsContent value="type"><label>Adın ve soyadın<input autoFocus value={name} onChange={e=>setName(e.target.value)} maxLength={60} placeholder="Ad Soyad"/></label><div className="typed-signature">{name||"İmzan burada"}</div></TabsContent></Tabs><p className="conversion-note">Bu araç belgeye görsel imza ekler; sertifikalı elektronik imza oluşturmaz.</p><button className="primary" disabled={mode==="draw"?!drawn:!name.trim()} onClick={save}><Check size={17}/> İmzayı kullan</button></DialogContent></Dialog>
+function renderResizeHandles(
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  getHandler: (corner: "nw" | "ne" | "se" | "sw") => (e: React.PointerEvent) => void
+) {
+  const corners: { corner: "nw" | "ne" | "se" | "sw"; x: number; y: number }[] = [
+    { corner: "nw", x: bx, y: by },
+    { corner: "ne", x: bx + bw, y: by },
+    { corner: "se", x: bx + bw, y: by + bh },
+    { corner: "sw", x: bx, y: by + bh }
+  ];
+
+  return corners.map(({ corner, x, y }) => (
+    <rect
+      key={corner}
+      className={`resize-handle ${corner}`}
+      x={x - HANDLE_SIZE / 2}
+      y={y - HANDLE_SIZE / 2}
+      width={HANDLE_SIZE}
+      height={HANDLE_SIZE}
+      onPointerDown={getHandler(corner)}
+    />
+  ));
+}
+
+function Choice({
+  value,
+  onChange,
+  items,
+  label
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  items: { value: string; label: string }[];
+  label: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="editor-select">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {items.map(i => (
+          <SelectItem key={i.value} value={i.value}>
+            {i.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function IconButton({
+  label,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <button {...props} className={`icon-button ${props.className || ""}`} aria-label={label} title={label}>
+      {children}
+    </button>
+  );
+}
+
+function TextFields({
+  value,
+  onChange,
+  onBlur
+}: {
+  value: Mark;
+  onChange: (v: Partial<Mark>) => void;
+  onBlur?: () => void;
+}) {
+  return (
+    <>
+      <label>
+        Metin
+        <textarea
+          aria-label="Seçili metin"
+          rows={3}
+          value={value.text || ""}
+          onChange={e => onChange({ text: e.target.value })}
+          onBlur={onBlur}
+        />
+      </label>
+      <label>
+        Yazı tipi
+        <Choice
+          label="Yazı tipi"
+          value={value.font || "roboto"}
+          onChange={v =>
+            onChange({
+              font: v as PdfFont,
+              bold: v === "serif" ? false : value.bold,
+              italic: v === "serif" ? false : value.italic
+            })
+          }
+          items={[...PDF_FONTS]}
+        />
+      </label>
+      <div className="text-format-row">
+        <label>
+          Boyut
+          <input
+            aria-label="Yazı boyutu"
+            type="number"
+            min="4"
+            max="200"
+            value={value.size}
+            onChange={e =>
+              onChange({ size: Math.max(4, Math.min(200, Number(e.target.value) || 16)) })
+            }
+          />
+        </label>
+        <IconButton
+          label="Kalın yazı"
+          aria-pressed={!!value.bold}
+          disabled={value.font === "serif"}
+          onClick={() => onChange({ bold: !value.bold })}
+        >
+          <Bold size={17} />
+        </IconButton>
+        <IconButton
+          label="İtalik yazı"
+          aria-pressed={!!value.italic}
+          disabled={value.font === "serif"}
+          onClick={() => onChange({ italic: !value.italic })}
+        >
+          <Italic size={17} />
+        </IconButton>
+      </div>
+    </>
+  );
+}
+
+export default function Workspace({
+  files,
+  intent,
+  initialDraft,
+  onClose,
+  onOpen,
+  onDirty
+}: {
+  files: File[];
+  intent: string;
+  initialDraft?: FormaDraft;
+  onClose: () => void;
+  onOpen: (s: string) => void;
+  onDirty?: (dirty: boolean) => void;
+}) {
+  const [kind, setKind] = useState<"pdf" | "word">("pdf");
+  const [name, setName] = useState(stem(files[0].name));
+  const [busy, setBusy] = useState("Belgen açılıyor…");
+  const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [exit, setExit] = useState(false);
+
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showOcr, setShowOcr] = useState(intent === "ocr");
+  const [showCompress, setShowCompress] = useState(intent === "compress");
+  const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
+  const [showSecurity, setShowSecurity] = useState(false);
+  const [formMode, setFormMode] = useState<"none" | "design" | "fill">("none");
+  const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
+  const [pageImages, setPageImages] = useState<PdfImageItem[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+
+  const [bytes, setBytes] = useState<Uint8Array | null>(null);
+  const [pdf, setPdf] = useState<any>(null);
+  const [state, setState] = useState<Snapshot>({ pages: [], marks: [], removals: [] });
+  const [history, setHistory] = useState<Snapshot[]>([]);
+  const [future, setFuture] = useState<Snapshot[]>([]);
+
+  const [active, setActive] = useState(0);
+  const [tool, setTool] = useState<Tool>("select");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedOriginal, setSelectedOriginal] = useState<EditableText | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [zoom, setZoom] = useState(1);
+  const [color, setColor] = useState("#30294d");
+  const [text, setText] = useState("Yeni metin");
+  const [size, setSize] = useState(16);
+  const [sig, setSig] = useState<string | null>(null);
+  const [signOpen, setSignOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(intent === "convert");
+  const [format, setFormat] = useState("pdf");
+  const [range, setRange] = useState("");
+  const [rangeError, setRangeError] = useState("");
+  const [flattenForms, setFlattenForms] = useState(false);
+
+  const [dimensions, setDimensions] = useState({ width: 595, height: 842, baseWidth: 595, baseHeight: 842 });
+  const [rendering, setRendering] = useState(false);
+  const [count, setCount] = useState(0);
+  const [draft, setDraft] = useState<Mark | null>(null);
+  const draftRef = useRef<Mark | null>(null);
+  function applyDraft(m: Mark | null) {
+    draftRef.current = m;
+    setDraft(m);
+  }
+
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
+  const editor = useRef<HTMLDivElement>(null);
+  const mergeInput = useRef<HTMLInputElement>(null);
+  const htmlRef = useRef("<p><br></p>");
+  const selection = useRef<Range | null>(null);
+  const gesture = useRef<any>(null);
+  const renderTask = useRef<any>(null);
+  const sessionInitialRef = useRef<Snapshot | null>(null);
+  const commitTimerRef = useRef<any>(null);
+  const inlineTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const savingRef = useRef(false);
+
+  const [textItems, setTextItems] = useState<EditableText[]>([]);
+  const [allOriginalTexts, setAllOriginalTexts] = useState<EditableText[]>([]);
+  const [textLoading, setTextLoading] = useState(false);
+  const [font, setFont] = useState<PdfFont>("roboto");
+  const [bold, setBold] = useState(false);
+  const [italic, setItalic] = useState(false);
+  const [viewPdf, setViewPdf] = useState<any>(null);
+  const [previewError, setPreviewError] = useState("");
+  const cleanCache = useRef(new WeakMap<TextRemoval[], { source: Uint8Array; result: Uint8Array }>());
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+    if (typeof window !== "undefined") {
+      (window as any).__formaEditorState = {
+        state,
+        active,
+        dirty,
+        zoom,
+        formFields,
+        pageImages,
+        bytes
+      };
+    }
+  }, [state, active, dirty, zoom, formFields, pageImages, bytes]);
+
+  const { status: autosaveStatus, lastSaved, clearCurrentDraft } = useAutosave({
+    file: files[0] || null,
+    type: kind,
+    marks: state.marks,
+    removals: state.removals,
+    wordContent: kind === "word" ? (editor.current?.innerHTML || htmlRef.current) : undefined,
+    pageRotations: Object.fromEntries(state.pages.map((p, i) => [i, p.rotation])),
+    currentPage: active + 1,
+    formFields,
+    pageImages,
+    pageOrder: state.pages.map((p) => p.index),
+    zoom,
+    isDirty: dirty,
+    intent,
+    enabled: dirty
+  });
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowFindReplace(true);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
+  // Detect and maintain images across pages
+  useEffect(() => {
+    if (!pdf || kind !== "pdf") return;
+    let mounted = true;
+    pdf.getPage(active + 1).then((p: any) => {
+      return detectImagesOnPage(p, active);
+    }).then((imgs: PdfImageItem[]) => {
+      if (mounted) {
+        setPageImages((prev) => {
+          const existingThisPage = prev.filter((img) => img.page === active);
+          if (existingThisPage.length > 0) return prev;
+          const others = prev.filter((img) => img.page !== active);
+          return [...others, ...imgs];
+        });
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, [pdf, active, kind]);
+
+  // Extract all pages' original text for document-wide find & replace
+  useEffect(() => {
+    if (!pdf || kind !== "pdf") {
+      setAllOriginalTexts([]);
+      return;
+    }
+    let stopped = false;
+    (async () => {
+      const all: EditableText[] = [];
+      for (let i = 0; i < pdf.numPages; i++) {
+        if (stopped) return;
+        try {
+          const page = await pdf.getPage(i + 1);
+          const items = await editablePageText(page);
+          all.push(...items);
+        } catch {
+          // ignore page failure
+        }
+      }
+      if (!stopped) setAllOriginalTexts(all);
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [pdf, kind]);
+
+  const current = state.pages[active];
+  const currentMark = state.marks.find(m => m.id === selected);
+  const activeMark = draft && draft.id === selected ? draft : currentMark;
+
+  const hydrated = useRef(false);
+  const pdfRef = useRef<any>(null);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onDirty?.(dirty);
+    return () => onDirty?.(false);
+  }, [dirty, onDirty]);
+
+  useEffect(() => {
+    pdfRef.current = pdf;
+  }, [pdf]);
+
+  useEffect(() => {
+    return () => {
+      void pdfRef.current?.loadingTask.destroy().catch(() => {});
+    };
+  }, []);
+
+  useEffect(() => {
+    if (editingId && inlineTextareaRef.current) {
+      const el = inlineTextareaRef.current;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
+  }, [editingId]);
+
+  useEffect(() => {
+    const ctx = (document as any).modelContext;
+    if (!ctx?.registerTool) return;
+    const lifecycle = new AbortController();
+    const register = (spec: any) => {
+      try {
+        Promise.resolve(ctx.registerTool(spec, { signal: lifecycle.signal })).catch(() => {});
+      } catch {}
+    };
+    register({
+      name: "read_document_status",
+      description: "Read the open document type, page count, current page, and unsaved-change status. Does not expose document contents.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true },
+      execute: () => ({
+        type: kind,
+        pages: state.pages.length,
+        currentPage: active + 1,
+        annotations: state.marks.length,
+        unsaved: dirty,
+        busy: !!busy
+      })
+    });
+    register({
+      name: "add_pdf_text",
+      description: "Add a visible text annotation to the currently selected PDF page. Does not download the file.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", minLength: 1, maxLength: 300 },
+          x: { type: "number", minimum: 0 },
+          y: { type: "number", minimum: 0 }
+        },
+        required: ["text", "x", "y"],
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: false },
+      execute: async (input: any) => {
+        if (kind !== "pdf" || !current || busy) throw Error("No PDF is ready.");
+        if (
+          typeof input?.text !== "string" ||
+          !input.text.trim() ||
+          input.text.length > 300 ||
+          !Number.isFinite(input.x) ||
+          !Number.isFinite(input.y) ||
+          input.x < 0 ||
+          input.y < 0 ||
+          input.x > dimensions.baseWidth ||
+          input.y > dimensions.baseHeight
+        )
+          throw Error("Invalid text or page position.");
+        const mark = { ...newMark("text", input.x, input.y), text: input.text };
+        addMark(mark);
+        await new Promise(requestAnimationFrame);
+        return { added: true, page: active + 1, id: mark.id };
+      }
+    });
+    return () => lifecycle.abort();
+  }, [kind, state, active, dirty, busy, dimensions]);
+
+  function change(next: Snapshot) {
+    setHistory(h => [...h.slice(-39), state]);
+    setFuture([]);
+    setState(next);
+    setDirty(true);
+  }
+
+  function commitSession(initialSnapshot: Snapshot, nextState: Snapshot) {
+    const marksChanged = JSON.stringify(initialSnapshot.marks) !== JSON.stringify(nextState.marks);
+    const removalsChanged = JSON.stringify(initialSnapshot.removals) !== JSON.stringify(nextState.removals);
+    if (!marksChanged && !removalsChanged) {
+      setState(nextState);
+      return;
+    }
+    setHistory(h => [...h.slice(-39), initialSnapshot]);
+    setFuture([]);
+    setState(nextState);
+    setDirty(true);
+  }
+
+  function undo() {
+    if (!history.length) return;
+    finishInlineEdit();
+    setSelectedOriginal(null);
+    setFuture(f => [state, ...f]);
+    const next = history[history.length - 1];
+    setState(next);
+    setHistory(h => h.slice(0, -1));
+    setActive(a => Math.min(a, next.pages.length - 1));
+    setSelected(null);
+    setDirty(true);
+  }
+
+  function redo() {
+    if (!future.length) return;
+    finishInlineEdit();
+    setSelectedOriginal(null);
+    setHistory(h => [...h, state]);
+    setState(future[0]);
+    setActive(a => Math.min(a, future[0].pages.length - 1));
+    setFuture(f => f.slice(1));
+    setSelected(null);
+    setDirty(true);
+  }
+
+  async function installPdf(data: Uint8Array) {
+    const next = await loadPdf(data);
+    if (!alive.current) {
+      await next.loadingTask.destroy();
+      return;
+    }
+    setPdf((old: any) => {
+      void old?.loadingTask.destroy().catch(() => {});
+      return next;
+    });
+    setBytes(data);
+    const restoredMarks = initialDraft?.marks || [];
+    const restoredRemovals = initialDraft?.removals || [];
+    const initialPages = initialDraft?.pageOrder?.length
+      ? initialDraft.pageOrder.map((idx) => ({
+          index: idx,
+          rotation: initialDraft?.pageRotations?.[idx] ?? 0
+        }))
+      : Array.from({ length: next.numPages }, (_, index) => ({
+          index,
+          rotation: initialDraft?.pageRotations?.[index] ?? 0
+        }));
+    setState({ pages: initialPages, marks: restoredMarks, removals: restoredRemovals });
+    setHistory([]);
+    setFuture([]);
+    setActive(initialDraft?.currentPage ? Math.max(0, initialDraft.currentPage - 1) : 0);
+    setSelected(null);
+    setSelectedOriginal(null);
+    setEditingId(null);
+    setKind("pdf");
+    if (initialDraft?.formFields?.length) {
+      setFormFields(initialDraft.formFields);
+    } else {
+      void extractFormFieldsFromPdf(data).then((fields) => {
+        if (fields.length) setFormFields(fields);
+      }).catch(() => {});
+    }
+    if (initialDraft?.pageImages?.length) {
+      setPageImages(initialDraft.pageImages);
+    }
+    if (initialDraft?.zoom) {
+      setZoom(initialDraft.zoom);
+    }
+    if (
+      restoredMarks.length ||
+      restoredRemovals.length ||
+      initialDraft?.formFields?.length ||
+      initialDraft?.pageImages?.length
+    ) {
+      setDirty(true);
+    }
+  }
+
+  useEffect(() => {
+    let stopped = false;
+    async function start() {
+      try {
+        const first = files[0];
+        if (/\.(docx|txt)$/i.test(first.name)) {
+          let html = await importWord(first);
+          if (stopped) return;
+          if (initialDraft?.wordContent) {
+            html = initialDraft.wordContent;
+            setDirty(true);
+          }
+          htmlRef.current = html;
+          setKind("word");
+          setCount(html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length);
+          setFormat(intent === "convert" ? "pdf" : "docx");
+        } else {
+          const data = /\.(png|jpe?g)$/i.test(first.name)
+            ? await imagePdf(files)
+            : files.length > 1
+            ? await mergePdf(files)
+            : new Uint8Array(await first.arrayBuffer());
+          if (stopped) return;
+          await installPdf(data);
+          if (intent === "sign") setSignOpen(true);
+        }
+      } catch (e) {
+        if (!stopped)
+          setError(
+            /encrypt|password/i.test(String(e))
+              ? "Bu PDF şifreli. Önce parolasını kaldırarak yeniden aç."
+              : "Bu dosya açılamadı. Dosyanın geçerli ve bozulmamış bir PDF veya DOCX olduğundan emin ol."
+          );
+      } finally {
+        if (!stopped) setBusy("");
+      }
+    }
+    void start();
+    return () => {
+      stopped = true;
+    };
+  }, [files, intent]);
+
+  useEffect(() => {
+    if (kind === "word" && !busy && editor.current && !hydrated.current) {
+      editor.current.innerHTML = htmlRef.current;
+      hydrated.current = true;
+    }
+  }, [kind, busy]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    return () => {
+      renderTask.current?.cancel();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!viewPdf || !current || !canvas.current || kind !== "pdf") return;
+    let cancelled = false;
+    const prevTask = renderTask.current;
+    if (prevTask) {
+      try {
+        prevTask.cancel();
+      } catch {}
+    }
+    setRendering(true);
+    void (async () => {
+      try {
+        if (prevTask) {
+          try {
+            await prevTask.promise;
+          } catch {}
+        }
+        if (cancelled) return;
+        const page = await viewPdf.getPage(current.index + 1);
+        if (cancelled) return;
+        const base = page.getViewport({ scale: 1 });
+        const view = page.getViewport({ scale: 1, rotation: (page.rotate + current.rotation) % 360 });
+        setDimensions({ width: view.width, height: view.height, baseWidth: base.width, baseHeight: base.height });
+        const c = canvas.current;
+        if (!c || cancelled) return;
+        const viewport = page.getViewport({
+          scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
+          rotation: (page.rotate + current.rotation) % 360
+        });
+        c.width = viewport.width;
+        c.height = viewport.height;
+        const task = page.render({ canvasContext: c.getContext("2d")!, canvas: c, viewport });
+        renderTask.current = task;
+        await task.promise;
+        if (!cancelled) setRendering(false);
+      } catch (e) {
+        if (!cancelled && !/RenderingCancelled|cancelled/i.test(String(e))) {
+          toast.error("Sayfa görüntülenemedi.");
+          setRendering(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      renderTask.current?.cancel();
+    };
+  }, [viewPdf, current?.index, current?.rotation, zoom, kind, busy]);
+
+  useEffect(() => {
+    finishInlineEdit();
+    setSelected(null);
+    setSelectedOriginal(null);
+  }, [active, tool]);
+
+  useEffect(() => {
+    let stopped = false;
+    setTextItems([]);
+    if (!pdf || !current) return;
+    setTextLoading(true);
+    void pdf
+      .getPage(current.index + 1)
+      .then(editablePageText)
+      .then((items: EditableText[]) => {
+        if (!stopped) setTextItems(items);
+      })
+      .catch(() => {
+        if (!stopped) toast.error("Bu sayfanın metni okunamadı.");
+      })
+      .finally(() => {
+        if (!stopped) setTextLoading(false);
+      });
+    return () => {
+      stopped = true;
+    };
+  }, [pdf, current?.index]);
+
+  useEffect(() => {
+    let stopped = false;
+    let owned: Awaited<ReturnType<typeof loadPdf>> | null = null;
+    if (!bytes || !pdf) {
+      setViewPdf(null);
+      return;
+    }
+    void (async () => {
+      setPreviewError("");
+      setRendering(true);
+      try {
+        if (!state.removals.length) {
+          setViewPdf(pdf);
+          setRendering(false);
+          return;
+        }
+        const cached = cleanCache.current.get(state.removals);
+        const clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
+        cleanCache.current.set(state.removals, { source: bytes, result: clean });
+        const next = await loadPdf(clean);
+        if (stopped) {
+          await next.loadingTask.destroy();
+          return;
+        }
+        owned = next;
+        setViewPdf(next);
+      } catch (e) {
+        if (!stopped) {
+          setPreviewError((e as Error).message);
+          setRendering(false);
+        }
+      }
+    })();
+    return () => {
+      stopped = true;
+      renderTask.current?.cancel();
+      if (owned) void owned.loadingTask.destroy().catch(() => {});
+    };
+  }, [bytes, pdf, state.removals]);
+
+  function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
+    const removals = state.removals.some(r => r.id === item.id)
+      ? state.removals
+      : [...state.removals, { id: item.id, page: item.page, quad: item.quad }];
+
+    const existing = state.marks.find(m => m.sourceId === item.id);
+    const baseMark: Mark = existing
+      ? { ...existing, ...updates }
+      : {
+          id: crypto.randomUUID(),
+          page: item.page,
+          kind: "text",
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+          size: Math.round(item.size * 10) / 10,
+          color: "#222222",
+          text: item.text,
+          font: /serif/i.test(item.fontName) && !/sans/i.test(item.fontName) ? "serif" : "roboto",
+          angle: item.angle,
+          sourceId: item.id,
+          ...updates
+        };
+
+    const nextMarks = [...state.marks.filter(m => m.id !== baseMark.id && m.sourceId !== item.id), baseMark];
+    const nextState = { ...state, removals, marks: nextMarks };
+
+    if (isSession) {
+      if (!sessionInitialRef.current) sessionInitialRef.current = state;
+      setState(nextState);
+      setDirty(true);
+    } else {
+      change(nextState);
+    }
+    setSelectedOriginal(null);
+    setSelected(baseMark.id);
+    return baseMark;
+  }
+
+  function startInlineEditOriginal(item: EditableText) {
+    const initial = sessionInitialRef.current || state;
+    sessionInitialRef.current = initial;
+    const mark = convertOriginalToMark(item, {}, true);
+    setEditingId(mark.id);
+  }
+
+  function startInlineEditMark(m: Mark) {
+    if (m.kind !== "text") return;
+    if (!sessionInitialRef.current) {
+      sessionInitialRef.current = state;
+    }
+    setSelected(m.id);
+    setSelectedOriginal(null);
+    setEditingId(m.id);
+  }
+
+  function finishInlineEdit() {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    if (sessionInitialRef.current) {
+      commitSession(sessionInitialRef.current, stateRef.current);
+      sessionInitialRef.current = null;
+    }
+    setEditingId(null);
+  }
+
+  function cancelInlineEdit() {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    if (sessionInitialRef.current) {
+      setState(sessionInitialRef.current);
+      sessionInitialRef.current = null;
+    }
+    setEditingId(null);
+  }
+
+  function updateActiveText(newText: string, isSession = true) {
+    if (selectedOriginal) {
+      convertOriginalToMark(selectedOriginal, { text: newText }, isSession);
+      return;
+    }
+    if (selected) {
+      const cur = stateRef.current;
+      if (isSession) {
+        if (!sessionInitialRef.current) {
+          sessionInitialRef.current = cur;
+        }
+        setState({
+          ...cur,
+          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText } : m))
+        });
+        setDirty(true);
+        if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = setTimeout(() => {
+          if (sessionInitialRef.current) {
+            commitSession(sessionInitialRef.current, stateRef.current);
+            sessionInitialRef.current = null;
+          }
+        }, 700);
+      } else {
+        change({
+          ...cur,
+          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText } : m))
+        });
+      }
+    }
+  }
+
+  function updateActiveFormat(updates: Partial<Mark>) {
+    if (selectedOriginal) {
+      convertOriginalToMark(selectedOriginal, updates, false);
+      return;
+    }
+    if (selected) {
+      const cur = stateRef.current;
+      change({
+        ...cur,
+        marks: cur.marks.map(m => (m.id === selected ? { ...m, ...updates } : m))
+      });
+    } else {
+      if (updates.text !== undefined) setText(updates.text);
+      if (updates.font) setFont(updates.font);
+      if (updates.bold !== undefined) setBold(updates.bold);
+      if (updates.italic !== undefined) setItalic(updates.italic);
+      if (updates.size !== undefined) setSize(updates.size);
+      if (updates.color !== undefined) setColor(updates.color);
+    }
+  }
+
+  function deleteOriginal(item: EditableText) {
+    const removals = state.removals.some(r => r.id === item.id)
+      ? state.removals
+      : [...state.removals, { id: item.id, page: item.page, quad: item.quad }];
+    const nextMarks = state.marks.filter(m => m.sourceId !== item.id);
+    change({ ...state, removals, marks: nextMarks });
+    setSelectedOriginal(null);
+    setSelected(null);
+    setEditingId(null);
+    toast.success("Mevcut metin silindi.");
+  }
+
+  function deleteSelected() {
+    if (editingId) return;
+    if (selectedOriginal) {
+      deleteOriginal(selectedOriginal);
+    } else if (selected) {
+      const nextMarks = state.marks.filter(m => m.id !== selected);
+      change({ ...state, marks: nextMarks });
+      setSelected(null);
+      setEditingId(null);
+      toast.success("Öğe silindi.");
+    }
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isEditingInline = editingId !== null;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if (isInput && !target.classList.contains("inline-text-editor")) {
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (isEditingInline) {
+          e.preventDefault();
+          cancelInlineEdit();
+        } else if (selected || selectedOriginal) {
+          setSelected(null);
+          setSelectedOriginal(null);
+        }
+        return;
+      }
+
+      if (isEditingInline) {
+        return;
+      }
+
+      if ((e.key === "Delete" || e.key === "Backspace") && (selected || selectedOriginal)) {
+        e.preventDefault();
+        deleteSelected();
+        return;
+      }
+
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && (selected || selectedOriginal)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        let dx = 0;
+        let dy = 0;
+        if (e.key === "ArrowUp") dy = -step;
+        if (e.key === "ArrowDown") dy = step;
+        if (e.key === "ArrowLeft") dx = -step;
+        if (e.key === "ArrowRight") dx = step;
+
+        if (selected) {
+          const m = state.marks.find(item => item.id === selected);
+          if (m) {
+            const nextX = Math.max(0, Math.min(dimensions.baseWidth, m.x + dx));
+            const nextY = Math.max(0, Math.min(dimensions.baseHeight, m.y + dy));
+            change({
+              ...state,
+              marks: state.marks.map(item =>
+                item.id === selected
+                  ? {
+                      ...item,
+                      x: nextX,
+                      y: nextY,
+                      points: item.kind === "draw" ? item.points?.map(p => ({ x: p.x + dx, y: p.y + dy })) : item.points
+                    }
+                  : item
+              )
+            });
+          }
+        } else if (selectedOriginal) {
+          const nextX = Math.max(0, Math.min(dimensions.baseWidth, selectedOriginal.x + dx));
+          const nextY = Math.max(0, Math.min(dimensions.baseHeight, selectedOriginal.y + dy));
+          convertOriginalToMark(selectedOriginal, { x: nextX, y: nextY }, false);
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selected, selectedOriginal, editingId, state, dimensions]);
+
+  function addMark(mark: Mark) {
+    change({ ...state, marks: [...state.marks, mark] });
+    setSelected(mark.id);
+  }
+
+  function newMark(kind: Mark["kind"], x: number, y: number): Mark {
+    return {
+      id: crypto.randomUUID(),
+      page: current.index,
+      kind,
+      x,
+      y,
+      w: kind === "signature" ? 180 : 150,
+      h: kind === "signature" ? 67.5 : 24,
+      color: kind === "highlight" ? "#ffdb3d" : color,
+      size: kind === "draw" ? 2 : size,
+      text,
+      font,
+      bold,
+      italic,
+      image: sig || undefined,
+      points: []
+    };
+  }
+
+  function basePoint(e: React.PointerEvent) {
+    if (!surface.current) return { x: 0, y: 0 };
+    const box = surface.current.getBoundingClientRect();
+    if (!box.width || !box.height) return { x: 0, y: 0 };
+    const clientX = Number.isFinite(e.clientX) ? e.clientX : box.left;
+    const clientY = Number.isFinite(e.clientY) ? e.clientY : box.top;
+    const x = ((clientX - box.left) / box.width) * (dimensions.width || box.width);
+    const y = ((clientY - box.top) / box.height) * (dimensions.height || box.height);
+    const r = current?.rotation || 0;
+    const baseW = dimensions.baseWidth || dimensions.width || box.width;
+    const baseH = dimensions.baseHeight || dimensions.height || box.height;
+    const p =
+      r === 90
+        ? { x: y, y: baseH - x }
+        : r === 180
+        ? { x: baseW - x, y: baseH - y }
+        : r === 270
+        ? { x: baseW - y, y: x }
+        : { x, y };
+    const px = Number.isFinite(p.x) ? p.x : 0;
+    const py = Number.isFinite(p.y) ? p.y : 0;
+    return { x: Math.max(0, Math.min(baseW, px)), y: Math.max(0, Math.min(baseH, py)) };
+  }
+
+  function startDragOriginal(item: EditableText, e: React.PointerEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    const initial = sessionInitialRef.current || state;
+    sessionInitialRef.current = initial;
+    const mark = convertOriginalToMark(item, {}, true);
+    gesture.current = {
+      move: true,
+      mark,
+      start: basePoint(e),
+      initialSnapshot: initial
+    };
+    applyDraft(mark);
+  }
+
+  function startResizeOriginal(item: EditableText, corner: "nw" | "ne" | "se" | "sw", e: React.PointerEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    const initial = sessionInitialRef.current || state;
+    sessionInitialRef.current = initial;
+    const mark = convertOriginalToMark(item, {}, true);
+    gesture.current = {
+      resize: corner,
+      mark,
+      startPoint: basePoint(e),
+      startSize: mark.size,
+      initialSnapshot: initial
+    };
+    applyDraft(mark);
+  }
+
+  function startResizeMark(m: Mark, corner: "nw" | "ne" | "se" | "sw", e: React.PointerEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    gesture.current = {
+      resize: corner,
+      mark: m,
+      startPoint: basePoint(e),
+      startSize: m.size,
+      initialSnapshot: sessionInitialRef.current || state
+    };
+    applyDraft(m);
+  }
+
+  function pointerDown(e: React.PointerEvent) {
+    if (busy || rendering || !current) return;
+    if (tool === "select") {
+      if (editingId) finishInlineEdit();
+      setSelected(null);
+      setSelectedOriginal(null);
+      return;
+    }
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    const p = basePoint(e);
+    if (tool === "text") {
+      addMark(newMark("text", p.x, p.y));
+      setTool("select");
+    } else if (tool === "signature") {
+      if (!sig) {
+        setSignOpen(true);
+        return;
+      }
+      addMark(newMark("signature", p.x, p.y));
+      setTool("select");
+    } else {
+      const m = newMark(tool, p.x, p.y);
+      m.points = [p];
+      m.w = 0;
+      m.h = 0;
+      gesture.current = { mark: m, start: p };
+      applyDraft(m);
+    }
+  }
+
+  function pointerMove(e: React.PointerEvent) {
+    const g = gesture.current;
+    if (!g) return;
+    const p = basePoint(e);
+
+    if (g.resize) {
+      const dist = Math.hypot(p.x - g.mark.x, p.y - g.mark.y);
+      const origDist = Math.hypot(g.startPoint.x - g.mark.x, g.startPoint.y - g.mark.y);
+      const scale = origDist > 5 ? dist / origDist : 1;
+      const newSize = Math.max(6, Math.min(160, Math.round(g.startSize * scale * 10) / 10));
+      applyDraft({ ...g.mark, size: newSize });
+      return;
+    }
+
+    if (g.move) {
+      const dx = p.x - g.start.x;
+      const dy = p.y - g.start.y;
+      applyDraft({
+        ...g.mark,
+        x: Math.max(0, g.mark.x + dx),
+        y: Math.max(0, g.mark.y + dy),
+        points: g.mark.points?.map((pt: { x: number; y: number }) => ({ x: pt.x + dx, y: pt.y + dy }))
+      });
+      return;
+    }
+
+    if (g.mark.kind === "draw") {
+      g.mark = { ...g.mark, points: [...g.mark.points, p] };
+    } else {
+      g.mark = {
+        ...g.mark,
+        x: Math.min(p.x, g.start.x),
+        y: Math.min(p.y, g.start.y),
+        w: Math.abs(p.x - g.start.x),
+        h: Math.abs(p.y - g.start.y)
+      };
+    }
+    applyDraft(g.mark);
+  }
+
+  function pointerUp() {
+    const g = gesture.current;
+    if (!g) return;
+    const m = draftRef.current || g.mark;
+    if (m) {
+      const cur = stateRef.current;
+      if (g.resize) {
+        if (m.size !== g.startSize) {
+          commitSession(g.initialSnapshot, {
+            ...cur,
+            marks: cur.marks.map(item => (item.id === m.id ? m : item))
+          });
+        }
+      } else if (g.move) {
+        if (m.x !== g.mark.x || m.y !== g.mark.y) {
+          commitSession(g.initialSnapshot, {
+            ...cur,
+            marks: cur.marks.map(item => (item.id === m.id ? m : item))
+          });
+        }
+      } else if (m.kind === "draw" ? (m.points?.length || 0) > 1 : m.w > 2 && m.h > 2) {
+        addMark(m);
+      }
+    }
+    applyDraft(null);
+    gesture.current = null;
+  }
+
+  useEffect(() => {
+    function onWinMove(e: PointerEvent) {
+      if (gesture.current) {
+        pointerMove(e as any);
+      }
+    }
+    function onWinUp() {
+      if (gesture.current) {
+        pointerUp();
+      }
+    }
+    window.addEventListener("pointermove", onWinMove);
+    window.addEventListener("pointerup", onWinUp);
+    window.addEventListener("pointercancel", onWinUp);
+    window.addEventListener("blur", onWinUp);
+    return () => {
+      window.removeEventListener("pointermove", onWinMove);
+      window.removeEventListener("pointerup", onWinUp);
+      window.removeEventListener("pointercancel", onWinUp);
+      window.removeEventListener("blur", onWinUp);
+    };
+  }, [dimensions, current]);
+
+  function rotate() {
+    change({
+      ...state,
+      pages: state.pages.map((p, i) => (i === active ? { ...p, rotation: (p.rotation + 90) % 360 } : p))
+    });
+  }
+
+  function removePage() {
+    if (state.pages.length === 1) {
+      toast.error("Belgede en az bir sayfa kalmalı.");
+      return;
+    }
+    change({ ...state, pages: state.pages.filter((_, i) => i !== active) });
+    setActive(Math.max(0, active - 1));
+    setSelected(null);
+    setSelectedOriginal(null);
+  }
+
+  function movePage(direction: number) {
+    const to = active + direction;
+    if (to < 0 || to >= state.pages.length) return;
+    const pages = [...state.pages];
+    [pages[active], pages[to]] = [pages[to], pages[active]];
+    change({ ...state, pages });
+    setActive(to);
+  }
+
+  async function append(appendedFiles: File[]) {
+    if (!bytes || !appendedFiles.length) return;
+    if (appendedFiles.some(f => !/\.pdf$/i.test(f.name) || f.size > 50 * 1024 * 1024)) {
+      toast.error("En fazla 50 MB olan PDF dosyaları seç.");
+      return;
+    }
+    setBusy("PDF’ler birleştiriliyor…");
+    try {
+      const data = await mergePdf([new File([bytes as BlobPart], "mevcut.pdf"), ...appendedFiles]);
+      const next = await loadPdf(data);
+      const added = Array.from({ length: next.numPages - pdf.numPages }, (_, i) => ({
+        index: pdf.numPages + i,
+        rotation: 0
+      }));
+      renderTask.current?.cancel();
+      setPdf(next);
+      setBytes(data);
+      change({ ...state, pages: [...state.pages, ...added] });
+      void pdf.loadingTask.destroy().catch(() => {});
+      toast.success("Sayfalar belgenin sonuna eklendi.");
+    } catch {
+      toast.error("PDF birleştirilemedi. Dosya şifreli veya bozuk olabilir.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function selectedPages() {
+    if (!range.trim()) return state.pages;
+    const indices: number[] = [];
+    for (const part of range.split(",")) {
+      const match = part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+      if (!match) throw Error("Sayfaları 1, 3-5 biçiminde yaz.");
+      const from = Number(match[1]);
+      const to = Number(match[2] || match[1]);
+      if (from < 1 || to > state.pages.length || from > to)
+        throw Error(`1 ile ${state.pages.length} arasında sayfalar seç.`);
+      for (let n = from; n <= to; n++) if (!indices.includes(n - 1)) indices.push(n - 1);
+    }
+    return indices.map(i => state.pages[i]);
+  }
+
+  async function save() {
+    if (busy || savingRef.current) return;
+    savingRef.current = true;
+    setRangeError("");
+    if (previewError) {
+      toast.error(previewError);
+      savingRef.current = false;
+      return;
+    }
+    setBusy("Dosyan hazırlanıyor…");
+    try {
+      if (kind === "word") {
+        const html = editor.current?.innerHTML || htmlRef.current;
+        const result =
+          format === "pdf"
+            ? await wordPdf(html)
+            : format === "docx"
+            ? await wordDocx(html)
+            : new Blob([editor.current?.innerText || ""], { type: "text/plain;charset=utf-8" });
+        download(result, `${name || "belge"}.${format}`);
+      } else if (bytes) {
+        let pages: PageItem[];
+        try {
+          pages = selectedPages();
+        } catch (e) {
+          setRangeError((e as Error).message);
+          return;
+        }
+        if (format === "pdf") {
+          let finalPdf = await exportPdf(bytes, pages, state.marks, state.removals, pageImages);
+          if (formFields.length > 0) {
+            finalPdf = await embedFormFieldsInPdf(finalPdf, formFields, flattenForms);
+          }
+          if (typeof window !== "undefined") {
+            (window as any).__lastExportedPdf = finalPdf;
+          }
+          download(finalPdf, `${name || "belge"}.pdf`);
+          void clearCurrentDraft();
+        } else {
+          const edited = await exportPdf(bytes, pages, state.marks, state.removals, pageImages);
+          const extracted = await extractPdfText(edited);
+          if (!extracted.trim()) throw Error("Bu PDF’de seçilebilir metin bulunamadı. Taranmış belgeler için OCR gerekir.");
+          if (format === "txt") download(new Blob([extracted], { type: "text/plain;charset=utf-8" }), `${name || "belge"}.txt`);
+          else {
+            const div = document.createElement("div");
+            div.textContent = extracted;
+            download(await wordDocx(div.innerHTML.split("\n").map(s => `<p>${s}</p>`).join("")), `${name || "belge"}.docx`);
+          }
+        }
+      }
+      setExportOpen(false);
+      if ((kind === "word" && format === "docx") || (kind === "pdf" && format === "pdf" && !range.trim())) setDirty(false);
+      toast.success("Dosyan hazır, indirme başlatıldı.");
+    } catch (e) {
+      toast.error((e as Error).message || "Dosya oluşturulamadı.");
+    } finally {
+      savingRef.current = false;
+      setBusy("");
+    }
+  }
+
+  function rememberSelection() {
+    const s = window.getSelection();
+    if (s?.rangeCount && editor.current?.contains(s.anchorNode)) selection.current = s.getRangeAt(0).cloneRange();
+  }
+
+  function command(cmd: string, val?: string) {
+    editor.current?.focus();
+    if (selection.current) {
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(selection.current);
+    }
+    document.execCommand(cmd, false, val);
+    if (editor.current) {
+      htmlRef.current = editor.current.innerHTML;
+      setCount(editor.current.innerText.trim().split(/\s+/).filter(Boolean).length);
+    }
+    setDirty(true);
+    rememberSelection();
+  }
+
+  const transform =
+    current?.rotation === 90
+      ? `translate(${dimensions.baseHeight} 0) rotate(90)`
+      : current?.rotation === 180
+      ? `translate(${dimensions.baseWidth} ${dimensions.baseHeight}) rotate(180)`
+      : current?.rotation === 270
+      ? `translate(0 ${dimensions.baseWidth}) rotate(270)`
+      : undefined;
+
+  const visibleMarks = [...state.marks.filter(m => m.page === current?.index && m.id !== draft?.id), ...(draft ? [draft] : [])];
+
+  function drawMark(m: Mark) {
+    const isSelected = selected === m.id;
+    const isEditing = editingId === m.id;
+    const isText = m.kind === "text";
+    const box = isText ? getTextDimensions(m) : { w: m.w, h: m.h };
+
+    return (
+      <g
+        key={m.id}
+        transform={isText && m.angle ? `rotate(${m.angle} ${m.x} ${m.y + m.size})` : undefined}
+        className={tool === "select" ? "selectable-mark" : ""}
+        onPointerDown={e => {
+          if (tool !== "select" || isEditing) return;
+          e.stopPropagation();
+          e.preventDefault();
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {}
+          setSelected(m.id);
+          setSelectedOriginal(null);
+          gesture.current = {
+            move: true,
+            mark: m,
+            start: basePoint(e),
+            initialSnapshot: stateRef.current
+          };
+          applyDraft(m);
+        }}
+        onDoubleClick={e => {
+          if (tool !== "select" || !isText) return;
+          e.stopPropagation();
+          startInlineEditMark(m);
+        }}
+      >
+        {isText ? (
+          isEditing ? (
+            <foreignObject
+              x={m.x - 4}
+              y={m.y - 2}
+              width={Math.max(box.w + 60, 140)}
+              height={Math.max(box.h + 40, 80)}
+              style={{ overflow: "visible" }}
+            >
+              <textarea
+                ref={inlineTextareaRef}
+                className="inline-text-editor"
+                autoFocus
+                style={{
+                  width: `${Math.max(box.w + 30, 120)}px`,
+                  minHeight: `${box.h + 4}px`,
+                  fontSize: `${m.size}px`,
+                  fontFamily: pdfFont(m.font).family,
+                  fontWeight: m.bold ? 500 : 400,
+                  fontStyle: m.italic ? "italic" : "normal",
+                  color: m.color,
+                  lineHeight: 1.25,
+                  caretColor: "#6552df"
+                }}
+                value={m.text || ""}
+                onChange={e => updateActiveText(e.target.value, true)}
+                onBlur={finishInlineEdit}
+                onPointerDown={e => e.stopPropagation()}
+                onKeyDown={e => {
+                  e.stopPropagation();
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    finishInlineEdit();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelInlineEdit();
+                  }
+                }}
+              />
+            </foreignObject>
+          ) : (
+            <text
+              x={m.x}
+              y={m.y + m.size}
+              fontSize={m.size}
+              fontFamily={pdfFont(m.font).family}
+              fontWeight={m.bold ? 500 : 400}
+              fontStyle={m.italic ? "italic" : "normal"}
+              fill={m.color}
+            >
+              {(m.text || "").split("\n").map((line, i) => (
+                <tspan key={i} x={m.x} dy={i ? m.size * 1.25 : 0}>
+                  {line || " "}
+                </tspan>
+              ))}
+            </text>
+          )
+        ) : m.kind === "highlight" ? (
+          <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity=".3" />
+        ) : m.kind === "signature" ? (
+          <image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h} />
+        ) : (
+          <polyline
+            points={m.points?.map(p => `${p.x},${p.y}`).join(" ")}
+            fill="none"
+            stroke={m.color}
+            strokeWidth={m.size}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {isSelected && m.kind !== "draw" && (
+          <>
+            <rect
+              className={`selection-frame ${isEditing ? "is-editing" : ""}`}
+              x={m.x - 4}
+              y={m.y - 2}
+              width={box.w + 8}
+              height={box.h + 4}
+              rx={2}
+              pointerEvents={isEditing ? "none" : "all"}
+              onPointerDown={e => {
+                if (isEditing) return;
+                e.stopPropagation();
+                e.preventDefault();
+                try {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                } catch {}
+                gesture.current = {
+                  move: true,
+                  mark: m,
+                  start: basePoint(e),
+                  initialSnapshot: stateRef.current
+                };
+                applyDraft(m);
+              }}
+              onDoubleClick={e => {
+                if (isText) {
+                  e.stopPropagation();
+                  startInlineEditMark(m);
+                }
+              }}
+            />
+            {!isEditing &&
+              renderResizeHandles(
+                m.x - 4,
+                m.y - 2,
+                box.w + 8,
+                box.h + 4,
+                corner => e => startResizeMark(m, corner, e)
+              )}
+          </>
+        )}
+      </g>
+    );
+  }
+
+  const selectedOriginalAsMark: Mark | null = selectedOriginal
+    ? {
+        id: selectedOriginal.id,
+        page: selectedOriginal.page,
+        kind: "text",
+        x: selectedOriginal.x,
+        y: selectedOriginal.y,
+        w: selectedOriginal.w,
+        h: selectedOriginal.h,
+        size: Math.round(selectedOriginal.size * 10) / 10,
+        color: "#222222",
+        text: selectedOriginal.text,
+        font: /serif/i.test(selectedOriginal.fontName) && !/sans/i.test(selectedOriginal.fontName) ? "serif" : "roboto",
+        angle: selectedOriginal.angle
+      }
+    : null;
+
+  const panelMark = activeMark || selectedOriginalAsMark;
+
+  if (error)
+    return (
+      <div className="editor-error">
+        <FileText size={38} />
+        <h2>Dosyayı açamadık</h2>
+        <p>{error}</p>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button className="secondary" onClick={onClose}>
+            Araçlara dön
+          </button>
+          <button className="primary" onClick={() => onOpen?.(intent)}>
+            Başka dosya seç
+          </button>
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="editor-shell">
+      <div className="editor-heading">
+        <IconButton label="Araçlara dön" onClick={() => (dirty ? setExit(true) : onClose())}>
+          <ArrowLeft size={19} />
+        </IconButton>
+        <span className={`tool-icon ${kind === "pdf" ? "violet" : "blue"}`}>
+          <FileText size={22} />
+        </span>
+        <div className="editor-title">
+          <input aria-label="Belge adı" value={name} onChange={e => setName(e.target.value)} />
+          <span>
+            {kind === "pdf" ? `${state.pages.length} sayfa · PDF` : `${count} kelime · Word`}
+            <i /> {dirty ? "İndirilmemiş değişiklikler" : "Cihazında açık"}
+          </span>
+        </div>
+        <AutosaveIndicator status={autosaveStatus} lastSaved={lastSaved} />
+        {kind === "pdf" && (
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowFindReplace(true)}
+              title="Belgede Ara ve Değiştir (Ctrl+F)"
+            >
+              <Search size={15} />
+              <span>Bul</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowOcr(true)}
+              title="Taranmış PDF'i Tanı (Yerel OCR)"
+            >
+              <ScanText size={15} />
+              <span>OCR</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowCompress(true)}
+              title="PDF Boyutunu Sıkıştır"
+            >
+              <Archive size={15} />
+              <span>Sıkıştır</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowPageOrganizer(true)}
+              title="Gelişmiş Sayfa Düzenleyici"
+            >
+              <Layers size={15} />
+              <span>Sayfalar</span>
+            </button>
+            <button
+              type="button"
+              className={`secondary ${formMode !== "none" ? "bg-indigo-50 border-indigo-300 text-indigo-700" : ""}`}
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setFormMode(m => m === "design" ? "fill" : m === "fill" ? "none" : "design")}
+              title="Doldurulabilir Form Alanları"
+            >
+              <FormInput size={15} />
+              <span>{formMode === "design" ? "Form: Tasarım" : formMode === "fill" ? "Form: Doldur" : "Form"}</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowSecurity(true)}
+              title="Gizlilik ve Güvenlik Araçları"
+            >
+              <ShieldCheck size={15} />
+              <span>Güvenlik</span>
+            </button>
+          </div>
+        )}
+        <button className="primary" disabled={!!busy} onClick={() => setExportOpen(true)}>
+          <Download size={17} />
+          <span>Dışa aktar</span>
+        </button>
+      </div>
+
+      {kind === "pdf" ? (
+        <>
+          <fieldset disabled={!!busy} className="editor-toolbar">
+            <div className="tool-buttons">
+              {[
+                { id: "select", label: "Metni düzenle", icon: MousePointer2 },
+                { id: "text", label: "Metin ekle", icon: Type },
+                { id: "highlight", label: "Vurgula", icon: Highlighter },
+                { id: "draw", label: "Çiz", icon: PenLine }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  className={tool === t.id ? "active" : ""}
+                  aria-pressed={tool === t.id}
+                  onClick={() => {
+                    setTool(t.id as Tool);
+                    finishInlineEdit();
+                    setSelected(null);
+                    setSelectedOriginal(null);
+                  }}
+                >
+                  <t.icon size={17} />
+                  {t.label}
+                </button>
+              ))}
+              <button
+                className={tool === "signature" ? "active" : ""}
+                onClick={() => setSignOpen(true)}
+              >
+                <PenLine size={17} /> İmza
+              </button>
+            </div>
+            <div className="toolbar-divider" />
+            <IconButton label="Geri al" onClick={undo} disabled={!history.length}>
+              <Undo2 size={17} />
+            </IconButton>
+            <IconButton label="Yinele" onClick={redo} disabled={!future.length}>
+              <Redo2 size={17} />
+            </IconButton>
+            <span className="toolbar-spacer" />
+            <IconButton label="Uzaklaştır" onClick={() => setZoom(z => Math.max(0.4, z - 0.15))}>
+              <ZoomOut size={17} />
+            </IconButton>
+            <span className="zoom-label">%{Math.round(zoom * 100)}</span>
+            <IconButton label="Yakınlaştır" onClick={() => setZoom(z => Math.min(2, z + 0.15))}>
+              <ZoomIn size={17} />
+            </IconButton>
+          </fieldset>
+
+          <div className="pdf-workarea">
+            <aside className="page-panel">
+              <div className="panel-heading">
+                <strong>Sayfalar</strong>
+                <span>{state.pages.length}</span>
+              </div>
+              <div className="page-list">
+                {state.pages.map((p, i) => (
+                  <button
+                    key={`${p.index}-${i}`}
+                    className={`page-thumb ${active === i ? "active" : ""}`}
+                    aria-label={`Sayfa ${i + 1}`}
+                    aria-current={active === i ? "page" : undefined}
+                    onClick={() => {
+                      setActive(i);
+                      finishInlineEdit();
+                      setSelected(null);
+                      setSelectedOriginal(null);
+                    }}
+                  >
+                    <FileText size={30} />
+                    <span>{i + 1}</span>
+                    {p.rotation !== 0 && <small>{p.rotation}°</small>}
+                  </button>
+                ))}
+              </div>
+              <button className="add-pages" disabled={!!busy} onClick={() => mergeInput.current?.click()}>
+                <Plus size={16} /> PDF ekle
+              </button>
+              <p>Eklenen sayfalar sona gelir.</p>
+            </aside>
+
+            <div className="page-viewer">
+              <div className="page-hint">
+                {tool === "text"
+                  ? "Metin eklemek istediğin yere tıkla."
+                  : tool === "highlight"
+                  ? "Vurgulamak istediğin alanı sürükleyerek seç."
+                  : tool === "draw"
+                  ? "Sayfanın üzerinde çizim yap."
+                  : tool === "signature"
+                  ? "İmzayı yerleştirmek istediğin yere tıkla."
+                  : "Metni seç, çift tıklayıp doğrudan düzenle veya sürükleyerek taşı."}
+              </div>
+              <FindReplaceBar
+                open={showFindReplace}
+                onClose={() => setShowFindReplace(false)}
+                marks={state.marks}
+                originalTexts={allOriginalTexts}
+                currentPage={active}
+                onNavigatePage={(pIdx) => setActive(pIdx)}
+                onUpdateMarks={(newMarks) => change({ ...state, marks: newMarks })}
+                onReplace={({ updatedMarks, newMarks, newRemovals }) => {
+                  change({
+                    ...state,
+                    marks: [...updatedMarks, ...newMarks],
+                    removals: [...state.removals, ...newRemovals]
+                  });
+                }}
+              />
+              <div className="page-scroll">
+                <div
+                  className={`pdf-surface tool-${tool}`}
+                  ref={surface}
+                  style={{ width: dimensions.width * zoom, height: dimensions.height * zoom }}
+                  onPointerDown={pointerDown}
+                  onPointerMove={pointerMove}
+                  onPointerUp={pointerUp}
+                  onPointerCancel={() => {
+                    gesture.current = null;
+                    applyDraft(null);
+                  }}
+                >
+                  <canvas ref={canvas} aria-label={`PDF sayfa ${active + 1}`} style={{ width: "100%", height: "100%" }} />
+                  <svg className="annotation-layer" viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}>
+                    <g transform={transform}>
+                      {tool === "select" &&
+                        !rendering &&
+                        !previewError &&
+                        textItems
+                          .filter(item => !state.removals.some(r => r.id === item.id))
+                          .map(item => {
+                            const isSel = selectedOriginal?.id === item.id;
+                            const box = {
+                              w: Math.max(item.w, (item.text?.length || 1) * item.size * 0.58),
+                              h: Math.max(item.h, item.size * 1.25)
+                            };
+                            return (
+                              <g key={item.id} transform={`rotate(${item.angle} ${item.x} ${item.y + item.size})`}>
+                                <rect
+                                  className={`original-text-hit ${isSel ? "is-selected" : ""}`}
+                                  x={item.x - 1}
+                                  y={item.y - 1}
+                                  width={Math.max(8, item.w + 2)}
+                                  height={item.size * 1.25}
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-label={`Metni düzenle: ${item.text}`}
+                                  onPointerDown={e => {
+                                    e.stopPropagation();
+                                    finishInlineEdit();
+                                    setSelected(null);
+                                    setSelectedOriginal(item);
+                                  }}
+                                  onDoubleClick={e => {
+                                    e.stopPropagation();
+                                    startInlineEditOriginal(item);
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      startInlineEditOriginal(item);
+                                    }
+                                  }}
+                                >
+                                  <title>{item.text}</title>
+                                </rect>
+                                {isSel && (
+                                  <>
+                                    <rect
+                                      className="selection-frame"
+                                      x={item.x - 4}
+                                      y={item.y - 2}
+                                      width={box.w + 8}
+                                      height={box.h + 4}
+                                      rx={2}
+                                      onPointerDown={e => startDragOriginal(item, e)}
+                                      onDoubleClick={e => {
+                                        e.stopPropagation();
+                                        startInlineEditOriginal(item);
+                                      }}
+                                    />
+                                    {renderResizeHandles(
+                                      item.x - 4,
+                                      item.y - 2,
+                                      box.w + 8,
+                                      box.h + 4,
+                                      corner => e => startResizeOriginal(item, corner, e)
+                                    )}
+                                  </>
+                                )}
+                              </g>
+                            );
+                          })}
+                      {visibleMarks.map(drawMark)}
+                    </g>
+                  </svg>
+                  {rendering && (
+                    <div className="rendering-label">
+                      <LoaderCircle className="spin" size={15} /> Sayfa yükleniyor
+                    </div>
+                  )}
+                  <ImageOverlay
+                    images={pageImages.filter(img => img.page === active && !img.deleted)}
+                    selectedId={selectedImageId}
+                    onSelect={setSelectedImageId}
+                    onUpdate={(id, up) => {
+                      setPageImages(prev => prev.map(i => i.id === id ? { ...i, ...up, isModified: true } : i));
+                      setDirty(true);
+                    }}
+                    pageWidth={dimensions.width}
+                    pageHeight={dimensions.height}
+                  />
+                  {selectedImageId && (
+                    <ImageToolbar
+                      image={pageImages.find(i => i.id === selectedImageId && !i.deleted) || null}
+                      onUpdate={(up) => {
+                        setPageImages(prev => prev.map(i => i.id === selectedImageId ? { ...i, ...up, isModified: true } : i));
+                        setDirty(true);
+                      }}
+                      onDelete={(id) => {
+                        setPageImages(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
+                        setSelectedImageId(null);
+                        setDirty(true);
+                      }}
+                      onClose={() => setSelectedImageId(null)}
+                    />
+                  )}
+                  {formMode === "design" && (
+                    <FormDesignerOverlay
+                      fields={formFields}
+                      pageIndex={active}
+                      onAddField={(type: FormFieldItem["type"]) => {
+                        const newField: FormFieldItem = {
+                          id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                          page: active,
+                          type,
+                          name: `Alan_${formFields.length + 1}`,
+                          label: type === "checkbox" ? "Onay Kutusu" : "Metin Alanı",
+                          value: type === "checkbox" ? false : "",
+                          options: type === "dropdown" ? ["Seçenek 1", "Seçenek 2"] : undefined,
+                          x: 80,
+                          y: 80 + (formFields.filter(f => f.page === active).length % 10) * 45,
+                          w: type === "checkbox" ? 22 : type === "multiline" ? 260 : 180,
+                          h: type === "checkbox" ? 22 : type === "multiline" ? 70 : 28
+                        };
+                        setFormFields(prev => [...prev, newField]);
+                        setDirty(true);
+                      }}
+                      onUpdateField={(id, up) => {
+                        setFormFields(prev => prev.map(f => f.id === id ? { ...f, ...up } : f));
+                        setDirty(true);
+                      }}
+                      onDeleteField={(id) => {
+                        setFormFields(prev => prev.filter(f => f.id !== id));
+                        setDirty(true);
+                      }}
+                      pageWidth={dimensions.width}
+                      pageHeight={dimensions.height}
+                    />
+                  )}
+                  {formMode === "fill" && (
+                    <FormFieldsLayer
+                      fields={formFields}
+                      pageIndex={active}
+                      onFieldValueChange={(id, val) => {
+                        setFormFields(prev => prev.map(f => f.id === id ? { ...f, value: val } : f));
+                        setDirty(true);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="page-bottom">
+                <IconButton label="Önceki sayfa" disabled={active === 0} onClick={() => setActive(a => a - 1)}>
+                  <ChevronLeft size={17} />
+                </IconButton>
+                <span>
+                  {active + 1} / {state.pages.length}
+                </span>
+                <IconButton
+                  label="Sonraki sayfa"
+                  disabled={active >= state.pages.length - 1}
+                  onClick={() => setActive(a => a + 1)}
+                >
+                  <ChevronRight size={17} />
+                </IconButton>
+              </div>
+            </div>
+
+            <aside className="properties-panel">
+              <strong>{selectedOriginal ? "PDF’deki metni düzenle" : currentMark ? "Seçili öğe" : "Araç ayarları"}</strong>
+              {panelMark ? (
+                <div className="original-text-editor">
+                  {selectedOriginal && <span className="original-badge">Mevcut PDF metni</span>}
+                  {currentMark?.sourceId && <span className="original-badge">Düzenlenen PDF metni</span>}
+                  <TextFields
+                    value={panelMark}
+                    onChange={v => {
+                      if (v.text !== undefined) updateActiveText(v.text, true);
+                      else updateActiveFormat(v);
+                    }}
+                    onBlur={() => {
+                      if (sessionInitialRef.current) {
+                        commitSession(sessionInitialRef.current, state);
+                        sessionInitialRef.current = null;
+                      }
+                    }}
+                  />
+                  <label>
+                    Metin rengi
+                    <input
+                      type="color"
+                      value={panelMark.color || "#222222"}
+                      onChange={e => updateActiveFormat({ color: e.target.value })}
+                    />
+                  </label>
+                  {currentMark && (
+                    <div className="position-fields">
+                      <label>
+                        X
+                        <input
+                          type="number"
+                          value={Math.round(currentMark.x)}
+                          onChange={e =>
+                            updateActiveFormat({
+                              x: Math.max(0, Math.min(dimensions.baseWidth, Number(e.target.value)))
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Y
+                        <input
+                          type="number"
+                          value={Math.round(currentMark.y)}
+                          onChange={e =>
+                            updateActiveFormat({
+                              y: Math.max(0, Math.min(dimensions.baseHeight, Number(e.target.value)))
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                  {currentMark?.kind === "signature" && (
+                    <label>
+                      Genişlik
+                      <input
+                        type="number"
+                        min="30"
+                        max="500"
+                        value={currentMark.w}
+                        onChange={e => {
+                          const w = Math.max(30, Math.min(500, Number(e.target.value)));
+                          updateActiveFormat({ w, h: (w * currentMark.h) / currentMark.w });
+                        }}
+                      />
+                    </label>
+                  )}
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      finishInlineEdit();
+                      setSelected(null);
+                      setSelectedOriginal(null);
+                    }}
+                  >
+                    <Check size={16} /> Bitti
+                  </button>
+                  <button className="delete-mark" disabled={!!busy} onClick={deleteSelected}>
+                    <Trash2 size={15} /> Metni sil
+                  </button>
+                  <small>Değişiklikler anında sayfaya işlenir. İstediğin zaman geri alabilirsin.</small>
+                </div>
+              ) : (
+                <>
+                  {tool === "text" && (
+                    <TextFields
+                      value={{ id: "new", page: 0, kind: "text", x: 0, y: 0, w: 0, h: 0, text, font, bold, italic, size, color }}
+                      onChange={v => {
+                        if (v.text !== undefined) setText(v.text);
+                        if (v.font) setFont(v.font);
+                        if (v.bold !== undefined) setBold(v.bold);
+                        if (v.italic !== undefined) setItalic(v.italic);
+                        if (v.size !== undefined) setSize(v.size);
+                      }}
+                    />
+                  )}
+                  <label>
+                    Renk
+                    <input type="color" value={color} onChange={e => setColor(e.target.value)} />
+                  </label>
+                  {(tool === "text" || tool === "signature") && (
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        if (tool === "signature" && !sig) {
+                          setSignOpen(true);
+                          return;
+                        }
+                        addMark(newMark(tool as "text" | "signature", 50, 80));
+                        setTool("select");
+                      }}
+                    >
+                      Sayfaya ekle
+                    </button>
+                  )}
+                </>
+              )}
+              <div className="properties-separator" />
+              <strong>Sayfa işlemleri</strong>
+              <div className="page-actions">
+                <button onClick={rotate} disabled={!current || !!busy}>
+                  <RotateCw size={16} /> 90° döndür
+                </button>
+                <button onClick={() => movePage(-1)} disabled={!current || active === 0 || !!busy}>
+                  <ArrowUp size={16} /> Öne taşı
+                </button>
+                <button onClick={() => movePage(1)} disabled={!current || active === state.pages.length - 1 || !!busy}>
+                  <ArrowDown size={16} /> Arkaya taşı
+                </button>
+                <button
+                  onClick={() => {
+                    setRange(String(active + 1));
+                    setFormat("pdf");
+                    setExportOpen(true);
+                  }}
+                  disabled={!current || !!busy}
+                >
+                  <Scissors size={16} /> Bu sayfayı ayır
+                </button>
+                <button onClick={removePage} disabled={state.pages.length < 2 || !!busy}>
+                  <Trash2 size={16} /> Sayfayı sil
+                </button>
+              </div>
+              <div className="editor-note">
+                {previewError ||
+                  (textLoading
+                    ? "Sayfadaki metinler algılanıyor…"
+                    : tool === "select" && !textItems.length
+                    ? "Bu sayfada seçilebilir yazı yok. Taranmış/görsel metinler için OCR gerekir. Metin ekle aracıyla yeni yazı ekleyebilirsin."
+                    : "Metni seç, çift tıklayıp doğrudan düzenle veya sürükleyerek taşı.")}
+              </div>
+            </aside>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="editor-toolbar word-toolbar">
+            <Choice
+              label="Paragraf biçimi"
+              value="p"
+              onChange={v => command("formatBlock", v)}
+              items={[
+                { value: "p", label: "Normal metin" },
+                { value: "h1", label: "Başlık 1" },
+                { value: "h2", label: "Başlık 2" }
+              ]}
+            />
+            <div className="toolbar-divider" />
+            {[
+              { label: "Kalın", cmd: "bold", icon: Bold },
+              { label: "İtalik", cmd: "italic", icon: Italic },
+              { label: "Altı çizili", cmd: "underline", icon: Underline },
+              { label: "Madde işaretleri", cmd: "insertUnorderedList", icon: List },
+              { label: "Geri al", cmd: "undo", icon: Undo2 },
+              { label: "Yinele", cmd: "redo", icon: Redo2 }
+            ].map(b => (
+              <IconButton
+                key={b.cmd}
+                label={b.label}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => command(b.cmd)}
+              >
+                <b.icon size={17} />
+              </IconButton>
+            ))}
+          </div>
+          <div className="word-workarea">
+            <div className="word-info">
+              Temel metin, başlık, liste ve tablolar düzenlenebilir. Karmaşık Word yerleşimleri sadeleşebilir.
+            </div>
+            <div
+              ref={editor}
+              className="word-paper"
+              contentEditable={!busy}
+              suppressContentEditableWarning
+              role="textbox"
+              aria-label="Belge metni"
+              aria-multiline="true"
+              spellCheck
+              lang="tr"
+              onMouseUp={rememberSelection}
+              onKeyUp={rememberSelection}
+              onInput={() => {
+                htmlRef.current = editor.current?.innerHTML || "";
+                setCount((editor.current?.innerText || "").trim().split(/\s+/).filter(Boolean).length);
+                setDirty(true);
+                rememberSelection();
+              }}
+              onPaste={e => {
+                e.preventDefault();
+                const html = e.clipboardData.getData("text/html");
+                if (html) command("insertHTML", safeHtml(html));
+                else command("insertText", e.clipboardData.getData("text/plain"));
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {busy && (
+        <div className="busy-overlay" role="status">
+          <LoaderCircle className="spin" size={30} />
+          <strong>{busy}</strong>
+        </div>
+      )}
+
+      <input
+        type="file"
+        className="sr-only"
+        tabIndex={-1}
+        ref={mergeInput}
+        accept=".pdf"
+        multiple
+        aria-label="Birleştirilecek PDF dosyaları"
+        onChange={e => {
+          void append(Array.from(e.target.files || []));
+          e.target.value = "";
+        }}
+      />
+
+      <SignatureDialog
+        open={signOpen}
+        onOpenChange={setSignOpen}
+        onSave={data => {
+          setSig(data);
+          setSignOpen(false);
+          setTool("signature");
+          setSelected(null);
+          toast("İmzayı yerleştirmek için sayfaya tıkla.");
+        }}
+      />
+
+      <Dialog open={exportOpen && !busy} onOpenChange={setExportOpen}>
+        <DialogContent className="forma-dialog export-dialog">
+          <DialogTitle>Belgeni dışa aktar</DialogTitle>
+          <DialogDescription>Düzenlediğin dosyanın bir kopyasını cihazına indir.</DialogDescription>
+          <label>
+            Dosya adı
+            <input value={name} onChange={e => setName(e.target.value)} />
+          </label>
+          <label>Dosya türü</label>
+          <Choice
+            label="Dosya türü"
+            value={format}
+            onChange={setFormat}
+            items={[
+              { value: "pdf", label: "PDF belgesi (.pdf)" },
+              { value: "docx", label: "Word belgesi (.docx)" },
+              { value: "txt", label: "Düz metin (.txt)" }
+            ]}
+          />
+          {kind === "pdf" && (
+            <label>
+              Sayfalar
+              <input
+                placeholder="Tüm sayfalar · Örnek: 1, 3-5"
+                value={range}
+                onChange={e => {
+                  setRange(e.target.value);
+                  setRangeError("");
+                }}
+              />
+              <small>Görünen sayfa sırasına göre. Boş bırakırsan tüm sayfalar alınır.</small>
+              {rangeError && (
+                <span role="alert" className="field-error">
+                  {rangeError}
+                </span>
+              )}
+            </label>
+          )}
+          {kind === "pdf" && format === "pdf" && formFields.length > 0 && (
+            <div className="flex items-center gap-2 py-1">
+              <input
+                type="checkbox"
+                id="flattenCheck"
+                checked={flattenForms}
+                onChange={e => setFlattenForms(e.target.checked)}
+                className="rounded accent-indigo-600"
+              />
+              <label htmlFor="flattenCheck" className="text-xs text-slate-700 cursor-pointer">
+                Form alanlarını düzleştir (AcroForm flatten - salt okunur/sabit yap)
+              </label>
+            </div>
+          )}
+          {kind === "pdf" && format !== "pdf" && (
+            <p className="conversion-note">
+              Bu dönüşüm PDF’deki seçilebilir metni alır. Sayfa tasarımı, resimler ve imzalar Word/TXT dosyasına taşınmaz.
+              Taranmış sayfalarda OCR gerekir.
+            </p>
+          )}
+          {kind === "word" && format !== "txt" && (
+            <p className="conversion-note">Temel biçimlendirme korunur. Özgün Word sayfa düzeni farklı görünebilir.</p>
+          )}
+          <button className="primary" onClick={() => void save()}>
+            <Download size={17} /> Dosyayı indir
+          </button>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={exit} onOpenChange={setExit}>
+        <AlertDialogContent>
+          <AlertDialogTitle>İndirmeden çıkılsın mı?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Bu belgedeki değişiklikler henüz indirilmedi. Çıkarsan tarayıcıdaki değişiklikler kaybolur.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Düzenlemeye dön</AlertDialogCancel>
+            <AlertDialogAction onClick={onClose}>İndirmeden çık</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <OcrModal
+        open={showOcr}
+        onOpenChange={setShowOcr}
+        totalPages={state.pages.length}
+        currentPage={active + 1}
+        pdfBytes={bytes || undefined}
+        fileName={files[0]?.name}
+        onInsertText={(txt) => {
+          addMark({ ...newMark("text", 50, 80), text: txt });
+        }}
+      />
+
+      <CompressDialog
+        open={showCompress}
+        onOpenChange={setShowCompress}
+        pdfBytes={bytes || undefined}
+        fileName={files[0]?.name}
+      />
+
+      <PageOrganizerModal
+        open={showPageOrganizer}
+        onOpenChange={setShowPageOrganizer}
+        pages={state.pages}
+        pdfBytes={bytes || undefined}
+        fileName={files[0]?.name}
+        onApplyPages={(newPages, newPdfBytes) => {
+          if (newPdfBytes) {
+            setBytes(newPdfBytes);
+          }
+          change({ ...state, pages: newPages });
+        }}
+      />
+
+      <SecurityDialog
+        open={showSecurity}
+        onOpenChange={setShowSecurity}
+        pdfBytes={bytes || undefined}
+        fileName={files[0]?.name}
+        onApplySanitizedBytes={(newBytes) => setBytes(newBytes)}
+      />
+    </div>
+  );
+}
+
+function SignatureDialog({
+  open,
+  onOpenChange,
+  onSave
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: (data: string) => void;
+}) {
+  const [mode, setMode] = useState("draw");
+  const [name, setName] = useState("");
+  const [drawn, setDrawn] = useState(false);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+
+  useEffect(() => {
+    if (open) {
+      queueMicrotask(() => {
+        setDrawn(false);
+        setName("");
+        setMode("draw");
+      });
+    }
+  }, [open]);
+
+  function draw(e: React.PointerEvent<HTMLCanvasElement>) {
+    const c = e.currentTarget;
+    const ctx = c.getContext("2d")!;
+    const box = c.getBoundingClientRect();
+    const x = ((e.clientX - box.left) / box.width) * c.width;
+    const y = ((e.clientY - box.top) / box.height) * c.height;
+    if (e.type === "pointerdown") {
+      drawing.current = true;
+      try {
+        c.setPointerCapture(e.pointerId);
+      } catch {}
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } else if (drawing.current) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#282c48";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      setDrawn(true);
+    }
+  }
+
+  function save() {
+    if (mode === "draw") {
+      if (drawn && canvas.current) onSave(canvas.current.toDataURL("image/png"));
+    } else if (name.trim()) {
+      const c = document.createElement("canvas");
+      c.width = 640;
+      c.height = 240;
+      const ctx = c.getContext("2d")!;
+      ctx.fillStyle = "#282c48";
+      ctx.font = "italic 64px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(name.trim(), 320, 120, 600);
+      onSave(c.toDataURL("image/png"));
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="forma-dialog signature-dialog">
+        <DialogTitle>İmzanı oluştur</DialogTitle>
+        <DialogDescription>İmzanı çiz veya adını yazarak oluştur. Sonra PDF’de yerine koy.</DialogDescription>
+        <Tabs value={mode} onValueChange={setMode}>
+          <TabsList>
+            <TabsTrigger value="draw">İmza çiz</TabsTrigger>
+            <TabsTrigger value="type">Yazarak oluştur</TabsTrigger>
+          </TabsList>
+          <TabsContent value="draw" forceMount hidden={mode !== "draw"}>
+            <canvas
+              ref={canvas}
+              width={640}
+              height={240}
+              className="signature-canvas"
+              aria-label="İmzanı çiz"
+              onPointerDown={draw}
+              onPointerMove={draw}
+              onPointerUp={() => (drawing.current = false)}
+              onPointerCancel={() => (drawing.current = false)}
+            />
+            <button
+              className="clear-signature"
+              onClick={() => {
+                canvas.current?.getContext("2d")?.clearRect(0, 0, 640, 240);
+                setDrawn(false);
+              }}
+            >
+              <Trash2 size={14} /> Temizle
+            </button>
+          </TabsContent>
+          <TabsContent value="type">
+            <label>
+              Adın ve soyadın
+              <input autoFocus value={name} onChange={e => setName(e.target.value)} maxLength={60} placeholder="Ad Soyad" />
+            </label>
+            <div className="typed-signature">{name || "İmzan burada"}</div>
+          </TabsContent>
+        </Tabs>
+        <p className="conversion-note">Bu araç belgeye görsel imza ekler; sertifikalı elektronik imza oluşturmaz.</p>
+        <button className="primary" disabled={mode === "draw" ? !drawn : !name.trim()} onClick={save}>
+          <Check size={17} /> İmzayı kullan
+        </button>
+      </DialogContent>
+    </Dialog>
+  );
 }

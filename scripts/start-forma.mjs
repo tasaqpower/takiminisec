@@ -1,6 +1,13 @@
 import {spawn} from 'node:child_process';
 import {existsSync,mkdirSync,openSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+const major=parseInt(process.versions.node.split('.')[0],10);
+if(major<22){
+  console.error(`\n[HATA] Forma Belge Atölyesi Node.js >= 22.13.0 gerektirir.`);
+  console.error(`Mevcut Node sürümü: v${process.versions.node}`);
+  console.error(`Lütfen Node.js v22 veya üzerini yükleyin: https://nodejs.org/\n`);
+  process.exit(1);
+}
 const root=fileURLToPath(new URL('../',import.meta.url));
 const url='http://localhost:5173/';
 const ready=async()=>{try{const response=await fetch(url,{signal:AbortSignal.timeout(2000)});return response.ok&&(await response.text()).includes('Belge Atölyesi')}catch{return false}};

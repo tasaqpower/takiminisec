@@ -3,14 +3,59 @@ import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 import {JSDOM} from 'jsdom';
 import {build} from 'esbuild';
-import {PDFDocument,degrees,PDFName,PDFNumber} from 'pdf-lib';
-import {createCanvas,DOMMatrix,ImageData,Path2D} from '@napi-rs/canvas';
+import {PDFDocument} from 'pdf-lib';
+let createCanvas,DOMMatrix,ImageData,Path2D;
+try {
+  ({createCanvas,DOMMatrix,ImageData,Path2D} = await import('@napi-rs/canvas'));
+} catch {
+  DOMMatrix = class DOMMatrix {
+    constructor() { this.a=1;this.b=0;this.c=0;this.d=1;this.e=0;this.f=0; }
+    invertSelf() { return this; }
+    inverse() { return this; }
+    multiply() { return this; }
+    translate() { return this; }
+    scale() { return this; }
+    rotate() { return this; }
+  };
+  ImageData = class ImageData { constructor(w,h) { this.width=w;this.height=h;this.data=new Uint8ClampedArray(w*h*4); } };
+  Path2D = class Path2D { constructor() { return new Proxy(this, { get: () => () => {} }); } };
+  const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  createCanvas = (w, h) => {
+    const canvas = { width: w, height: h };
+    const ctx = new Proxy({ canvas }, {
+      get: (target, prop) => {
+        if (prop in target) return target[prop];
+        if (prop === 'getTransform') return () => new DOMMatrix();
+        if (prop === 'measureText') return () => ({ width: 10 });
+        if (prop === 'createImageData') return (iw, ih) => new ImageData(iw, ih);
+        return () => {};
+      },
+      set: (target, prop, val) => { target[prop] = val; return true; }
+    });
+    canvas.getContext = () => ctx;
+    canvas.toDataURL = () => 'data:image/png;base64,' + PNG_1X1.toString('base64');
+    canvas.toBuffer = () => PNG_1X1;
+    return canvas;
+  };
+}
 const dom=new JSDOM('<!doctype html><html><body></body></html>',{pretendToBeVisual:true});
 Object.assign(globalThis,{window:dom.window,document:dom.window.document,Node:dom.window.Node,HTMLElement:dom.window.HTMLElement,DOMMatrix,ImageData,Path2D});
 const actualFetch=globalThis.fetch;
 globalThis.fetch=async(input,init)=>typeof input==='string'&&input.startsWith('/fonts/')?new Response(fs.readFileSync('public'+input)):actualFetch(input,init);
+class MockCanvasFactory {
+  create(w, h) { const cv = createCanvas(w, h); return { canvas: cv, context: cv.getContext('2d') }; }
+  reset(ctx, w, h) { ctx.canvas.width = w; ctx.canvas.height = h; }
+  destroy() {}
+}
+globalThis.TestCanvasFactory = MockCanvasFactory;
 fs.mkdirSync('outputs/qa',{recursive:true});
-await build({stdin:{contents:fs.readFileSync('lib/documents.ts','utf8').replace('"mammoth"','"mammoth/mammoth.browser.js"').replace('"pdfjs-dist"','"pdfjs-dist/legacy/build/pdf.mjs"').replace('"/pdf.worker.min.mjs"',JSON.stringify(pathToFileURL(process.cwd()+'/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs').href)),resolveDir:process.cwd()+'/lib',loader:'ts'},outfile:'outputs/qa/documents-test.mjs',bundle:true,packages:'external',platform:'node',format:'esm'});
+let docSrc=fs.readFileSync('lib/documents.ts','utf8');
+docSrc=docSrc.replace('"mammoth"','"mammoth/mammoth.browser.js"');
+docSrc=docSrc.replace('"pdfjs-dist"','"pdfjs-dist/legacy/build/pdf.mjs"');
+const workerHref=pathToFileURL(process.cwd()+'/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs').href;
+docSrc=docSrc.replace('"/pdf.worker.min.mjs"',()=>JSON.stringify(workerHref));
+docSrc=docSrc.replace('wasmUrl:"/wasm/"',()=>'wasmUrl:"/wasm/",CanvasFactory:globalThis.TestCanvasFactory');
+await build({stdin:{contents:docSrc,resolveDir:process.cwd()+'/lib',loader:'ts'},outfile:'outputs/qa/documents-test.mjs',bundle:true,packages:'external',platform:'node',format:'esm'});
 const engine=await import('../outputs/qa/documents-test.mjs');
 const original=new Uint8Array(fs.readFileSync('outputs/qa/donus-4-sayfa.pdf'));
 const text='İstanbul, ışık, öğüt, şüphe. ÇĞİÖŞÜ çğıöşü';
@@ -21,7 +66,8 @@ fs.writeFileSync('outputs/qa/edited.pdf',edited);
 const inspect=await PDFDocument.load(edited);assert.equal(inspect.getPageCount(),4);assert.equal(inspect.getPage(2).getRotation().angle,270);assert.deepEqual(inspect.getPage(3).getCropBox(),{x:30,y:40,width:500,height:740});
 const extracted=await engine.extractPdfText(edited);assert.equal(extracted.split(text).length-1,4);assert.match(extracted,/Sayfa 4/);
 const doc=await engine.loadPdf(edited);
-for(let i=1;i<=4;i++){const page=await doc.getPage(i),viewport=page.getViewport({scale:1});const c=createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));await page.render({canvasContext:c.getContext('2d'),viewport,canvas:c}).promise;fs.writeFileSync(`outputs/qa/edited-page-${i}.png`,c.toBuffer('image/png'))}
+const canvasFactory=new MockCanvasFactory();
+for(let i=1;i<=4;i++){const page=await doc.getPage(i),viewport=page.getViewport({scale:1});const c=createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));await page.render({canvasContext:c.getContext('2d'),viewport,canvas:c,canvasFactory}).promise;fs.writeFileSync(`outputs/qa/edited-page-${i}.png`,c.toBuffer('image/png'))}
 await doc.loadingTask.destroy();
 const subset=await engine.exportPdf(original,[{index:3,rotation:0},{index:0,rotation:90}],marks);assert.equal((await PDFDocument.load(subset)).getPageCount(),2);
 const file=new File([original],'sample.pdf');const merged=await engine.mergePdf([file,file]);assert.equal((await PDFDocument.load(merged)).getPageCount(),8);

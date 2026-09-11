@@ -1,11 +1,38 @@
 "use client";
 import { useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, File, FileInput, FilePlus2, Files, FileText, FileType2, FolderOpen, LayoutGrid, LockKeyhole, Merge, PenLine, Plus, Scissors, ShieldCheck, Sparkles, Upload } from "lucide-react";
+import {
+  Archive,
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  ChevronRight,
+  File,
+  FileInput,
+  FilePlus2,
+  Files,
+  FileText,
+  FileType2,
+  FolderOpen,
+  LayoutGrid,
+  LockKeyhole,
+  Merge,
+  PenLine,
+  Plus,
+  ScanText,
+  Scissors,
+  ShieldCheck,
+  Sparkles,
+  Upload
+} from "lucide-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Toaster, toast } from "sonner";
+import { RecoveryDialog } from "@/features/autosave/RecoveryDialog";
+import type { FormaDraft } from "@/features/autosave/db";
+
 const tools = [
   { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
   { id:"word", title:"Word düzenle", desc:"Kelimelerine son şeklini ver.", icon:FileType2, color:"blue", type:"DOCX" },
@@ -13,36 +40,266 @@ const tools = [
   { id:"sign", title:"PDF imzala", desc:"İmzanı çiz, belgede yerine koy.", icon:PenLine, color:"pink", type:"PDF" },
   { id:"merge", title:"PDF birleştir", desc:"Birden çok dosya, tek bir belge.", icon:Merge, color:"teal", type:"PDF" },
   { id:"pages", title:"Sayfaları düzenle", desc:"Ayır, döndür veya sayfa sil.", icon:Scissors, color:"amber", type:"PDF" },
+  { id:"compress", title:"PDF sıkıştır", desc:"Kaliteyi koruyarak boyutu küçült.", icon:Archive, color:"teal", type:"PDF" },
+  { id:"ocr", title:"Tara ve OCR", desc:"Taranmış belgeleri aranabilir metne dönüştür.", icon:ScanText, color:"violet", type:"PDF" }
 ];
+
 export default function Home() {
- const input=useRef<HTMLInputElement>(null);
- const [category,setCategory]=useState("all"),[intent,setIntent]=useState("edit"),[dragging,setDragging]=useState(false),[help,setHelp]=useState(false),[loading,setLoading]=useState(false);
- const [workspace,setWorkspace]=useState<{files:File[];intent:string;id:string}|null>(null);
- const [Editor,setEditor]=useState<React.ComponentType<any>|null>(null);
- const [dirty,setDirty]=useState(false),[leave,setLeave]=useState(false);const nextAction=useRef<(()=>void)|null>(null);
- function guard(action:()=>void){if(dirty&&workspace){nextAction.current=action;setLeave(true)}else action()}
- async function open(files:File[],action=intent){
-  if(!files.length)return;
-  if(files.some(f=>! /\.(pdf|docx|txt|png|jpe?g)$/i.test(f.name))){toast.error("PDF, DOCX, TXT, PNG veya JPG dosyası seç.");return}
-  if(files.some(f=>f.size>50*1024*1024)){toast.error("Her dosya en fazla 50 MB olabilir.");return}
-  setLoading(true);try{const m=await import("./workspace");setEditor(()=>m.default);setWorkspace({files,intent:action,id:crypto.randomUUID()})}catch{toast.error("Düzenleyici açılamadı. Lütfen yeniden dene.")}finally{setLoading(false)}
- }
- function pick(action:string){guard(()=>{setIntent(action);if(input.current){input.current.multiple=action==="merge";input.current.accept=action==="word"?".docx,.txt":["edit","sign","merge","pages"].includes(action)?".pdf":".pdf,.docx,.txt,.png,.jpg,.jpeg";input.current.click()}})}
- async function newDoc(){await open([new globalThis.File([""],"Adsız belge.txt",{type:"text/plain"})],"word")}
- return <SidebarProvider style={{"--sidebar-width":"238px"} as React.CSSProperties}>
- <Sidebar className="forma-sidebar"><SidebarHeader className="brand"><a href="/" aria-label="Forma ana sayfa"><span className="brand-symbol"><Files size={23}/></span><span>forma<span className="brand-dot">.</span></span></a></SidebarHeader>
- <SidebarContent className="sidebar-body"><button className="primary sidebar-upload" onClick={()=>pick("edit")}><Plus size={19}/> Dosya aç</button><span className="nav-caption">ÇALIŞMA ALANIN</span><SidebarMenu><SidebarMenuItem><SidebarMenuButton className="nav-item" isActive={!workspace} onClick={()=>guard(()=>setWorkspace(null))}><LayoutGrid/><span>Genel bakış</span></SidebarMenuButton></SidebarMenuItem><SidebarMenuItem><SidebarMenuButton className="nav-item" onClick={()=>pick("convert")}><FolderOpen/><span>Dosya aç</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
- <span className="nav-caption tools-caption">BELGE ARAÇLARI</span><SidebarMenu>{tools.map(t=><SidebarMenuItem key={t.id}><SidebarMenuButton className="nav-item" onClick={()=>pick(t.id)}><t.icon/><span>{t.title}</span>{t.id==="sign"&&<span className="nav-new">Yeni</span>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu>
- <div className="local-card"><span className="local-icon"><ShieldCheck size={21}/></span><strong>Dosyaların, sende kalır.</strong><p>Belgelerin cihazında işlenir.<br/>Sunucuya yüklenmez.</p><span><LockKeyhole size={12}/> Gizlilik, varsayılan ayar.</span></div></SidebarContent>
- <SidebarFooter className="sidebar-footer"><button onClick={()=>setHelp(true)}><BookOpen size={17}/> Kısa kullanım rehberi <ArrowUpRight size={15}/></button><div className="profile"><span className="avatar">S</span><span><strong>Kişisel çalışma alanı</strong><small>Biraz daha düzenli, biraz daha kolay.</small></span></div></SidebarFooter></Sidebar>
- <main className="main-shell"><header className="topbar"><div className="breadcrumb"><SidebarTrigger className="mobile-trigger"/><span>Çalışma alanı</span><ChevronRight size={14}/><strong>{workspace?"Belge düzenleyici":"Genel bakış"}</strong></div><span className="private-label"><ShieldCheck size={15}/> Tamamen cihazında</span><button className="top-help" aria-label="Kullanım rehberi" onClick={()=>setHelp(true)}><BookOpen size={18}/></button></header>
- {workspace&&Editor?<Editor key={workspace.id} files={workspace.files} intent={workspace.intent} onClose={()=>setWorkspace(null)} onOpen={pick} onDirty={setDirty}/>:<div className="dashboard">
- <div className="page-heading"><div><div className="eyebrow"><span/> DAHA AZ UĞRAŞ, DAHA ÇOK İŞ</div><h1>Belgelerine yer aç.</h1><p>Düzenle, dönüştür, imzala. Hepsi aynı çalışma alanında.</p></div><button className="secondary create-doc" onClick={newDoc}><FilePlus2 size={17}/> Yeni belge</button></div>
- <section className={`upload-zone ${dragging?"dragging":""}`} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);void open(Array.from(e.dataTransfer.files),"edit")}}><div className="upload-visual"><span className="file-tile word-tile"><FileType2/><small>DOCX</small></span><span className="file-tile pdf-tile"><FileText/><small>PDF</small></span><span className="file-tile image-tile"><File/><small>JPG</small></span></div><h2>Dosyanı bırak, gerisini kolaylaştıralım.</h2><p>Buraya sürükleyip bırak veya cihazından bir dosya seç.</p><button className="primary upload-button" disabled={loading} onClick={()=>pick("convert")}><Upload size={18}/>{loading?"Düzenleyici açılıyor…":"Dosya seç"}<ArrowRight size={17}/></button><div className="upload-formats"><span>PDF</span><span>DOCX</span><span>TXT</span><span>JPG / PNG</span><i/> En fazla 50 MB / dosya</div></section>
- <section className="tool-section"><div className="section-heading"><div><h2>Her belgeye bir araç<span>6</span></h2><p>Yapmak istediğini seç, hemen başla.</p></div><Tabs value={category} onValueChange={setCategory}><TabsList className="category-tabs"><TabsTrigger value="all">Tüm araçlar</TabsTrigger><TabsTrigger value="pdf">PDF</TabsTrigger><TabsTrigger value="word">Word</TabsTrigger></TabsList></Tabs></div><div className="tool-grid">{tools.filter(t=>category==="all"||(category==="word"?["word","convert"].includes(t.id):t.id!=="word")).map(t=><button className="tool-card" key={t.id} onClick={()=>pick(t.id)}><div className="tool-card-top"><span className={`tool-icon ${t.color}`}><t.icon size={23}/></span><ArrowUpRight className="card-arrow" size={18}/></div><h3>{t.title}</h3><p>{t.desc}</p><span className="file-type">{t.type}</span></button>)}</div></section>
- <section className="start-strip"><span className="strip-icon"><Sparkles size={23}/></span><div><h3>Boş sayfa, yeni bir başlangıç.</h3><p>Sıfırdan bir belge oluştur; Word veya PDF olarak indir.</p></div><button onClick={newDoc}>Belge oluştur <ArrowRight size={17}/></button></section>
- <footer className="dashboard-footer"><span><LockKeyhole size={13}/> Dosyalar cihazından ayrılmaz.</span><span>Senin belgelerin. Senin kontrolün.</span><span>FORMA <i> / </i> BELGE ATÖLYESİ</span></footer></div>}</main>
- <input ref={input} className="sr-only" type="file" tabIndex={-1} aria-label="Belge seç" onChange={e=>{void open(Array.from(e.target.files||[]));e.target.value=""}}/>
- <Dialog open={help} onOpenChange={setHelp}><DialogContent className="forma-dialog"><DialogTitle>Forma ile başla</DialogTitle><DialogDescription>Belgeni aç, araçlarını seç ve sonucu indir.</DialogDescription><div className="help-list"><p><strong>PDF düzenle</strong>Metin, vurgu, çizim ve görsel imza ekle. Sayfaları döndür, sil, sırala veya ayır.</p><p><strong>Word düzenle</strong>DOCX ve TXT belgelerini aç. Metni ve temel biçimlendirmeyi düzenle; DOCX veya PDF indir.</p><p><strong>Dönüştür</strong>PDF metnini Word’e, Word’ü PDF’ye veya görselleri PDF’ye dönüştür. Karmaşık Word yerleşimleri sadeleşebilir; taranmış PDF’lerde metin tanıma bulunmaz.</p><p><strong>Gizlilik</strong>Dosyalar tarayıcı belleğinde işlenir. Sayfayı kapatmadan önce değişikliklerini indir.</p></div><button className="primary" onClick={()=>setHelp(false)}><Check size={17}/> Anladım</button></DialogContent></Dialog><AlertDialog open={leave} onOpenChange={setLeave}><AlertDialogContent><AlertDialogTitle>İndirilmemiş değişiklikler var</AlertDialogTitle><AlertDialogDescription>Belgeyi değiştirirsen indirmediğin düzenlemeler kaybolur.</AlertDialogDescription><AlertDialogFooter><AlertDialogCancel>Düzenlemeye dön</AlertDialogCancel><AlertDialogAction onClick={()=>{nextAction.current?.();nextAction.current=null}}>Devam et</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Toaster position="bottom-right" richColors closeButton/>
- </SidebarProvider>
+  const input = useRef<HTMLInputElement>(null);
+  const [category, setCategory] = useState("all"), [intent, setIntent] = useState("edit"), [dragging, setDragging] = useState(false), [help, setHelp] = useState(false), [loading, setLoading] = useState(false);
+  const [workspace, setWorkspace] = useState<{ files: File[]; intent: string; id: string; draft?: FormaDraft } | null>(null);
+  const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
+  const [dirty, setDirty] = useState(false), [leave, setLeave] = useState(false);
+  const nextAction = useRef<(() => void) | null>(null);
+
+  function guard(action: () => void) {
+    if (dirty && workspace) {
+      nextAction.current = action;
+      setLeave(true);
+    } else action();
+  }
+
+  async function open(files: File[], action = intent, draft?: FormaDraft) {
+    if (!files.length) return;
+    if (files.some(f => ! /\.(pdf|docx|txt|png|jpe?g)$/i.test(f.name))) {
+      toast.error("PDF, DOCX, TXT, PNG veya JPG dosyası seç.");
+      return;
+    }
+    if (files.some(f => f.size > 50 * 1024 * 1024)) {
+      toast.error("Her dosya en fazla 50 MB olabilir.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const m = await import("./workspace");
+      setEditor(() => m.default);
+      setWorkspace({ files, intent: action, id: crypto.randomUUID(), draft });
+    } catch {
+      toast.error("Düzenleyici açılamadı. Lütfen yeniden dene.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function pick(action: string) {
+    guard(() => {
+      setIntent(action);
+      if (input.current) {
+        input.current.multiple = action === "merge";
+        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+        input.current.click();
+      }
+    });
+  }
+
+  async function newDoc() {
+    await open([new globalThis.File([""], "Adsız belge.txt", { type: "text/plain" })], "word");
+  }
+
+  return (
+    <SidebarProvider style={{ "--sidebar-width": "238px" } as React.CSSProperties}>
+      <Sidebar className="forma-sidebar">
+        <SidebarHeader className="brand">
+          <a href="/" aria-label="Forma ana sayfa">
+            <span className="brand-symbol"><Files size={23} /></span>
+            <span>forma<span className="brand-dot">.</span></span>
+          </a>
+        </SidebarHeader>
+        <SidebarContent className="sidebar-body">
+          <button className="primary sidebar-upload" onClick={() => pick("edit")}>
+            <Plus size={19} /> Dosya aç
+          </button>
+          <span className="nav-caption">ÇALIŞMA ALANIN</span>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" isActive={!workspace} onClick={() => guard(() => setWorkspace(null))}>
+                <LayoutGrid /><span>Genel bakış</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => pick("convert")}>
+                <FolderOpen /><span>Dosya aç</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <span className="nav-caption tools-caption">BELGE ARAÇLARI</span>
+          <SidebarMenu>
+            {tools.map(t => (
+              <SidebarMenuItem key={t.id}>
+                <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
+                  <t.icon /><span>{t.title}</span>
+                  {t.id === "sign" && <span className="nav-new">Yeni</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          <div className="local-card">
+            <span className="local-icon"><ShieldCheck size={21} /></span>
+            <strong>Dosyaların, sende kalır.</strong>
+            <p>Belgelerin cihazında işlenir.<br />Sunucuya yüklenmez.</p>
+            <span><LockKeyhole size={12} /> Gizlilik, varsayılan ayar.</span>
+          </div>
+        </SidebarContent>
+        <SidebarFooter className="sidebar-footer">
+          <button onClick={() => setHelp(true)}>
+            <BookOpen size={17} /> Kısa kullanım rehberi <ArrowUpRight size={15} />
+          </button>
+          <div className="profile">
+            <span className="avatar">S</span>
+            <span><strong>Kişisel çalışma alanı</strong><small>Biraz daha düzenli, biraz daha kolay.</small></span>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+      <main className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <SidebarTrigger className="mobile-trigger" />
+            <span>Çalışma alanı</span>
+            <ChevronRight size={14} />
+            <strong>{workspace ? "Belge düzenleyici" : "Genel bakış"}</strong>
+          </div>
+          <span className="private-label"><ShieldCheck size={15} /> Tamamen cihazında</span>
+          <button className="top-help" aria-label="Kullanım rehberi" onClick={() => setHelp(true)}>
+            <BookOpen size={18} />
+          </button>
+        </header>
+
+        {workspace && Editor ? (
+          <Editor
+            key={workspace.id}
+            files={workspace.files}
+            intent={workspace.intent}
+            initialDraft={workspace.draft}
+            onClose={() => setWorkspace(null)}
+            onOpen={pick}
+            onDirty={setDirty}
+          />
+        ) : (
+          <div className="dashboard">
+            <div className="page-heading">
+              <div>
+                <div className="eyebrow"><span /> DAHA AZ UĞRAŞ, DAHA ÇOK İŞ</div>
+                <h1>Belgelerine yer aç.</h1>
+                <p>Düzenle, dönüştür, imzala. Hepsi aynı çalışma alanında.</p>
+              </div>
+              <button className="secondary create-doc" onClick={newDoc}><FilePlus2 size={17} /> Yeni belge</button>
+            </div>
+            <section
+              className={`upload-zone ${dragging ? "dragging" : ""}`}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragging(false);
+                void open(Array.from(e.dataTransfer.files), "edit");
+              }}
+            >
+              <div className="upload-visual">
+                <span className="file-tile word-tile"><FileType2 /><small>DOCX</small></span>
+                <span className="file-tile pdf-tile"><FileText /><small>PDF</small></span>
+                <span className="file-tile image-tile"><File /><small>JPG</small></span>
+              </div>
+              <h2>Dosyanı bırak, gerisini kolaylaştıralım.</h2>
+              <p>Buraya sürükleyip bırak veya cihazından bir dosya seç.</p>
+              <button className="primary upload-button" disabled={loading} onClick={() => pick("convert")}>
+                <Upload size={18} />{loading ? "Düzenleyici açılıyor…" : "Dosya seç"}<ArrowRight size={17} />
+              </button>
+              <div className="upload-formats">
+                <span>PDF</span><span>DOCX</span><span>TXT</span><span>JPG / PNG</span>
+                <i /> En fazla 50 MB / dosya
+              </div>
+            </section>
+            <section className="tool-section">
+              <div className="section-heading">
+                <div>
+                  <h2>Her belgeye bir araç<span>{tools.length}</span></h2>
+                  <p>Yapmak istediğini seç, hemen başla.</p>
+                </div>
+                <Tabs value={category} onValueChange={setCategory}>
+                  <TabsList className="category-tabs">
+                    <TabsTrigger value="all">Tüm araçlar</TabsTrigger>
+                    <TabsTrigger value="pdf">PDF</TabsTrigger>
+                    <TabsTrigger value="word">Word</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div className="tool-grid">
+                {tools
+                  .filter(t => category === "all" || (category === "word" ? ["word", "convert"].includes(t.id) : t.id !== "word"))
+                  .map(t => (
+                    <button className="tool-card" key={t.id} onClick={() => pick(t.id)}>
+                      <div className="tool-card-top">
+                        <span className={`tool-icon ${t.color}`}><t.icon size={23} /></span>
+                        <ArrowUpRight className="card-arrow" size={18} />
+                      </div>
+                      <h3>{t.title}</h3>
+                      <p>{t.desc}</p>
+                      <span className="file-type">{t.type}</span>
+                    </button>
+                  ))}
+              </div>
+            </section>
+            <section className="start-strip">
+              <span className="strip-icon"><Sparkles size={23} /></span>
+              <div>
+                <h3>Boş sayfa, yeni bir başlangıç.</h3>
+                <p>Sıfırdan bir belge oluştur; Word veya PDF olarak indir.</p>
+              </div>
+              <button onClick={newDoc}>Belge oluştur <ArrowRight size={17} /></button>
+            </section>
+            <footer className="dashboard-footer">
+              <span><LockKeyhole size={13} /> Dosyalar cihazından ayrılmaz.</span>
+              <span>Senin belgelerin. Senin kontrolün.</span>
+              <span>FORMA <i> / </i> BELGE ATÖLYESİ</span>
+            </footer>
+          </div>
+        )}
+      </main>
+      <input
+        ref={input}
+        className="sr-only"
+        type="file"
+        tabIndex={-1}
+        aria-label="Belge seç"
+        onChange={e => {
+          void open(Array.from(e.target.files || []));
+          e.target.value = "";
+        }}
+      />
+      <Dialog open={help} onOpenChange={setHelp}>
+        <DialogContent className="forma-dialog">
+          <DialogTitle>Forma ile başla</DialogTitle>
+          <DialogDescription>Belgeni aç, araçlarını seç ve sonucu indir.</DialogDescription>
+          <div className="help-list">
+            <p><strong>PDF düzenle</strong>Metin, vurgu, çizim ve görsel imza ekle. Sayfaları döndür, sil, sırala veya ayır.</p>
+            <p><strong>Word düzenle</strong>DOCX ve TXT belgelerini aç. Metni ve temel biçimlendirmeyi düzenle; DOCX veya PDF indir.</p>
+            <p><strong>Dönüştür</strong>PDF metnini Word’e, Word’ü PDF’ye veya görselleri PDF’ye dönüştür. Karmaşık Word yerleşimleri sadeleşebilir; taranmış PDF’lerde metin tanıma bulunmaz.</p>
+            <p><strong>Gizlilik</strong>Dosyalar tarayıcı belleğinde işlenir. Sayfayı kapatmadan önce değişikliklerini indir.</p>
+          </div>
+          <button className="primary" onClick={() => setHelp(false)}>
+            <Check size={17} /> Anladım
+          </button>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={leave} onOpenChange={setLeave}>
+        <AlertDialogContent>
+          <AlertDialogTitle>İndirilmemiş değişiklikler var</AlertDialogTitle>
+          <AlertDialogDescription>Belgeyi değiştirirsen indirmediğin düzenlemeler kaybolur.</AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Düzenlemeye dön</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { nextAction.current?.(); nextAction.current = null; }}>Devam et</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <RecoveryDialog
+        onRestore={async (draft) => {
+          const file = new globalThis.File([draft.fileData], draft.name, {
+            type: draft.type === "word" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf"
+          });
+          await open([file], draft.intent || "edit", draft);
+        }}
+      />
+      <Toaster position="bottom-right" richColors closeButton />
+    </SidebarProvider>
+  );
 }
