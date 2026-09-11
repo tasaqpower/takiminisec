@@ -84,7 +84,7 @@ async function run() {
     { id: 'h_3', title: 'BÖLÜM 3: Sonuç', pageIndex: 2, level: 1, fontSize: 16, selected: true },
   ];
 
-  const tocPdfBytes = await generateTocPage(basePdfBytes, headings);
+  const tocPdfBytes = await generateTocPage(bookmarkedBytes, headings);
   const tocDoc = await PDFDocument.load(tocPdfBytes);
   // Original had 3 pages; TOC added 1 page at index 0, total must be 4 pages
   assert.equal(tocDoc.getPageCount(), 4, 'TOC insertion increased page count from 3 to 4');

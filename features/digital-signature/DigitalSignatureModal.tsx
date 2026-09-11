@@ -138,8 +138,8 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
           <div>
-            <h2 className="text-lg font-semibold text-white">Sertifika Tabanlı Dijital İmza (ISO 32000-1)</h2>
-            <p className="text-xs text-slate-400">Gerçek PKCS#7 / CMS ayrılmış dijital imza ekleyin veya belgedeki imzaların kriptografik bütünlüğünü doğrulayın</p>
+            <h2 className="text-lg font-semibold text-white">Sertifika Tabanlı Dijital İmza (Deneysel CMS / PKCS#7)</h2>
+            <p className="text-xs text-slate-400">ISO 32000-1 PPKLite PKCS#7 ayrılmış dijital imza ekleyin veya belgedeki imzaların kriptografik bütünlüğünü doğrulayın</p>
           </div>
           <button
             onClick={onClose}
@@ -199,8 +199,8 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                         : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    <div className="font-semibold text-slate-200 mb-0.5">Yerel Güvenli Sertifika</div>
-                    <div>Cihazda otomatik 2048-bit RSA anahtar çifti ve sertifika üretilir.</div>
+                    <div className="font-semibold text-slate-200 mb-0.5">Yerel Test Sertifikası</div>
+                    <div>Cihazda otomatik 2048-bit RSA anahtar çifti ve öz-imzalı sertifika üretilir.</div>
                   </button>
                   <button
                     type="button"
@@ -212,7 +212,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                     }`}
                   >
                     <div className="font-semibold text-slate-200 mb-0.5">Sertifika Yükle (.p12 / .pfx)</div>
-                    <div>Resmi e-imza veya kurumsal PKCS#12 dosyanızı kullanın.</div>
+                    <div>Yazılım tabanlı PKCS#12 dosyanızı kullanın (Kurumsal / test sertifikaları).</div>
                   </button>
                 </div>
               </div>
@@ -330,8 +330,9 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                 )}
               </div>
 
-              <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400">
-                🔒 <strong className="text-slate-300">Sıfır Bulut Sızıntısı:</strong> Özel anahtarlarınız ve parolalarınız kesinlikle sunucuya iletilmez veya diske kaydedilmez. Tüm imzalama işlemi ISO 32000 standardına uygun olarak doğrudan tarayıcı belleğinde gerçekleştirilir.
+              <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1.5">
+                <div>🔒 <strong className="text-slate-300">Sıfır Bulut Sızıntısı:</strong> Özel anahtarlarınız ve parolalarınız kesinlikle sunucuya iletilmez veya diske kaydedilmez. Tüm imzalama işlemi doğrudan tarayıcı belleğinde gerçekleştirilir.</div>
+                <div className="text-[11px] text-amber-400/90">⚠️ <strong className="text-amber-300">Hukuki Bilgilendirme:</strong> Bu imza SHA-256 tabanlı kriptografik bütünlük sağlar; 5070 sayılı E-İmza Kanunu kapsamındaki Nitelikli Elektronik Sertifika (NES) donanımı (akıllı kart/token) yerine geçmez.</div>
               </div>
             </div>
           ) : (
@@ -379,7 +380,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                               : 'bg-red-900/40 text-red-300 border border-red-700/50'
                           }`}
                         >
-                          {sig.isValid ? 'Geçerli & Değiştirilmemiş' : 'Geçersiz / Bütünlük Bozulmuş'}
+                          {sig.isValid ? 'Bütünlük Doğrulandı (Öz-İmzalı / Yerel)' : 'Geçersiz / Bütünlük Bozulmuş'}
                         </span>
                       </div>
 

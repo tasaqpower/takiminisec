@@ -38,6 +38,11 @@ function colToLetter(colIndex: number): string {
  * Extract approximate text lines per page from PDF bytes
  */
 async function extractPageTexts(pdfBytes: Uint8Array): Promise<string[][]> {
+  const prefix = new TextDecoder('latin1').decode(pdfBytes.slice(0, 1024));
+  if (!prefix.includes('%PDF-')) {
+    throw new Error('Failed to parse PDF: Geçersiz veya bozuk PDF formatı.');
+  }
+
   const isNode = typeof window === 'undefined';
   try {
     let pdfjsLib: any;
@@ -80,12 +85,14 @@ async function extractPageTexts(pdfBytes: Uint8Array): Promise<string[][]> {
       pagesText.push(pageLines.length > 0 ? pageLines : ['[Boş Sayfa]']);
     }
     return pagesText;
-  } catch (_err) {
+  } catch (err: any) {
+    if (err?.message?.includes('Failed to parse')) throw err;
     // Fallback parser if pdfjs fails or text is raw
     const text = new TextDecoder('latin1').decode(pdfBytes);
     const textMatches = text.match(/\(([^)]+)\)\s*Tj/g) || [];
     const extracted = textMatches.map((m) => m.replace(/^\(/, '').replace(/\)\s*Tj$/, ''));
-    return [extracted.length > 0 ? extracted : ['Örnek Belge İçeriği']];
+    if (extracted.length > 0) return [extracted];
+    throw new Error('Failed to parse PDF: Belgeden metin okunamadı.');
   }
 }
 
@@ -96,6 +103,9 @@ export async function imagesToPdf(
   images: ImageToPdfItem[],
   options: ImageToPdfOptions
 ): Promise<Uint8Array> {
+  if (!images || images.length === 0) {
+    throw new Error('En az bir görsel seçilmelidir.');
+  }
   const pdfDoc = await PDFDocument.create();
 
   const standardSizes: Record<string, [number, number]> = {

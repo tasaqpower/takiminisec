@@ -24,6 +24,9 @@ const SUITES = [
   { name: 'Phase 8: New Format Conversions', script: 'scripts/test-phase8-conversion.mjs', useTsx: true },
   { name: 'Phase 9: Real Digital Signatures', script: 'scripts/test-phase9-signature.mjs', useTsx: true },
   { name: 'Phase 10: PDF/A & Accessibility', script: 'scripts/test-phase10-compliance.mjs', useTsx: true },
+  { name: 'Explicit Negative Suite (10 Packages)', script: 'scripts/test-negative-suite.mjs', useTsx: true },
+  { name: 'Independent Deep Verification (10 Packages)', script: 'scripts/test-independent-deep.mjs', useTsx: true },
+  { name: 'Real Chrome Acceptance (10 Packages UI & Reload)', script: 'scripts/test-chrome-10-packages.mjs', useTsx: true },
 ];
 
 function getFileHash(filePath) {

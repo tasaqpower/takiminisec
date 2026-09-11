@@ -14,6 +14,7 @@ export interface FormaDraft {
   formFields?: any[];
   pageImages?: any[];
   pageOrder?: number[];
+  annotations?: any[];
   zoom?: number;
   isDirty?: boolean;
 }

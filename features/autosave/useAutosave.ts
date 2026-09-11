@@ -7,6 +7,7 @@ import { toast } from "sonner";
 export interface UseAutosaveProps {
   file: File | null;
   type: "pdf" | "word";
+  bytes?: Uint8Array | null;
   marks?: any[];
   removals?: any[];
   wordContent?: string;
@@ -15,6 +16,7 @@ export interface UseAutosaveProps {
   formFields?: any[];
   pageImages?: any[];
   pageOrder?: number[];
+  annotations?: any[];
   zoom?: number;
   isDirty?: boolean;
   intent?: string;
@@ -27,6 +29,7 @@ export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 export function useAutosave({
   file,
   type,
+  bytes,
   marks = [],
   removals = [],
   wordContent,
@@ -35,6 +38,7 @@ export function useAutosave({
   formFields = [],
   pageImages = [],
   pageOrder = [],
+  annotations = [],
   zoom = 1,
   isDirty = false,
   intent = "edit",
@@ -47,8 +51,14 @@ export function useAutosave({
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
 
-  // Load arrayBuffer from file once
+  // Load arrayBuffer from file or direct bytes
   useEffect(() => {
+    if (bytes) {
+      const copy = new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      cachedBuffer.current = copy.buffer;
+      return;
+    }
     if (!file) {
       cachedBuffer.current = null;
       return;
@@ -58,10 +68,11 @@ export function useAutosave({
     }).catch(err => {
       console.warn("Could not read file for autosave:", err);
     });
-  }, [file]);
+  }, [file, bytes]);
 
   const performSave = useCallback(async () => {
-    if (!enabled || !file || !cachedBuffer.current) return;
+    const fileName = file?.name || "belge.pdf";
+    if (!enabled || !cachedBuffer.current) return;
 
     // Check if there are any changes to save
     const hasEdits =
@@ -71,6 +82,7 @@ export function useAutosave({
       (formFields && formFields.length > 0) ||
       (pageImages && pageImages.length > 0) ||
       (pageOrder && pageOrder.length > 0) ||
+      (annotations && annotations.length > 0) ||
       Object.keys(pageRotations).length > 0 ||
       isDirty;
 
@@ -80,7 +92,7 @@ export function useAutosave({
     try {
       const draft: FormaDraft = {
         id: "current_draft",
-        name: file.name,
+        name: fileName,
         type,
         fileData: cachedBuffer.current,
         timestamp: Date.now(),
@@ -93,6 +105,7 @@ export function useAutosave({
         formFields,
         pageImages,
         pageOrder,
+        annotations,
         zoom,
         isDirty
       };
@@ -112,7 +125,7 @@ export function useAutosave({
         toast.warning("Tarayıcı depolama kotası aşıldı, taslak kaydedilemedi.");
       }
     }
-  }, [enabled, file, type, marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, zoom, isDirty, intent, onSaved]);
+  }, [enabled, file, bytes, type, marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, intent, onSaved]);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -120,7 +133,7 @@ export function useAutosave({
       return;
     }
 
-    if (!enabled || !file) return;
+    if (!enabled || (!file && !bytes)) return;
 
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
@@ -135,7 +148,7 @@ export function useAutosave({
         clearTimeout(saveTimer.current);
       }
     };
-  }, [marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, zoom, isDirty, enabled, file, performSave]);
+  }, [marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, enabled, file, bytes, performSave]);
 
   const clearCurrentDraft = useCallback(async () => {
     await deleteDraft("current_draft");

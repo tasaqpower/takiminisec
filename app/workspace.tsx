@@ -86,6 +86,7 @@ import { ToolHubModal, type ProfessionalToolId } from "@/features/hub/ToolHubMod
 import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
 import { PageDecorationModal } from "@/features/page-decoration/PageDecorationModal";
 import { AnnotationSidePanel } from "@/features/annotations/AnnotationSidePanel";
+import { writeAnnotationsToPdf } from "@/features/annotations/annotationEngine";
 import type { PdfAnnotation } from "@/features/annotations/annotationTypes";
 import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
 import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
@@ -358,6 +359,7 @@ export default function Workspace({
   const { status: autosaveStatus, lastSaved, clearCurrentDraft } = useAutosave({
     file: files[0] || null,
     type: kind,
+    bytes,
     marks: state.marks,
     removals: state.removals,
     wordContent: kind === "word" ? (editor.current?.innerHTML || htmlRef.current) : undefined,
@@ -366,6 +368,7 @@ export default function Workspace({
     formFields,
     pageImages,
     pageOrder: state.pages.map((p) => p.index),
+    annotations: pdfAnnotations,
     zoom,
     isDirty: dirty,
     intent,
@@ -386,10 +389,33 @@ export default function Workspace({
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  const handleApplyProfessionalPdf = (newPdfBytes: Uint8Array) => {
-    setBytes(newPdfBytes);
-    setDirty(true);
-    toast.success("Değişiklikler başarıyla uygulandı.");
+  const handleApplyProfessionalPdf = async (newPdfBytes: Uint8Array) => {
+    try {
+      const next = await loadPdf(newPdfBytes);
+      renderTask.current?.cancel();
+      setPdf((old: any) => {
+        void old?.loadingTask.destroy().catch(() => {});
+        return next;
+      });
+      setBytes(newPdfBytes);
+      setKind("pdf");
+      const newPages = Array.from({ length: next.numPages }, (_, index) => ({
+        index,
+        rotation: 0
+      }));
+      setState((prev) => ({
+        ...prev,
+        pages: newPages,
+      }));
+      setActive(0);
+      setDirty(true);
+      toast.success("Değişiklikler başarıyla uygulandı.");
+    } catch (err) {
+      console.error("Failed to reload PDF after applying professional tool:", err);
+      setBytes(newPdfBytes);
+      setDirty(true);
+      toast.success("Değişiklikler uygulandı.");
+    }
   };
 
   // Detect and maintain images across pages
@@ -621,6 +647,9 @@ export default function Workspace({
     if (initialDraft?.pageImages?.length) {
       setPageImages(initialDraft.pageImages);
     }
+    if (initialDraft?.annotations?.length) {
+      setPdfAnnotations(initialDraft.annotations);
+    }
     if (initialDraft?.zoom) {
       setZoom(initialDraft.zoom);
     }
@@ -628,7 +657,8 @@ export default function Workspace({
       restoredMarks.length ||
       restoredRemovals.length ||
       initialDraft?.formFields?.length ||
-      initialDraft?.pageImages?.length
+      initialDraft?.pageImages?.length ||
+      initialDraft?.annotations?.length
     ) {
       setDirty(true);
     }
@@ -1373,6 +1403,9 @@ export default function Workspace({
         }
         if (format === "pdf") {
           let finalPdf = await exportPdf(bytes, pages, state.marks, state.removals, pageImages);
+          if (pdfAnnotations.length > 0) {
+            finalPdf = await writeAnnotationsToPdf(finalPdf, pdfAnnotations);
+          }
           if (formFields.length > 0) {
             finalPdf = await embedFormFieldsInPdf(finalPdf, formFields, flattenForms);
           }

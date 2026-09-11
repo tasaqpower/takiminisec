@@ -122,8 +122,8 @@ export const ComplianceModal: React.FC<ComplianceModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
           <div>
-            <h2 className="text-lg font-semibold text-white">PDF/A ve Erişilebilirlik Standartları</h2>
-            <p className="text-xs text-slate-400">ISO 19005-2 PDF/A-2b arşiv uyumluluğu ve WCAG 2.1 AA erişilebilirlik denetimi</p>
+            <h2 className="text-lg font-semibold text-white">PDF/A Hazırlama ve Erişilebilirlik Denetimi</h2>
+            <p className="text-xs text-slate-400">ISO 19005-2 PDF/A-2b arşiv hazırlığı (ön koşullar) ve WCAG 2.1 AA ön denetimi</p>
           </div>
           <button
             onClick={onClose}
@@ -143,7 +143,7 @@ export const ComplianceModal: React.FC<ComplianceModalProps> = ({
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            PDF/A-2b Arşiv Dönüşümü
+            PDF/A-2b Hazırlığı
           </button>
           <button
             onClick={() => {
@@ -207,7 +207,7 @@ export const ComplianceModal: React.FC<ComplianceModalProps> = ({
 
               {/* Checklist */}
               <div className="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-slate-200">ISO 19005-2 PDF/A-2b Gereksinimleri:</div>
+                <div className="text-xs font-semibold text-slate-200">ISO 19005-2 PDF/A-2b Ön Koşul Adımları:</div>
                 <ul className="text-xs text-slate-400 space-y-1.5">
                   <li className="flex items-center gap-2">
                     <span className="text-emerald-400">✓</span>
@@ -228,13 +228,17 @@ export const ComplianceModal: React.FC<ComplianceModalProps> = ({
                 </ul>
               </div>
 
+              <div className="p-2.5 bg-slate-950/80 rounded border border-slate-800 text-[11px] text-amber-400/90 leading-relaxed">
+                ℹ️ <strong className="text-amber-300">Standart Notu:</strong> Bu işlem PDF/A-2b için gerekli sRGB OutputIntent, XMP şeması ve temizlik ön koşullarını uygular. Resmi ISO 19005-2 sertifikasyonu için veraPDF veya Adobe Acrobat Preflight ile doğrulama yapılmalıdır.
+              </div>
+
               <button
                 type="button"
                 onClick={handleConvertToPdfA}
                 disabled={loading || !pdfBytes}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-900/30"
               >
-                {loading ? 'Dönüştürülüyor...' : 'PDF/A-2b Formatına Dönüştür ve Uygula'}
+                {loading ? 'Dönüştürülüyor...' : 'PDF/A-2b Ön Koşullarını Uygula'}
               </button>
             </div>
           ) : (
