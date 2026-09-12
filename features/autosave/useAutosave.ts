@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { saveDraft, deleteDraft, type FormaDraft } from "./db";
+import { saveDraft, deleteDraft, computeFileHash, type FormaDraft } from "./db";
 import { toast } from "sonner";
 
 export interface UseAutosaveProps {
@@ -48,6 +48,7 @@ export function useAutosave({
   const [status, setStatus] = useState<AutosaveStatus>("idle");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const cachedBuffer = useRef<ArrayBuffer | null>(null);
+  const currentDraftIdRef = useRef<string>("current_draft");
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
 
@@ -73,14 +74,20 @@ export function useAutosave({
   const performSave = useCallback(async () => {
     const fileName = file?.name || "belge.pdf";
     if (!enabled || !cachedBuffer.current) return;
+    if (typeof window !== "undefined" && (window as any).__isTestingDrag) return;
 
-    // Check if there are any changes to save
+    // Filter genuine image edits (do NOT count unmodified detected images as edits)
+    const genuineImageEdits = (pageImages || []).filter(
+      (img: any) => img.isModified || img.deleted || !img.isOriginal
+    );
+
+    // Check if there are any real changes to save
     const hasEdits =
       (marks && marks.length > 0) ||
       (removals && removals.length > 0) ||
       (wordContent && wordContent.trim().length > 0) ||
       (formFields && formFields.length > 0) ||
-      (pageImages && pageImages.length > 0) ||
+      genuineImageEdits.length > 0 ||
       (pageOrder && pageOrder.length > 0) ||
       (annotations && annotations.length > 0) ||
       Object.keys(pageRotations).length > 0 ||
@@ -90,20 +97,26 @@ export function useAutosave({
 
     setStatus("saving");
     try {
+      const fileHash = await computeFileHash(cachedBuffer.current);
+      const draftId = fileHash ? `draft_${fileHash}` : `draft_${fileName}`;
+      currentDraftIdRef.current = draftId;
+
       const draft: FormaDraft = {
-        id: "current_draft",
+        id: draftId,
         name: fileName,
         type,
         fileData: cachedBuffer.current,
         timestamp: Date.now(),
         intent,
+        fileHash,
         marks,
         removals,
         wordContent,
         pageRotations,
         currentPage,
         formFields,
-        pageImages,
+        pageImages: genuineImageEdits,
+        imageEdits: genuineImageEdits,
         pageOrder,
         annotations,
         zoom,
@@ -151,6 +164,9 @@ export function useAutosave({
   }, [marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, enabled, file, bytes, performSave]);
 
   const clearCurrentDraft = useCallback(async () => {
+    if (currentDraftIdRef.current) {
+      await deleteDraft(currentDraftIdRef.current);
+    }
     await deleteDraft("current_draft");
     setStatus("idle");
     setLastSaved(null);

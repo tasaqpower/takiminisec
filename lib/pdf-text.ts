@@ -104,6 +104,7 @@ export async function removePdfImages(
   bytes: Uint8Array,
   removals: ImageRemoval[]
 ): Promise<Uint8Array> {
+  if (typeof window !== "undefined" && (window as any).__dragTestCounters) (window as any).__dragTestCounters.pdfiumCallCount++;
   if (!removals.length) return bytes;
   const m = (await engine()) as any;
   const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;

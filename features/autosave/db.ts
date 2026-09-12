@@ -1,4 +1,3 @@
-// IndexedDB storage for Forma document drafts
 export interface FormaDraft {
   id: string;
   name: string;
@@ -6,6 +5,7 @@ export interface FormaDraft {
   fileData: ArrayBuffer;
   timestamp: number;
   intent: string;
+  fileHash?: string;
   marks?: any[];
   removals?: any[];
   wordContent?: string;
@@ -13,6 +13,7 @@ export interface FormaDraft {
   currentPage?: number;
   formFields?: any[];
   pageImages?: any[];
+  imageEdits?: any[];
   pageOrder?: number[];
   annotations?: any[];
   zoom?: number;
@@ -83,6 +84,46 @@ export async function getLatestDraft(): Promise<FormaDraft | null> {
     });
   } catch (err) {
     console.error("Failed to read draft:", err);
+    return null;
+  }
+}
+
+export async function computeFileHash(data: ArrayBuffer | Uint8Array): Promise<string> {
+  const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    try {
+      const copy = new Uint8Array(u8.length);
+      copy.set(u8);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", copy.buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    } catch {}
+  }
+  const view = u8;
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < Math.min(view.length, 131072); i++) {
+    const ch = view[i];
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `hash_${(h2 >>> 0).toString(16)}${(h1 >>> 0).toString(16)}_${view.length}`;
+}
+
+export async function getDraftByHash(fileHash: string): Promise<FormaDraft | null> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(`draft_${fileHash}`);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+    });
+  } catch (err) {
+    console.error("Failed to read draft by hash:", err);
     return null;
   }
 }

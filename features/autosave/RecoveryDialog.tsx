@@ -19,11 +19,20 @@ export function RecoveryDialog({ onRestore, onDiscard }: RecoveryDialogProps) {
     let mounted = true;
     getLatestDraft().then((latest) => {
       if (mounted && latest) {
-        setDraft(latest);
-        const diff = Math.floor((Date.now() - latest.timestamp) / 1000);
-        const text = diff < 60 ? "az önce" : diff < 3600 ? `${Math.floor(diff / 60)} dakika önce` : `${Math.floor(diff / 3600)} saat önce`;
-        setDraftTime(text);
-        setIsOpen(true);
+        const count =
+          (latest.marks?.length || 0) +
+          (latest.removals?.length || 0) +
+          (latest.formFields?.length || 0) +
+          (latest.pageImages?.length || 0) +
+          (latest.imageEdits?.length || 0) +
+          (latest.wordContent?.trim().length ? 1 : 0);
+        if (count > 0) {
+          setDraft(latest);
+          const diff = Math.floor((Date.now() - latest.timestamp) / 1000);
+          const text = diff < 60 ? "az önce" : diff < 3600 ? `${Math.floor(diff / 60)} dakika önce` : `${Math.floor(diff / 3600)} saat önce`;
+          setDraftTime(text);
+          setIsOpen(true);
+        }
       }
     });
     return () => {

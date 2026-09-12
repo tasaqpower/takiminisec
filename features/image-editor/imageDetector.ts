@@ -274,7 +274,9 @@ export async function detectImagesOnPage(
               "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='%236366f1' opacity='0.15'/><text x='50' y='55' text-anchor='middle' fill='%234338ca' font-size='12' font-family='sans-serif'>Görsel</text></svg>";
           }
 
-          const imgId = `img_${pageIndex}_${i}_${Math.random().toString(36).slice(2, 8)}`;
+          const objStr = typeof imgArg === "string" ? imgArg : typeof imgArg === "number" ? String(imgArg) : "img";
+          const imgIdx = images.filter(im => im.page === pageIndex).length;
+          const imgId = `img_p${pageIndex}_idx${imgIdx}_${objStr}_${pixelW || 0}x${pixelH || 0}`;
           const imgName = typeof imgArg === "string" ? imgArg : `Görsel ${images.length + 1}`;
 
           images.push({

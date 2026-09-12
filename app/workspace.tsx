@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowLeft,
   ArrowDown,
@@ -74,7 +74,7 @@ import { CompressDialog } from "@/features/compression/CompressDialog";
 import { ImageOverlay } from "@/features/image-editor/ImageOverlay";
 import { ImageToolbar } from "@/features/image-editor/ImageToolbar";
 import { detectImagesOnPage } from "@/features/image-editor/imageDetector";
-import type { PdfImageItem } from "@/features/image-editor/imageTypes";
+import type { PdfImageItem, PdfDetectedImage, PdfImageEdit } from "@/features/image-editor/imageTypes";
 import { FindReplaceBar } from "@/features/find-replace/FindReplaceBar";
 import { PageOrganizerModal } from "@/features/page-organizer/PageOrganizerModal";
 import { FormDesignerOverlay } from "@/features/forms/FormDesignerOverlay";
@@ -268,6 +268,14 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [exit, setExit] = useState(false);
+  if (typeof window !== "undefined" && (window as any).__isTestingDrag && (window as any).__dragTestCounters) {
+    (window as any).__dragTestCounters.reactRenderCount++;
+    (window as any).__lastRenderReasons = (window as any).__lastRenderReasons || [];
+    (window as any).__lastRenderReasons.push({
+      time: Date.now(),
+      state: { rendering, busy, zoom, active, selectedImageId, imageEditsCount: imageEdits.length }
+    });
+  }
 
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showOcr, setShowOcr] = useState(intent === "ocr");
@@ -278,7 +286,10 @@ export default function Workspace({
   const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(null);
   const [formMode, setFormMode] = useState<"none" | "design" | "fill">("none");
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
-  const [pageImages, setPageImages] = useState<PdfImageItem[]>([]);
+  const [detectedImages, setDetectedImages] = useState<PdfDetectedImage[]>([]);
+  const [imageEdits, setImageEdits] = useState<PdfImageEdit[]>([]);
+  const pageImages = imageEdits;
+  const setPageImages = setImageEdits;
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [pdfAnnotations, setPdfAnnotations] = useState<PdfAnnotation[]>([]);
@@ -296,6 +307,9 @@ export default function Workspace({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [zoom, setZoom] = useState(1);
+  if (typeof window !== "undefined") {
+    (window as any).__setZoomForTest = (z: number) => setZoom(z);
+  }
   const [color, setColor] = useState("#30294d");
   const [text, setText] = useState("Yeni metin");
   const [size, setSize] = useState(16);
@@ -309,6 +323,9 @@ export default function Workspace({
 
   const [dimensions, setDimensions] = useState({ width: 595, height: 842, baseWidth: 595, baseHeight: 842 });
   const [rendering, setRendering] = useState(false);
+  if (typeof window !== "undefined") {
+    (window as any).__isRendering = rendering;
+  }
   const [count, setCount] = useState(0);
   const [draft, setDraft] = useState<Mark | null>(null);
   const draftRef = useRef<Mark | null>(null);
@@ -365,7 +382,7 @@ export default function Workspace({
     pageRotations: Object.fromEntries(state.pages.map((p, i) => [i, p.rotation])),
     currentPage: active + 1,
     formFields,
-    pageImages,
+    pageImages: imageEdits.filter(i => i.isModified || i.deleted || !i.isOriginal),
     pageOrder: state.pages.map((p) => p.index),
     annotations: pdfAnnotations,
     zoom,
@@ -426,11 +443,11 @@ export default function Workspace({
       return detectImagesOnPage(p, active, pageRotation);
     }).then((imgs: PdfImageItem[]) => {
       if (mounted) {
-        setPageImages((prev) => {
+        setDetectedImages((prev) => {
           const existingThisPage = prev.filter((img) => img.page === active);
           if (existingThisPage.length > 0) return prev;
           const others = prev.filter((img) => img.page !== active);
-          return [...others, ...imgs];
+          return [...others, ...(imgs as PdfDetectedImage[])];
         });
       }
     }).catch(() => {});
@@ -658,8 +675,15 @@ export default function Workspace({
         if (fields.length) setFormFields(fields);
       }).catch(() => {});
     }
-    if (initialDraft?.pageImages?.length) {
-      setPageImages(initialDraft.pageImages);
+    setDetectedImages([]);
+    setSelectedImageId(null);
+    if (initialDraft?.imageEdits?.length || initialDraft?.pageImages?.length) {
+      const draftImgs = (initialDraft.imageEdits || initialDraft.pageImages || []).filter(
+        (img: any) => img.isModified || img.deleted || !img.isOriginal
+      );
+      setImageEdits(draftImgs);
+    } else {
+      setImageEdits([]);
     }
     if (initialDraft?.annotations?.length) {
       setPdfAnnotations(initialDraft.annotations);
@@ -755,6 +779,9 @@ export default function Workspace({
       } catch {}
     }
     setRendering(true);
+    if (typeof window !== "undefined" && (window as any).__dragTestCounters) {
+      (window as any).__dragTestCounters.canvasRenderCount++;
+    }
     void (async () => {
       try {
         if (prevTask) {
@@ -774,11 +801,26 @@ export default function Workspace({
           scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
           rotation: (page.rotate + current.rotation) % 360
         });
-        c.width = viewport.width;
-        c.height = viewport.height;
-        const task = page.render({ canvasContext: c.getContext("2d")!, canvas: c, viewport });
+        // Offscreen-first rendering: avoids white flash and flickering
+        const offscreen = document.createElement("canvas");
+        offscreen.width = viewport.width;
+        offscreen.height = viewport.height;
+        const offCtx = offscreen.getContext("2d");
+        if (!offCtx || cancelled) return;
+
+        const task = page.render({ canvasContext: offCtx, canvas: offscreen, viewport });
         renderTask.current = task;
         await task.promise;
+        if (cancelled) return;
+
+        if (c.width !== viewport.width || c.height !== viewport.height) {
+          c.width = viewport.width;
+          c.height = viewport.height;
+        }
+        const visibleCtx = c.getContext("2d");
+        if (visibleCtx) {
+          visibleCtx.drawImage(offscreen, 0, 0);
+        }
         if (!cancelled) setRendering(false);
       } catch (e) {
         if (!cancelled && !/RenderingCancelled|cancelled/i.test(String(e))) {
@@ -891,105 +933,191 @@ export default function Workspace({
     };
   }, [bytes, pdf, state.removals, active, modifiedImagesKey]);
 
-  // Atomic offscreen background preparation when an original image is selected
-  const cleanBackgroundImgRef = useRef<string | null>(null);
+  const cleanCanvasCache = useRef<Map<string, HTMLCanvasElement>>(new Map());
 
+  // Pre-render clean canvases for detected images on the current page during idle time
   useEffect(() => {
-    if (!selectedImageId || !bytes || !pdf || !canvas.current || kind !== "pdf") {
-      cleanBackgroundImgRef.current = null;
+    if (!bytes || !pdf || !canvas.current || kind !== "pdf") return;
+    let cancelled = false;
+
+    const pageDetected = detectedImages.filter(d => d.page === active && d.isMovable !== false);
+    if (pageDetected.length === 0) return;
+
+    const preRender = async () => {
+      for (const det of pageDetected) {
+        if (cancelled) break;
+        if (cleanCanvasCache.current.has(det.id)) continue;
+        try {
+          const removal: ImageRemoval = {
+            page: det.page,
+            bounds: det.originalBounds,
+            imageId: det.id,
+            objectRef: det.objectRef,
+            imageIndex: det.imageIndex,
+            pixelWidth: det.pixelWidth,
+            pixelHeight: det.pixelHeight,
+            matrix: det.matrix
+          };
+          const cleanBytes = await removePdfImages(bytes, [removal]);
+          if (cancelled) break;
+          const cleanDoc = await loadPdf(cleanBytes);
+          const p = await cleanDoc.getPage(active + 1);
+          const c = canvas.current;
+          if (!c || cancelled) {
+            void cleanDoc.loadingTask.destroy().catch(() => {});
+            break;
+          }
+          const off = document.createElement("canvas");
+          off.width = c.width;
+          off.height = c.height;
+          const offCtx = off.getContext("2d");
+          if (!offCtx) {
+            void cleanDoc.loadingTask.destroy().catch(() => {});
+            continue;
+          }
+          const viewport = p.getViewport({
+            scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
+            rotation: (p.rotate + (current?.rotation || 0)) % 360
+          });
+          const task = p.render({ canvasContext: offCtx, canvas: off, viewport });
+          await task.promise;
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          if (!cancelled) {
+            cleanCanvasCache.current.set(det.id, off);
+          }
+        } catch {}
+      }
+    };
+
+    const timer = setTimeout(preRender, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [bytes, pdf, active, kind, zoom, detectedImages, current?.rotation]);
+
+  // Function to prepare and apply clean background atomically
+  const handleRequestEdit = useCallback(async (detImg: PdfDetectedImage) => {
+    if (!bytes || !pdf || !canvas.current || kind !== "pdf") return;
+    if (detImg.isMovable === false) {
+      toast.error("Bu görsel korumalı PDF yapısı nedeniyle taşınamaz.");
       return;
     }
-    const img = pageImages.find(i => i.id === selectedImageId && i.page === active && !i.deleted);
-    if (!img || !img.isOriginal || img.isModified) return;
 
-    let cancelled = false;
-    (async () => {
-      try {
-        const removal: ImageRemoval = {
-          page: img.page,
-          bounds: img.originalBounds,
-          imageId: img.id,
-          objectRef: img.objectRef,
-          imageIndex: img.imageIndex,
-          pixelWidth: img.pixelWidth,
-          pixelHeight: img.pixelHeight,
-          matrix: img.matrix
+    const existing = imageEdits.find(e => e.id === detImg.id);
+    if (existing) {
+      setSelectedImageId(detImg.id);
+      return;
+    }
+
+    const c = canvas.current;
+    if (!c) return;
+
+    // Check if we have an offscreen canvas ready in cache
+    const cachedOffscreen = cleanCanvasCache.current.get(detImg.id);
+    if (cachedOffscreen && cachedOffscreen.width === c.width && cachedOffscreen.height === c.height) {
+      requestAnimationFrame(() => {
+        const visibleCtx = c.getContext("2d");
+        if (visibleCtx) {
+          visibleCtx.drawImage(cachedOffscreen, 0, 0);
+        }
+        const newEdit: PdfImageEdit = {
+          ...detImg,
+          dataUrl: detImg.dataUrl || "",
+          format: detImg.format || "png",
+          opacity: detImg.opacity ?? 1,
+          isOriginal: true,
+          isModified: false,
+          deleted: false
         };
+        setImageEdits(prev => [...prev.filter(e => e.id !== detImg.id), newEdit]);
+        setSelectedImageId(detImg.id);
+      });
+      return;
+    }
 
-        // First verify image can be safely located & removed
-        const canRemove = await canRemovePdfImage(bytes, removal);
-        if (cancelled) return;
-        if (!canRemove) {
-          setPageImages(prev => prev.map(item => item.id === img.id ? { ...item, isMovable: false } : item));
-          toast.error("Bu görsel korumalı PDF yapısı nedeniyle taşınamaz.");
-          return;
-        }
+    const removal: ImageRemoval = {
+      page: detImg.page,
+      bounds: detImg.originalBounds,
+      imageId: detImg.id,
+      objectRef: detImg.objectRef,
+      imageIndex: detImg.imageIndex,
+      pixelWidth: detImg.pixelWidth,
+      pixelHeight: detImg.pixelHeight,
+      matrix: detImg.matrix
+    };
 
-        // Generate clean PDF without this image
-        let clean = bytes;
-        if (state.removals.length) {
-          const cached = cleanCache.current.get(state.removals);
-          clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
-        }
-        const cleanBytes = await removePdfImages(clean, [removal]);
-        if (cancelled) return;
+    const canRemove = await canRemovePdfImage(bytes, removal);
+    if (!canRemove) {
+      setDetectedImages(prev => prev.map(item => item.id === detImg.id ? { ...item, isMovable: false } : item));
+      toast.error("Bu görsel korumalı PDF yapısı nedeniyle taşınamaz.");
+      return;
+    }
 
-        const cleanDoc = await loadPdf(cleanBytes);
-        if (cancelled) {
-          void cleanDoc.loadingTask.destroy().catch(() => {});
-          return;
-        }
+    try {
+      let clean = bytes;
+      if (state.removals.length) {
+        const cached = cleanCache.current.get(state.removals);
+        clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
+      }
+      const existingRemovals = imageEdits
+        .filter(e => e.page === active && e.isOriginal && (e.isModified || e.deleted) && e.originalBounds)
+        .map(e => ({
+          page: e.page,
+          bounds: e.originalBounds!,
+          imageId: e.id,
+          objectRef: e.objectRef,
+          imageIndex: e.imageIndex,
+          pixelWidth: e.pixelWidth,
+          pixelHeight: e.pixelHeight,
+          matrix: e.matrix
+        }));
 
-        const page = await cleanDoc.getPage(active + 1);
-        if (cancelled) {
-          void cleanDoc.loadingTask.destroy().catch(() => {});
-          return;
-        }
+      const allRemovals = [...existingRemovals, removal];
+      const cleanBytes = await removePdfImages(clean, allRemovals);
 
-        const c = canvas.current;
-        if (!c || cancelled) {
-          void cleanDoc.loadingTask.destroy().catch(() => {});
-          return;
-        }
+      const cleanDoc = await loadPdf(cleanBytes);
+      const page = await cleanDoc.getPage(active + 1);
 
-        // Render to offscreen canvas at identical dimensions
-        const offscreen = document.createElement("canvas");
-        offscreen.width = c.width;
-        offscreen.height = c.height;
-        const offCtx = offscreen.getContext("2d");
-        if (!offCtx) {
-          void cleanDoc.loadingTask.destroy().catch(() => {});
-          return;
-        }
+      const offscreen = document.createElement("canvas");
+      offscreen.width = c.width;
+      offscreen.height = c.height;
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) {
+        void cleanDoc.loadingTask.destroy().catch(() => {});
+        return;
+      }
 
-        const viewport = page.getViewport({
-          scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
-          rotation: (page.rotate + (current?.rotation || 0)) % 360
-        });
+      const viewport = page.getViewport({
+        scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
+        rotation: (page.rotate + (current?.rotation || 0)) % 360
+      });
 
-        const task = page.render({ canvasContext: offCtx, canvas: offscreen, viewport });
-        await task.promise;
-        if (cancelled) {
-          void cleanDoc.loadingTask.destroy().catch(() => {});
-          return;
-        }
+      const task = page.render({ canvasContext: offCtx, canvas: offscreen, viewport });
+      await task.promise;
+      void cleanDoc.loadingTask.destroy().catch(() => {});
 
-        // Atomically copy to visible canvas with ZERO blanking, ZERO layout shift, ZERO scroll jump!
+      requestAnimationFrame(() => {
         const visibleCtx = c.getContext("2d");
         if (visibleCtx) {
           visibleCtx.drawImage(offscreen, 0, 0);
-          cleanBackgroundImgRef.current = img.id;
         }
-        void cleanDoc.loadingTask.destroy().catch(() => {});
-      } catch (err) {
-        console.warn("Could not prepare atomic clean background:", err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedImageId, active, bytes, pdf, zoom, current?.rotation, kind, state.removals]);
+        const newEdit: PdfImageEdit = {
+          ...detImg,
+          dataUrl: detImg.dataUrl || "",
+          format: detImg.format || "png",
+          opacity: detImg.opacity ?? 1,
+          isOriginal: true,
+          isModified: false,
+          deleted: false
+        };
+        setImageEdits(prev => [...prev.filter(e => e.id !== detImg.id), newEdit]);
+        setSelectedImageId(detImg.id);
+      });
+    } catch (err) {
+      console.warn("Could not prepare atomic clean background:", err);
+    }
+  }, [bytes, pdf, kind, state.removals, imageEdits, active, zoom, current]);
 
   function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
     const removals = state.removals.some(r => r.id === item.id)
@@ -2105,16 +2233,30 @@ export default function Workspace({
                     </div>
                   )}
                   <ImageOverlay
-                    images={pageImages.filter(img => img.page === active && !img.deleted)}
+                    detectedImages={detectedImages.filter(img => img.page === active)}
+                    editedImages={imageEdits.filter(img => img.page === active && !img.deleted)}
                     selectedId={selectedImageId}
-                    onSelect={setSelectedImageId}
+                    onSelect={(id) => {
+                      if (!id) {
+                        setSelectedImageId(null);
+                        return;
+                      }
+                      const edit = imageEdits.find(e => e.id === id);
+                      if (edit) {
+                        setSelectedImageId(id);
+                      } else {
+                        const det = detectedImages.find(d => d.id === id && d.page === active);
+                        if (det) void handleRequestEdit(det);
+                      }
+                    }}
+                    onRequestEdit={(det) => void handleRequestEdit(det)}
                     onUpdate={(id, up) => {
-                      setPageImages(prev => prev.map(i => i.id === id ? { ...i, ...up, isModified: true } : i));
+                      setImageEdits(prev => prev.map(i => i.id === id ? { ...i, ...up, isModified: true } : i));
                       setDirty(true);
                     }}
-                    onCommit={() => {
+                    onCommit={(id) => {
                       setDirty(true);
-                      setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                      setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
                       setFuture([]);
                     }}
                     onDragStateChange={setIsDraggingImage}
@@ -2124,18 +2266,18 @@ export default function Workspace({
                   />
                   {selectedImageId && (
                     <ImageToolbar
-                      image={pageImages.find(i => i.id === selectedImageId && !i.deleted) || null}
+                      image={imageEdits.find(i => i.id === selectedImageId && !i.deleted) || null}
                       onUpdate={(up) => {
-                        setPageImages(prev => prev.map(i => i.id === selectedImageId ? { ...i, ...up, isModified: true } : i));
+                        setImageEdits(prev => prev.map(i => i.id === selectedImageId ? { ...i, ...up, isModified: true } : i));
                         setDirty(true);
-                        setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                        setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
                         setFuture([]);
                       }}
                       onDelete={(id) => {
-                        setPageImages(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
+                        setImageEdits(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
                         setSelectedImageId(null);
                         setDirty(true);
-                        setHistory(h => [...h.slice(-39), { ...state, images: pageImages }]);
+                        setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
                         setFuture([]);
                       }}
                       onClose={() => setSelectedImageId(null)}
