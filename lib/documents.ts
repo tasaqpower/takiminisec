@@ -4,7 +4,7 @@ import DOMPurify from "dompurify";
 import { removePdfText, removePdfImages, type TextRemoval } from "./pdf-text";
 import { fontFile, type PdfFont } from "./pdf-fonts";
 
-export type Mark = {id:string; page:number; kind:"text"|"draw"|"highlight"|"signature"; x:number; y:number; w:number; h:number; color:string; size:number; text?:string; image?:string; points?:{x:number;y:number}[];font?:PdfFont;bold?:boolean;italic?:boolean;angle?:number;sourceId?:string};
+export type Mark = {id:string; page:number; kind:"text"|"draw"|"highlight"|"signature"; x:number; y:number; w:number; h:number; color:string; size:number; text?:string; image?:string; points?:{x:number;y:number}[];font?:PdfFont;bold?:boolean;italic?:boolean;angle?:number;sourceId?:string;opacity?:number;align?:"left"|"center"|"right"};
 export type PageItem = {index:number; rotation:number};
 export async function pdfRenderer(){ const pdfjs=await import("pdfjs-dist"); pdfjs.GlobalWorkerOptions.workerSrc="/pdf.worker.min.mjs";return pdfjs; }
 export async function loadPdf(bytes:Uint8Array){if (typeof window !== "undefined" && (window as any).__dragTestCounters) (window as any).__dragTestCounters.loadPdfCount++;const p=await pdfRenderer();const task=p.getDocument({data:bytes.slice(),cMapUrl:"/cmaps/",cMapPacked:true,standardFontDataUrl:"/standard_fonts/",wasmUrl:"/wasm/"});try{return await task.promise}catch(error){await task.destroy();throw error}}
@@ -60,9 +60,9 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
    if((annotations.length||pageImgs.length)&&renderer){const original=await renderer.getPage(item.index+1);const unit=original.userUnit||1;const viewport=original.getViewport({scale:1});const point=(x:number,y:number)=>viewport.convertToPdfPoint(x,y);
     for(const m of annotations){
      if(m.kind==="text"){const [x,y]=point(m.x,m.y+m.size);page.drawText(m.text||"",{x,y,size:m.size/unit,font:fonts.get(fontFile(m.font,m.bold,m.italic))!,color:col(m.color),rotate:degrees(originalRotation-(m.angle||0)),lineHeight:m.size*1.25/unit})}
-     if(m.kind==="highlight"){const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.color),opacity:.3})}
-     if(m.kind==="draw"){const pts=m.points||[];for(let i=1;i<pts.length;i++){const a=point(pts[i-1].x,pts[i-1].y),b=point(pts[i].x,pts[i].y);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:m.size/unit,color:col(m.color)})}}
-     if(m.kind==="signature"&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,rotate:degrees(originalRotation)})}
+      if(m.kind==="highlight"){const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.color),opacity:m.opacity??.3})}
+      if(m.kind==="draw"){const pts=m.points||[];for(let i=1;i<pts.length;i++){const a=point(pts[i-1].x,pts[i-1].y),b=point(pts[i].x,pts[i].y);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:m.size/unit,color:col(m.color),opacity:m.opacity??1})}}
+      if(m.kind==="signature"&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,opacity:m.opacity??1,rotate:degrees(originalRotation)})}
     }
     for(const img of pageImgs){
      const url = img.dataUrl || img.previewUrl || "";

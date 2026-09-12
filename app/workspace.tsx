@@ -72,7 +72,15 @@ import type { FormaDraft } from "@/features/autosave/db";
 import { OcrModal } from "@/features/ocr/OcrModal";
 import { CompressDialog } from "@/features/compression/CompressDialog";
 import { ImageOverlay } from "@/features/image-editor/ImageOverlay";
-import { ImageToolbar } from "@/features/image-editor/ImageToolbar";
+import {
+  TextEditControls,
+  TextAddControls,
+  HighlightControls,
+  DrawControls,
+  SignatureControls,
+  ImageControls,
+  PageActionsMenu
+} from "@/features/toolbar";
 import { detectImagesOnPage } from "@/features/image-editor/imageDetector";
 import type { PdfImageItem, PdfDetectedImage, PdfImageEdit } from "@/features/image-editor/imageTypes";
 import { FindReplaceBar } from "@/features/find-replace/FindReplaceBar";
@@ -312,6 +320,14 @@ export default function Workspace({
   const [range, setRange] = useState("");
   const [rangeError, setRangeError] = useState("");
   const [flattenForms, setFlattenForms] = useState(false);
+  const [highlightColor, setHighlightColor] = useState("#ffeb3b");
+  const [highlightOpacity, setHighlightOpacity] = useState(0.35);
+  const [highlightHeight, setHighlightHeight] = useState(24);
+  const [drawColor, setDrawColor] = useState("#30294d");
+  const [drawSize, setDrawSize] = useState(2);
+  const [drawOpacity, setDrawOpacity] = useState(1);
+  const [isEraser, setIsEraser] = useState(false);
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("left");
 
   const [dimensions, setDimensions] = useState({ width: 595, height: 842, baseWidth: 595, baseHeight: 842 });
   const [rendering, setRendering] = useState(false);
@@ -1282,6 +1298,14 @@ export default function Workspace({
     }
   }
 
+  function clearPageDrawings() {
+    const nextMarks = state.marks.filter(m => !(m.page === active && m.kind === "draw"));
+    if (nextMarks.length !== state.marks.length) {
+      change({ ...state, marks: nextMarks });
+      toast.success("Bu sayfadaki çizimler temizlendi.");
+    }
+  }
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -1367,14 +1391,16 @@ export default function Workspace({
       x,
       y,
       w: kind === "signature" ? 180 : 150,
-      h: kind === "signature" ? 67.5 : 24,
-      color: kind === "highlight" ? "#ffdb3d" : color,
-      size: kind === "draw" ? 2 : size,
+      h: kind === "signature" ? 67.5 : kind === "highlight" ? highlightHeight : 24,
+      color: kind === "highlight" ? highlightColor : kind === "draw" ? drawColor : color,
+      size: kind === "draw" ? drawSize : size,
       text,
       font,
       bold,
       italic,
       image: sig || undefined,
+      opacity: kind === "highlight" ? highlightOpacity : kind === "draw" ? drawOpacity : 1,
+      align: textAlign,
       points: []
     };
   }
@@ -1469,6 +1495,17 @@ export default function Workspace({
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
     const p = basePoint(e);
+    if (tool === "draw" && isEraser) {
+      const hitRadius = Math.max(12, drawSize * 2);
+      const remainingMarks = state.marks.filter(m => {
+        if (m.page !== current.index || m.kind !== "draw" || !m.points) return true;
+        return !m.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) <= hitRadius);
+      });
+      if (remainingMarks.length !== state.marks.length) {
+        change({ ...state, marks: remainingMarks });
+      }
+      return;
+    }
     if (tool === "text") {
       addMark(newMark("text", p.x, p.y));
       setTool("select");
@@ -1490,6 +1527,18 @@ export default function Workspace({
   }
 
   function pointerMove(e: React.PointerEvent) {
+    if (tool === "draw" && isEraser && e.buttons === 1) {
+      const p = basePoint(e);
+      const hitRadius = Math.max(12, drawSize * 2);
+      const remainingMarks = state.marks.filter(m => {
+        if (m.page !== current.index || m.kind !== "draw" || !m.points) return true;
+        return !m.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) <= hitRadius);
+      });
+      if (remainingMarks.length !== state.marks.length) {
+        change({ ...state, marks: remainingMarks });
+      }
+      return;
+    }
     const g = gesture.current;
     if (!g) return;
     const p = basePoint(e);
@@ -1821,7 +1870,8 @@ export default function Workspace({
             </foreignObject>
           ) : (
             <text
-              x={m.x}
+              x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+              textAnchor={m.align === "center" ? "middle" : m.align === "right" ? "end" : "start"}
               y={m.y + m.size}
               fontSize={m.size}
               fontFamily={pdfFont(m.font).family}
@@ -1830,16 +1880,20 @@ export default function Workspace({
               fill={m.color}
             >
               {(m.text || "").split("\n").map((line, i) => (
-                <tspan key={i} x={m.x} dy={i ? m.size * 1.25 : 0}>
+                <tspan
+                  key={i}
+                  x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+                  dy={i ? m.size * 1.25 : 0}
+                >
                   {line || " "}
                 </tspan>
               ))}
             </text>
           )
         ) : m.kind === "highlight" ? (
-          <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity=".3" />
+          <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity={m.opacity ?? 0.35} />
         ) : m.kind === "signature" ? (
-          <image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h} />
+          <image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h} opacity={m.opacity ?? 1} />
         ) : (
           <polyline
             points={m.points?.map(p => `${p.x},${p.y}`).join(" ")}
@@ -1848,6 +1902,7 @@ export default function Workspace({
             strokeWidth={m.size}
             strokeLinecap="round"
             strokeLinejoin="round"
+            opacity={m.opacity ?? 1}
           />
         )}
 
@@ -1917,6 +1972,7 @@ export default function Workspace({
     : null;
 
   const panelMark = activeMark || selectedOriginalAsMark;
+  const activeSelectedImage = selectedImageId ? (imageEdits.find(i => i.id === selectedImageId && !i.deleted) || null) : null;
 
   if (error)
     return (
@@ -2035,12 +2091,13 @@ export default function Workspace({
       {kind === "pdf" ? (
         <>
           <fieldset disabled={!!busy} className="editor-toolbar">
-            <div className="tool-buttons">
+            <div className="tool-buttons shrink-0">
               {[
                 { id: "select", label: "Metni düzenle", icon: MousePointer2 },
                 { id: "text", label: "Metin ekle", icon: Type },
                 { id: "highlight", label: "Vurgula", icon: Highlighter },
-                { id: "draw", label: "Çiz", icon: PenLine }
+                { id: "draw", label: "Çiz", icon: PenLine },
+                { id: "signature", label: "İmza", icon: PenLine }
               ].map(t => (
                 <button
                   key={t.id}
@@ -2051,27 +2108,153 @@ export default function Workspace({
                     finishInlineEdit();
                     setSelected(null);
                     setSelectedOriginal(null);
+                    setSelectedImageId(null);
+                    if (t.id === "signature" && !sig) {
+                      setSignOpen(true);
+                    }
                   }}
                 >
                   <t.icon size={17} />
-                  {t.label}
+                  <span>{t.label}</span>
                 </button>
               ))}
-              <button
-                className={tool === "signature" ? "active" : ""}
-                onClick={() => setSignOpen(true)}
-              >
-                <PenLine size={17} /> İmza
-              </button>
             </div>
-            <div className="toolbar-divider" />
+
+            <div className="toolbar-divider shrink-0" />
+
+            {/* Contextual tool controls */}
+            <div className="toolbar-contextual flex-1 flex items-center min-w-0 overflow-x-auto">
+              {activeSelectedImage ? (
+                <ImageControls
+                  image={activeSelectedImage}
+                  onUpdate={(up) => {
+                    setImageEdits(prev => prev.map(i => i.id === activeSelectedImage.id ? { ...i, ...up, isModified: true } : i));
+                    setDirty(true);
+                    setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
+                    setFuture([]);
+                  }}
+                  onDelete={(id) => {
+                    setImageEdits(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
+                    setSelectedImageId(null);
+                    setDirty(true);
+                    setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
+                    setFuture([]);
+                  }}
+                  onDeselect={() => setSelectedImageId(null)}
+                />
+              ) : tool === "select" ? (
+                panelMark?.kind === "signature" ? (
+                  <SignatureControls
+                    hasSignature={!!sig}
+                    selectedSignatureMark={panelMark}
+                    onOpenSignDialog={() => setSignOpen(true)}
+                    onUpdateFormat={updateActiveFormat}
+                    onDeleteSignature={deleteSelected}
+                    onDone={() => {
+                      finishInlineEdit();
+                      setSelected(null);
+                      setSelectedOriginal(null);
+                    }}
+                  />
+                ) : (
+                  <TextEditControls
+                    selectedMark={panelMark}
+                    onUpdateFormat={updateActiveFormat}
+                    onDelete={deleteSelected}
+                    onDone={() => {
+                      finishInlineEdit();
+                      setSelected(null);
+                      setSelectedOriginal(null);
+                    }}
+                  />
+                )
+              ) : tool === "text" ? (
+                <TextAddControls
+                  font={font}
+                  onFontChange={setFont}
+                  size={size}
+                  onSizeChange={setSize}
+                  bold={bold}
+                  onBoldChange={setBold}
+                  italic={italic}
+                  onItalicChange={setItalic}
+                  color={color}
+                  onColorChange={setColor}
+                  align={textAlign}
+                  onAlignChange={setTextAlign}
+                  onQuickAdd={() => {
+                    addMark(newMark("text", 50, 80));
+                    setTool("select");
+                  }}
+                />
+              ) : tool === "highlight" ? (
+                <HighlightControls
+                  color={highlightColor}
+                  onColorChange={setHighlightColor}
+                  opacity={highlightOpacity}
+                  onOpacityChange={setHighlightOpacity}
+                  height={highlightHeight}
+                  onHeightChange={setHighlightHeight}
+                />
+              ) : tool === "draw" ? (
+                <DrawControls
+                  color={drawColor}
+                  onColorChange={setDrawColor}
+                  size={drawSize}
+                  onSizeChange={setDrawSize}
+                  opacity={drawOpacity}
+                  onOpacityChange={setDrawOpacity}
+                  isEraser={isEraser}
+                  onToggleEraser={() => setIsEraser(e => !e)}
+                  onClearPageDrawings={clearPageDrawings}
+                  hasDrawings={state.marks.some(m => m.page === active && m.kind === "draw")}
+                />
+              ) : tool === "signature" ? (
+                <SignatureControls
+                  hasSignature={!!sig}
+                  selectedSignatureMark={panelMark?.kind === "signature" ? panelMark : null}
+                  onOpenSignDialog={() => setSignOpen(true)}
+                  onUpdateFormat={updateActiveFormat}
+                  onDeleteSignature={deleteSelected}
+                  onDone={() => {
+                    finishInlineEdit();
+                    setSelected(null);
+                    setSelectedOriginal(null);
+                  }}
+                />
+              ) : null}
+            </div>
+
+            <div className="toolbar-divider shrink-0" />
+
+            {/* Page Actions dropdown */}
+            <PageActionsMenu
+              activePage={active}
+              pageCount={state.pages.length}
+              onRotate={rotate}
+              onMovePage={movePage}
+              onSeparatePage={() => {
+                setRange(String(active + 1));
+                setFormat("pdf");
+                setExportOpen(true);
+              }}
+              onDeletePage={removePage}
+              disabled={!current || !!busy}
+            />
+
+            <div className="toolbar-divider shrink-0" />
+
+            {/* Undo / Redo */}
             <IconButton label="Geri al" onClick={undo} disabled={!history.length}>
               <Undo2 size={17} />
             </IconButton>
             <IconButton label="Yinele" onClick={redo} disabled={!future.length}>
               <Redo2 size={17} />
             </IconButton>
-            <span className="toolbar-spacer" />
+
+            <div className="toolbar-divider shrink-0" />
+
+            {/* Zoom controls */}
             <IconButton label="Uzaklaştır" onClick={() => setZoom(z => Math.max(0.4, z - 0.15))}>
               <ZoomOut size={17} />
             </IconButton>
@@ -2266,25 +2449,6 @@ export default function Workspace({
                     pageHeight={dimensions.height}
                     zoom={zoom}
                   />
-                  {selectedImageId && (
-                    <ImageToolbar
-                      image={imageEdits.find(i => i.id === selectedImageId && !i.deleted) || null}
-                      onUpdate={(up) => {
-                        setImageEdits(prev => prev.map(i => i.id === selectedImageId ? { ...i, ...up, isModified: true } : i));
-                        setDirty(true);
-                        setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
-                        setFuture([]);
-                      }}
-                      onDelete={(id) => {
-                        setImageEdits(prev => prev.map(i => i.id === id ? { ...i, deleted: true } : i));
-                        setSelectedImageId(null);
-                        setDirty(true);
-                        setHistory(h => [...h.slice(-39), { ...state, images: imageEdits }]);
-                        setFuture([]);
-                      }}
-                      onClose={() => setSelectedImageId(null)}
-                    />
-                  )}
                   {formMode === "design" && (
                     <FormDesignerOverlay
                       fields={formFields}
@@ -2346,162 +2510,6 @@ export default function Workspace({
                 </IconButton>
               </div>
             </div>
-
-            <aside className="properties-panel">
-              <strong>{selectedOriginal ? "PDF’deki metni düzenle" : currentMark ? "Seçili öğe" : "Araç ayarları"}</strong>
-              {panelMark ? (
-                <div className="original-text-editor">
-                  {selectedOriginal && <span className="original-badge">Mevcut PDF metni</span>}
-                  {currentMark?.sourceId && <span className="original-badge">Düzenlenen PDF metni</span>}
-                  <TextFields
-                    value={panelMark}
-                    onChange={v => {
-                      if (v.text !== undefined) updateActiveText(v.text, true);
-                      else updateActiveFormat(v);
-                    }}
-                    onBlur={() => {
-                      if (sessionInitialRef.current) {
-                        commitSession(sessionInitialRef.current, state);
-                        sessionInitialRef.current = null;
-                      }
-                    }}
-                  />
-                  <label>
-                    Metin rengi
-                    <input
-                      type="color"
-                      value={panelMark.color || "#222222"}
-                      onChange={e => updateActiveFormat({ color: e.target.value })}
-                    />
-                  </label>
-                  {currentMark && (
-                    <div className="position-fields">
-                      <label>
-                        X
-                        <input
-                          type="number"
-                          value={Math.round(currentMark.x)}
-                          onChange={e =>
-                            updateActiveFormat({
-                              x: Math.max(0, Math.min(dimensions.baseWidth, Number(e.target.value)))
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Y
-                        <input
-                          type="number"
-                          value={Math.round(currentMark.y)}
-                          onChange={e =>
-                            updateActiveFormat({
-                              y: Math.max(0, Math.min(dimensions.baseHeight, Number(e.target.value)))
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {currentMark?.kind === "signature" && (
-                    <label>
-                      Genişlik
-                      <input
-                        type="number"
-                        min="30"
-                        max="500"
-                        value={currentMark.w}
-                        onChange={e => {
-                          const w = Math.max(30, Math.min(500, Number(e.target.value)));
-                          updateActiveFormat({ w, h: (w * currentMark.h) / currentMark.w });
-                        }}
-                      />
-                    </label>
-                  )}
-                  <button
-                    className="secondary"
-                    onClick={() => {
-                      finishInlineEdit();
-                      setSelected(null);
-                      setSelectedOriginal(null);
-                    }}
-                  >
-                    <Check size={16} /> Bitti
-                  </button>
-                  <button className="delete-mark" disabled={!!busy} onClick={deleteSelected}>
-                    <Trash2 size={15} /> Metni sil
-                  </button>
-                  <small>Değişiklikler anında sayfaya işlenir. İstediğin zaman geri alabilirsin.</small>
-                </div>
-              ) : (
-                <>
-                  {tool === "text" && (
-                    <TextFields
-                      value={{ id: "new", page: 0, kind: "text", x: 0, y: 0, w: 0, h: 0, text, font, bold, italic, size, color }}
-                      onChange={v => {
-                        if (v.text !== undefined) setText(v.text);
-                        if (v.font) setFont(v.font);
-                        if (v.bold !== undefined) setBold(v.bold);
-                        if (v.italic !== undefined) setItalic(v.italic);
-                        if (v.size !== undefined) setSize(v.size);
-                      }}
-                    />
-                  )}
-                  <label>
-                    Renk
-                    <input type="color" value={color} onChange={e => setColor(e.target.value)} />
-                  </label>
-                  {(tool === "text" || tool === "signature") && (
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        if (tool === "signature" && !sig) {
-                          setSignOpen(true);
-                          return;
-                        }
-                        addMark(newMark(tool as "text" | "signature", 50, 80));
-                        setTool("select");
-                      }}
-                    >
-                      Sayfaya ekle
-                    </button>
-                  )}
-                </>
-              )}
-              <div className="properties-separator" />
-              <strong>Sayfa işlemleri</strong>
-              <div className="page-actions">
-                <button onClick={rotate} disabled={!current || !!busy}>
-                  <RotateCw size={16} /> 90° döndür
-                </button>
-                <button onClick={() => movePage(-1)} disabled={!current || active === 0 || !!busy}>
-                  <ArrowUp size={16} /> Öne taşı
-                </button>
-                <button onClick={() => movePage(1)} disabled={!current || active === state.pages.length - 1 || !!busy}>
-                  <ArrowDown size={16} /> Arkaya taşı
-                </button>
-                <button
-                  onClick={() => {
-                    setRange(String(active + 1));
-                    setFormat("pdf");
-                    setExportOpen(true);
-                  }}
-                  disabled={!current || !!busy}
-                >
-                  <Scissors size={16} /> Bu sayfayı ayır
-                </button>
-                <button onClick={removePage} disabled={state.pages.length < 2 || !!busy}>
-                  <Trash2 size={16} /> Sayfayı sil
-                </button>
-              </div>
-              <div className="editor-note">
-                {previewError ||
-                  (textLoading
-                    ? "Sayfadaki metinler algılanıyor…"
-                    : tool === "select" && !textItems.length
-                    ? "Bu sayfada seçilebilir yazı yok. Taranmış/görsel metinler için OCR gerekir. Metin ekle aracıyla yeni yazı ekleyebilirsin."
-                    : "Metni seç, çift tıklayıp doğrudan düzenle veya sürükleyerek taşı.")}
-              </div>
-            </aside>
           </div>
         </>
       ) : (
