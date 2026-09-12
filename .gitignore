@@ -43,5 +43,6 @@ next-env.d.ts
 /.agents/
 /.codex/
 /outputs/
-/work/
 *.tsbuildinfo
+*.pdf
+*ogrenci*

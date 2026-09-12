@@ -19,4 +19,9 @@ export interface PdfImageItem {
   previewUrl?: string;
   objectRef?: string | number;
   imageIndex?: number;
+  pixelWidth?: number;
+  pixelHeight?: number;
+  matrix?: number[];
+  isMovable?: boolean;
+  parentFormRef?: string | number;
 }

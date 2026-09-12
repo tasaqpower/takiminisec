@@ -21,13 +21,16 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
  bytes=await removePdfText(bytes,removals.filter(r=>pages.some(p=>p.index===r.page)));
  const imageRemovals = images
    .filter(img => (img.deleted || img.isModified) && img.isOriginal && img.originalBounds)
-    .map(img => ({
-      page: img.page,
-      bounds: img.originalBounds,
-      imageId: img.id,
-      objectRef: img.objectRef,
-      imageIndex: img.imageIndex
-    }));
+     .map(img => ({
+       page: img.page,
+       bounds: img.originalBounds,
+       imageId: img.id,
+       objectRef: img.objectRef,
+       imageIndex: img.imageIndex,
+       pixelWidth: img.pixelWidth,
+       pixelHeight: img.pixelHeight,
+       matrix: img.matrix
+     }));
  if (imageRemovals.length > 0) {
    bytes = await removePdfImages(bytes, imageRemovals);
  }

@@ -188,6 +188,29 @@ export async function detectImagesOnPage(
     let currentTransform: number[] = [1, 0, 0, 1, 0, 0];
     const transformStack: number[][] = [];
 
+    const parseMatrix = (mat: any): number[] | null => {
+      if (!mat) return null;
+      if (Array.isArray(mat) || (typeof Float32Array !== "undefined" && mat instanceof Float32Array)) {
+        if (mat.length >= 6) return [mat[0], mat[1], mat[2], mat[3], mat[4], mat[5]];
+      } else if (typeof mat === "object" && 0 in mat && 5 in mat) {
+        return [Number(mat[0]), Number(mat[1]), Number(mat[2]), Number(mat[3]), Number(mat[4]), Number(mat[5])];
+      }
+      return null;
+    };
+
+    const concatTransforms = (t1: number[], t2: number[]): number[] => {
+      const [a1, b1, c1, d1, e1, f1] = t1;
+      const [a2, b2, c2, d2, e2, f2] = t2;
+      return [
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1
+      ];
+    };
+
     for (let i = 0; i < opList.fnArray.length; i++) {
       const fn = opList.fnArray[i];
       const args = opList.argsArray[i];
@@ -199,22 +222,28 @@ export async function detectImagesOnPage(
           currentTransform = transformStack.pop()!;
         }
       } else if (fn === OPS.transform) {
-        const [a1, b1, c1, d1, e1, f1] = currentTransform;
-        const [a2, b2, c2, d2, e2, f2] = args;
-        currentTransform = [
-          a1 * a2 + c1 * b2,
-          b1 * a2 + d1 * b2,
-          a1 * c2 + c1 * d2,
-          b1 * c2 + d1 * d2,
-          a1 * e2 + c1 * f2 + e1,
-          b1 * e2 + d1 * f2 + f1
-        ];
+        const mat = parseMatrix(args);
+        if (mat) {
+          currentTransform = concatTransforms(currentTransform, mat);
+        }
+      } else if (fn === OPS.paintFormXObjectBegin) {
+        transformStack.push([...currentTransform]);
+        const formMat = parseMatrix(args?.[0]);
+        if (formMat) {
+          currentTransform = concatTransforms(currentTransform, formMat);
+        }
+      } else if (fn === OPS.paintFormXObjectEnd) {
+        if (transformStack.length > 0) {
+          currentTransform = transformStack.pop()!;
+        }
       } else if (
         fn === OPS.paintImageXObject ||
         fn === OPS.paintInlineImageXObject ||
         fn === OPS.paintImageMaskXObject
       ) {
         const imgArg = args[0];
+        const pixelW = typeof args[1] === "number" ? args[1] : undefined;
+        const pixelH = typeof args[2] === "number" ? args[2] : undefined;
         const [scaleX, skewY, skewX, scaleY, transX, transY] = currentTransform;
 
         // In PDF coordinates, an image is drawn in a unit square [0,0,1,1] transformed by the matrix
@@ -261,6 +290,7 @@ export async function detectImagesOnPage(
             format: "png",
             isOriginal: true,
             isModified: false,
+            isMovable: true,
             originalBounds: { left: pdfX, bottom: pdfY, right: pdfX + pdfW, top: pdfY + pdfH },
             originalViewport: {
               x: Math.round(vx),
@@ -270,7 +300,10 @@ export async function detectImagesOnPage(
             },
             name: imgName,
             objectRef: typeof imgArg === "string" ? imgArg : undefined,
-            imageIndex: images.filter(im => im.page === pageIndex).length
+            imageIndex: images.filter(im => im.page === pageIndex).length,
+            pixelWidth: pixelW,
+            pixelHeight: pixelH,
+            matrix: [...currentTransform]
           });
         }
       }

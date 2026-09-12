@@ -90,122 +90,212 @@ export type ImageRemoval = {
   imageId?: string;
   objectRef?: string | number;
   imageIndex?: number;
+  pixelWidth?: number;
+  pixelHeight?: number;
+  matrix?: number[];
 };
 
 /**
  * Removes image objects from PDF content streams via PDFium.
- * Targets ONLY the specified image objectRef/bounds/imageIndex and preserves other images on the same page.
+ * Traverses both top-level page objects and nested Form XObjects (FPDF_PAGEOBJ_FORM).
+ * Matches strictly using pixel dimensions, matrix, CropBox/MediaBox bounds, and sequence order.
  */
-export async function removePdfImages(bytes: Uint8Array, removals: ImageRemoval[]): Promise<Uint8Array> {
+export async function removePdfImages(
+  bytes: Uint8Array,
+  removals: ImageRemoval[]
+): Promise<Uint8Array> {
   if (!removals.length) return bytes;
-  const m = await engine(), heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+  const m = (await engine()) as any;
+  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
   const { malloc, free } = heap.wasmExports;
   const input = malloc(bytes.length);
   let doc = 0;
+
   try {
     heap.HEAPU8.set(bytes, input);
     doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
     if (!doc) throw Error("PDF görsel düzenlemesi için açılamadı.");
 
     const boundsPtr = malloc(16);
+    const matrixPtr = malloc(24);
+    const wPtr = malloc(4);
+    const hPtr = malloc(4);
+
     try {
-      for (const index of new Set(removals.map(r => r.page))) {
+      const multiplyMatrix = (m1: number[], m2: number[]): number[] => [
+        m1[0] * m2[0] + m1[2] * m2[1],
+        m1[1] * m2[0] + m1[3] * m2[1],
+        m1[0] * m2[2] + m1[2] * m2[3],
+        m1[1] * m2[2] + m1[3] * m2[3],
+        m1[0] * m2[4] + m1[2] * m2[5] + m1[4],
+        m1[1] * m2[4] + m1[3] * m2[5] + m1[5]
+      ];
+
+      for (const index of new Set(removals.map((r) => r.page))) {
         const page = m.FPDF_LoadPage(doc, index);
         if (!page) continue;
-        const pageRemovals = removals.filter(r => r.page === index);
-        const count = m.FPDFPage_CountObjects(page);
+        const pageRemovals = removals.filter((r) => r.page === index);
 
-        // Collect all image objects on this page in natural order
-        const pageImageObjects: Array<{
-          pageObjIndex: number;
+        type Candidate = {
           obj: number;
+          parentForm: number | null;
           bounds: { left: number; bottom: number; right: number; top: number };
-        }> = [];
+          matrix: number[] | null;
+          pixelWidth: number;
+          pixelHeight: number;
+          index: number;
+        };
 
+        const candidates: Candidate[] = [];
+        let imgSequence = 0;
+
+        const scanObject = (obj: number, parentForm: number | null, parentMatrix: number[] | null) => {
+          if (!obj) return;
+          const type = m.FPDFPageObj_GetType(obj);
+
+          if (type === 3) {
+            // FPDF_PAGEOBJ_IMAGE
+            m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+            const left = heap.getValue(boundsPtr, "float");
+            const bottom = heap.getValue(boundsPtr + 4, "float");
+            const right = heap.getValue(boundsPtr + 8, "float");
+            const top = heap.getValue(boundsPtr + 12, "float");
+
+            let matrix: number[] | null = null;
+            if (m.FPDFPageObj_GetMatrix && m.FPDFPageObj_GetMatrix(obj, matrixPtr)) {
+              const rawMat = Array.from(new Float32Array(heap.HEAPU8.buffer, matrixPtr, 6));
+              matrix = parentMatrix ? multiplyMatrix(parentMatrix, rawMat) : rawMat;
+            }
+
+            let pW = 0;
+            let pH = 0;
+            if (m.FPDFImageObj_GetImagePixelSize && m.FPDFImageObj_GetImagePixelSize(obj, wPtr, hPtr)) {
+              pW = heap.getValue(wPtr, "i32");
+              pH = heap.getValue(hPtr, "i32");
+            }
+
+            candidates.push({
+              obj,
+              parentForm,
+              bounds: { left, bottom, right, top },
+              matrix,
+              pixelWidth: pW,
+              pixelHeight: pH,
+              index: imgSequence++
+            });
+          } else if (type === 5) {
+            // FPDF_PAGEOBJ_FORM
+            let formMat = parentMatrix;
+            if (m.FPDFPageObj_GetMatrix && m.FPDFPageObj_GetMatrix(obj, matrixPtr)) {
+              const rawMat = Array.from(new Float32Array(heap.HEAPU8.buffer, matrixPtr, 6));
+              formMat = parentMatrix ? multiplyMatrix(parentMatrix, rawMat) : rawMat;
+            }
+            if (m.FPDFFormObj_CountObjects) {
+              const nestedCount = m.FPDFFormObj_CountObjects(obj);
+              for (let j = 0; j < nestedCount; j++) {
+                const nestedObj = m.FPDFFormObj_GetObject(obj, j);
+                if (nestedObj) scanObject(nestedObj, obj, formMat);
+              }
+            }
+          }
+        };
+
+        const count = m.FPDFPage_CountObjects(page);
         for (let i = 0; i < count; i++) {
           const obj = m.FPDFPage_GetObject(page, i);
-          if (!obj) continue;
-          const type = m.FPDFPageObj_GetType(obj);
-          if (type === 3) {
-            m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
-            pageImageObjects.push({
-              pageObjIndex: i,
-              obj,
-              bounds: {
-                left: heap.getValue(boundsPtr, "float"),
-                bottom: heap.getValue(boundsPtr + 4, "float"),
-                right: heap.getValue(boundsPtr + 8, "float"),
-                top: heap.getValue(boundsPtr + 12, "float")
-              }
-            });
-          }
+          scanObject(obj, null, null);
         }
 
-        // Match each removal strictly to AT MOST ONE target image object
-        const objsToRemove = new Set<number>();
+        const removedObjs = new Set<number>();
+        let pageHasChanges = false;
 
         for (const rem of pageRemovals) {
-          let bestMatch: (typeof pageImageObjects)[0] | null = null;
-          let bestDistance = Infinity;
+          let bestCand: Candidate | null = null;
+          let bestScore = -Infinity;
 
-          // 1. Match by bounding box center/edges if bounds provided
-          if (rem.bounds) {
-            const tb = rem.bounds;
-            const targetCenterX = (tb.left + tb.right) / 2;
-            const targetCenterY = (tb.bottom + tb.top) / 2;
+          for (const cand of candidates) {
+            if (removedObjs.has(cand.obj)) continue;
+            let score = 0;
 
-            for (const imgObj of pageImageObjects) {
-              if (objsToRemove.has(imgObj.obj)) continue;
-              const b = imgObj.bounds;
-              const imgCenterX = (b.left + b.right) / 2;
-              const imgCenterY = (b.bottom + b.top) / 2;
-
-              const distCenter = Math.hypot(imgCenterX - targetCenterX, imgCenterY - targetCenterY);
-              const distEdges =
-                Math.abs(b.left - tb.left) +
-                Math.abs(b.bottom - tb.bottom) +
-                Math.abs(b.right - tb.right) +
-                Math.abs(b.top - tb.top);
-
-              if (distEdges < 40 || distCenter < 25) {
-                if (distEdges < bestDistance) {
-                  bestDistance = distEdges;
-                  bestMatch = imgObj;
-                }
+            // 1. Pixel Dimension Matching (Strongest invariant)
+            if (rem.pixelWidth && rem.pixelHeight && cand.pixelWidth && cand.pixelHeight) {
+              if (rem.pixelWidth === cand.pixelWidth && rem.pixelHeight === cand.pixelHeight) {
+                score += 200;
+              } else {
+                score -= 500; // Do not match different-sized image
               }
             }
-          }
 
-          // 2. Fallback to imageIndex if bounds didn't resolve
-          if (!bestMatch && typeof rem.imageIndex === "number" && rem.imageIndex >= 0 && rem.imageIndex < pageImageObjects.length) {
-            const candidate = pageImageObjects[rem.imageIndex];
-            if (!objsToRemove.has(candidate.obj)) {
-              bestMatch = candidate;
+            // 2. Bounding Box Matching
+            if (rem.bounds) {
+              const tb = rem.bounds;
+              const cb = cand.bounds;
+              const centerDist = Math.hypot(
+                (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
+                (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
+              );
+              const edgeDiff =
+                Math.abs(cb.left - tb.left) +
+                Math.abs(cb.bottom - tb.bottom) +
+                Math.abs(cb.right - tb.right) +
+                Math.abs(cb.top - tb.top);
+
+              if (edgeDiff < 2) score += 150;
+              else if (edgeDiff < 15) score += 100;
+              else if (edgeDiff < 50 || centerDist < 30) score += 50;
+              else score -= Math.min(200, edgeDiff);
+            }
+
+            // 3. Matrix Matching
+            if (rem.matrix && cand.matrix) {
+              const matDiff =
+                Math.abs(rem.matrix[0] - cand.matrix[0]) +
+                Math.abs(rem.matrix[3] - cand.matrix[3]) +
+                Math.abs(rem.matrix[4] - cand.matrix[4]) +
+                Math.abs(rem.matrix[5] - cand.matrix[5]);
+              if (matDiff < 2) score += 100;
+              else if (matDiff < 15) score += 50;
+            }
+
+            // 4. Sequential Index Fallback
+            if (typeof rem.imageIndex === "number" && rem.imageIndex === cand.index) {
+              score += 40;
+            }
+
+            if (score > bestScore && score > 30) {
+              bestScore = score;
+              bestCand = cand;
             }
           }
 
-          if (bestMatch) {
-            objsToRemove.add(bestMatch.obj);
+          if (bestCand) {
+            removedObjs.add(bestCand.obj);
+            if (bestCand.parentForm && m.FPDFFormObj_RemoveObject) {
+              m.FPDFFormObj_RemoveObject(bestCand.parentForm, bestCand.obj);
+            } else {
+              m.FPDFPage_RemoveObject(page, bestCand.obj);
+            }
+            m.FPDFPageObj_Destroy(bestCand.obj);
+            pageHasChanges = true;
           }
         }
 
-        if (objsToRemove.size > 0) {
-          for (const obj of objsToRemove) {
-            m.FPDFPage_RemoveObject(page, obj);
-            m.FPDFPageObj_Destroy(obj);
-          }
+        if (pageHasChanges) {
           m.FPDFPage_GenerateContent(page);
         }
         m.FPDF_ClosePage(page);
       }
     } finally {
       free(boundsPtr);
+      free(matrixPtr);
+      free(wPtr);
+      free(hPtr);
     }
 
     const writer = m.PDFiumExt_OpenFileWriter();
     let output = 0;
     try {
-      if (!m.PDFiumExt_SaveAsCopy(doc, writer)) throw Error("Görseli güncellenen PDF oluşturulamadı.");
+      if (!m.PDFiumExt_SaveAsCopy(doc, writer)) throw Error("Düzenlenen PDF oluşturulamadı.");
       const length = m.PDFiumExt_GetFileWriterSize(writer);
       output = malloc(length);
       m.PDFiumExt_GetFileWriterData(writer, output, length);
@@ -214,6 +304,94 @@ export async function removePdfImages(bytes: Uint8Array, removals: ImageRemoval[
       if (output) free(output);
       m.PDFiumExt_CloseFileWriter(writer);
     }
+  } finally {
+    if (doc) m.FPDF_CloseDocument(doc);
+    free(input);
+  }
+}
+
+/**
+ * Verifies whether a specific image can be safely located and removed from the PDF.
+ * Returns true if an exact match exists in the page structure.
+ */
+export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval): Promise<boolean> {
+  const m = (await engine()) as any;
+  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+  const { malloc, free } = heap.wasmExports;
+  const input = malloc(bytes.length);
+  let doc = 0;
+
+  try {
+    heap.HEAPU8.set(bytes, input);
+    doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
+    if (!doc) return false;
+
+    const boundsPtr = malloc(16);
+    const matrixPtr = malloc(24);
+    const wPtr = malloc(4);
+    const hPtr = malloc(4);
+
+    try {
+      const page = m.FPDF_LoadPage(doc, removal.page);
+      if (!page) return false;
+
+      let found = false;
+      const scan = (obj: number) => {
+        if (!obj || found) return;
+        const type = m.FPDFPageObj_GetType(obj);
+        if (type === 3) {
+          let pW = 0;
+          let pH = 0;
+          if (m.FPDFImageObj_GetImagePixelSize && m.FPDFImageObj_GetImagePixelSize(obj, wPtr, hPtr)) {
+            pW = heap.getValue(wPtr, "i32");
+            pH = heap.getValue(hPtr, "i32");
+          }
+          if (removal.pixelWidth && removal.pixelHeight && pW && pH) {
+            if (pW === removal.pixelWidth && pH === removal.pixelHeight) {
+              found = true;
+              return;
+            }
+          }
+          if (removal.bounds) {
+            m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+            const left = heap.getValue(boundsPtr, "float");
+            const bottom = heap.getValue(boundsPtr + 4, "float");
+            const right = heap.getValue(boundsPtr + 8, "float");
+            const top = heap.getValue(boundsPtr + 12, "float");
+            const edgeDiff =
+              Math.abs(left - removal.bounds.left) +
+              Math.abs(bottom - removal.bounds.bottom) +
+              Math.abs(right - removal.bounds.right) +
+              Math.abs(top - removal.bounds.top);
+            if (edgeDiff < 20) {
+              found = true;
+              return;
+            }
+          }
+        } else if (type === 5 && m.FPDFFormObj_CountObjects) {
+          const count = m.FPDFFormObj_CountObjects(obj);
+          for (let j = 0; j < count; j++) {
+            scan(m.FPDFFormObj_GetObject(obj, j));
+            if (found) return;
+          }
+        }
+      };
+
+      const count = m.FPDFPage_CountObjects(page);
+      for (let i = 0; i < count; i++) {
+        scan(m.FPDFPage_GetObject(page, i));
+        if (found) break;
+      }
+      m.FPDF_ClosePage(page);
+      return found;
+    } finally {
+      free(boundsPtr);
+      free(matrixPtr);
+      free(wPtr);
+      free(hPtr);
+    }
+  } catch {
+    return false;
   } finally {
     if (doc) m.FPDF_CloseDocument(doc);
     free(input);

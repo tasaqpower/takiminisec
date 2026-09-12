@@ -43,6 +43,9 @@ export function ImageOverlay({
   } | null>(null);
 
   const selectedImage = images.find((i) => i.id === selectedId) || null;
+  const imageElementRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const rafIdRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef<Partial<PdfImageItem> | null>(null);
 
   useEffect(() => {
     onDragStateChange?.(Boolean(dragState));
@@ -55,11 +58,23 @@ export function ImageOverlay({
       const z = zoom > 0 ? zoom : 1;
       const dx = (e.clientX - dragState.startX) / z;
       const dy = (e.clientY - dragState.startY) / z;
+      const el = imageElementRefs.current.get(selectedImage.id);
 
       if (dragState.type === "move") {
         const nextX = Math.max(0, Math.min(pageWidth - selectedImage.w, dragState.initialX + dx));
         const nextY = Math.max(0, Math.min(pageHeight - selectedImage.h, dragState.initialY + dy));
-        onUpdate(selectedImage.id, { x: Math.round(nextX), y: Math.round(nextY), isModified: true });
+        pendingUpdateRef.current = { x: Math.round(nextX), y: Math.round(nextY) };
+
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(() => {
+            rafIdRef.current = null;
+            if (el && pendingUpdateRef.current) {
+              const moveDx = (pendingUpdateRef.current.x ?? dragState.initialX) - dragState.initialX;
+              const moveDy = (pendingUpdateRef.current.y ?? dragState.initialY) - dragState.initialY;
+              el.style.transform = `translate3d(${moveDx}px, ${moveDy}px, 0) rotate(${dragState.initialAngle}deg)`;
+            }
+          });
+        }
       } else if (dragState.type === "resize" && dragState.corner) {
         const { initialX, initialY, initialW, initialH } = dragState;
         let newX = initialX;
@@ -85,25 +100,63 @@ export function ImageOverlay({
           newY = initialY + (initialH - newH);
         }
 
-        onUpdate(selectedImage.id, {
+        pendingUpdateRef.current = {
           x: Math.round(newX),
           y: Math.round(newY),
           w: Math.round(newW),
-          h: Math.round(newH),
-          isModified: true
-        });
+          h: Math.round(newH)
+        };
+
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(() => {
+            rafIdRef.current = null;
+            if (el && pendingUpdateRef.current) {
+              el.style.left = `${pendingUpdateRef.current.x}px`;
+              el.style.top = `${pendingUpdateRef.current.y}px`;
+              el.style.width = `${pendingUpdateRef.current.w}px`;
+              el.style.height = `${pendingUpdateRef.current.h}px`;
+            }
+          });
+        }
       } else if (dragState.type === "rotate") {
         const rad = Math.atan2(e.clientY - dragState.centerY, e.clientX - dragState.centerX);
         let deg = Math.round((rad * 180) / Math.PI) + 90;
         if (deg < 0) deg += 360;
-        onUpdate(selectedImage.id, { rotation: deg % 360, isModified: true });
+        const finalDeg = deg % 360;
+        pendingUpdateRef.current = { rotation: finalDeg };
+
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(() => {
+            rafIdRef.current = null;
+            if (el) {
+              el.style.transform = `rotate(${finalDeg}deg)`;
+            }
+          });
+        }
       }
     };
 
     const handlePointerUp = () => {
-      if (dragState && selectedImage) {
-        onCommit?.(selectedImage.id);
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
       }
+      const el = imageElementRefs.current.get(selectedImage.id);
+      if (dragState && selectedImage && pendingUpdateRef.current) {
+        const updates = { ...pendingUpdateRef.current, isModified: true };
+        if (el) {
+          el.style.transform = `rotate(${updates.rotation ?? selectedImage.rotation ?? 0}deg)`;
+          if (typeof updates.x === "number") el.style.left = `${updates.x}px`;
+          if (typeof updates.y === "number") el.style.top = `${updates.y}px`;
+          if (typeof updates.w === "number") el.style.width = `${updates.w}px`;
+          if (typeof updates.h === "number") el.style.height = `${updates.h}px`;
+        }
+        onUpdate(selectedImage.id, updates);
+        onCommit?.(selectedImage.id);
+      } else if (el) {
+        el.style.transform = `rotate(${selectedImage.rotation || 0}deg)`;
+      }
+      pendingUpdateRef.current = null;
       setDragState(null);
     };
 
@@ -112,6 +165,10 @@ export function ImageOverlay({
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [dragState, selectedImage, pageWidth, pageHeight, zoom, onUpdate, onCommit]);
 
@@ -127,9 +184,15 @@ export function ImageOverlay({
     >
       {images.map((img) => {
         const isSelected = img.id === selectedId;
+        const isNonMovable = img.isMovable === false;
+
         return (
           <div
             key={img.id}
+            ref={(node) => {
+              if (node) imageElementRefs.current.set(img.id, node);
+              else imageElementRefs.current.delete(img.id);
+            }}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(img.id);
@@ -143,19 +206,28 @@ export function ImageOverlay({
               transform: `rotate(${img.rotation || 0}deg)`,
               opacity: img.opacity ?? 1,
               pointerEvents: "auto",
-              cursor: isSelected ? "move" : "pointer"
+              cursor: isNonMovable ? "not-allowed" : isSelected ? "move" : "pointer"
             }}
             className={`transition-shadow ${
               isSelected
-                ? "ring-2 ring-indigo-500 ring-offset-1 shadow-lg"
+                ? isNonMovable
+                  ? "ring-2 ring-amber-500 ring-offset-1 shadow-lg"
+                  : "ring-2 ring-indigo-500 ring-offset-1 shadow-lg"
                 : "hover:ring-1 hover:ring-indigo-300"
             }`}
             onPointerDown={(e) => {
+              if (isNonMovable) {
+                e.stopPropagation();
+                return;
+              }
               if (!isSelected) {
                 onSelect(img.id);
                 return;
               }
               e.stopPropagation();
+              try {
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              } catch {}
               setDragState({
                 type: "move",
                 startX: e.clientX,
@@ -176,12 +248,12 @@ export function ImageOverlay({
               className="w-full h-full object-fill pointer-events-none select-none"
               draggable={false}
               style={{
-                display: (img.isOriginal && !img.isModified && !isSelected) ? "none" : "block"
+                display: img.isOriginal && !img.isModified && !isSelected ? "none" : "block"
               }}
             />
 
-            {/* Resize handles when selected */}
-            {isSelected && (
+            {/* Resize handles when selected and movable */}
+            {isSelected && !isNonMovable && (
               <>
                 {(["nw", "ne", "se", "sw"] as const).map((corner) => {
                   const getPos = () => {
@@ -211,6 +283,9 @@ export function ImageOverlay({
                       className="bg-white border-2 border-indigo-600 rounded-sm shadow-sm"
                       onPointerDown={(e) => {
                         e.stopPropagation();
+                        try {
+                          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        } catch {}
                         setDragState({
                           type: "resize",
                           corner,

@@ -64,7 +64,7 @@ import {
   type Mark,
   type PageItem
 } from "@/lib/documents";
-import { editablePageText, removePdfText, removePdfImages, type EditableText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
+import { editablePageText, removePdfText, removePdfImages, canRemovePdfImage, type EditableText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { PDF_FONTS, pdfFont, type PdfFont } from "@/lib/pdf-fonts";
 import { useAutosave } from "@/features/autosave/useAutosave";
 import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
@@ -821,6 +821,11 @@ export default function Workspace({
     };
   }, [pdf, current?.index]);
 
+  const modifiedImagesKey = pageImages
+    .filter(img => img.page === active && (img.deleted || img.isModified))
+    .map(i => `${i.id}-${i.deleted}-${i.isModified}-${i.x}-${i.y}`)
+    .join(",");
+
   useEffect(() => {
     let stopped = false;
     let owned: Awaited<ReturnType<typeof loadPdf>> | null = null;
@@ -838,14 +843,17 @@ export default function Workspace({
               img.page === active &&
               img.isOriginal &&
               img.originalBounds &&
-              (img.isModified || img.deleted || selectedImageId === img.id)
+              (img.isModified || img.deleted)
           )
           .map(img => ({
             page: img.page,
             bounds: img.originalBounds,
             imageId: img.id,
             objectRef: img.objectRef,
-            imageIndex: img.imageIndex
+            imageIndex: img.imageIndex,
+            pixelWidth: img.pixelWidth,
+            pixelHeight: img.pixelHeight,
+            matrix: img.matrix
           }));
 
         if (!state.removals.length && !imageRemovals.length) {
@@ -881,7 +889,107 @@ export default function Workspace({
       renderTask.current?.cancel();
       if (owned) void owned.loadingTask.destroy().catch(() => {});
     };
-  }, [bytes, pdf, state.removals, pageImages, active, selectedImageId, isDraggingImage]);
+  }, [bytes, pdf, state.removals, active, modifiedImagesKey]);
+
+  // Atomic offscreen background preparation when an original image is selected
+  const cleanBackgroundImgRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedImageId || !bytes || !pdf || !canvas.current || kind !== "pdf") {
+      cleanBackgroundImgRef.current = null;
+      return;
+    }
+    const img = pageImages.find(i => i.id === selectedImageId && i.page === active && !i.deleted);
+    if (!img || !img.isOriginal || img.isModified) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const removal: ImageRemoval = {
+          page: img.page,
+          bounds: img.originalBounds,
+          imageId: img.id,
+          objectRef: img.objectRef,
+          imageIndex: img.imageIndex,
+          pixelWidth: img.pixelWidth,
+          pixelHeight: img.pixelHeight,
+          matrix: img.matrix
+        };
+
+        // First verify image can be safely located & removed
+        const canRemove = await canRemovePdfImage(bytes, removal);
+        if (cancelled) return;
+        if (!canRemove) {
+          setPageImages(prev => prev.map(item => item.id === img.id ? { ...item, isMovable: false } : item));
+          toast.error("Bu görsel korumalı PDF yapısı nedeniyle taşınamaz.");
+          return;
+        }
+
+        // Generate clean PDF without this image
+        let clean = bytes;
+        if (state.removals.length) {
+          const cached = cleanCache.current.get(state.removals);
+          clean = cached?.source === bytes ? cached.result : await removePdfText(bytes, state.removals);
+        }
+        const cleanBytes = await removePdfImages(clean, [removal]);
+        if (cancelled) return;
+
+        const cleanDoc = await loadPdf(cleanBytes);
+        if (cancelled) {
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          return;
+        }
+
+        const page = await cleanDoc.getPage(active + 1);
+        if (cancelled) {
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          return;
+        }
+
+        const c = canvas.current;
+        if (!c || cancelled) {
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          return;
+        }
+
+        // Render to offscreen canvas at identical dimensions
+        const offscreen = document.createElement("canvas");
+        offscreen.width = c.width;
+        offscreen.height = c.height;
+        const offCtx = offscreen.getContext("2d");
+        if (!offCtx) {
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          return;
+        }
+
+        const viewport = page.getViewport({
+          scale: Math.min(window.devicePixelRatio || 1, 2) * zoom,
+          rotation: (page.rotate + (current?.rotation || 0)) % 360
+        });
+
+        const task = page.render({ canvasContext: offCtx, canvas: offscreen, viewport });
+        await task.promise;
+        if (cancelled) {
+          void cleanDoc.loadingTask.destroy().catch(() => {});
+          return;
+        }
+
+        // Atomically copy to visible canvas with ZERO blanking, ZERO layout shift, ZERO scroll jump!
+        const visibleCtx = c.getContext("2d");
+        if (visibleCtx) {
+          visibleCtx.drawImage(offscreen, 0, 0);
+          cleanBackgroundImgRef.current = img.id;
+        }
+        void cleanDoc.loadingTask.destroy().catch(() => {});
+      } catch (err) {
+        console.warn("Could not prepare atomic clean background:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedImageId, active, bytes, pdf, zoom, current?.rotation, kind, state.removals]);
 
   function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
     const removals = state.removals.some(r => r.id === item.id)
