@@ -414,32 +414,39 @@ async function runRealChromeTest(targetUrl) {
 async function main() {
   await testPdfiumEngine();
 
+  const targetUrl = process.argv[2] || 'http://127.0.0.1:10000';
   let serverProc = null;
-  const isRunning = await fetch('http://127.0.0.1:10000').then(r => r.ok).catch(() => false);
-  if (!isRunning) {
-    console.log('\nStarting local server on port 10000...');
-    serverProc = spawn(process.execPath, ['scripts/start-server.mjs'], {
-      env: { ...process.env, PORT: '10000' },
-      stdio: 'ignore'
-    });
-    serverProc.unref();
 
-    let serverReady = false;
-    for (let i = 0; i < 40; i++) {
-      try {
-        const res = await fetch('http://127.0.0.1:10000');
-        if (res.ok) { serverReady = true; break; }
-      } catch {}
-      await new Promise((r) => setTimeout(r, 250));
+  if (!targetUrl.startsWith('http://127.0.0.1') && !targetUrl.startsWith('http://localhost')) {
+    console.log(`\nTesting against external/live URL: ${targetUrl}`);
+    await runRealChromeTest(targetUrl);
+  } else {
+    const isRunning = await fetch('http://127.0.0.1:10000').then(r => r.ok).catch(() => false);
+    if (!isRunning) {
+      console.log('\nStarting local server on port 10000...');
+      serverProc = spawn(process.execPath, ['scripts/start-server.mjs'], {
+        env: { ...process.env, PORT: '10000' },
+        stdio: 'ignore'
+      });
+      serverProc.unref();
+
+      let serverReady = false;
+      for (let i = 0; i < 40; i++) {
+        try {
+          const res = await fetch('http://127.0.0.1:10000');
+          if (res.ok) { serverReady = true; break; }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      assert.ok(serverReady, 'Local server must be running on port 10000');
     }
-    assert.ok(serverReady, 'Local server must be running on port 10000');
-  }
-  console.log('  [OK] Local server ready on http://127.0.0.1:10000');
+    console.log('  [OK] Local server ready on http://127.0.0.1:10000');
 
-  try {
-    await runRealChromeTest('http://127.0.0.1:10000');
-  } finally {
-    try { if (serverProc && serverProc.pid) process.kill(serverProc.pid); } catch {}
+    try {
+      await runRealChromeTest(targetUrl);
+    } finally {
+      try { if (serverProc && serverProc.pid) process.kill(serverProc.pid); } catch {}
+    }
   }
 
   console.log('\n================================================================');
