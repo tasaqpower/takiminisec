@@ -268,14 +268,6 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [exit, setExit] = useState(false);
-  if (typeof window !== "undefined" && (window as any).__isTestingDrag && (window as any).__dragTestCounters) {
-    (window as any).__dragTestCounters.reactRenderCount++;
-    (window as any).__lastRenderReasons = (window as any).__lastRenderReasons || [];
-    (window as any).__lastRenderReasons.push({
-      time: Date.now(),
-      state: { rendering, busy, zoom, active, selectedImageId, imageEditsCount: imageEdits.length }
-    });
-  }
 
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showOcr, setShowOcr] = useState(intent === "ocr");
@@ -315,7 +307,7 @@ export default function Workspace({
   const [size, setSize] = useState(16);
   const [sig, setSig] = useState<string | null>(null);
   const [signOpen, setSignOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(intent === "convert");
+  const [exportOpen, setExportOpen] = useState(false);
   const [format, setFormat] = useState("pdf");
   const [range, setRange] = useState("");
   const [rangeError, setRangeError] = useState("");
@@ -332,6 +324,15 @@ export default function Workspace({
   function applyDraft(m: Mark | null) {
     draftRef.current = m;
     setDraft(m);
+  }
+
+  if (typeof window !== "undefined" && (window as any).__isTestingDrag && (window as any).__dragTestCounters) {
+    (window as any).__dragTestCounters.reactRenderCount++;
+    (window as any).__lastRenderReasons = (window as any).__lastRenderReasons || [];
+    (window as any).__lastRenderReasons.push({
+      time: Date.now(),
+      state: { rendering, busy, zoom, active, selectedImageId, imageEditsCount: imageEdits.length }
+    });
   }
 
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -372,7 +373,7 @@ export default function Workspace({
     }
   }, [state, active, dirty, zoom, formFields, pageImages, bytes]);
 
-  const { status: autosaveStatus, lastSaved, clearCurrentDraft } = useAutosave({
+  const { clearCurrentDraft } = useAutosave({
     file: files[0] || null,
     type: kind,
     bytes,
@@ -388,7 +389,8 @@ export default function Workspace({
     zoom,
     isDirty: dirty,
     intent,
-    enabled: dirty
+    enabled: dirty,
+    isDragging: isDraggingImage
   });
 
   useEffect(() => {
@@ -1949,7 +1951,7 @@ export default function Workspace({
             <i /> {dirty ? "İndirilmemiş değişiklikler" : "Cihazında açık"}
           </span>
         </div>
-        <AutosaveIndicator status={autosaveStatus} lastSaved={lastSaved} />
+        <AutosaveIndicator />
         {kind === "pdf" && (
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
             <button

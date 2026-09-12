@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { saveDraft, deleteDraft, computeFileHash, type FormaDraft } from "./db";
+import { autosaveStore, type AutosaveStatus } from "./autosaveStore";
 import { toast } from "sonner";
 
 export interface UseAutosaveProps {
@@ -21,10 +22,11 @@ export interface UseAutosaveProps {
   isDirty?: boolean;
   intent?: string;
   enabled?: boolean;
+  isDragging?: boolean;
   onSaved?: () => void;
 }
 
-export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
+export { type AutosaveStatus } from "./autosaveStore";
 
 export function useAutosave({
   file,
@@ -43,10 +45,9 @@ export function useAutosave({
   isDirty = false,
   intent = "edit",
   enabled = true,
+  isDragging = false,
   onSaved
 }: UseAutosaveProps) {
-  const [status, setStatus] = useState<AutosaveStatus>("idle");
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const cachedBuffer = useRef<ArrayBuffer | null>(null);
   const currentDraftIdRef = useRef<string>("current_draft");
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
@@ -76,6 +77,10 @@ export function useAutosave({
     if (!enabled || !cachedBuffer.current) return;
     if (typeof window !== "undefined" && (window as any).__isTestingDrag) return;
 
+    // Check dragging state: do NOT autosave while dragging
+    const dragging = isDragging || (typeof window !== "undefined" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging));
+    if (dragging) return;
+
     // Filter genuine image edits (do NOT count unmodified detected images as edits)
     const genuineImageEdits = (pageImages || []).filter(
       (img: any) => img.isModified || img.deleted || !img.isOriginal
@@ -95,7 +100,7 @@ export function useAutosave({
 
     if (!hasEdits) return;
 
-    setStatus("saving");
+    autosaveStore.setStatus("saving");
     try {
       const fileHash = await computeFileHash(cachedBuffer.current);
       const draftId = fileHash ? `draft_${fileHash}` : `draft_${fileName}`;
@@ -125,20 +130,23 @@ export function useAutosave({
 
       const success = await saveDraft(draft);
       if (success) {
-        setStatus("saved");
-        setLastSaved(new Date());
+        autosaveStore.setStatus("saved", new Date());
+        if (typeof window !== "undefined") {
+          (window as any).__lastAutosaveTimestamp = Date.now();
+          (window as any).__autosaveWriteCount = ((window as any).__autosaveWriteCount || 0) + 1;
+        }
         onSaved?.();
       } else {
-        setStatus("error");
+        autosaveStore.setStatus("error");
       }
     } catch (e: any) {
       console.error("Autosave error:", e);
-      setStatus("error");
+      autosaveStore.setStatus("error");
       if (e?.name === "QuotaExceededError") {
         toast.warning("Tarayıcı depolama kotası aşıldı, taslak kaydedilemedi.");
       }
     }
-  }, [enabled, file, bytes, type, marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, intent, onSaved]);
+  }, [enabled, file, bytes, type, marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, intent, isDragging, onSaved]);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -148,33 +156,47 @@ export function useAutosave({
 
     if (!enabled || (!file && !bytes)) return;
 
+    const dragging = isDragging || (typeof window !== "undefined" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging));
+    if (dragging) {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      return;
+    }
+
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
     }
 
+    // 2-second debounce timer on user edits
     saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
       void performSave();
-    }, 1200);
+    }, 2000);
 
     return () => {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
       }
     };
-  }, [marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, enabled, file, bytes, performSave]);
+  }, [marks, removals, wordContent, pageRotations, currentPage, formFields, pageImages, pageOrder, annotations, zoom, isDirty, enabled, isDragging, file, bytes, performSave]);
 
   const clearCurrentDraft = useCallback(async () => {
     if (currentDraftIdRef.current) {
       await deleteDraft(currentDraftIdRef.current);
     }
     await deleteDraft("current_draft");
-    setStatus("idle");
-    setLastSaved(null);
+    autosaveStore.reset();
   }, []);
 
   return {
-    status,
-    lastSaved,
+    get status() {
+      return autosaveStore.getSnapshot().status;
+    },
+    get lastSaved() {
+      return autosaveStore.getSnapshot().lastSaved;
+    },
     clearCurrentDraft,
     forceSave: performSave
   };

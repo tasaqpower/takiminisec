@@ -70,6 +70,9 @@ export function ImageOverlay({
   const setIsDragging = (dragging: boolean) => {
     if (isDraggingRef.current !== dragging) {
       isDraggingRef.current = dragging;
+      if (typeof window !== "undefined") {
+        (window as any).__isDraggingImage = dragging;
+      }
       onDragStateChange?.(dragging);
     }
   };

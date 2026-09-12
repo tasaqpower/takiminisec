@@ -117,7 +117,7 @@ export default function Home() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton className="nav-item" onClick={() => pick("convert")}>
+              <SidebarMenuButton className="nav-item" onClick={() => pick("edit")}>
                 <FolderOpen /><span>Dosya aç</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -201,7 +201,7 @@ export default function Home() {
               </div>
               <h2>Dosyanı bırak, gerisini kolaylaştıralım.</h2>
               <p>Buraya sürükleyip bırak veya cihazından bir dosya seç.</p>
-              <button className="primary upload-button" disabled={loading} onClick={() => pick("convert")}>
+              <button className="primary upload-button" disabled={loading} onClick={() => pick("edit")}>
                 <Upload size={18} />{loading ? "Düzenleyici açılıyor…" : "Dosya seç"}<ArrowRight size={17} />
               </button>
               <div className="upload-formats">

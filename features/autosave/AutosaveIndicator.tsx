@@ -1,59 +1,73 @@
 "use client";
 
-import React from "react";
+import React, { useSyncExternalStore } from "react";
 import { Check, CloudOff, Loader2 } from "lucide-react";
-import type { AutosaveStatus } from "./useAutosave";
+import { autosaveStore, type AutosaveStatus } from "./autosaveStore";
 
 interface AutosaveIndicatorProps {
-  status: AutosaveStatus;
-  lastSaved: Date | null;
+  status?: AutosaveStatus;
+  lastSaved?: Date | null;
   className?: string;
 }
 
-export function AutosaveIndicator({ status, lastSaved, className = "" }: AutosaveIndicatorProps) {
-  if (status === "idle" && !lastSaved) {
-    return null;
-  }
+export function AutosaveIndicator({
+  status: propStatus,
+  lastSaved: propLastSaved,
+  className = ""
+}: AutosaveIndicatorProps) {
+  const storeState = useSyncExternalStore(
+    autosaveStore.subscribe,
+    autosaveStore.getSnapshot,
+    autosaveStore.getSnapshot
+  );
 
-  const formatTime = (d: Date) => {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  };
+  const status = propStatus !== undefined ? propStatus : storeState.status;
+  const lastSaved = propLastSaved !== undefined ? propLastSaved : storeState.lastSaved;
+
+  const tooltip =
+    status === "saving"
+      ? "Kaydediliyor…"
+      : status === "error"
+      ? "Taslak kaydedilemedi"
+      : status === "saved"
+      ? "Taslak kaydedildi"
+      : lastSaved
+      ? "Taslak güncel"
+      : "";
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-medium transition-all ${
-        status === "saving"
-          ? "bg-amber-50 text-amber-700 border border-amber-200"
-          : status === "error"
-          ? "bg-rose-50 text-rose-700 border border-rose-200"
-          : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-      } ${className}`}
-      title={lastSaved ? `Son taslak: ${formatTime(lastSaved)}` : undefined}
+      className={`inline-flex items-center justify-center shrink-0 w-6 h-6 select-none pointer-events-auto ${className}`}
+      style={{
+        width: 24,
+        height: 24,
+        minWidth: 24,
+        minHeight: 24,
+        maxWidth: 24,
+        maxHeight: 24,
+        flexShrink: 0,
+        boxSizing: "border-box"
+      }}
+      title={tooltip || undefined}
+      aria-label={tooltip || "Otomatik kaydetme durumu"}
     >
       {status === "saving" && (
-        <>
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span>Kaydediliyor…</span>
-        </>
+        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin shrink-0" />
       )}
       {status === "saved" && (
-        <>
-          <Check className="w-3.5 h-3.5" />
-          <span>Taslak kaydedildi {lastSaved ? `(${formatTime(lastSaved)})` : ""}</span>
-        </>
+        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
       )}
       {status === "error" && (
-        <>
-          <CloudOff className="w-3.5 h-3.5" />
-          <span>Taslak kaydedilemedi</span>
-        </>
+        <CloudOff className="w-4 h-4 text-rose-500 shrink-0" />
       )}
       {status === "idle" && lastSaved && (
-        <>
-          <Check className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Taslak güncel ({formatTime(lastSaved)})</span>
-        </>
+        <Check className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+      )}
+      {status === "idle" && !lastSaved && (
+        <div className="w-4 h-4 shrink-0" aria-hidden="true" />
       )}
     </div>
   );
 }
+
+export { type AutosaveStatus } from "./autosaveStore";
