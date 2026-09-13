@@ -7,7 +7,7 @@ import {
   PDFNumber,
   rgb,
   StandardFonts,
-} from '@cantoo/pdf-lib';
+} from 'pdf-lib';
 import type {
   PdfBookmarkItem,
   PdfLinkItem,

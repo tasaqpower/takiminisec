@@ -3,7 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { PDFDocument } = require('@cantoo/pdf-lib');
+const { PDFDocument } = require('pdf-lib');
 
 import { exportScannedPdf } from '../features/scanner/scannerPdfExport.ts';
 import { applyPageDecorations } from '../features/page-decoration/applyDecoration.ts';

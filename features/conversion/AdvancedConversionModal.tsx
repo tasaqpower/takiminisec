@@ -5,6 +5,8 @@ import {
   pdfToExcel,
   pdfToPptx,
   excelToPdf,
+  pdfToDocx,
+  docxToPdf,
 } from './conversionEngine';
 import type {
   ImageFormat,
@@ -26,7 +28,8 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
   fileName = 'belge',
   onOpenConvertedPdf,
 }) => {
-  const [activeTab, setActiveTab] = useState<'pdf-to-img' | 'img-to-pdf' | 'pdf-to-xlsx' | 'xlsx-to-pdf' | 'pdf-to-pptx'>('pdf-to-img');
+  const [activeTab, setActiveTab] = useState<'pdf-to-docx' | 'docx-to-pdf' | 'xlsx-to-pdf' | 'pdf-to-xlsx' | 'pdf-to-img' | 'img-to-pdf' | 'pdf-to-pptx'>('pdf-to-docx');
+  const [docxFile, setDocxFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +65,66 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+
+  const handlePdfToDocx = async () => {
+    if (!pdfBytes) {
+      setError('Lütfen önce bir PDF belgesi açın.');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setProgressText('PDF taranıyor ve Word (.docx) formatına aktarılıyor...');
+      const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const docxBytes = await pdfToDocx(pdfBytes, { title: baseName });
+      downloadBlob(
+        docxBytes,
+        `${baseName}_duzenlenebilir.docx`,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      );
+      onClose();
+    } catch (err: any) {
+      setError('Word dönüştürme hatası: ' + err.message);
+    } finally {
+      setLoading(false);
+      setProgressText('');
+    }
+  };
+
+  const handleDocxUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setDocxFile(e.target.files[0]);
+      setError(null);
+    }
+  };
+
+  const handleDocxToPdf = async (openInWorkspace = false) => {
+    if (!docxFile) {
+      setError('Lütfen bir Word (.docx) belgesi seçin.');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setProgressText('Word belgesi vektörel PDF sayfalarına dönüştürülüyor...');
+      const buf = await docxFile.arrayBuffer();
+      const baseName = docxFile.name.replace(/\.[^/.]+$/, '');
+      const pdfOut = await docxToPdf(new Uint8Array(buf), { title: baseName });
+
+      if (openInWorkspace && onOpenConvertedPdf) {
+        onOpenConvertedPdf(pdfOut, `${baseName}.pdf`);
+      } else {
+        downloadBlob(pdfOut, `${baseName}.pdf`, 'application/pdf');
+      }
+      onClose();
+    } catch (err: any) {
+      setError('Word PDF dönüştürme hatası: ' + err.message);
+    } finally {
+      setLoading(false);
+      setProgressText('');
+    }
   };
 
   const handlePdfToImg = async () => {
@@ -237,8 +300,28 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
           </button>
         </div>
 
-        {/* Tab Navigation */}
+                {/* Tab Navigation */}
         <div className="flex border-b border-slate-800 px-6 pt-3 bg-slate-950/30 gap-1 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('pdf-to-docx')}
+            className={`pb-3 px-3 text-xs md:text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === 'pdf-to-docx'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            📝 PDF → Word (.docx)
+          </button>
+          <button
+            onClick={() => setActiveTab('docx-to-pdf')}
+            className={`pb-3 px-3 text-xs md:text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === 'docx-to-pdf'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            📄 Word (.docx) → PDF
+          </button>
           <button
             onClick={() => setActiveTab('xlsx-to-pdf')}
             className={`pb-3 px-3 text-xs md:text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
@@ -296,6 +379,88 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
           {error && (
             <div className="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-red-300 text-xs">
               {error}
+            </div>
+          )}
+
+                    {/* TAB: PDF to DOCX */}
+          {activeTab === 'pdf-to-docx' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-indigo-950/30 border border-indigo-800/40 rounded-xl space-y-2 text-xs text-indigo-300">
+                <p className="font-semibold text-sm text-indigo-200 flex items-center gap-2">
+                  <span>PDF'i Düzenlenebilir Microsoft Word (.docx) Dosyasına Dönüştürün</span>
+                </p>
+                <p className="text-slate-300">
+                  Belgedeki tüm sayfaları, başlık hiyerarşisini (H1/H2), paragrafları, madde işaretlerini ve tabloları tarayıp standart OpenXML (.docx) belgesine dönüştürür.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-2">
+                <p className="text-slate-200 font-medium">💡 Özellikler &amp; Uyumluluk:</p>
+                <ul className="space-y-1 list-disc list-inside text-slate-300">
+                  <li>Başlık, paragraf ve madde imleri otomatik ayrıştırılır.</li>
+                  <li>Türkçe karakterler (ç, ğ, ı, ö, ş, ü, İ) eksiksiz korunur.</li>
+                  <li>Sayfa sonları ve çok sütunlu tablolar Word hücrelerine dönüştürülür.</li>
+                  <li>%100 yerel işlenir; belgeniz cihazınızdan dışarı çıkmaz.</li>
+                </ul>
+              </div>
+
+              <button
+                disabled={loading || !pdfBytes}
+                onClick={handlePdfToDocx}
+                className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {loading ? (progressText || 'Word Belgesi Oluşturuluyor...') : 'Word Belgesi Olarak İndir (.docx)'}
+              </button>
+            </div>
+          )}
+
+          {/* TAB: DOCX to PDF */}
+          {activeTab === 'docx-to-pdf' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-indigo-950/30 border border-indigo-800/40 rounded-xl space-y-2 text-xs text-indigo-300">
+                <p className="font-semibold text-sm text-indigo-200 flex items-center gap-2">
+                  <span>Word (.docx) Belgelerini Vektörel PDF'e Dönüştürün</span>
+                </p>
+                <p className="text-slate-300">
+                  .docx dosyanızı doğrudan tarayıcınızda okuyarak standart kenar boşluklu, A4 boyutlu ve profesyonel vektörel PDF üretir.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  Word Belgesi Seçin (.docx)
+                </label>
+                <input
+                  type="file"
+                  accept=".docx"
+                  onChange={handleDocxUpload}
+                  className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-slate-950 border border-slate-700 rounded-xl p-2"
+                />
+                {docxFile && (
+                  <p className="text-xs text-indigo-400 mt-1.5 font-medium">
+                    ✓ Seçildi: {docxFile.name} ({(docxFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  disabled={loading || !docxFile}
+                  onClick={() => handleDocxToPdf(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {loading ? (progressText || 'Dönüştürülüyor...') : 'PDF Olarak İndir'}
+                </button>
+                {onOpenConvertedPdf && (
+                  <button
+                    disabled={loading || !docxFile}
+                    onClick={() => handleDocxToPdf(true)}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-all border border-slate-700 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    Atölyede Aç &amp; Düzenle
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

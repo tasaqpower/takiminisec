@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFArray, PDFNumber } from '@cantoo/pdf-lib';
+import { PDFDocument, PDFName, PDFArray, PDFNumber } from 'pdf-lib';
 import type {
   PageCropOptions,
   PageCropMargins,

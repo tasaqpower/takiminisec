@@ -1,5 +1,5 @@
-import { PDFDocument, rgb } from "@cantoo/pdf-lib";
-import { removePdfText, type TextRemoval } from "@/lib/pdf-text";
+import { PDFDocument, rgb } from "pdf-lib";
+import { removePdfText, type TextRemoval } from "../../lib/pdf-text.ts";
 
 export interface RedactionBox {
   id?: string;

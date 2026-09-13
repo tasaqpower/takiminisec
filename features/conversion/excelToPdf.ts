@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from '@cantoo/pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import JSZip from 'jszip';
 
 export interface ExcelToPdfOptions {

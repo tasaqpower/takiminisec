@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, degrees, StandardFonts } from '@cantoo/pdf-lib';
+import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 import type { PageDecorationConfig, PageNumberFormat, NinePosition } from './decorationTypes';
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {

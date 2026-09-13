@@ -1,4 +1,4 @@
-import { PDFDocument } from '@cantoo/pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import type { ScannedPage, ScannerExportOptions } from './scannerTypes';
 
 export async function exportScannedPdf(

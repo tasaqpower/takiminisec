@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert';
-import { PDFDocument, rgb, StandardFonts } from '@cantoo/pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { excelToPdf, parseCsvContent, parseXlsxSheets } from '../features/conversion/excelToPdf.ts';
 import { renderStampSvg, getDefaultStampConfig, STAMP_PRESETS } from '../features/stamp/stampEngine.ts';
 import {
@@ -141,7 +141,7 @@ async function runKillerFeaturesTests() {
   const fontRegular = await testDoc.embedFont(StandardFonts.Helvetica);
   const testPage = testDoc.addPage([595.28, 841.89]);
 
-  testPage.drawText('HİZMET SÖZLEŞMESİ VE GİZLİLİK TAAHHÜTNAMESİ', {
+  testPage.drawText('HIZMET SOZLESMESI VE GIZLILIK TAAHHUTNAMESI', {
     x: 50,
     y: 780,
     size: 14,

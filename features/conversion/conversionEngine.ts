@@ -1,4 +1,4 @@
-import { PDFDocument } from '@cantoo/pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
 import type {
   ImageToPdfItem,
@@ -579,3 +579,4 @@ export async function pdfToPptx(
 }
 
 export { excelToPdf, parseCsvContent, parseXlsxSheets, type ExcelToPdfOptions } from './excelToPdf';
+export { pdfToDocx, docxToPdf, type PdfToDocxOptions, type DocxToPdfOptions } from './docxConverter';

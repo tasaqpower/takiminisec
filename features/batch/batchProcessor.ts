@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { PDFDocument } from '@cantoo/pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import type { BatchConfig, BatchFileItem, BatchProgressCallback } from './batchTypes';
 import { compressPdfDocument } from '../compression/compressPdf';
 import { applyPageDecorations } from '../page-decoration/applyDecoration';

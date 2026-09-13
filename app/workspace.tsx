@@ -1394,7 +1394,7 @@ export default function Workspace({
           italic: Boolean(item.italic),
           angle: item.angle,
           sourceId: item.id,
-          bg: isOcr ? "#ffffff" : undefined,
+          bg: item.bg || "#ffffff",
           ...updates
         };
 
@@ -2400,6 +2400,16 @@ export default function Workspace({
             >
               <FormInput size={15} />
               <span>{formMode === "design" ? "Form: Tasarım" : formMode === "fill" ? "Form: Doldur" : "Form"}</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowFindReplace(prev => !prev)}
+              title="Metin / Fiyat Değiştir (Bul ve Değiştir - Ctrl+F)"
+            >
+              <Search size={15} className="text-amber-400" />
+              <span>Metin Değiştir</span>
             </button>
             <button
               type="button"

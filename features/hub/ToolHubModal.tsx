@@ -107,7 +107,7 @@ const TOOLS: ToolDefinition[] = [
     id: 'conversion',
     title: 'Gelişmiş Format Dönüşümleri',
     category: 'Dönüşüm & Otomasyon',
-    description: 'PDF → Çok sayfalı Görsel ZIP (PNG/JPG), Görsellerden PDF üretimi, OpenXML Excel (.xlsx) ve PowerPoint (.pptx).',
+    description: 'PDF ↔ Word (.docx), Excel (.xlsx), PowerPoint (.pptx), Görsel ZIP ve Excel tablolarından sayfalanmış PDF üretimi.',
     badge: 'Paket 8',
     icon: FileSpreadsheet,
   },

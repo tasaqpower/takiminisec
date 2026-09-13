@@ -1,4 +1,4 @@
-import { applyPermanentRedaction } from './redaction';
+import { applyPermanentRedaction } from './redaction.ts';
 
 export type EntityType = 'tckn' | 'iban' | 'creditCard' | 'phone' | 'email';
 

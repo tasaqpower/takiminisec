@@ -45,6 +45,8 @@ const tools = [
   { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
   { id:"watermark", title:"Filigran kaldır", desc:"Damga, mühür ve taslak yazılarını sıfır hasarla sil.", icon:Eraser, color:"rose", type:"PDF" },
   { id:"excel-to-pdf", title:"Excel → PDF", desc:"Tablolarını şık ve sayfalanmış PDF'e dönüştür.", icon:FileSpreadsheet, color:"teal", type:"XLSX · CSV" },
+  { id:"pdf-to-word", title:"PDF → Word", desc:"PDF'i düzenlenebilir Word (.docx) belgesine çevir.", icon:FileType2, color:"blue", type:"PDF" },
+  { id:"word-to-pdf", title:"Word → PDF", desc:"DOCX belgelerini vektörel PDF'e dönüştür.", icon:FileInput, color:"indigo", type:"DOCX" },
   { id:"stamp", title:"Resmi Kaşe & Mühür", desc:"Aslı gibidir, onaylandı veya kurumsal kaşe bas.", icon:Stamp, color:"rose", type:"PDF" },
   { id:"kvkk", title:"KVKK & Sansür", desc:"TC, IBAN, telefon ve kart bilgilerini otomatik maskele.", icon:EyeOff, color:"amber", type:"PDF" },
   { id:"word", title:"Word düzenle", desc:"Kelimelerine son şeklini ver.", icon:FileType2, color:"blue", type:"DOCX" },
@@ -98,6 +100,27 @@ export default function Home() {
     }
     setLoading(true);
     try {
+      if (/\.pdf$/i.test(files[0].name) && action === "pdf-to-word") {
+        const buf = await files[0].arrayBuffer();
+        const baseName = files[0].name.replace(/\.[^/.]+$/, '');
+        const { pdfToDocx } = await import("@/features/conversion/docxConverter");
+        const docxBytes = await pdfToDocx(new Uint8Array(buf), { title: baseName });
+        const { download } = await import("@/lib/documents");
+        download(docxBytes, `${baseName}_duzenlenebilir.docx`, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        toast.success("PDF başarıyla düzenlenebilir Word (.docx) belgesine dönüştürüldü!");
+        setLoading(false);
+        return;
+      }
+
+      if (/\.docx$/i.test(files[0].name) && (action === "word-to-pdf" || action === "convert")) {
+        const buf = await files[0].arrayBuffer();
+        const baseName = files[0].name.replace(/\.[^/.]+$/, '');
+        const { docxToPdf } = await import("@/features/conversion/docxConverter");
+        const convertedBytes = await docxToPdf(new Uint8Array(buf), { title: baseName });
+        const pdfFile = new File([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
+        files = [pdfFile];
+        toast.success("Word belgesi sayfalanmış vektör PDF'e dönüştürüldü!");
+      }
       if (/\.(xlsx|xls|csv)$/i.test(files[0].name)) {
         const buf = await files[0].arrayBuffer();
         const baseName = files[0].name.replace(/\.[^/.]+$/, '');
@@ -126,8 +149,10 @@ export default function Home() {
         input.current.multiple = action === "merge";
         input.current.accept = action === "excel-to-pdf"
           ? ".xlsx,.xls,.csv"
-          : action === "word"
+          : action === "word" || action === "word-to-pdf"
           ? ".docx,.txt"
+          : action === "pdf-to-word"
+          ? ".pdf"
           : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "convert", "conversion", "stamp", "kvkk"].includes(action)
           ? ".pdf"
           : ".pdf,.docx,.txt,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
