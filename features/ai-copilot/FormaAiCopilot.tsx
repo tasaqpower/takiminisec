@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   Send,
@@ -179,6 +180,7 @@ export function FormaAiCopilot({
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -196,7 +198,9 @@ export function FormaAiCopilot({
 
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpen, messages]);
@@ -402,9 +406,9 @@ export function FormaAiCopilot({
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <>
       <input
         ref={fileInputRef}
@@ -421,7 +425,7 @@ export function FormaAiCopilot({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-medium shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 group border border-white/20 backdrop-blur-sm ${className}`}
+          className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-medium shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 group border border-white/20 backdrop-blur-sm ${className}`}
           aria-label="Forma AI Asistanını Aç"
         >
           <div className="relative">
@@ -450,7 +454,7 @@ export function FormaAiCopilot({
             const droppedFile = e.dataTransfer.files?.[0];
             if (droppedFile) void processAndLoadFile(droppedFile);
           }}
-          className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[calc(100vh-64px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-5 duration-200 text-slate-800 dark:text-slate-100 relative"
+          className="fixed bottom-6 right-6 z-[9999] w-[420px] max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-48px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100"
         >
           {/* Drag Overlay */}
           {isDragging && (
@@ -532,7 +536,7 @@ export function FormaAiCopilot({
           )}
 
           {/* Messages Container */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-4">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -699,6 +703,7 @@ export function FormaAiCopilot({
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
