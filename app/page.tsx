@@ -23,7 +23,8 @@ import {
   Scissors,
   ShieldCheck,
   Sparkles,
-  Upload
+  Upload,
+  Eraser
 } from "lucide-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -35,6 +36,7 @@ import type { FormaDraft } from "@/features/autosave/db";
 
 const tools = [
   { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
+  { id:"watermark", title:"Filigran kaldır", desc:"Damga, mühür ve taslak yazılarını sıfır hasarla sil.", icon:Eraser, color:"rose", type:"PDF" },
   { id:"word", title:"Word düzenle", desc:"Kelimelerine son şeklini ver.", icon:FileType2, color:"blue", type:"DOCX" },
   { id:"convert", title:"Dosya dönüştür", desc:"İhtiyacın olan formata geç.", icon:FileInput, color:"orange", type:"PDF · DOCX" },
   { id:"sign", title:"PDF imzala", desc:"İmzanı çiz, belgede yerine koy.", icon:PenLine, color:"pink", type:"PDF" },
@@ -47,6 +49,7 @@ const tools = [
 export default function Home() {
   const input = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("all"), [intent, setIntent] = useState("edit"), [dragging, setDragging] = useState(false), [help, setHelp] = useState(false), [loading, setLoading] = useState(false);
+  const intentRef = useRef("edit");
   const [workspace, setWorkspace] = useState<{ files: File[]; intent: string; id: string; draft?: FormaDraft } | null>(null);
   const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
   const [dirty, setDirty] = useState(false), [leave, setLeave] = useState(false);
@@ -59,7 +62,7 @@ export default function Home() {
     } else action();
   }
 
-  async function open(files: File[], action = intent, draft?: FormaDraft) {
+  async function open(files: File[], action = intentRef.current, draft?: FormaDraft) {
     if (!files.length) return;
     if (files.some(f => ! /\.(pdf|docx|txt|png|jpe?g)$/i.test(f.name))) {
       toast.error("PDF, DOCX, TXT, PNG veya JPG dosyası seç.");
@@ -83,10 +86,11 @@ export default function Home() {
 
   function pick(action: string) {
     guard(() => {
+      intentRef.current = action;
       setIntent(action);
       if (input.current) {
         input.current.multiple = action === "merge";
-        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
         input.current.click();
       }
     });

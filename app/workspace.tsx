@@ -2270,12 +2270,12 @@ export default function Workspace({
             </button>
             <button
               type="button"
-              className="secondary"
+              className="secondary group hover:border-rose-300 hover:bg-rose-50/50"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setShowWatermarkRemoval(true)}
-              title="Belgeden Filigran ve Damgaları Temizle"
+              title="Belgeden Filigran ve Damgaları Sıfır Hasarla Temizle"
             >
-              <Eraser size={15} />
+              <Eraser size={15} className="text-rose-600 group-hover:scale-110 transition-transform" />
               <span>Filigran Kaldır</span>
             </button>
             <button
