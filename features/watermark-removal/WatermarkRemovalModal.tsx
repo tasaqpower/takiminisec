@@ -308,6 +308,20 @@ export function WatermarkRemovalModal({
           scale: canvas.width / pageWidth
         });
 
+        // Auto-fit document page comfortably to viewport without clipping
+        const fitContainer = () => {
+          if (canvasContainerRef.current) {
+            const cw = canvasContainerRef.current.clientWidth - 48;
+            const ch = canvasContainerRef.current.clientHeight - 48;
+            if (cw > 100 && ch > 100 && canvas.width > 0 && canvas.height > 0) {
+              const fitScale = Math.min(cw / canvas.width, ch / canvas.height);
+              setZoomLevel(Math.max(0.35, Math.min(1.0, Math.round(fitScale * 100) / 100)));
+            }
+          }
+        };
+        fitContainer();
+        setTimeout(fitContainer, 120);
+
         // 2. Extract vector text items for 1-click Target Picker
         try {
           const doc = await loadPdf(pdfBytes);
@@ -332,6 +346,20 @@ export function WatermarkRemovalModal({
       active = false;
     };
   }, [open, pdfBytes, activePage]);
+
+  // Auto-fit zoom to current workspace dimensions
+  const handleAutoFitZoom = useCallback(() => {
+    if (canvasContainerRef.current && previewCanvasRef.current) {
+      const cw = canvasContainerRef.current.clientWidth - 48;
+      const ch = canvasContainerRef.current.clientHeight - 48;
+      const pw = previewCanvasRef.current.width;
+      const ph = previewCanvasRef.current.height;
+      if (cw > 100 && ch > 100 && pw > 0 && ph > 0) {
+        const fitScale = Math.min(cw / pw, ch / ph);
+        setZoomLevel(Math.max(0.35, Math.min(1.0, Math.round(fitScale * 100) / 100)));
+      }
+    }
+  }, []);
 
   // Undo Mechanism
   const handleUndo = useCallback(() => {
@@ -949,7 +977,16 @@ export function WatermarkRemovalModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[96vw] h-[92vh] max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900 border-slate-800 text-slate-100 rounded-2xl shadow-2xl">
+      <DialogContent
+        showCloseButton={false}
+        className="w-[98vw] max-w-[1440px] sm:max-w-[1440px] md:max-w-[1440px] lg:max-w-[1440px] xl:max-w-[1440px] h-[94vh] max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-900 border-slate-800 text-slate-100 rounded-2xl shadow-2xl"
+        style={{
+          width: "min(1440px, 98vw)",
+          maxWidth: "min(1440px, 98vw)",
+          height: "94vh",
+          maxHeight: "94vh"
+        }}
+      >
         <DialogTitle className="sr-only">Filigran Temizleme Stüdyosu</DialogTitle>
         <DialogDescription className="sr-only">
           Belgenizdeki filigran, damga ve mühürleri çevre sözleşme yazılarına zarar vermeden cerrahi olarak silin.
@@ -975,7 +1012,7 @@ export function WatermarkRemovalModal({
           </div>
 
           {/* Center Mode Switcher Tabs */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-inner">
+          <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-inner shrink-0">
             <button
               type="button"
               onClick={() => setActiveTool("pick")}
@@ -986,8 +1023,8 @@ export function WatermarkRemovalModal({
               }`}
               title="Klavye Kısayolu: 1"
             >
-              <MousePointerClick className="w-3.5 h-3.5" />
-              <span>🎯 Tıkla ve Sil (Cerrahi Seçici)</span>
+              <MousePointerClick className="w-3.5 h-3.5 shrink-0" />
+              <span>🎯 Tıkla ve Sil</span>
             </button>
 
             <button
@@ -1000,7 +1037,7 @@ export function WatermarkRemovalModal({
               }`}
               title="Klavye Kısayolu: 2"
             >
-              <Paintbrush className="w-3.5 h-3.5" />
+              <Paintbrush className="w-3.5 h-3.5 shrink-0" />
               <span>🪄 Akıllı Fırça</span>
             </button>
 
@@ -1014,7 +1051,7 @@ export function WatermarkRemovalModal({
               }`}
               title="Klavye Kısayolu: 3"
             >
-              <Square className="w-3.5 h-3.5" />
+              <Square className="w-3.5 h-3.5 shrink-0" />
               <span>🔲 Kutu Seçimi</span>
             </button>
           </div>
@@ -1059,9 +1096,9 @@ export function WatermarkRemovalModal({
         </header>
 
         {/* Main Studio Body: Left Canvas Viewport + Right Intelligence Panel */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative min-h-0">
           {/* LEFT: Spacious Interactive Canvas Viewport */}
-          <div className="flex-1 flex flex-col bg-slate-950/90 border-r border-slate-800 overflow-hidden relative">
+          <div className="flex-1 flex flex-col bg-slate-950/90 border-r border-slate-800 overflow-hidden relative min-w-0 min-h-0">
             {/* Viewport Floating Top Bar */}
             <div className="px-4 py-2 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20">
               <div className="flex items-center gap-3 flex-wrap">
@@ -1134,20 +1171,20 @@ export function WatermarkRemovalModal({
                 )}
 
                 {activeTool === "pick" && (
-                  <div className="flex items-center gap-2 text-xs text-indigo-300 font-medium">
-                    <Target className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Sayfadaki herhangi bir filigrana tıklayın; tüm belgeden tek tıkla cerrahi olarak silinsin.</span>
+                  <div className="flex items-center gap-2 text-xs text-indigo-300 font-medium truncate">
+                    <Target className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="truncate">Sayfadaki herhangi bir filigrana tıklayın; tüm belgeden tek tıkla cerrahi olarak silinsin.</span>
                   </div>
                 )}
               </div>
 
               {/* Viewport Zoom & Page Navigation */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 {/* Zoom */}
                 <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5">
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((z) => Math.max(0.6, Math.round((z - 0.15) * 100) / 100))}
+                    onClick={() => setZoomLevel((z) => Math.max(0.35, Math.round((z - 0.1) * 100) / 100))}
                     className="text-slate-400 hover:text-white cursor-pointer p-0.5"
                     title="Küçült"
                   >
@@ -1158,7 +1195,7 @@ export function WatermarkRemovalModal({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((z) => Math.min(2.0, Math.round((z + 0.15) * 100) / 100))}
+                    onClick={() => setZoomLevel((z) => Math.min(2.0, Math.round((z + 0.1) * 100) / 100))}
                     className="text-slate-400 hover:text-white cursor-pointer p-0.5"
                     title="Büyüt"
                   >
@@ -1166,9 +1203,17 @@ export function WatermarkRemovalModal({
                   </button>
                   <button
                     type="button"
+                    onClick={handleAutoFitZoom}
+                    className="text-[9px] text-indigo-400 hover:text-indigo-300 hover:underline px-1 font-semibold cursor-pointer"
+                    title="Sayfayı ekrana sığdır"
+                  >
+                    Sığdır
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setZoomLevel(1.0)}
-                    className="text-[9px] text-indigo-400 hover:underline px-1"
-                    title="Sıfırla"
+                    className="text-[9px] text-slate-400 hover:text-white px-1 cursor-pointer"
+                    title="Gerçek boyut"
                   >
                     1:1
                   </button>
@@ -1206,7 +1251,7 @@ export function WatermarkRemovalModal({
             {/* Canvas Scrollable Workspace */}
             <div
               ref={canvasContainerRef}
-              className="flex-1 overflow-auto flex items-center justify-center p-6 relative select-none"
+              className="flex-1 overflow-auto flex items-center justify-center p-4 lg:p-6 relative select-none min-w-0 min-h-0 bg-slate-950/70"
             >
               {isPreviewLoading && (
                 <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-slate-300">
@@ -1215,17 +1260,31 @@ export function WatermarkRemovalModal({
                 </div>
               )}
 
-              {/* Document Wrapper with Zoom */}
+              {/* Document Outer Scaled Wrapper (matches exact visual bounding box to prevent phantom scrollbars) */}
               <div
                 style={{
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: "center center",
-                  transition: "transform 0.12s ease-out"
+                  width: previewCanvasRef.current && previewCanvasRef.current.width > 0
+                    ? `${previewCanvasRef.current.width * zoomLevel}px`
+                    : undefined,
+                  height: previewCanvasRef.current && previewCanvasRef.current.height > 0
+                    ? `${previewCanvasRef.current.height * zoomLevel}px`
+                    : undefined
                 }}
-                className="relative inline-block select-none shadow-2xl rounded-sm bg-white overflow-visible"
+                className="relative shrink-0 flex items-center justify-center m-auto"
               >
-                {/* 1. Base Document Page Image Canvas */}
-                <canvas ref={previewCanvasRef} className="block max-w-none rounded-sm" />
+                {/* Document Inner Canvas Wrapper (scaled from top-left) */}
+                <div
+                  style={{
+                    width: previewCanvasRef.current?.width || 800,
+                    height: previewCanvasRef.current?.height || 1130,
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: "top left",
+                    transition: "transform 0.12s ease-out"
+                  }}
+                  className="relative inline-block select-none shadow-2xl rounded-sm bg-white overflow-visible"
+                >
+                  {/* 1. Base Document Page Image Canvas */}
+                  <canvas ref={previewCanvasRef} className="block max-w-none rounded-sm" />
 
                 {/* 2. Detected Candidate Bounding Overlays */}
                 {!isPeekingOriginal &&
@@ -1346,6 +1405,7 @@ export function WatermarkRemovalModal({
                       </div>
                     </div>
                   ))}
+                </div>
               </div>
             </div>
 
@@ -1390,7 +1450,7 @@ export function WatermarkRemovalModal({
           </div>
 
           {/* RIGHT: Intelligent Control Studio Panel */}
-          <aside className="w-full md:w-84 lg:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between overflow-hidden shrink-0">
+          <aside className="w-full md:w-80 lg:w-92 xl:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between overflow-hidden shrink-0">
             {/* Scrollable controls */}
             <div className="p-4 space-y-4 overflow-y-auto flex-1">
               {/* HERO: 1-Click Auto Eradicate Banner */}
