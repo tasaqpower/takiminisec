@@ -249,7 +249,7 @@ export default function Home() {
   }
 
   return (
-    <SidebarProvider style={{ "--sidebar-width": "238px" } as React.CSSProperties}>
+    <SidebarProvider style={{ "--sidebar-width": "264px" } as React.CSSProperties}>
       <Sidebar className="forma-sidebar">
         <SidebarHeader className="brand">
           <a href="/" aria-label="Forma ana sayfa">

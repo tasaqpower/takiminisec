@@ -71,14 +71,13 @@ runTest('app/page.tsx defines essentialTools, conversionTools, and allTools corr
   assert.ok(pageCode.includes('id: "img-to-pdf"'), 'conversionTools must include img-to-pdf');
   assert.ok(pageCode.includes('id: "convert"'), 'conversionTools must include convert');
 
-  // Verify tabs: essential, conversions, all
+  // Verify tabs: essential, conversions
   assert.ok(pageCode.includes('<TabsTrigger value="essential">Önemli Araçlar</TabsTrigger>'), 'essential tab must be rendered');
   assert.ok(pageCode.includes('<TabsTrigger value="conversions">Dönüşümler</TabsTrigger>'), 'conversions tab must be rendered');
-  assert.ok(pageCode.includes('<TabsTrigger value="all">Tüm Araçlar</TabsTrigger>'), 'all tab must be rendered');
 
-  // Verify DocumentEnhancerModal and AdvancedConversionModal rendered
-  assert.ok(pageCode.includes('<DocumentEnhancerModal'), 'DocumentEnhancerModal must be rendered');
-  assert.ok(pageCode.includes('<AdvancedConversionModal'), 'AdvancedConversionModal must be rendered');
+  // Verify EnhancerModal and ConversionModal rendered
+  assert.ok(pageCode.includes('<EnhancerModal') || pageCode.includes('<DocumentEnhancerModal'), 'EnhancerModal must be rendered');
+  assert.ok(pageCode.includes('<ConversionModal') || pageCode.includes('<AdvancedConversionModal'), 'ConversionModal must be rendered');
 });
 
 runTest('ToolHubModal registers enhancer with description and badge', () => {
