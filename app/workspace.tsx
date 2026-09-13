@@ -109,6 +109,7 @@ import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversio
 import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
 import { StampGeneratorModal } from "@/features/stamp/StampGeneratorModal";
+import { DocumentEnhancerModal } from "@/features/enhancer/DocumentEnhancerModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -2433,6 +2434,16 @@ export default function Workspace({
             </button>
             <button
               type="button"
+              className="secondary group hover:border-violet-300 hover:bg-violet-50/50"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setActiveProfessionalTool('enhancer')}
+              title="Bulanık Yazıları ve Görselleri Kristal Netliğe Kavuştur"
+            >
+              <Sparkles size={15} className="text-violet-500 group-hover:scale-110 transition-transform" />
+              <span>Netleştir</span>
+            </button>
+            <button
+              type="button"
               className="secondary bg-blue-500/10 border-blue-400/40 text-blue-400 hover:bg-blue-500/20"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setShowToolHub(true)}
@@ -3219,6 +3230,17 @@ export default function Workspace({
         onClose={() => setActiveProfessionalTool(null)}
         pdfBytes={bytes}
         onApply={(newPdfBytes: Uint8Array) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
+      />
+
+      <DocumentEnhancerModal
+        isOpen={activeProfessionalTool === 'enhancer'}
+        onClose={() => setActiveProfessionalTool(null)}
+        pdfBytes={bytes}
+        fileName={files[0]?.name}
+        onImportToWorkspace={(newPdfBytes: Uint8Array) => {
           handleApplyProfessionalPdf(newPdfBytes);
           setActiveProfessionalTool(null);
         }}

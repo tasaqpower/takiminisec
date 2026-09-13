@@ -29,7 +29,8 @@ export type ProfessionalToolId =
   | 'signature'
   | 'compliance'
   | 'stamp'
-  | 'kvkk';
+  | 'kvkk'
+  | 'enhancer';
 
 interface ToolHubModalProps {
   isOpen: boolean;
@@ -47,6 +48,14 @@ interface ToolDefinition {
 }
 
 const TOOLS: ToolDefinition[] = [
+  {
+    id: 'enhancer',
+    title: 'Belge & Görsel Netleştirici',
+    category: 'Tara & Biçim',
+    description: 'Bulanık taranmış evrakları ve fotoğrafları netleştirin; soluk yazıları koyulaştırıp arka planı temizleyin.',
+    badge: 'Yeni',
+    icon: Sparkles,
+  },
   {
     id: 'scanner',
     title: 'Belge Tarayıcı & İyileştirme',

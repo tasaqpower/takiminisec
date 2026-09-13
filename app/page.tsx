@@ -27,7 +27,10 @@ import {
   Eraser,
   FileSpreadsheet,
   EyeOff,
-  Stamp
+  Stamp,
+  Camera,
+  GitCompare,
+  Image as ImageIcon
 } from "lucide-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -41,26 +44,39 @@ import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
 import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
 import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
 
-const tools = [
-  { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
-  { id:"watermark", title:"Filigran kaldır", desc:"Damga, mühür ve taslak yazılarını sıfır hasarla sil.", icon:Eraser, color:"rose", type:"PDF" },
-  { id:"excel-to-pdf", title:"Excel → PDF", desc:"Tablolarını şık ve sayfalanmış PDF'e dönüştür.", icon:FileSpreadsheet, color:"teal", type:"XLSX · CSV" },
-  { id:"pdf-to-word", title:"PDF → Word", desc:"PDF'i düzenlenebilir Word (.docx) belgesine çevir.", icon:FileType2, color:"blue", type:"PDF" },
-  { id:"word-to-pdf", title:"Word → PDF", desc:"DOCX belgelerini vektörel PDF'e dönüştür.", icon:FileInput, color:"indigo", type:"DOCX" },
-  { id:"stamp", title:"Resmi Kaşe & Mühür", desc:"Aslı gibidir, onaylandı veya kurumsal kaşe bas.", icon:Stamp, color:"rose", type:"PDF" },
-  { id:"kvkk", title:"KVKK & Sansür", desc:"TC, IBAN, telefon ve kart bilgilerini otomatik maskele.", icon:EyeOff, color:"amber", type:"PDF" },
-  { id:"word", title:"Word düzenle", desc:"Kelimelerine son şeklini ver.", icon:FileType2, color:"blue", type:"DOCX" },
-  { id:"convert", title:"Dosya dönüştür", desc:"İhtiyacın olan formata geç.", icon:FileInput, color:"orange", type:"PDF · DOCX" },
-  { id:"sign", title:"PDF imzala", desc:"İmzanı çiz, belgede yerine koy.", icon:PenLine, color:"pink", type:"PDF" },
-  { id:"merge", title:"PDF birleştir", desc:"Birden çok dosya, tek bir belge.", icon:Merge, color:"teal", type:"PDF" },
-  { id:"pages", title:"Sayfaları düzenle", desc:"Ayır, döndür veya sayfa sil.", icon:Scissors, color:"amber", type:"PDF" },
-  { id:"compress", title:"PDF sıkıştır", desc:"Kaliteyi koruyarak boyutu küçült.", icon:Archive, color:"teal", type:"PDF" },
-  { id:"ocr", title:"Tara ve OCR", desc:"Taranmış belgeleri aranabilir metne dönüştür.", icon:ScanText, color:"violet", type:"PDF" }
+export const essentialTools = [
+  { id: "edit", title: "PDF düzenle", desc: "Metin, not, canlı fatura & fiyat düzeltici.", icon: FileText, color: "violet", type: "PDF", popular: true },
+  { id: "enhancer", title: "Belge & Görsel Netleştir", desc: "Bulanık taranmış yazıları koyulaştır ve fotoğrafları keskinleştir.", icon: Sparkles, color: "rose", type: "PDF · JPG · PNG", isNew: true },
+  { id: "merge", title: "PDF birleştir", desc: "Birden çok dosya, tek bir kusursuz belge.", icon: Merge, color: "teal", type: "PDF" },
+  { id: "pages", title: "Sayfaları düzenle", desc: "Ayır, döndür, sırala veya sayfa sil.", icon: Scissors, color: "amber", type: "PDF" },
+  { id: "compress", title: "PDF sıkıştır", desc: "Kaliteyi koruyarak dosya boyutunu küçült.", icon: Archive, color: "indigo", type: "PDF" },
+  { id: "sign", title: "PDF imzala", desc: "El yazısı veya resmî imzanı belgede yerine koy.", icon: PenLine, color: "pink", type: "PDF" },
 ];
+
+export const conversionTools = [
+  { id: "pdf-to-word", title: "PDF → Word (.docx)", desc: "PDF'i düzenlenebilir Microsoft Word belgesine çevir.", icon: FileType2, color: "blue", type: "PDF", isNew: true },
+  { id: "word-to-pdf", title: "Word → PDF", desc: "DOCX belgelerini sayfalanmış vektörel PDF'e dönüştür.", icon: FileInput, color: "indigo", type: "DOCX" },
+  { id: "excel-to-pdf", title: "Excel → PDF", desc: "XLSX ve CSV tablolarını şık sayfalanmış PDF'e dönüştür.", icon: FileSpreadsheet, color: "teal", type: "XLSX · CSV" },
+  { id: "pdf-to-excel", title: "PDF → Excel (.xlsx)", desc: "PDF içerisindeki tabloları tek tıkla Excel'e aktar.", icon: FileSpreadsheet, color: "teal", type: "PDF" },
+  { id: "pdf-to-img", title: "PDF → Görsel (PNG / JPG)", desc: "Sayfaları yüksek çözünürlüklü görsellere dönüştür.", icon: ImageIcon, color: "purple", type: "PDF" },
+  { id: "img-to-pdf", title: "Görsel → PDF", desc: "Fotoğraf ve taranmış belgeleri vektörel PDF yap.", icon: Upload, color: "rose", type: "JPG · PNG" },
+  { id: "convert", title: "Gelişmiş Dönüştürücü", desc: "PowerPoint, TXT, HTML ve tüm formatlar.", icon: FileInput, color: "orange", type: "TÜM FORMATLAR" },
+];
+
+export const specializedTools = [
+  { id: "stamp", title: "Resmi Kaşe & Mühür", desc: "Aslı gibidir, onaylandı veya şirket kaşesi bas.", icon: Stamp, color: "rose", type: "PDF" },
+  { id: "kvkk", title: "KVKK & Sansür", desc: "TC, IBAN, telefon ve kart bilgilerini otomatik maskele.", icon: EyeOff, color: "amber", type: "PDF" },
+  { id: "watermark", title: "Filigran kaldır", desc: "Damga, mühür ve taslak yazılarını sıfır hasarla sil.", icon: Eraser, color: "rose", type: "PDF" },
+  { id: "ocr", title: "Tara ve OCR", desc: "Taranmış belgeleri aranabilir metne dönüştür.", icon: ScanText, color: "violet", type: "PDF" },
+  { id: "scanner", title: "Belge Tarayıcı", desc: "Kamera veya görselden 4 noktalı köşe ve gölge düzelt.", icon: Camera, color: "blue", type: "Görsel" },
+  { id: "compare", title: "PDF Karşılaştır", desc: "İki belge arasındaki metin ve piksel farklarını bul.", icon: GitCompare, color: "teal", type: "2x PDF" },
+];
+
+export const allTools = [...essentialTools, ...conversionTools, ...specializedTools];
 
 export default function Home() {
   const input = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState("all"), [intent, setIntent] = useState("edit"), [dragging, setDragging] = useState(false), [help, setHelp] = useState(false), [loading, setLoading] = useState(false);
+  const [category, setCategory] = useState("essential"), [intent, setIntent] = useState("edit"), [dragging, setDragging] = useState(false), [help, setHelp] = useState(false), [loading, setLoading] = useState(false);
   const intentRef = useRef("edit");
   const [workspace, setWorkspace] = useState<{ files: File[]; intent: string; id: string; draft?: FormaDraft } | null>(null);
   const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
@@ -69,6 +85,24 @@ export default function Home() {
 
   const [showToolHub, setShowToolHub] = useState(false);
   const [activeStandaloneTool, setActiveStandaloneTool] = useState<ProfessionalToolId | null>(null);
+  const [EnhancerModal, setEnhancerModal] = useState<React.ComponentType<any> | null>(null);
+  const [ConversionModal, setConversionModal] = useState<React.ComponentType<any> | null>(null);
+
+  async function showEnhancer() {
+    if (!EnhancerModal) {
+      const m = await import("@/features/enhancer/DocumentEnhancerModal");
+      setEnhancerModal(() => m.DocumentEnhancerModal);
+    }
+    setActiveStandaloneTool("enhancer");
+  }
+
+  async function showConversion() {
+    if (!ConversionModal) {
+      const m = await import("@/features/conversion/AdvancedConversionModal");
+      setConversionModal(() => m.AdvancedConversionModal);
+    }
+    setActiveStandaloneTool("conversion");
+  }
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -142,6 +176,27 @@ export default function Home() {
   }
 
   function pick(action: string) {
+    if (action === "enhancer") {
+      void showEnhancer();
+      return;
+    }
+    if (action === "convert" || action === "conversion" || action === "pdf-to-img" || action === "img-to-pdf" || action === "pdf-to-excel") {
+      void showConversion();
+      return;
+    }
+    if (action === "scanner") {
+      setActiveStandaloneTool("scanner");
+      return;
+    }
+    if (action === "compare") {
+      setActiveStandaloneTool("compare");
+      return;
+    }
+    if (action === "batch") {
+      setActiveStandaloneTool("batch");
+      return;
+    }
+
     guard(() => {
       intentRef.current = action;
       setIntent(action);
@@ -153,7 +208,7 @@ export default function Home() {
           ? ".docx,.txt"
           : action === "pdf-to-word"
           ? ".pdf"
-          : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "convert", "conversion", "stamp", "kvkk"].includes(action)
+          : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "stamp", "kvkk"].includes(action)
           ? ".pdf"
           : ".pdf,.docx,.txt,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
         input.current.click();
@@ -163,7 +218,11 @@ export default function Home() {
 
   const handleSelectToolFromHub = (toolId: ProfessionalToolId) => {
     setShowToolHub(false);
-    if (toolId === "scanner") {
+    if (toolId === "enhancer") {
+      void showEnhancer();
+    } else if (toolId === "conversion") {
+      void showConversion();
+    } else if (toolId === "scanner") {
       setActiveStandaloneTool("scanner");
     } else if (toolId === "compare") {
       setActiveStandaloneTool("compare");
@@ -171,8 +230,6 @@ export default function Home() {
       setActiveStandaloneTool("batch");
     } else if (toolId === "watermark-removal") {
       pick("watermark");
-    } else if (toolId === "conversion") {
-      pick("convert");
     } else if (toolId === "page-sizing") {
       pick("pages");
     } else if (toolId === "signature") {
@@ -222,16 +279,37 @@ export default function Home() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          <span className="nav-caption tools-caption">BELGE ARAÇLARI</span>
+          <span className="nav-caption tools-caption">ÖNEMLİ ARAÇLAR</span>
           <SidebarMenu>
-            {tools.map(t => (
+            {essentialTools.map(t => (
               <SidebarMenuItem key={t.id}>
                 <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
                   <t.icon /><span>{t.title}</span>
-                  {t.id === "sign" && <span className="nav-new">Yeni</span>}
+                  {"isNew" in t && t.isNew && (
+                    <span className="nav-new" style={{ background: "#ede9fe", color: "#6d28d9" }}>Yeni</span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+          </SidebarMenu>
+          <span className="nav-caption tools-caption" style={{ marginTop: "14px" }}>DÖNÜŞÜMLER</span>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => pick("pdf-to-word")}>
+                <FileType2 /><span>PDF → Word</span>
+                <span className="nav-new" style={{ background: "#eff6ff", color: "#1d4ed8" }}>DOCX</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => pick("excel-to-pdf")}>
+                <FileSpreadsheet /><span>Excel → PDF</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => pick("convert")}>
+                <FileInput /><span>Tüm Dönüşümler</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
           <div className="local-card">
             <span className="local-icon"><ShieldCheck size={21} /></span>
@@ -338,8 +416,19 @@ export default function Home() {
             <section className="tool-section">
               <div className="section-heading">
                 <div>
-                  <h2>Her belgeye bir araç<span>{tools.length}</span></h2>
-                  <p>Yapmak istediğini seç, hemen başla.</p>
+                  <h2>
+                    {category === "conversions" ? "Dönüşümler" : category === "all" ? "Tüm Atölye Araçları" : "Önemli Araçlar"}
+                    <span>
+                      {category === "conversions" ? conversionTools.length : category === "all" ? allTools.length : essentialTools.length}
+                    </span>
+                  </h2>
+                  <p>
+                    {category === "conversions"
+                      ? "Word, Excel, Görsel ve PDF arasında yüksek kaliteli çift yönlü dönüşümler."
+                      : category === "all"
+                      ? "Forma'nın sunduğu tüm profesyonel araçlar tek ekranda."
+                      : "Günlük işlerinde en çok ihtiyaç duyduğun kritik belge araçları."}
+                  </p>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                   <button
@@ -349,25 +438,36 @@ export default function Home() {
                     onClick={() => setShowToolHub(true)}
                   >
                     <Sparkles size={14} className="text-amber-500" />
-                    <span>Tüm 11 Aracı Gör (Ctrl+K)</span>
+                    <span>Tüm Araçlar (Ctrl+K)</span>
                   </button>
                   <Tabs value={category} onValueChange={setCategory}>
                     <TabsList className="category-tabs">
-                      <TabsTrigger value="all">Tüm araçlar</TabsTrigger>
-                      <TabsTrigger value="pdf">PDF</TabsTrigger>
-                      <TabsTrigger value="word">Word</TabsTrigger>
+                      <TabsTrigger value="essential">Önemli Araçlar</TabsTrigger>
+                      <TabsTrigger value="conversions">Dönüşümler</TabsTrigger>
+                      <TabsTrigger value="all">Tüm Araçlar</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
               </div>
               <div className="tool-grid">
-                {tools
-                  .filter(t => category === "all" || (category === "word" ? ["word", "convert"].includes(t.id) : t.id !== "word"))
+                {(category === "conversions" ? conversionTools : category === "all" ? allTools : essentialTools)
                   .map(t => (
                     <button className="tool-card" key={t.id} onClick={() => pick(t.id)}>
                       <div className="tool-card-top">
                         <span className={`tool-icon ${t.color}`}><t.icon size={23} /></span>
-                        <ArrowUpRight className="card-arrow" size={18} />
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {"isNew" in t && t.isNew && (
+                            <span style={{ fontSize: "10px", fontWeight: 700, background: "#ede9fe", color: "#6d28d9", padding: "2px 6px", borderRadius: "6px" }}>
+                              Yeni
+                            </span>
+                          )}
+                          {"popular" in t && t.popular && (
+                            <span style={{ fontSize: "10px", fontWeight: 700, background: "#fef3c7", color: "#b45309", padding: "2px 6px", borderRadius: "6px" }}>
+                              Popüler
+                            </span>
+                          )}
+                          <ArrowUpRight className="card-arrow" size={18} />
+                        </div>
                       </div>
                       <h3>{t.title}</h3>
                       <p>{t.desc}</p>
@@ -465,6 +565,39 @@ export default function Home() {
         isOpen={activeStandaloneTool === 'batch'}
         onClose={() => setActiveStandaloneTool(null)}
       />
+
+      {EnhancerModal && (
+        <EnhancerModal
+          isOpen={activeStandaloneTool === 'enhancer'}
+          onClose={() => setActiveStandaloneTool(null)}
+          onImportToWorkspace={async (newPdfBytes: Uint8Array, newFileName: string) => {
+            setActiveStandaloneTool(null);
+            const enhancedFile = new globalThis.File(
+              [newPdfBytes as unknown as BlobPart],
+              newFileName || "Netlestirilmis_Belge.pdf",
+              { type: "application/pdf" }
+            );
+            await open([enhancedFile], "edit");
+          }}
+        />
+      )}
+
+      {ConversionModal && (
+        <ConversionModal
+          isOpen={activeStandaloneTool === 'conversion'}
+          onClose={() => setActiveStandaloneTool(null)}
+          pdfBytes={null}
+          onOpenConvertedPdf={async (newPdfBytes: Uint8Array, newFileName: string) => {
+            setActiveStandaloneTool(null);
+            const convertedFile = new globalThis.File(
+              [newPdfBytes as unknown as BlobPart],
+              newFileName || "Donusturulmus_Belge.pdf",
+              { type: "application/pdf" }
+            );
+            await open([convertedFile], "edit");
+          }}
+        />
+      )}
 
       <Toaster position="bottom-right" richColors closeButton />
     </SidebarProvider>
