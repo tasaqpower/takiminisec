@@ -95,8 +95,8 @@ Belgede filigran yoksa boş dizi döndür: { "watermarks": [] }`;
     throw new Error(`Gemini API Hatası (${response.status}): ${errorText.slice(0, 150)}`);
   }
 
-  const result = await response.json();
-  const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  const result = (await response.json()) as any;
+  const textResponse = result?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!textResponse) return [];
 
   try {

@@ -35,7 +35,8 @@ import {
   ShieldCheck,
   FormInput,
   Sparkles,
-  Eraser
+  Eraser,
+  Loader2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -105,7 +106,6 @@ import { PageSizingModal } from "@/features/page-sizing/PageSizingModal";
 import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversionModal";
 import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
-import { WatermarkRemovalModal } from "@/features/watermark-removal/WatermarkRemovalModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -324,7 +324,7 @@ export default function Workspace({
   const [showOcr, setShowOcr] = useState(intent === "ocr");
   const [showCompress, setShowCompress] = useState(intent === "compress");
   const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
-  const [showWatermarkRemoval, setShowWatermarkRemoval] = useState(intent === "watermark" || intent === "remove-watermark");
+  const [isCleaningWatermarks, setIsCleaningWatermarks] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
   const [showToolHub, setShowToolHub] = useState(false);
   const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(null);
@@ -570,6 +570,85 @@ export default function Workspace({
       toast.success("Değişiklikler uygulandı.");
     }
   };
+
+  const handleOneClickWatermarkRemoval = async () => {
+    if (!bytes) {
+      toast.error("Lütfen önce bir PDF belgesi açın.");
+      return;
+    }
+
+    setIsCleaningWatermarks(true);
+    const toastId = toast.loading("⚡ Belgedeki tüm filigranlar taranıyor ve kusursuz temizleniyor...");
+
+    try {
+      // 1. Detect candidate watermarks via surgical vector & metadata inspection
+      const { detectWatermarks } = await import("@/features/watermark-removal/watermarkDetector");
+      const candidates = await detectWatermarks(bytes);
+
+      // 2. Only if no vector watermark candidates were found (e.g. scanned document or flat image PDF),
+      // fall back to visual OCR to prevent drawing opaque covers over legitimate vector text!
+      let visualCands: any[] = [];
+      if (candidates.length === 0 && typeof window !== "undefined") {
+        try {
+          const { detectVisualWatermarks } = await import("@/features/watermark-removal/visualWatermarkDetector");
+          visualCands = await detectVisualWatermarks(bytes, 0);
+        } catch {}
+      }
+
+      const allCandidates = [...candidates, ...visualCands];
+
+      if (allCandidates.length === 0) {
+        toast.info("Belgenizde belirgin bir filigran veya taslak damgası tespit edilmedi. Belgeniz zaten tertemiz.", { id: toastId });
+        setIsCleaningWatermarks(false);
+        return;
+      }
+
+      // Automatically sample authentic page background tone
+      let fillColor = { r: 1, g: 1, b: 1 };
+      try {
+        const { renderPdfPageToCanvas, detectPageBackgroundColor } = await import("@/features/watermark-removal/visualWatermarkDetector");
+        const { canvas } = await renderPdfPageToCanvas(bytes, 0, 1.0);
+        const bg = detectPageBackgroundColor(canvas);
+        if (bg) fillColor = { r: bg.r, g: bg.g, b: bg.b };
+      } catch {}
+
+      const { removeWatermarks } = await import("@/features/watermark-removal/watermarkRemover");
+      const result = await removeWatermarks(bytes, allCandidates, {
+        candidateIds: allCandidates.map(c => c.id),
+        pageScope: "all",
+        currentPage: active + 1,
+        fillColor
+      });
+
+      if (typeof window !== "undefined") {
+        (window as any).__lastWatermarkResult = { candidates: allCandidates, result };
+      }
+
+      if (result.totalRemoved > 0) {
+        await handleApplyProfessionalPdf(result.pdfBytes);
+        toast.success(
+          `🎉 ${result.totalRemoved} adet filigran çevre yazılara sıfır hasarla tek tıkla kusursuz temizlendi!`,
+          { id: toastId, duration: 4500 }
+        );
+      } else {
+        toast.info("Tespit edilen filigranlar temizlenemedi veya içerik korumalı.", { id: toastId });
+      }
+    } catch (err: any) {
+      console.error("1-click watermark removal error:", err);
+      toast.error("Filigran temizleme sırasında hata oluştu: " + (err.message || ""), { id: toastId });
+    } finally {
+      setIsCleaningWatermarks(false);
+    }
+  };
+
+  // Auto-run 1-click watermark cleaner if opened with intent: "watermark"
+  const autoCleanWatermarkDone = useRef(false);
+  useEffect(() => {
+    if ((intent === "watermark" || intent === "remove-watermark") && bytes && !autoCleanWatermarkDone.current) {
+      autoCleanWatermarkDone.current = true;
+      void handleOneClickWatermarkRemoval();
+    }
+  }, [intent, bytes]);
 
   // Detect and maintain images across pages
   useEffect(() => {
@@ -2272,11 +2351,16 @@ export default function Workspace({
               type="button"
               className="secondary group hover:border-rose-300 hover:bg-rose-50/50"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowWatermarkRemoval(true)}
-              title="Belgeden Filigran ve Damgaları Sıfır Hasarla Temizle"
+              onClick={handleOneClickWatermarkRemoval}
+              disabled={isCleaningWatermarks}
+              title="Belgeden Filigran ve Damgaları Tek Tıkla Kusursuz Temizle"
             >
-              <Eraser size={15} className="text-rose-600 group-hover:scale-110 transition-transform" />
-              <span>Filigran Kaldır</span>
+              {isCleaningWatermarks ? (
+                <Loader2 size={15} className="animate-spin text-rose-600" />
+              ) : (
+                <Eraser size={15} className="text-rose-600 group-hover:scale-110 transition-transform" />
+              )}
+              <span>{isCleaningWatermarks ? "Temizleniyor..." : "Filigran Kaldır"}</span>
             </button>
             <button
               type="button"
@@ -2968,22 +3052,11 @@ export default function Workspace({
         onClose={() => setShowToolHub(false)}
         onSelectTool={(toolId) => {
           if (toolId === 'watermark-removal') {
-            setShowWatermarkRemoval(true);
+            setShowToolHub(false);
+            void handleOneClickWatermarkRemoval();
           } else {
             setActiveProfessionalTool(toolId);
           }
-        }}
-      />
-
-      <WatermarkRemovalModal
-        open={showWatermarkRemoval}
-        onOpenChange={setShowWatermarkRemoval}
-        pdfBytes={bytes || undefined}
-        totalPages={state.pages.length}
-        currentPage={active + 1}
-        fileName={files[0]?.name}
-        onApplyRemoval={async (newPdfBytes) => {
-          await handleApplyProfessionalPdf(newPdfBytes);
         }}
       />
 

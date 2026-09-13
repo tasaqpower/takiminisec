@@ -10,6 +10,7 @@ export interface WatermarkRemovalResult {
   removedTextCount: number;
   removedImageCount: number;
   removedAnnotationCount: number;
+  removedCoverCount?: number;
   totalRemoved: number;
 }
 
@@ -180,6 +181,26 @@ export async function removeWatermarks(
     }
   }
 
+  // 2e. Record bounding boxes of all protected (non-watermark) vector text to guarantee ZERO collateral damage
+  const pageProtectedTextBounds = new Map<number, { x: number; y: number; w: number; h: number }[]>();
+  for (const pageIdx of targetPages) {
+    if (pageIdx < 0 || pageIdx >= totalPages) continue;
+    try {
+      const page = await doc.getPage(pageIdx + 1);
+      const pageTexts = await editablePageText(page);
+      const textRemovalIds = new Set(textRemovals.filter(r => r.page === pageIdx).map(r => r.id));
+      const protectedList = pageTexts
+        .filter(t => !textRemovalIds.has(t.id))
+        .map(t => ({
+          x: t.x,
+          y: t.y,
+          w: Math.max(t.w, (t.text?.length || 1) * (t.size || 12) * 0.5),
+          h: Math.max(t.h, (t.size || 12) * 1.1)
+        }));
+      pageProtectedTextBounds.set(pageIdx, protectedList);
+    } catch {}
+  }
+
   // Clean up PDF.js doc instance
   try { await doc.loadingTask.destroy(); } catch {}
 
@@ -303,6 +324,26 @@ export async function removeWatermarks(
         for (const pIdx of cand.pages) {
           if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
             const page = pages[pIdx];
+            const pH = page.getHeight();
+
+            // CRITICAL: Check overlap with protected legitimate contract text on this page!
+            // Never allow an opaque rectangle to cover real document clauses!
+            const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
+            const overlapsProtected = protectedBoxes.some(b => {
+              const bBottom = pH - (b.y + b.h);
+              const bTop = pH - b.y;
+              const boxX1 = cand.imageBounds!.x;
+              const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
+              const boxY1 = cand.imageBounds!.y;
+              const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
+
+              return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
+            });
+
+            if (overlapsProtected) {
+              continue;
+            }
+
             page.drawRectangle({
               x: Math.max(0, cand.imageBounds.x - 2),
               y: Math.max(0, cand.imageBounds.y - 2),

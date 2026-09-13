@@ -21,25 +21,42 @@ export function normalizeTurkish(text: string): string {
 }
 
 export const WATERMARK_KEYWORDS = [
-  // Turkish invalidity & draft & sample indicators
-  "gecersiz", "gecersizdir",
-  "ornek", "ornektir", "ornek belge", "ornek belgedir",
-  "taslak", "taslaktir",
-  "gizli", "gizlidir",
-  "kopya", "kopyadir", "belge kopyasi", "surettir",
-  "iptal", "iptal edilmistir",
-  "deneme", "numune",
-  "ogrenci", "ogrenci belgesi",
-  "resmi degildir", "bilgi icindir",
+  // Turkish invalidity, simulation, & void indicators
+  "gecersiz", "gecersizdir", "gecersiz belge", "gecersiz belgedir",
+  "belge simulasyonudur", "simulasyonudur", "simulasyon", "simulasyondur",
+  "hukumsuz", "hukumsuzdur", "hukuksuz", "gecersiz kilinmistir", "hukuken gecersizdir",
+  // Turkish sample & preview
+  "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
+  // Turkish draft
+  "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
+  // Turkish confidentiality & restricted
+  "gizli", "gizlidir", "cok gizli", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
+  // Turkish copy & reproduction
+  "kopya", "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
+  // Turkish cancellation & terminated
+  "iptal", "iptal edilmistir", "feshedilmistir", "fesih", "ilga", "yururlukten kalkmistir",
+  // Turkish trial & demo
+  "deneme", "denemedir", "numune", "onizleme", "test", "demo", "deneme surumu", "on izleme",
+  // Turkish non-official & informational indicators
+  "ogrenci", "ogrenci belgesi", "stajyer",
+  "resmi degildir", "bilgi icindir", "bilgilendirme amacli", "bilgilendirmedir",
+  "hukuki baglayiciligi yoktur", "gecerliligi yoktur", "baglayiciligi yoktur",
   "kontrolsuz", "kontrolsuz kopya",
-  "onaylanmamis", "onaylanmamistir",
-  "asli gibidir",
-  "filigran", "korumali",
-  // English & common indicators
-  "draft", "confidential", "copy", "void", "sample", "test",
-  "specimen", "evaluation", "trial", "preview", "unofficial",
-  "for review", "do not copy", "watermark", "camscanner",
-  "not for official use"
+  "onaylanmamis", "onaylanmamistir", "onay bekliyor", "onaysiz", "taslak halindedir",
+  "asli gibidir", "aslinin aynisidir",
+  "filigran", "filigrandir", "korumali", "telif hakki", "izinsiz kullanilamaz", "izinsiz cogaltilamaz",
+  // Mobile scanner watermarks
+  "camscanner", "camscanner ile tarandi", "scanned with camscanner", "scanned by camscanner",
+  "adobe scan", "tapscanner", "fast scanner", "simple scanner", "scanner",
+  // English & international indicators
+  "draft", "preliminary draft", "working draft",
+  "confidential", "strictly confidential", "secret", "top secret", "restricted", "private", "privileged",
+  "copy", "do not copy", "duplicate", "replica", "reproduction",
+  "void", "invalid", "cancelled", "canceled", "null and void", "expired",
+  "sample", "specimen", "test", "evaluation", "evaluation copy", "trial", "trial version", "preview", "demo",
+  "unofficial", "not for official use", "for review only", "for review", "for internal use only", "internal use only",
+  "watermark", "watermarked", "copyright", "all rights reserved",
+  "wondershare", "pdfelement", "smallpdf", "ilovepdf", "foxit", "nitro"
 ];
 
 export function analyzeWatermarkColor(colorHex?: string): {
@@ -178,32 +195,75 @@ export function reconstructPageLines(items: EditableText[]): ReconstructedLine[]
   return lines;
 }
 
+export function matchesWatermarkKeyword(normText: string, normSpaceless: string, kw: string): boolean {
+  const kwNorm = normalizeTurkish(kw);
+  const kwSpaceless = kwNorm.replace(/\s+/g, "");
+
+  // 1. Direct multi-word phrase match (e.g. "gecersiz belge", "belge simulasyonudur")
+  if (kwNorm.includes(" ") && normText.includes(kwNorm)) {
+    return true;
+  }
+
+  // 2. Word-boundary regex match for single words (e.g. "gizli" matches "gizli", but NOT "gizlilik")
+  const wordBoundary = new RegExp(`(?:^|[^a-z0-9])${kwNorm}(?:[^a-z0-9]|$)`, "i");
+  if (wordBoundary.test(normText)) {
+    return true;
+  }
+
+  // 3. Spaced letters match: e.g. "G E C E R S I Z", "T A S L A K", "O R N E K"
+  if (kwSpaceless.length >= 4) {
+    const spacedPattern = kwSpaceless.split("").join("\\s+");
+    const spacedRegex = new RegExp(`(?:^|[^a-z0-9])${spacedPattern}(?:[^a-z0-9]|$)`, "i");
+    if (spacedRegex.test(normText)) {
+      return true;
+    }
+    // Also if the text consists predominantly of the spaceless keyword
+    if (normSpaceless === kwSpaceless || (normSpaceless.includes(kwSpaceless) && normSpaceless.length <= kwSpaceless.length + 4)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function detectWatermarks(
   pdfBytes: Uint8Array,
-  pdfDocInstance?: any
+  pageScope: "all" | "current" = "all",
+  currentPage = 0
 ): Promise<WatermarkCandidate[]> {
-  const doc = pdfDocInstance || (await loadPdf(pdfBytes));
-  const numPages = doc.numPages;
   const candidates: WatermarkCandidate[] = [];
+  let doc: any = null;
 
   try {
-    const allPageTexts: { page: number; items: EditableText[] }[] = [];
-    const allPageImages: { page: number; images: any[] }[] = [];
+    doc = await loadPdf(pdfBytes);
+    const numPages = doc.numPages;
 
-    // 1. Collect all texts and images per page
-    for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
-      try {
-        const page = await doc.getPage(pageIdx + 1);
-        const [texts, imgs] = await Promise.all([
-          editablePageText(page).catch(() => []),
-          detectImagesOnPage(page, pageIdx).catch(() => [])
-        ]);
-        allPageTexts.push({ page: pageIdx, items: texts });
-        allPageImages.push({ page: pageIdx, images: imgs });
-      } catch {}
+    const pagesToScan: number[] = [];
+    if (pageScope === "current") {
+      pagesToScan.push(currentPage);
+    } else {
+      for (let i = 0; i < numPages; i++) pagesToScan.push(i);
     }
 
-    // 2. Reconstruct lines per page & group by normalized text
+    // 1. Extract all text and image items per page
+    const allPageTexts: { page: number; items: EditableText[] }[] = [];
+    const allPageImages: { page: number; images: any[] }[] = [];
+    for (const pIdx of pagesToScan) {
+      if (pIdx < 0 || pIdx >= numPages) continue;
+      try {
+        const page = await doc.getPage(pIdx + 1);
+        const [items, imgs] = await Promise.all([
+          editablePageText(page).catch(() => []),
+          detectImagesOnPage(page, pIdx).catch(() => [])
+        ]);
+        allPageTexts.push({ page: pIdx, items });
+        allPageImages.push({ page: pIdx, images: imgs });
+      } catch (err) {
+        console.warn(`Could not read page ${pIdx}:`, err);
+      }
+    }
+
+    // 2. Group texts across pages
     const textGroups = new Map<
       string,
       {
@@ -220,14 +280,15 @@ export async function detectWatermarks(
     for (const { page, items } of allPageTexts) {
       const lines = reconstructPageLines(items);
 
-      // Process both reconstructed lines and individual multichar items
+      // 1. Process reconstructed lines
       for (const line of lines) {
         const str = line.text?.trim();
         if (!str || str.length < 2) continue;
         const norm = normalizeTurkish(str);
         if (!norm) continue;
 
-        const matched = WATERMARK_KEYWORDS.filter((kw) => norm.includes(kw));
+        const normSpaceless = norm.replace(/\s+/g, "");
+        const matched = WATERMARK_KEYWORDS.filter((kw) => matchesWatermarkKeyword(norm, normSpaceless, kw));
 
         let group = textGroups.get(norm);
         if (!group) {
@@ -247,6 +308,36 @@ export async function detectWatermarks(
         group.angles.push(line.angle || 0);
         group.fontSizes.push(line.size || 12);
         if (line.color) group.colors.add(line.color);
+      }
+
+      // 2. Also check individual items directly to ensure isolated words are never missed
+      for (const item of items) {
+        const str = item.text?.trim();
+        if (!str || str.length < 3) continue;
+        const norm = normalizeTurkish(str);
+        if (!norm) continue;
+
+        const normSpaceless = norm.replace(/\s+/g, "");
+        const matched = WATERMARK_KEYWORDS.filter((kw) => matchesWatermarkKeyword(norm, normSpaceless, kw));
+
+        if (matched.length > 0 && !textGroups.has(norm)) {
+          textGroups.set(norm, {
+            rawText: str,
+            lines: [{
+              page,
+              text: str,
+              items: [item],
+              angle: item.angle || 0,
+              size: item.size || 12,
+              color: item.color || "#222222"
+            }],
+            pages: new Set([page]),
+            angles: [item.angle || 0],
+            fontSizes: [item.size || 12],
+            colors: new Set([item.color || "#222222"]),
+            matchedKeywords: matched
+          });
+        }
       }
     }
 
@@ -327,8 +418,41 @@ export async function detectWatermarks(
         reasons.push("Tekrarlayan alt/üst bilgi");
       }
 
+      // CRITICAL CONTENT PROTECTION SAFEGUARDS:
+      // Real contract clauses, articles, headers, and regular sentences must NEVER be flagged as watermarks!
+      const isContractClause = /^(?:madde|article|fıkra|fikra|bent|bentler|bölüm|bolum|kısım|kisim|ek|taraflar|konu|amaç|amac|hükümler|hukumler|sozlesme|protokol)\s*\d*[:.]?/i.test(normKey);
+      const wordCount = normKey.split(/\s+/).filter(Boolean).length;
+      const isNormalHorizontalText = !hasDiagonal && avgFontSize <= 16;
+
+      // 1. A contract clause (e.g. "Madde 1: ...", "Madde 4: Gizlilik...") is 100% immune from being flagged as a watermark!
+      if (isContractClause && isNormalHorizontalText) {
+        continue;
+      }
+
+      // 2. Regular horizontal sentences with 4+ words that are not explicitly a multi-word watermark phrase
+      // (e.g. "BU BELGE GECERSIZDIR", "ORNEK BELGE SIMULASYONUDUR", "SCANNED WITH CAMSCANNER")
+      if (wordCount >= 4 && isNormalHorizontalText) {
+        const isExplicitWatermarkPhrase = WATERMARK_KEYWORDS.some(kw => {
+          const kwWords = kw.split(/\s+/).length;
+          return (kwWords >= 2 && normKey.includes(kw)) || normKey === kw;
+        });
+        if (!isExplicitWatermarkPhrase && !isRepeatedHeaderFooter) {
+          continue;
+        }
+      }
+
+      // If color alone is the trigger, require at least one other watermark signal
+      // (keyword, diagonal angle, large font, repeat pattern, or short stamp <= 3 words)
+      const isShortStamp = wordCount <= 3 && (isLargeFont || group.rawText === group.rawText.toUpperCase());
+      const hasSecondarySignal = keywordMatched || hasDiagonal || isLargeFont || isTilePattern || repeatsOnMultiplePages || isShortStamp;
+
+      if (!hasSecondarySignal && !keywordMatched && !hasDiagonal) {
+        // Color alone without any watermark characteristics cannot condemn text!
+        continue;
+      }
+
       // Accept candidate if confidence >= 35, or if keyword matched, or if diagonal, or if watermark color
-      if (confidence >= 35 || keywordMatched || hasDiagonal || bestColor.isWatermarkColor || isTilePattern) {
+      if (confidence >= 35 || keywordMatched || hasDiagonal || isTilePattern) {
         // Collect all constituent text removals from lines
         const removals: { id: string; page: number; quad: number[] }[] = [];
         const seenRemoval = new Set<string>();
@@ -439,7 +563,7 @@ export async function detectWatermarks(
     candidates.sort((a, b) => b.confidence - a.confidence);
 
   } finally {
-    if (!pdfDocInstance && doc?.loadingTask) {
+    if (doc?.loadingTask) {
       try { await doc.loadingTask.destroy(); } catch {}
     }
   }
