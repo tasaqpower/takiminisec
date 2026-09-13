@@ -1,4 +1,4 @@
-import { removePdfText, removePdfTextObjects, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
+import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { loadPdf } from "@/lib/documents";
 import { PDFDocument, rgb } from "pdf-lib";
 import { normalizeTurkish, reconstructPageLines, WATERMARK_KEYWORDS } from "./watermarkDetector";
@@ -63,6 +63,26 @@ export async function removeWatermarks(
     }
   } catch (objErr) {
     console.warn("Object-level watermark removal warning:", objErr);
+  }
+
+  // 1a2. Surgical Raster / Scanned Image Watermark Eradication via PDFium
+  // Removes red/coral/blue/purple stamps, diagonal watermarks, and simulation banners directly
+  // from image objects without damaging dark document text or brand logos!
+  let rasterRemovalCount = 0;
+  try {
+    const rasterResult = await removePdfRasterWatermarks(currentBytes, {
+      targetPages: Array.from(targetPages),
+      keywords: WATERMARK_KEYWORDS,
+      customText: options.customText,
+      fillColor: options.fillColor
+    });
+    if (rasterResult.removedCount > 0) {
+      currentBytes = rasterResult.bytes;
+      rasterRemovalCount = rasterResult.removedCount;
+      removedImageCount += rasterResult.removedCount;
+    }
+  } catch (rasterErr) {
+    console.warn("Raster watermark removal warning:", rasterErr);
   }
 
   // 1b. Collect candidate removals
@@ -339,49 +359,51 @@ export async function removeWatermarks(
       : rgb(1, 1, 1);
 
     // 6a. Detected candidate bounds - ONLY FOR RASTER CANDIDATES!
-    // CRITICAL: NEVER draw solid rectangles for vector text!
-    // removePdfText already surgically deleted vector glyphs without touching anything else.
-    for (const cand of allCandidates) {
-      if (!selectedSet.has(cand.id)) continue;
+    // CRITICAL: If raster watermarks were already surgically removed via PDFium at the pixel level,
+    // do NOT draw any opaque rectangles on top of the document!
+    if (rasterRemovalCount === 0) {
+      for (const cand of allCandidates) {
+        if (!selectedSet.has(cand.id)) continue;
 
-      if (cand.type === "text" || (cand.textRemovals && cand.textRemovals.length > 0)) {
-        continue;
-      }
+        if (cand.type === "text" || (cand.textRemovals && cand.textRemovals.length > 0)) {
+          continue;
+        }
 
-      if (cand.imageBounds) {
-        for (const pIdx of cand.pages) {
-          if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
-            const page = pages[pIdx];
-            const pH = page.getHeight();
+        if (cand.imageBounds) {
+          for (const pIdx of cand.pages) {
+            if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
+              const page = pages[pIdx];
+              const pH = page.getHeight();
 
-            // CRITICAL: Check overlap with protected legitimate contract text on this page!
-            // Never allow an opaque rectangle to cover real document clauses!
-            const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
-            const overlapsProtected = protectedBoxes.some(b => {
-              const bBottom = pH - (b.y + b.h);
-              const bTop = pH - b.y;
-              const boxX1 = cand.imageBounds!.x;
-              const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
-              const boxY1 = cand.imageBounds!.y;
-              const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
+              // CRITICAL: Check overlap with protected legitimate contract text on this page!
+              // Never allow an opaque rectangle to cover real document clauses!
+              const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
+              const overlapsProtected = protectedBoxes.some(b => {
+                const bBottom = pH - (b.y + b.h);
+                const bTop = pH - b.y;
+                const boxX1 = cand.imageBounds!.x;
+                const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
+                const boxY1 = cand.imageBounds!.y;
+                const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
 
-              return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
-            });
+                return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
+              });
 
-            if (overlapsProtected) {
-              continue;
+              if (overlapsProtected) {
+                continue;
+              }
+
+              page.drawRectangle({
+                x: Math.max(0, cand.imageBounds.x - 2),
+                y: Math.max(0, cand.imageBounds.y - 2),
+                width: cand.imageBounds.w + 4,
+                height: cand.imageBounds.h + 4,
+                color: fillColor,
+                opacity: 1
+              });
+              coverDrawn = true;
+              removedCoverCount++;
             }
-
-            page.drawRectangle({
-              x: Math.max(0, cand.imageBounds.x - 2),
-              y: Math.max(0, cand.imageBounds.y - 2),
-              width: cand.imageBounds.w + 4,
-              height: cand.imageBounds.h + 4,
-              color: fillColor,
-              opacity: 1
-            });
-            coverDrawn = true;
-            removedCoverCount++;
           }
         }
       }

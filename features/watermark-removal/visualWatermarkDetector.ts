@@ -174,9 +174,51 @@ export async function detectVisualWatermarks(
       }
     }
 
-    // 2. If standard 0° didn't find any watermark, check diagonal angles (-45° and 45°)
-    if (matchedBoxes.length === 0) {
-      for (const angle of [-45, 45]) {
+    // 1b. Check for colored watermark stamps (Red, Coral, Blue, Purple) directly on the canvas
+    try {
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (ctx) {
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const d = imgData.data;
+        let redCount = 0;
+        let minX = width, maxX = 0, minY = height, maxY = 0;
+
+        for (let y = 0; y < height; y += 3) {
+          for (let x = 0; x < width; x += 3) {
+            // Exclude top-right logo if solid
+            if (x > width * 0.76 && y < height * 0.28) continue;
+            const idx = (y * width + x) * 4;
+            const r = d[idx];
+            const g = d[idx + 1];
+            const b = d[idx + 2];
+            if (r > 120 && (r - g >= 16) && (r - b >= 16)) {
+              redCount++;
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        if (redCount > 100) {
+          matchedBoxes.push({
+            text: "GEÇERSİZ / ÖRNEK BELGEDİR (Kırmızı Damga & Filigran)",
+            x: minX,
+            y: minY,
+            w: Math.max(120, maxX - minX),
+            h: Math.max(60, maxY - minY),
+            reason: "Kırmızı / mercan renkli filigran damgası tespit edildi",
+            confidence: 99
+          });
+        }
+      }
+    } catch {}
+
+    // 2. Check diagonal angles if no diagonal candidate exists yet
+    const hasDiagonalCand = matchedBoxes.some(b => b.reason.includes("Çapraz") || b.reason.includes("Kırmızı"));
+    if (!hasDiagonalCand) {
+      for (const angle of [-45, -35, 35, 45]) {
         try {
           const rotCanvas = createRotatedCanvas(canvas, angle);
           const rotResult = await performOcrOnCanvas(rotCanvas, pageIndex + 1, undefined, undefined, "tur+eng");
@@ -202,7 +244,7 @@ export async function detectVisualWatermarks(
               break;
             }
           }
-          if (matchedBoxes.length > 0) break;
+          if (matchedBoxes.some(b => b.reason.includes("Çapraz"))) break;
         } catch (rotErr) {
           console.warn("Diagonal visual OCR error:", rotErr);
         }

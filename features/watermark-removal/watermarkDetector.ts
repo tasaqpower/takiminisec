@@ -22,11 +22,11 @@ export function normalizeTurkish(text: string): string {
 
 export const WATERMARK_KEYWORDS = [
   // Turkish invalidity, simulation, & void indicators
-  "gecersiz", "gecersizdir", "gecersiz belge", "gecersiz belgedir",
+  "gecersiz", "gecersizdir", "gecersiz belge", "gecersiz belgedir", "gecersiz ornek belgedir", "gecersiz ornek", "gecersiz / ornek belgedir", "gecersiz/ornek",
   "belge simulasyonudur", "simulasyonudur", "simulasyon", "simulasyondur",
   "hukumsuz", "hukumsuzdur", "hukuksuz", "gecersiz kilinmistir", "hukuken gecersizdir",
   // Turkish sample & preview
-  "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
+  "ornek", "ornektir", "ornek belge", "ornek belgedir", "belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
   // Turkish draft
   "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
   // Turkish confidentiality & restricted
