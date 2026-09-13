@@ -12,11 +12,13 @@ import {
   CheckCheck,
   Search,
   Sparkles,
+  Eraser,
 } from 'lucide-react';
 
 export type ProfessionalToolId =
   | 'scanner'
   | 'decoration'
+  | 'watermark-removal'
   | 'annotations'
   | 'compare'
   | 'batch'
@@ -73,6 +75,14 @@ const TOOLS: ToolDefinition[] = [
     description: 'Tıklanabilir PDF içindekiler tablosu (TOC), hiyerarşik PDF Outlines yer imleri ağacı ve güvenli dış link doğrulayıcı.',
     badge: 'Paket 6',
     icon: Bookmark,
+  },
+  {
+    id: 'watermark-removal',
+    title: 'Filigran & Damga Kaldırma',
+    category: 'İnceleme & Düzenleme',
+    description: 'Belgedeki tekrar eden metin/görsel filigranları, taslak damgalarını vektörel düzeyde temizler.',
+    badge: 'Yeni',
+    icon: Eraser,
   },
   {
     id: 'annotations',

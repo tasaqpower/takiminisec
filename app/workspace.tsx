@@ -34,7 +34,8 @@ import {
   Layers,
   ShieldCheck,
   FormInput,
-  Sparkles
+  Sparkles,
+  Eraser
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -104,6 +105,7 @@ import { PageSizingModal } from "@/features/page-sizing/PageSizingModal";
 import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversionModal";
 import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
+import { WatermarkRemovalModal } from "@/features/watermark-removal/WatermarkRemovalModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -322,6 +324,7 @@ export default function Workspace({
   const [showOcr, setShowOcr] = useState(intent === "ocr");
   const [showCompress, setShowCompress] = useState(intent === "compress");
   const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
+  const [showWatermarkRemoval, setShowWatermarkRemoval] = useState(intent === "watermark" || intent === "remove-watermark");
   const [showSecurity, setShowSecurity] = useState(false);
   const [showToolHub, setShowToolHub] = useState(false);
   const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(null);
@@ -2267,6 +2270,16 @@ export default function Workspace({
             </button>
             <button
               type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowWatermarkRemoval(true)}
+              title="Belgeden Filigran ve Damgaları Temizle"
+            >
+              <Eraser size={15} />
+              <span>Filigran Kaldır</span>
+            </button>
+            <button
+              type="button"
               className={`secondary ${formMode !== "none" ? "bg-indigo-50 border-indigo-300 text-indigo-700" : ""}`}
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setFormMode(m => m === "design" ? "fill" : m === "fill" ? "none" : "design")}
@@ -2953,7 +2966,25 @@ export default function Workspace({
       <ToolHubModal
         isOpen={showToolHub}
         onClose={() => setShowToolHub(false)}
-        onSelectTool={(toolId) => setActiveProfessionalTool(toolId)}
+        onSelectTool={(toolId) => {
+          if (toolId === 'watermark-removal') {
+            setShowWatermarkRemoval(true);
+          } else {
+            setActiveProfessionalTool(toolId);
+          }
+        }}
+      />
+
+      <WatermarkRemovalModal
+        open={showWatermarkRemoval}
+        onOpenChange={setShowWatermarkRemoval}
+        pdfBytes={bytes || undefined}
+        totalPages={state.pages.length}
+        currentPage={active + 1}
+        fileName={files[0]?.name}
+        onApplyRemoval={async (newPdfBytes) => {
+          await handleApplyProfessionalPdf(newPdfBytes);
+        }}
       />
 
       <DocumentScannerModal
