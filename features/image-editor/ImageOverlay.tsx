@@ -16,6 +16,7 @@ interface ImageOverlayProps {
   pageWidth: number;
   pageHeight: number;
   zoom?: number;
+  tool?: string;
 }
 
 const HANDLE_SIZE = 10;
@@ -32,7 +33,8 @@ export function ImageOverlay({
   onDragStateChange,
   pageWidth,
   pageHeight,
-  zoom = 1
+  zoom = 1,
+  tool = "select"
 }: ImageOverlayProps) {
   // Use editedImages if provided, otherwise fallback to images that are modified or selected
   const activeEdits: PdfImageEdit[] = editedImages.length > 0
@@ -227,12 +229,16 @@ export function ImageOverlay({
       {/* 1. Transparent hit-boxes for detected images that have not been modified/transitioned */}
       {activeDetected.map((det) => {
         const isNonMovable = det.isMovable === false;
+        // Background scans or full-page images should never intercept clicks or block text selection
+        const isBackgroundScan = det.w >= pageWidth * 0.85 && det.h >= pageHeight * 0.85;
+        const canInteract = tool === "select" && !isNonMovable && !isBackgroundScan;
+
         return (
           <div
             key={`hit_${det.id}`}
             data-image-id={det.id}
             data-detected="true"
-            title={det.name || "Görsel (Düzenlemek için tıkla)"}
+            title={canInteract ? (det.name || "Görsel (Düzenlemek için tıkla)") : undefined}
             style={{
               position: "absolute",
               left: `${det.x}px`,
@@ -240,21 +246,22 @@ export function ImageOverlay({
               width: `${det.w}px`,
               height: `${det.h}px`,
               transform: `rotate(${det.rotation || 0}deg)`,
-              pointerEvents: "auto",
-              cursor: isNonMovable ? "not-allowed" : "pointer",
+              pointerEvents: canInteract ? "auto" : "none",
+              cursor: canInteract ? "pointer" : "default",
               touchAction: "none",
               userSelect: "none"
             }}
-            className="hover:ring-2 hover:ring-indigo-400/80 hover:bg-indigo-500/10 transition-all rounded-[1px]"
+            className={canInteract ? "hover:ring-2 hover:ring-indigo-400/80 hover:bg-indigo-500/10 transition-all rounded-[1px]" : ""}
             onClick={(e) => {
+              if (!canInteract) return;
               e.stopPropagation();
               if (onRequestEdit) onRequestEdit(det);
               else onSelect(det.id);
             }}
             onPointerDown={(e) => {
+              if (!canInteract) return;
               e.stopPropagation();
               e.preventDefault();
-              if (isNonMovable) return;
               if (onRequestEdit) onRequestEdit(det);
               else onSelect(det.id);
             }}

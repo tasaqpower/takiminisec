@@ -477,12 +477,14 @@ export default function Workspace({
     }
 
     setOcrItemsByPage(newOcrMap);
-    if (newOcrMap[active]) {
-      setTextItems(prev => [...prev.filter(p => !(p as any).isOcr), ...newOcrMap[active]]);
+    const activePageItems = newOcrMap[active] || [];
+    if (activePageItems.length > 0) {
+      setTextItems(prev => [...prev.filter(p => !(p as any).isOcr), ...activePageItems]);
+      setSelectedOriginal(activePageItems[0]);
     }
     setTool("select");
     setShowOcr(false);
-    toast.success("OCR metinleri sayfaya yerleştirildi! Düzenlemek istediğiniz metne tıklayabilirsiniz.");
+    toast.success(`${activePageItems.length} metin bloğu sayfada düzenlemeye hazır!`);
   }, [pdf, dimensions, ocrItemsByPage, active]);
   const [viewPdf, setViewPdf] = useState<any>(null);
   const [previewError, setPreviewError] = useState("");
@@ -977,7 +979,12 @@ export default function Workspace({
 
   useEffect(() => {
     let stopped = false;
-    setTextItems([]);
+    const currentOcr = ocrItemsByPage[current?.index ?? -1] || [];
+    if (currentOcr.length > 0) {
+      setTextItems(currentOcr);
+    } else {
+      setTextItems([]);
+    }
     if (!pdf || !current) return;
     setTextLoading(true);
     void pdf
@@ -989,7 +996,8 @@ export default function Workspace({
           if (items.length === 0 && ocrItems.length > 0) {
             setTextItems(ocrItems);
           } else if (items.length > 0 && ocrItems.length > 0) {
-            setTextItems([...items, ...ocrItems]);
+            const existingIds = new Set(ocrItems.map(o => o.id));
+            setTextItems([...items.filter(i => !existingIds.has(i.id)), ...ocrItems]);
           } else {
             setTextItems(items);
           }
@@ -2564,7 +2572,7 @@ export default function Workspace({
                             return (
                               <g key={item.id} transform={`rotate(${item.angle} ${item.x} ${item.y + item.size})`}>
                                 <rect
-                                  className={`original-text-hit ${isSel ? "is-selected" : ""}`}
+                                  className={`original-text-hit ${isSel ? "is-selected" : ""} ${(item as any).isOcr ? "is-ocr" : ""}`}
                                   x={item.x - 1}
                                   y={item.y - 1}
                                   width={Math.max(8, item.w + 2)}
@@ -2630,6 +2638,7 @@ export default function Workspace({
                     detectedImages={detectedImages.filter(img => img.page === active)}
                     editedImages={imageEdits.filter(img => img.page === active && !img.deleted)}
                     selectedId={selectedImageId}
+                    tool={tool}
                     onSelect={(id) => {
                       if (!id) {
                         setSelectedImageId(null);
