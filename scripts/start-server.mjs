@@ -1,12 +1,12 @@
-import { spawn } from 'node:child_process';
+﻿import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 
-const port = process.env.PORT || '10000';
-const host = '0.0.0.0';
+const targetPort = 10001;
+const host = '127.0.0.1';
 const cli = fileURLToPath(new URL('../node_modules/vinext/dist/cli.js', import.meta.url));
 
-const proc = spawn(process.execPath, [cli, 'start', '--port', port, '--host', host], {
+const proc = spawn(process.execPath, [cli, 'start', '--port', String(targetPort), '--host', host], {
   stdio: 'inherit'
 });
 
@@ -16,30 +16,40 @@ proc.on('error', (err) => {
   process.exit(1);
 });
 
-// Also forward port 3000 -> 10000 so localhost:3000 works seamlessly
+function createProxy(listenPort) {
+  const proxy = http.createServer((req, res) => {
+    const options = {
+      hostname: '127.0.0.1',
+      port: targetPort,
+      path: req.url,
+      method: req.method,
+      headers: { ...req.headers, host: `localhost:${listenPort}` },
+    };
+    const proxyReq = http.request(options, (proxyRes) => {
+      const headers = { ...proxyRes.headers };
+      // Force disable browser cache for dev/preview so user sees fresh code immediately
+      headers['cache-control'] = 'no-cache, no-store, must-revalidate';
+      headers['pragma'] = 'no-cache';
+      headers['expires'] = '0';
+      res.writeHead(proxyRes.statusCode || 200, headers);
+      proxyRes.pipe(res);
+    });
+    proxyReq.on('error', (err) => {
+      res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end('Server warming up, please refresh in 2 seconds...');
+    });
+    req.pipe(proxyReq);
+  });
+  proxy.on('error', (err) => {
+    console.error(`Proxy port ${listenPort} error:`, err.message);
+  });
+  proxy.listen(listenPort, '0.0.0.0', () => {
+    console.log(`[Forma] Listening on http://localhost:${listenPort}`);
+  });
+}
+
+// Start proxies on both 10000 and 3000 after 1.5s
 setTimeout(() => {
-  try {
-    const proxy = http.createServer((req, res) => {
-      const options = {
-        hostname: '127.0.0.1',
-        port: Number(port),
-        path: req.url,
-        method: req.method,
-        headers: req.headers,
-      };
-      const proxyReq = http.request(options, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
-        proxyRes.pipe(res);
-      });
-      proxyReq.on('error', (err) => {
-        res.writeHead(502);
-        res.end('Proxy connecting: ' + err.message);
-      });
-      req.pipe(proxyReq);
-    });
-    proxy.on('error', () => {});
-    proxy.listen(3000, '0.0.0.0', () => {
-      console.log('[vinext] Also listening on http://localhost:3000');
-    });
-  } catch {}
-}, 1200);
+  createProxy(10000);
+  createProxy(3000);
+}, 1500);

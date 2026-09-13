@@ -295,22 +295,26 @@ export default function Home() {
           </SidebarMenu>
           <span className="nav-caption tools-caption" style={{ marginTop: "14px" }}>DÖNÜŞÜMLER</span>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="nav-item" onClick={() => pick("pdf-to-word")}>
-                <FileType2 /><span>PDF → Word</span>
-                <span className="nav-new" style={{ background: "#eff6ff", color: "#1d4ed8" }}>DOCX</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="nav-item" onClick={() => pick("excel-to-pdf")}>
-                <FileSpreadsheet /><span>Excel → PDF</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton className="nav-item" onClick={() => pick("convert")}>
-                <FileInput /><span>Tüm Dönüşümler</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {conversionTools.map(t => (
+              <SidebarMenuItem key={t.id}>
+                <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
+                  <t.icon /><span>{t.title}</span>
+                  {"isNew" in t && t.isNew && (
+                    <span className="nav-new" style={{ background: "#eff6ff", color: "#1d4ed8" }}>Yeni</span>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          <span className="nav-caption tools-caption" style={{ marginTop: "14px" }}>ÖZEL ATÖLYE ARAÇLARI</span>
+          <SidebarMenu>
+            {specializedTools.map(t => (
+              <SidebarMenuItem key={t.id}>
+                <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
+                  <t.icon /><span>{t.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
           <div className="local-card">
             <span className="local-icon"><ShieldCheck size={21} /></span>

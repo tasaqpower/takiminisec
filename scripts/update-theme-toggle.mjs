@@ -1,4 +1,6 @@
-"use client";
+﻿import fs from 'node:fs';
+
+const code = `"use client";
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
@@ -90,3 +92,7 @@ export function ThemeToggle({ className = "" }: ThemeToggleProps) {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('components/ThemeToggle.tsx', code, 'utf8');
+console.log('components/ThemeToggle.tsx updated successfully');
