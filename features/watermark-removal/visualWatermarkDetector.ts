@@ -1,7 +1,7 @@
-import { performOcrOnCanvas } from "@/features/ocr/ocrEngine";
-import { loadPdf } from "@/lib/documents";
-import { normalizeTurkish, WATERMARK_KEYWORDS } from "./watermarkDetector";
-import type { WatermarkCandidate } from "./watermarkTypes";
+import { performOcrOnCanvas } from "../ocr/ocrEngine.ts";
+import { loadPdf } from "../../lib/documents.ts";
+import { normalizeTurkish, WATERMARK_KEYWORDS } from "./watermarkDetector.ts";
+import type { WatermarkCandidate } from "./watermarkTypes.ts";
 
 /**
  * Render a page of a PDF to an HTMLCanvasElement

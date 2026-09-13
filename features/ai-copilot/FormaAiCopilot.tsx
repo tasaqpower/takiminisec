@@ -17,6 +17,9 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  RotateCcw,
+  FileText,
+  Wrench,
 } from "lucide-react";
 import { parseUserIntent } from "./aiIntentEngine";
 import type { AiActionResult } from "./aiActionDispatcher";
@@ -31,6 +34,15 @@ export interface FormaAiCopilotProps {
   className?: string;
 }
 
+export interface ActionPlan {
+  id: string;
+  intent: any;
+  title: string;
+  description: string;
+  targetDetails: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'done';
+}
+
 interface ChatMessage {
   id: string;
   sender: "user" | "assistant";
@@ -38,6 +50,8 @@ interface ChatMessage {
   timestamp: string;
   actionResult?: AiActionResult;
   isProcessing?: boolean;
+  plan?: ActionPlan;
+  canRollback?: boolean;
 }
 
 export function FormaAiCopilot({
@@ -59,6 +73,9 @@ export function FormaAiCopilot({
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(false);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [pendingPlan, setPendingPlan] = useState<ActionPlan | null>(null);
+  const [historyStack, setHistoryStack] = useState<{ bytes: Uint8Array; name: string }[]>([]);
+  const [lastExecutedAction, setLastExecutedAction] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -240,9 +257,294 @@ export function FormaAiCopilot({
     }
   };
 
+  const buildActionPlan = (intent: any, currentDocName: string, pageIdx: number): ActionPlan | null => {
+    const pageNum = pageIdx + 1;
+    switch (intent.action) {
+      case 'watermark_remove':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🧹 Filigran ve Damga Temizleme',
+          description: 'Belgedeki tüm filigranlar, taslak damgaları ve mühürler yazı yapısına zarar verilmeden cerrahi olarak temizlenecek.',
+          targetDetails: `${currentDocName} · Tüm Sayfalar`,
+          status: 'pending',
+        };
+      case 'delete_object':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: `🗑️ '${intent.parameters?.targetObject || 'Görsel'}' Nesnesini Silme`,
+          description: `Belgedeki '${intent.parameters?.targetObject || 'hedef'}' görseli/nesnesi tespit edilip kalıcı olarak silinecek.`,
+          targetDetails: `${currentDocName} · Sayfa ${pageNum}`,
+          status: 'pending',
+        };
+      case 'enhance_selective':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: `✨ '${intent.parameters?.targetObject || 'Görsel'}' Netleştirme`,
+          description: `Yazıların vektörel keskinliği korunarak sadece '${intent.parameters?.targetObject || 'hedef'}' görseline yüksek çözünürlüklü filtre uygulanacak.`,
+          targetDetails: `${currentDocName} · Sayfa ${pageNum}`,
+          status: 'pending',
+        };
+      case 'enhance_document':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '✨ Belge & Taranmış Yazı Netleştirme',
+          description: 'Bulanık ve soluk taranmış yazılar koyulaştırılacak, kontrast artırılıp arka plan temizlenecek.',
+          targetDetails: `${currentDocName} · Tüm Sayfalar`,
+          status: 'pending',
+        };
+      case 'theme_dark':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🌙 Koyu Moda Geçiş',
+          description: 'Uygulama arayüzü ve çalışma alanı koyu tema kontrastına dönüştürülecek.',
+          targetDetails: 'Forma Arayüzü',
+          status: 'pending',
+        };
+      case 'theme_light':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '☀️ Açık Moda Geçiş',
+          description: 'Uygulama arayüzü ve çalışma alanı aydınlık temaya dönüştürülecek.',
+          targetDetails: 'Forma Arayüzü',
+          status: 'pending',
+        };
+      case 'compress_pdf':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '📦 PDF Boyutu Sıkıştırma',
+          description: 'Görseller optimize edilecek, gereksiz meta veriler temizlenip dosya boyutu küçültülecek.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'convert_word':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '📝 PDF → Düzenlenebilir Word (.docx)',
+          description: 'PDF metinleri, başlıkları ve tabloları Microsoft Word (.docx) formatına dönüştürülecek.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'convert_excel':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '📊 PDF → Excel (.xlsx)',
+          description: 'PDF içerisindeki tablo ve sayısal veriler hücrelere ayrılarak Excel formatına aktarılacak.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'convert_img':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🖼️ PDF → Yüksek Çözünürlüklü Görsel',
+          description: 'PDF sayfaları yüksek DPI değerinde PNG/JPG görsellerine dönüştürülüp paketlenecek.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'redact_pii':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🛡️ KVKK & Gizli Veri Sansürleme',
+          description: 'TC Kimlik No, IBAN, telefon ve hassas kişisel veriler tespit edilip geri döndürülemez şekilde maskelenecek.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'stamp_document':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: `📑 Resmî Kaşe Basımı: ${intent.parameters?.stampType?.toUpperCase() || 'ASLI GİBİDİR'}`,
+          description: 'Resmî onay kaşesi bugünün tarihi ve tasdik koduyla sayfaya eklenecek.',
+          targetDetails: `${currentDocName} · Sayfa ${pageNum}`,
+          status: 'pending',
+        };
+      case 'rotate_pages':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🔄 Sayfa Döndürme',
+          description: `Sayfalar ${intent.parameters?.angle || 90}° döndürülecek.`,
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'delete_pages':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '✂️ Sayfa Silme',
+          description: 'Belirtilen sayfalar belgeden çıkarılacak.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      case 'protect_pdf':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🔒 PDF Şifreleme & Koruma',
+          description: 'Belge 128-bit şifreleme ile korumaya alınacak.',
+          targetDetails: `${currentDocName}`,
+          status: 'pending',
+        };
+      default:
+        return null;
+    }
+  };
+
+  const executeConfirmedAction = async (intentToRun: any) => {
+    setIsProcessing(true);
+    setProgressText("İşlem gerçekleştiriliyor...");
+    setPendingPlan(null);
+
+    // Save rollback snapshot
+    if (activeBytes) {
+      setHistoryStack((prev) => [...prev.slice(-9), { bytes: activeBytes, name: activeName }]);
+    }
+    setLastExecutedAction(intentToRun);
+
+    const assistantMsgId = crypto.randomUUID();
+
+    try {
+      const { dispatchAiAction } = await import("./aiActionDispatcher.ts");
+      const result = await dispatchAiAction(
+        intentToRun,
+        {
+          pdfBytes: activeBytes,
+          fileName: activeName,
+          currentPage,
+        },
+        (prog) => setProgressText(prog)
+      );
+
+      if (result.metadata?.voiceState === 'on') {
+        setVoiceEnabled(true);
+        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'true');
+      } else if (result.metadata?.voiceState === 'off') {
+        setVoiceEnabled(false);
+        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'false');
+        stopSpeaking();
+      }
+
+      if (result.newPdfBytes) {
+        setActiveBytes(result.newPdfBytes);
+        if (result.newFileName) {
+          setActiveName(result.newFileName);
+        }
+        if (onApplyPdfBytes) {
+          try {
+            await onApplyPdfBytes(result.newPdfBytes, result.newFileName);
+          } catch {}
+        }
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMsgId,
+          sender: "assistant",
+          text: result.message,
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          actionResult: result,
+          canRollback: true,
+        }
+      ]);
+
+      if (voiceEnabled || result.metadata?.voiceState === 'on') {
+        speakText(result.message);
+      }
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMsgId,
+          sender: "assistant",
+          text: `İşlem gerçekleştirilirken bir hata oluştu: ${err?.message || "Bilinmeyen hata"}`,
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ]);
+    } finally {
+      setIsProcessing(false);
+      setProgressText(null);
+    }
+  };
+
+  const handleRollback = async () => {
+    if (historyStack.length === 0) {
+      toast.info("Geri alınacak önceki bir sürüm bulunamadı.");
+      return;
+    }
+    const previous = historyStack[historyStack.length - 1];
+    setHistoryStack((prev) => prev.slice(0, -1));
+    setActiveBytes(previous.bytes);
+    setActiveName(previous.name);
+    if (onApplyPdfBytes) {
+      try {
+        await onApplyPdfBytes(previous.bytes, previous.name);
+      } catch {}
+    }
+    toast.success("Önceki duruma başarıyla geri dönüldü!");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        sender: "assistant",
+        text: `↩️ **Geri Alındı:** Belgeniz yapılan son değişiklikten önceki orijinal haline döndürüldü. Başka bir düzeltme veya işlem isterseniz hemen söyleyebilirsiniz. ✨`,
+        timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+      }
+    ]);
+  };
+
+  const handleCorrection = async (feedbackType?: string) => {
+    if (!lastExecutedAction) {
+      toast.info("Düzeltilecek aktif bir işlem bulunamadı. Lütfen yapmak istediğiniz işlemi söyleyin.");
+      return;
+    }
+
+    if (feedbackType === 'more_enhance' || lastExecutedAction.action === 'enhance_document' || lastExecutedAction.action === 'enhance_selective') {
+      const adjustedIntent = {
+        ...lastExecutedAction,
+        parameters: {
+          ...lastExecutedAction.parameters,
+          enhanceMode: 'document',
+        }
+      };
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "user",
+          text: "Daha fazla netleştir ve kontrastı artır.",
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ]);
+      await executeConfirmedAction(adjustedIntent);
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        sender: "assistant",
+        text: `🛠️ **Hata Düzeltme Modu**: Lütfen düzeltmek istediğiniz kısmı belirtin (örneğin: *"arka plan çok koyu oldu"*, *"filigranın sol kısmı kaldı"*, *"yazı çok kalınlaştı"*). Dilerseniz **Geri Al** butonuyla hemen eski haline dönebilirsiniz.`,
+        timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        canRollback: historyStack.length > 0,
+      }
+    ]);
+  };
+
   const processAndLoadFile = async (file: File) => {
     setIsProcessing(true);
-    setProgressText(`${file.name} taranıyor ve PDF formatına hazırlanıyor...`);
+    setProgressText(`${file.name} inceleniyor ve PDF formatına hazırlanıyor...`);
 
     try {
       const buf = await file.arrayBuffer();
@@ -259,8 +561,8 @@ export function FormaAiCopilot({
         setProgressText("Excel tablosu PDF sayfalarına dönüştürülüyor...");
         const { excelToPdf } = await import("../conversion/excelToPdf.ts");
         convertedPdfBytes = await excelToPdf(new Uint8Array(buf), { title: baseName, orientation: "auto" });
-      } else if (/\.(png|jpe?g|webp)$/i.test(file.name)) {
-        setProgressText("Görsel sayfalanmış PDF'e dönüştürülüyor...");
+      } else if (/\.(png|jpe?g|webp|jfif|bmp)$/i.test(file.name)) {
+        setProgressText("Görsel taranıyor ve yüksek kaliteli PDF'e dönüştürülüyor...");
         const { imagesToPdf } = await import("../conversion/conversionEngine.ts");
         const isPng = /\.png$/i.test(file.name);
         convertedPdfBytes = await imagesToPdf(
@@ -286,17 +588,30 @@ export function FormaAiCopilot({
         }
         convertedPdfBytes = await doc.save();
       } else {
-        toast.error("Desteklenmeyen dosya formatı. (PDF, Word, Excel, Görsel veya TXT seçin)");
+        toast.error("Desteklenmeyen dosya formatı. (PDF, JPG, PNG, Excel, Word veya TXT seçin)");
         setIsProcessing(false);
         setProgressText(null);
         return;
       }
 
-      setActiveBytes(convertedPdfBytes);
-      setActiveName(file.name);
+      if (activeBytes) {
+        setHistoryStack((prev) => [...prev.slice(-9), { bytes: activeBytes, name: activeName }]);
+      }
 
-      if (onApplyPdfBytes) {
-        await onApplyPdfBytes(convertedPdfBytes, file.name);
+      const targetFileName = `${baseName}.pdf`;
+      setActiveBytes(convertedPdfBytes);
+      setActiveName(targetFileName);
+
+      const pdfFile = new File([convertedPdfBytes as unknown as BlobPart], targetFileName, { type: "application/pdf" });
+
+      if (onOpenDocument) {
+        try {
+          await onOpenDocument([pdfFile]);
+        } catch {}
+      } else if (onApplyPdfBytes) {
+        try {
+          await onApplyPdfBytes(convertedPdfBytes, targetFileName);
+        } catch {}
       }
 
       setMessages((prev) => [
@@ -304,11 +619,11 @@ export function FormaAiCopilot({
         {
           id: crypto.randomUUID(),
           sender: "assistant",
-          text: `📄 **${file.name}** başarıyla yüklendi ve işleme hazırlandı.\n\nŞimdi ne yapmamı istersin? Örneğin:\n• *"bu belgedeki filigranı kaldır"*\n• *"koyu mod yap"*\n• *"ASLI GİBİDİR kaşesi bas"*\n• *"yazıları netleştir"*\n• *"Word'e çevir"*\n• *"TC ve IBAN'ları sansürle"*`,
+          text: `📄 **${file.name}** başarıyla yüklendi ve işleme hazırlandı! 🎉\n\nŞimdi ne yapmamı istersin? İster sesli söyle, ister yaz:\n• *"Görselde ne var? / Bunu analiz et"*\n• *"Aslanı / logoyu sil"*\n• *"Yazıları ve fotoğrafları netleştir"*\n• *"Bu belgedeki filigranı kaldır"*\n• *"Word'e / Excel'e çevir"*\n• *"Koyu mod yap"*`,
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
-      toast.success(`${file.name} başarıyla yüklendi!`);
+      toast.success(`${file.name} başarıyla açıldı!`);
     } catch (err: any) {
       toast.error(`Dosya yüklenemedi: ${err?.message || "Bilinmeyen hata"}`);
     } finally {
@@ -335,81 +650,87 @@ export function FormaAiCopilot({
     ]);
 
     setInputText("");
-    setIsProcessing(true);
-    setProgressText("İstek çözümleniyor...");
 
-    const assistantMsgId = crypto.randomUUID();
+    // 1. Natural Language Intent Parsing
+    const intent = parseUserIntent(promptToSend);
 
-    try {
-      // 1. Natural Language Intent Parsing
-      const intent = parseUserIntent(promptToSend);
-
-      // 2. Dispatch Action
-      const { dispatchAiAction } = await import("./aiActionDispatcher.ts");
-      const result = await dispatchAiAction(
-        intent,
-        {
-          pdfBytes: activeBytes,
-          fileName: activeName,
-          currentPage,
-        },
-        (prog) => setProgressText(prog)
-      );
-
-      // 3. Handle voice state changes if triggered by voice_toggle
-      if (result.metadata?.voiceState === 'on') {
-        setVoiceEnabled(true);
-        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'true');
-      } else if (result.metadata?.voiceState === 'off') {
-        setVoiceEnabled(false);
-        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'false');
-        stopSpeaking();
+    // 2. Intercept Confirm Action ("evet", "onayla", "yap")
+    if (intent.action === 'confirm_action') {
+      if (pendingPlan) {
+        await executeConfirmedAction(pendingPlan.intent);
+        return;
       }
-
-      // 4. If new PDF bytes returned, update active state & workspace
-      if (result.newPdfBytes) {
-        setActiveBytes(result.newPdfBytes);
-        if (result.newFileName) {
-          setActiveName(result.newFileName);
-        }
-        if (onApplyPdfBytes) {
-          try {
-            await onApplyPdfBytes(result.newPdfBytes, result.newFileName);
-          } catch {
-            // Workspace apply error logged
-          }
-        }
-      }
-
       setMessages((prev) => [
         ...prev,
         {
-          id: assistantMsgId,
+          id: crypto.randomUUID(),
           sender: "assistant",
-          text: result.message,
-          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-          actionResult: result,
-        }
-      ]);
-
-      // 5. Read aloud if voice output is enabled
-      if (voiceEnabled || result.metadata?.voiceState === 'on') {
-        speakText(result.message);
-      }
-    } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantMsgId,
-          sender: "assistant",
-          text: `İşlem gerçekleştirilirken bir hata oluştu: ${err?.message || "Bilinmeyen hata"}`,
+          text: "Şu an onay bekleyen bir işlem bulunmuyor. Yapmak istediğiniz işlemi söyleyebilirsiniz (örneğin: *'aslanı sil'*, *'filigranı kaldır'*). ✨",
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
-    } finally {
-      setIsProcessing(false);
-      setProgressText(null);
+      return;
     }
+
+    // 3. Intercept Cancel Action ("vazgeç", "hayır", "iptal")
+    if (intent.action === 'cancel_action') {
+      setPendingPlan(null);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "assistant",
+          text: "İşlem onaylanmadı ve iptal edildi. Başka nasıl yardımcı olabilirim? ✨",
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ]);
+      return;
+    }
+
+    // 4. Intercept Undo Action ("geri al", "eski haline getir")
+    if (intent.action === 'undo_action') {
+      await handleRollback();
+      return;
+    }
+
+    // 5. Intercept Correction Request ("şurada hata var", "düzelt", "olmadı")
+    if (intent.action === 'correction_request') {
+      await handleCorrection();
+      return;
+    }
+
+    // 6. Check if this is a modifying action that needs Preview & Confirmation
+    const plan = buildActionPlan(intent, activeName, currentPage);
+    if (plan) {
+      if (!activeBytes && !intent.action.startsWith('theme_')) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            sender: "assistant",
+            text: `⚠️ **${plan.title}** işlemini uygulayabilmek için önce bir belge veya görsel yüklemelisiniz.\n\nAşağıdaki ataş butonuna basarak veya pencereye sürükleyerek **PDF, JPG, PNG, Excel, Word** dosyası yükleyebilirsiniz. 📎`,
+            timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          }
+        ]);
+        return;
+      }
+
+      setPendingPlan(plan);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "assistant",
+          text: `📌 **İşlem Önizlemesi & Onay İsteği:**\n\n**${plan.title}**\n${plan.description}\n\n👉 Onaylıyorsanız aşağıdaki **"Onayla ve Uygula"** butonuna tıklayın veya *"evet / onayla"* yazın.`,
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          plan,
+        }
+      ]);
+      return;
+    }
+
+    // 7. Non-modifying action (e.g. Vision QA, Voice Toggle, General Help) -> execute immediately
+    await executeConfirmedAction(intent);
   };
 
   if (!mounted || typeof document === "undefined") return null;
@@ -583,53 +904,134 @@ export function FormaAiCopilot({
                 >
                   <div className="whitespace-pre-wrap">{msg.text}</div>
 
-                  {/* Action Result Action Card */}
-                  {msg.actionResult && (
-                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex flex-wrap gap-2">
-                      {/* Direct Download Button */}
-                      {msg.actionResult.downloadData ? (
+                  {/* Pending Action Plan / Preview Card */}
+                  {msg.plan && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 text-xs shadow-sm space-y-2">
+                      <div className="flex items-center gap-2 font-bold text-violet-800 dark:text-violet-200">
+                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>{msg.plan.title}</span>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-[11px]">
+                        {msg.plan.description}
+                      </p>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-900/70 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                        <span>Hedef: <strong>{msg.plan.targetDetails}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
                         <button
-                          onClick={() =>
-                            handleDownload(
-                              msg.actionResult!.downloadData!.bytes,
-                              msg.actionResult!.downloadData!.fileName,
-                              msg.actionResult!.downloadData!.mimeType
-                            )
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium text-[11px] shadow-sm transition-all"
+                          onClick={() => executeConfirmedAction(msg.plan!.intent)}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-sm transition-all text-[11px] active:scale-95 disabled:opacity-50"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>{msg.actionResult.downloadData.fileName} İndir</span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Onayla ve Uygula</span>
                         </button>
-                      ) : msg.actionResult.newPdfBytes ? (
                         <button
-                          onClick={() =>
-                            handleDownload(
-                              msg.actionResult!.newPdfBytes!,
-                              msg.actionResult!.newFileName || "Forma_Sonuc.pdf"
-                            )
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium text-[11px] shadow-sm transition-all"
+                          onClick={() => {
+                            setPendingPlan(null);
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: crypto.randomUUID(),
+                                sender: "assistant",
+                                text: "İşlem onaylanmadı ve iptal edildi. Başka bir şey yapmak isterseniz hemen söyleyebilirsiniz. ✨",
+                                timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+                              }
+                            ]);
+                          }}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-[11px] transition-all"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>PDF Olarak İndir</span>
+                          <X className="w-3.5 h-3.5" />
+                          <span>Vazgeç</span>
                         </button>
-                      ) : null}
+                      </div>
+                    </div>
+                  )}
 
-                      {/* Open in Workspace or Apply to Workspace */}
-                      {msg.actionResult.newPdfBytes && (
-                        <button
-                          onClick={() =>
-                            handleOpenInWorkspace(
-                              msg.actionResult!.newPdfBytes!,
-                              msg.actionResult!.newFileName || activeName
-                            )
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] shadow-sm transition-all"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Düzenleyicide Aç</span>
-                        </button>
+                  {/* Action Result Action Card with Correction Loop */}
+                  {msg.actionResult && (
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {/* Direct Download Button */}
+                        {msg.actionResult.downloadData ? (
+                          <button
+                            onClick={() =>
+                              handleDownload(
+                                msg.actionResult!.downloadData!.bytes,
+                                msg.actionResult!.downloadData!.fileName,
+                                msg.actionResult!.downloadData!.mimeType
+                              )
+                            }
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] shadow-sm transition-all"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{msg.actionResult.downloadData.fileName} İndir</span>
+                          </button>
+                        ) : msg.actionResult.newPdfBytes ? (
+                          <button
+                            onClick={() =>
+                              handleDownload(
+                                msg.actionResult!.newPdfBytes!,
+                                msg.actionResult!.newFileName || "Forma_Sonuc.pdf"
+                              )
+                            }
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-[11px] shadow-sm transition-all"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>PDF Olarak İndir</span>
+                          </button>
+                        ) : null}
+
+                        {/* Open in Workspace */}
+                        {msg.actionResult.newPdfBytes && (
+                          <button
+                            onClick={() =>
+                              handleOpenInWorkspace(
+                                msg.actionResult!.newPdfBytes!,
+                                msg.actionResult!.newFileName || activeName
+                              )
+                            }
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium text-[11px] shadow-sm transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Düzenleyicide Aç</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Hata Düzeltme & Geri Bildirim Butonları */}
+                      {msg.actionResult.success && msg.actionResult.newPdfBytes && (
+                        <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mb-1.5">
+                            Hata veya beğenmediğiniz bir yer var mı?
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              onClick={handleRollback}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 text-[10px] font-medium transition-all"
+                              title="Yapılan işlemi geri alıp orijinal haline dön"
+                            >
+                              <RotateCcw className="w-3 h-3 text-rose-500" />
+                              <span>Geri Al (Eski Hali)</span>
+                            </button>
+                            <button
+                              onClick={() => handleCorrection('more_enhance')}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-violet-50 dark:hover:bg-violet-950/30 text-slate-600 dark:text-slate-300 hover:text-violet-600 text-[10px] font-medium transition-all"
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              <span>Daha Fazla Netleştir</span>
+                            </button>
+                            <button
+                              onClick={() => handleCorrection()}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-600 dark:text-slate-300 hover:text-blue-600 text-[10px] font-medium transition-all"
+                            >
+                              <Wrench className="w-3 h-3 text-blue-500" />
+                              <span>Hata Bildir / Düzelt</span>
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -694,6 +1096,16 @@ export function FormaAiCopilot({
               }}
               className="flex items-center gap-2"
             >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing}
+                title="Dosya Yükle (PDF, JPG, PNG, Excel, Word, TXT)"
+                className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition-all shadow-sm shrink-0"
+                aria-label="Dosya Ekle"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
               <input
                 ref={inputRef}
                 type="text"

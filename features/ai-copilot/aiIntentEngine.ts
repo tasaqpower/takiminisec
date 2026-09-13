@@ -15,6 +15,10 @@ export type AiActionType =
   | 'delete_object'
   | 'vision_qa'
   | 'voice_toggle'
+  | 'undo_action'
+  | 'correction_request'
+  | 'confirm_action'
+  | 'cancel_action'
   | 'compress_pdf'
   | 'convert_word'
   | 'convert_excel'
@@ -67,6 +71,85 @@ function normalize(text: string): string {
 export function parseUserIntent(prompt: string): AiIntentResult {
   const raw = prompt.trim();
   const n = normalize(prompt);
+
+  // Confirmation / Approval ("onayla", "yap", "başlat", "uygula", "evet yap")
+  if (
+    n === 'onayla' ||
+    n === 'onayliyorum' ||
+    n === 'yap' ||
+    n === 'baslat' ||
+    n === 'uygula' ||
+    n === 'evet' ||
+    n === 'evet yap' ||
+    n === 'tamamdir yap' ||
+    n.startsWith('onayla') ||
+    n.startsWith('onayliyorum') ||
+    n.startsWith('evet, ') ||
+    n.startsWith('evet ')
+  ) {
+    return {
+      action: 'confirm_action',
+      confidence: 0.99,
+      explanation: 'Bekleyen işlem kullanıcı tarafından onaylandı.',
+      suggestedReply: 'İşlemi onayladınız, hemen uyguluyorum... 🚀',
+    };
+  }
+
+  // Cancel / Abort ("vazgeç", "hayır", "yapma", "iptal et")
+  if (
+    n === 'vazgec' ||
+    n === 'hayir' ||
+    n === 'yapma' ||
+    n === 'iptal' ||
+    n === 'iptal et' ||
+    n === 'vazgectim' ||
+    n.startsWith('vazgec') ||
+    n.startsWith('hayir ')
+  ) {
+    return {
+      action: 'cancel_action',
+      confidence: 0.99,
+      explanation: 'Bekleyen işlem iptal edildi.',
+      suggestedReply: 'İşlem iptal edildi. Başka nasıl yardımcı olabilirim? ✨',
+    };
+  }
+
+  // Undo / Rollback ("geri al", "eski haline getir", "önceki hali", "değişikliği geri al")
+  if (
+    n.includes('geri al') ||
+    n.includes('eski haline') ||
+    n.includes('onceki hali') ||
+    n.includes('bastan basla') ||
+    n.includes('eski durum') ||
+    n.includes('orijinal haline')
+  ) {
+    return {
+      action: 'undo_action',
+      confidence: 0.98,
+      explanation: 'Son yapılan işlem geri alınacak ve belge önceki durumuna döndürülecek.',
+      suggestedReply: 'Son yapılan işlem geri alınıyor ve belgeniz bir önceki haline döndürülüyor... ↩️',
+    };
+  }
+
+  // Correction Request ("hata var düzelt", "şurada hata var", "hatayı düzelt", "yanlış oldu", "olmadı")
+  if (
+    n.includes('hata var') ||
+    n.includes('hatayi duzelt') ||
+    n.includes('yanlis oldu') ||
+    n.includes('bunu duzelt') ||
+    n.includes('surayi duzelt') ||
+    n.includes('olmadi') ||
+    n.includes('cok koyu oldu') ||
+    n.includes('cok acik oldu') ||
+    n.includes('cok parlak oldu')
+  ) {
+    return {
+      action: 'correction_request',
+      confidence: 0.95,
+      explanation: 'Kullanıcı yapılan işlemde bir hata veya düzeltilmesi gereken nokta bildirdi.',
+      suggestedReply: 'Fark ettiğiniz hatayı hemen inceliyor ve düzeltmeyi uyguluyorum... 🛠️',
+    };
+  }
 
   // 0a. Voice Control Toggle ("sesli yanıtı aç", "sesli konuş", "sesi kapat")
   if (

@@ -166,6 +166,25 @@ export default function Home() {
         files = [pdfFile];
         toast.success("Excel tablosu sayfalanmış vektör PDF'e dönüştürüldü!");
       }
+      if (/\.(png|jpe?g|webp)$/i.test(files[0].name)) {
+        const { imagesToPdf } = await import("@/features/conversion/conversionEngine");
+        const items = await Promise.all(
+          files.map(async (f) => ({
+            name: f.name,
+            bytes: new Uint8Array(await f.arrayBuffer()),
+            type: /\.png$/i.test(f.name) ? ("png" as const) : ("jpeg" as const),
+          }))
+        );
+        const convertedBytes = await imagesToPdf(items, {
+          pageSize: "A4",
+          orientation: "auto",
+          margin: 15,
+        });
+        const baseName = files[0].name.replace(/\.[^/.]+$/, "");
+        const pdfFile = new File([convertedBytes as unknown as BlobPart], `${baseName}.pdf`, { type: "application/pdf" });
+        files = [pdfFile];
+        toast.success("Görsel sayfalanmış PDF belgesine dönüştürüldü!");
+      }
 
       const m = await import("./workspace");
       setEditor(() => m.default);

@@ -126,10 +126,34 @@ export async function imagesToPdf(
 
   for (const item of images) {
     let embeddedImg: any;
-    if (item.type === 'png') {
-      embeddedImg = await pdfDoc.embedPng(item.bytes);
-    } else {
-      embeddedImg = await pdfDoc.embedJpg(item.bytes);
+    try {
+      if (item.type === 'png') {
+        embeddedImg = await pdfDoc.embedPng(item.bytes);
+      } else {
+        embeddedImg = await pdfDoc.embedJpg(item.bytes);
+      }
+    } catch {
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const blob = new Blob([item.bytes as unknown as BlobPart]);
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.src = url;
+        await new Promise((res, rej) => {
+          img.onload = () => res(true);
+          img.onerror = () => rej(new Error('Görsel çözümlenemedi'));
+        });
+        const cvs = document.createElement('canvas');
+        cvs.width = img.naturalWidth || 800;
+        cvs.height = img.naturalHeight || 600;
+        const ctx = cvs.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        const pngBlob: Blob = await new Promise((res) => cvs.toBlob(b => res(b!), 'image/png'));
+        const pngBuf = new Uint8Array(await pngBlob.arrayBuffer());
+        embeddedImg = await pdfDoc.embedPng(pngBuf);
+      } else {
+        embeddedImg = await pdfDoc.embedPng(item.bytes);
+      }
     }
 
     const imgWidth = embeddedImg.width;
@@ -578,5 +602,5 @@ export async function pdfToPptx(
   return await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
 
-export { excelToPdf, parseCsvContent, parseXlsxSheets, type ExcelToPdfOptions } from './excelToPdf';
-export { pdfToDocx, docxToPdf, type PdfToDocxOptions, type DocxToPdfOptions } from './docxConverter';
+export { excelToPdf, parseCsvContent, parseXlsxSheets, type ExcelToPdfOptions } from './excelToPdf.ts';
+export { pdfToDocx, docxToPdf, type PdfToDocxOptions, type DocxToPdfOptions } from './docxConverter.ts';

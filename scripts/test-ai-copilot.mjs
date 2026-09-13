@@ -59,6 +59,15 @@ const testCases = [
   { prompt: 'sadece gorseli netlestir', expectedAction: 'enhance_selective', expectedTarget: 'görsel' },
   { prompt: 'sesli yaniti ac', expectedAction: 'voice_toggle', expectedVoiceState: 'on' },
   { prompt: 'sesi kapat', expectedAction: 'voice_toggle', expectedVoiceState: 'off' },
+  { prompt: 'onayla', expectedAction: 'confirm_action' },
+  { prompt: 'yap', expectedAction: 'confirm_action' },
+  { prompt: 'evet yap', expectedAction: 'confirm_action' },
+  { prompt: 'vazgec', expectedAction: 'cancel_action' },
+  { prompt: 'hayir yapma', expectedAction: 'cancel_action' },
+  { prompt: 'geri al', expectedAction: 'undo_action' },
+  { prompt: 'eski haline getir', expectedAction: 'undo_action' },
+  { prompt: 'surada hata var duzelt', expectedAction: 'correction_request' },
+  { prompt: 'olmadi', expectedAction: 'correction_request' },
 ];
 
 let passedIntents = 0;

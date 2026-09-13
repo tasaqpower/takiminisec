@@ -1,7 +1,7 @@
 import { createWorker, type Worker } from "tesseract.js";
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Document, Packer, Paragraph, TextRun } from "docx";
-import { applyImageFilters, type FilterOptions } from "./imageFilters";
+import { applyImageFilters, type FilterOptions } from "./imageFilters.ts";
 
 export interface OcrWord {
   text: string;

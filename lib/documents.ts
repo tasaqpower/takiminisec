@@ -1,8 +1,8 @@
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import DOMPurify from "dompurify";
-import { removePdfText, removePdfImages, type TextRemoval } from "./pdf-text";
-import { fontFile, type PdfFont } from "./pdf-fonts";
+import { removePdfText, removePdfImages, type TextRemoval } from "./pdf-text.ts";
+import { fontFile, type PdfFont } from "./pdf-fonts.ts";
 
 export type Mark = {id:string; page:number; kind:"text"|"draw"|"highlight"|"signature"; x:number; y:number; w:number; h:number; color:string; size:number; text?:string; image?:string; points?:{x:number;y:number}[];font?:PdfFont;bold?:boolean;italic?:boolean;angle?:number;sourceId?:string;opacity?:number;align?:"left"|"center"|"right"; bg?:string};
 export type PageItem = {index:number; rotation:number};
