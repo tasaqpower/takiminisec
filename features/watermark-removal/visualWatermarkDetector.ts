@@ -43,6 +43,63 @@ export async function renderPdfPageToCanvas(
 }
 
 /**
+ * Samples margin pixels of the page canvas to detect the authentic background color of the paper
+ * (e.g. pure white, off-white, light cream, pale gray).
+ */
+export function detectPageBackgroundColor(canvas: HTMLCanvasElement): { r: number; g: number; b: number; hex: string } {
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return { r: 1, g: 1, b: 1, hex: "#ffffff" };
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const samplePoints: { x: number; y: number }[] = [
+      { x: Math.min(20, w - 1), y: Math.min(20, h - 1) },
+      { x: Math.max(0, w - 20), y: Math.min(20, h - 1) },
+      { x: Math.min(20, w - 1), y: Math.max(0, h - 20) },
+      { x: Math.max(0, w - 20), y: Math.max(0, h - 20) },
+      { x: Math.floor(w / 2), y: Math.min(15, h - 1) },
+      { x: Math.min(15, w - 1), y: Math.floor(h / 2) },
+      { x: Math.max(0, w - 15), y: Math.floor(h / 2) }
+    ];
+
+    let rSum = 0;
+    let gSum = 0;
+    let bSum = 0;
+    let count = 0;
+
+    for (const pt of samplePoints) {
+      const data = ctx.getImageData(pt.x, pt.y, 1, 1).data;
+      const brightness = 0.299 * data[0] + 0.587 * data[1] + 0.114 * data[2];
+      if (brightness > 160) {
+        rSum += data[0];
+        gSum += data[1];
+        bSum += data[2];
+        count++;
+      }
+    }
+
+    if (count === 0) return { r: 1, g: 1, b: 1, hex: "#ffffff" };
+
+    const avgR = Math.round(rSum / count);
+    const avgG = Math.round(gSum / count);
+    const avgB = Math.round(bSum / count);
+
+    const toHex = (n: number) => n.toString(16).padStart(2, "0");
+    const hex = `#${toHex(avgR)}${toHex(avgG)}${toHex(avgB)}`;
+
+    return {
+      r: avgR / 255,
+      g: avgG / 255,
+      b: avgB / 255,
+      hex
+    };
+  } catch {
+    return { r: 1, g: 1, b: 1, hex: "#ffffff" };
+  }
+}
+
+/**
  * Creates a rotated canvas to detect diagonal watermarks (e.g. 45 degrees)
  */
 function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number): HTMLCanvasElement {

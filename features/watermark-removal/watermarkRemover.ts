@@ -252,13 +252,19 @@ export async function removeWatermarks(
     }
   } catch {}
 
-  // 6. Apply Smart Background Covers for candidates with imageBounds, AI detections, or custom text
+  // 6. Apply Smart Background Covers for candidates with imageBounds, AI detections, manual boxes, brush masks, or custom text
   let removedCoverCount = 0;
   try {
     const pdfLibDoc = await PDFDocument.load(currentBytes, { ignoreEncryption: true });
     let coverDrawn = false;
     const pages = pdfLibDoc.getPages();
 
+    // Determine fill color (custom sampled paper tone or pure white)
+    const fillColor = options.fillColor
+      ? rgb(options.fillColor.r, options.fillColor.g, options.fillColor.b)
+      : rgb(1, 1, 1);
+
+    // 6a. Detected candidate bounds
     for (const cand of allCandidates) {
       if (!selectedSet.has(cand.id)) continue;
 
@@ -271,7 +277,7 @@ export async function removeWatermarks(
               y: Math.max(0, cand.imageBounds.y - 2),
               width: cand.imageBounds.w + 4,
               height: cand.imageBounds.h + 4,
-              color: rgb(1, 1, 1),
+              color: fillColor,
               opacity: 1
             });
             coverDrawn = true;
@@ -281,7 +287,57 @@ export async function removeWatermarks(
       }
     }
 
-    // Also cover custom text quads if custom text was applied
+    // 6b. Multi-box manual selection areas
+    if (options.manualBoxes && options.manualBoxes.length > 0) {
+      for (const box of options.manualBoxes) {
+        for (const pIdx of targetPages) {
+          if (pIdx >= 0 && pIdx < pages.length) {
+            const page = pages[pIdx];
+            page.drawRectangle({
+              x: Math.max(0, box.x - 2),
+              y: Math.max(0, box.y - 2),
+              width: box.w + 4,
+              height: box.h + 4,
+              color: fillColor,
+              opacity: 1
+            });
+            coverDrawn = true;
+            removedCoverCount++;
+          }
+        }
+      }
+    }
+
+    // 6c. Freehand Magic Brush mask
+    if (options.brushMaskDataUrl) {
+      try {
+        const base64Data = options.brushMaskDataUrl.replace(/^data:image\/\w+;base64,/, "");
+        const binaryStr = atob(base64Data);
+        const maskBytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          maskBytes[i] = binaryStr.charCodeAt(i);
+        }
+        const embeddedMask = await pdfLibDoc.embedPng(maskBytes);
+        for (const pIdx of targetPages) {
+          if (pIdx >= 0 && pIdx < pages.length) {
+            const page = pages[pIdx];
+            const { width: pW, height: pH } = page.getSize();
+            page.drawImage(embeddedMask, {
+              x: 0,
+              y: 0,
+              width: pW,
+              height: pH
+            });
+            coverDrawn = true;
+            removedCoverCount++;
+          }
+        }
+      } catch (brushErr) {
+        console.warn("Brush mask embedding error:", brushErr);
+      }
+    }
+
+    // 6d. Custom text quads if custom text was applied
     if (options.customText && textRemovals.length > 0) {
       for (const r of textRemovals) {
         if (targetPages.has(r.page) && r.page >= 0 && r.page < pages.length && r.quad && r.quad.length === 8) {
@@ -298,7 +354,7 @@ export async function removeWatermarks(
             y: Math.max(0, minY - 2),
             width: (maxX - minX) + 4,
             height: (maxY - minY) + 4,
-            color: rgb(1, 1, 1),
+            color: fillColor,
             opacity: 1
           });
           coverDrawn = true;
@@ -307,7 +363,7 @@ export async function removeWatermarks(
       }
     }
 
-    // Also cover visual search bounds found via OCR
+    // 6e. Visual search bounds found via OCR
     for (const vb of visualCoverBounds) {
       if (targetPages.has(vb.page) && vb.page >= 0 && vb.page < pages.length) {
         const page = pages[vb.page];
@@ -316,7 +372,7 @@ export async function removeWatermarks(
           y: Math.max(0, vb.y - 2),
           width: vb.w + 4,
           height: vb.h + 4,
-          color: rgb(1, 1, 1),
+          color: fillColor,
           opacity: 1
         });
         coverDrawn = true;
