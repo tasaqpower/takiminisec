@@ -56,7 +56,7 @@ export async function getOcrWorker(
   const isBrowser = typeof window !== "undefined" && !(typeof process !== "undefined" && Boolean(process?.versions?.node));
   const workerOptions: any = {
     cacheMethod: "readOnly",
-    gzip: true,
+    gzip: false,
     logger: (m: any) => {
       if (m.status === "recognizing text" && typeof m.progress === "number") {
         onProgress?.(Math.round(m.progress * 100), "Metin tanınıyor…");
@@ -77,10 +77,22 @@ export async function getOcrWorker(
     workerOptions.langPath = path.resolve("public/tesseract/lang-data");
   }
 
-  const worker = await createWorker(languages.split("+"), 1, workerOptions);
-  sharedWorker = worker;
-  currentWorkerLanguages = languages;
-  return worker;
+  const workerPromise = createWorker(languages.split("+"), 1, workerOptions);
+  let timer: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error("OCR motoru veya dil modeli yüklenirken zaman aşımı oluştu. Lütfen bağlantınızı kontrol edip tekrar deneyin."));
+    }, 30000);
+  });
+
+  try {
+    const worker = await Promise.race([workerPromise, timeoutPromise]);
+    sharedWorker = worker;
+    currentWorkerLanguages = languages;
+    return worker;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
