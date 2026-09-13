@@ -256,6 +256,19 @@ export async function detectWatermarks(
           }
         }
 
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const line of group.lines) {
+          for (const it of line.items) {
+            if (it.x < minX) minX = it.x;
+            if (it.x + it.w > maxX) maxX = it.x + it.w;
+            if (it.y < minY) minY = it.y;
+            if (it.y + it.h > maxY) maxY = it.y + it.h;
+          }
+        }
+        const bounds = Number.isFinite(minX) && maxX > minX
+          ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+          : undefined;
+
         candidates.push({
           id: `wm-text-${candidateIndex++}`,
           type: "text",
@@ -267,7 +280,8 @@ export async function detectWatermarks(
           color: Array.from(group.colors)[0] || "#222222",
           reason: reasons.join(" · "),
           confidence: Math.min(99, confidence),
-          textRemovals: removals
+          textRemovals: removals,
+          imageBounds: bounds
         });
       }
     }

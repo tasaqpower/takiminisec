@@ -1,6 +1,6 @@
 import { removePdfText, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { loadPdf } from "@/lib/documents";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector";
 import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes";
 
@@ -236,11 +236,74 @@ export async function removeWatermarks(
     }
   } catch {}
 
+  // 6. Apply Smart Background Covers for candidates with imageBounds, AI detections, or custom text
+  let removedCoverCount = 0;
+  try {
+    const pdfLibDoc = await PDFDocument.load(currentBytes, { ignoreEncryption: true });
+    let coverDrawn = false;
+    const pages = pdfLibDoc.getPages();
+
+    for (const cand of allCandidates) {
+      if (!selectedSet.has(cand.id)) continue;
+
+      if (cand.imageBounds) {
+        for (const pIdx of cand.pages) {
+          if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
+            const page = pages[pIdx];
+            page.drawRectangle({
+              x: Math.max(0, cand.imageBounds.x - 2),
+              y: Math.max(0, cand.imageBounds.y - 2),
+              width: cand.imageBounds.w + 4,
+              height: cand.imageBounds.h + 4,
+              color: rgb(1, 1, 1),
+              opacity: 1
+            });
+            coverDrawn = true;
+            removedCoverCount++;
+          }
+        }
+      }
+    }
+
+    // Also cover custom text quads if custom text was applied
+    if (options.customText && textRemovals.length > 0) {
+      for (const r of textRemovals) {
+        if (targetPages.has(r.page) && r.page >= 0 && r.page < pages.length && r.quad && r.quad.length === 8) {
+          const page = pages[r.page];
+          const xs = [r.quad[0], r.quad[2], r.quad[4], r.quad[6]];
+          const ys = [r.quad[1], r.quad[3], r.quad[5], r.quad[7]];
+          const minX = Math.min(...xs);
+          const maxX = Math.max(...xs);
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+
+          page.drawRectangle({
+            x: Math.max(0, minX - 2),
+            y: Math.max(0, minY - 2),
+            width: (maxX - minX) + 4,
+            height: (maxY - minY) + 4,
+            color: rgb(1, 1, 1),
+            opacity: 1
+          });
+          coverDrawn = true;
+          removedCoverCount++;
+        }
+      }
+    }
+
+    if (coverDrawn) {
+      currentBytes = await pdfLibDoc.save();
+    }
+  } catch (err) {
+    console.warn("Cover application error:", err);
+  }
+
   return {
     pdfBytes: currentBytes,
     removedTextCount,
     removedImageCount,
     removedAnnotationCount,
-    totalRemoved: removedTextCount + removedImageCount + removedAnnotationCount
+    removedCoverCount,
+    totalRemoved: removedTextCount + removedImageCount + removedAnnotationCount + removedCoverCount
   };
 }
