@@ -70,6 +70,7 @@ import { useAutosave } from "@/features/autosave/useAutosave";
 import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
 import type { FormaDraft } from "@/features/autosave/db";
 import { OcrModal } from "@/features/ocr/OcrModal";
+import type { OcrPageResult, OcrLine, OcrWord } from "@/features/ocr/ocrEngine";
 import { CompressDialog } from "@/features/compression/CompressDialog";
 import { ImageOverlay } from "@/features/image-editor/ImageOverlay";
 import {
@@ -145,6 +146,46 @@ function renderResizeHandles(
       onPointerDown={getHandler(corner)}
     />
   ));
+}
+
+function splitLineIntoSegments(line: OcrLine, scaleX: number) {
+  if (!line.words || line.words.length <= 1) {
+    return [{ text: line.text, bbox: line.bbox }];
+  }
+  const segments: { text: string; bbox: { x: number; y: number; width: number; height: number } }[] = [];
+  let curWords: OcrWord[] = [line.words[0]];
+
+  for (let i = 1; i < line.words.length; i++) {
+    const prev = line.words[i - 1];
+    const curr = line.words[i];
+    const gap = (curr.bbox.x - (prev.bbox.x + prev.bbox.width)) * scaleX;
+    if (gap > 35) {
+      const minX = curWords[0].bbox.x;
+      const minY = Math.min(...curWords.map(w => w.bbox.y));
+      const maxX = curWords[curWords.length - 1].bbox.x + curWords[curWords.length - 1].bbox.width;
+      const maxY = Math.max(...curWords.map(w => w.bbox.y + w.bbox.height));
+      segments.push({
+        text: curWords.map(w => w.text).join(" "),
+        bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+      });
+      curWords = [curr];
+    } else {
+      curWords.push(curr);
+    }
+  }
+
+  if (curWords.length > 0) {
+    const minX = curWords[0].bbox.x;
+    const minY = Math.min(...curWords.map(w => w.bbox.y));
+    const maxX = curWords[curWords.length - 1].bbox.x + curWords[curWords.length - 1].bbox.width;
+    const maxY = Math.max(...curWords.map(w => w.bbox.y + w.bbox.height));
+    segments.push({
+      text: curWords.map(w => w.text).join(" "),
+      bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+    });
+  }
+
+  return segments;
 }
 
 function Choice({
@@ -365,11 +406,84 @@ export default function Workspace({
   const savingRef = useRef(false);
 
   const [textItems, setTextItems] = useState<EditableText[]>([]);
+  const [ocrItemsByPage, setOcrItemsByPage] = useState<Record<number, EditableText[]>>({});
   const [allOriginalTexts, setAllOriginalTexts] = useState<EditableText[]>([]);
   const [textLoading, setTextLoading] = useState(false);
   const [font, setFont] = useState<PdfFont>("roboto");
   const [bold, setBold] = useState(false);
   const [italic, setItalic] = useState(false);
+
+  const handleApplyOcr = useCallback(async (ocrResults: OcrPageResult[]) => {
+    if (!pdf || !ocrResults.length) return;
+    
+    const newOcrMap: Record<number, EditableText[]> = { ...ocrItemsByPage };
+
+    for (const res of ocrResults) {
+      const pageIndex = res.pageNumber - 1;
+      let baseWidth = dimensions.baseWidth;
+      let baseHeight = dimensions.baseHeight;
+
+      try {
+        const page = await pdf.getPage(res.pageNumber);
+        const vp = page.getViewport({ scale: 1 });
+        baseWidth = vp.width;
+        baseHeight = vp.height;
+      } catch {}
+
+      const scaleX = baseWidth / res.width;
+      const scaleY = baseHeight / res.height;
+      const pageItems: EditableText[] = [];
+
+      res.lines.forEach((line, lineIdx) => {
+        const segments = splitLineIntoSegments(line, scaleX);
+        
+        segments.forEach((seg, segIdx) => {
+          const segX = seg.bbox.x * scaleX;
+          const segY = seg.bbox.y * scaleY;
+          const segW = seg.bbox.width * scaleX;
+          const segH = seg.bbox.height * scaleY;
+          const fontSize = Math.max(8, Math.min(72, Math.round(segH * 0.82)));
+
+          const quad = [
+            segX, segY,
+            segX + segW, segY,
+            segX, segY + segH,
+            segX + segW, segY + segH
+          ];
+
+          pageItems.push({
+            id: `ocr-${pageIndex}-${lineIdx}-${segIdx}`,
+            page: pageIndex,
+            quad,
+            text: seg.text,
+            x: segX,
+            y: segY,
+            w: segW,
+            h: segH,
+            size: fontSize,
+            angle: 0,
+            fontName: "sans",
+            fontFamily: "sans",
+            originalFontName: "LiberationSans",
+            bold: false,
+            italic: false,
+            color: "#000000",
+            isOcr: true
+          });
+        });
+      });
+
+      newOcrMap[pageIndex] = pageItems;
+    }
+
+    setOcrItemsByPage(newOcrMap);
+    if (newOcrMap[active]) {
+      setTextItems(prev => [...prev.filter(p => !(p as any).isOcr), ...newOcrMap[active]]);
+    }
+    setTool("select");
+    setShowOcr(false);
+    toast.success("OCR metinleri sayfaya yerleştirildi! Düzenlemek istediğiniz metne tıklayabilirsiniz.");
+  }, [pdf, dimensions, ocrItemsByPage, active]);
   const [viewPdf, setViewPdf] = useState<any>(null);
   const [previewError, setPreviewError] = useState("");
   const cleanCache = useRef(new WeakMap<TextRemoval[], { source: Uint8Array; result: Uint8Array }>());
@@ -497,9 +611,11 @@ export default function Workspace({
         try {
           const page = await pdf.getPage(i + 1);
           const items = await editablePageText(page);
-          all.push(...items);
+          const ocrItems = ocrItemsByPage[i] || [];
+          all.push(...items, ...ocrItems);
         } catch {
-          // ignore page failure
+          const ocrItems = ocrItemsByPage[i] || [];
+          all.push(...ocrItems);
         }
       }
       if (!stopped) setAllOriginalTexts(all);
@@ -507,7 +623,7 @@ export default function Workspace({
     return () => {
       stopped = true;
     };
-  }, [pdf, kind]);
+  }, [pdf, kind, ocrItemsByPage]);
 
   const current = state.pages[active];
   const currentMark = state.marks.find(m => m.id === selected);
@@ -868,10 +984,26 @@ export default function Workspace({
       .getPage(current.index + 1)
       .then(editablePageText)
       .then((items: EditableText[]) => {
-        if (!stopped) setTextItems(items);
+        if (!stopped) {
+          const ocrItems = ocrItemsByPage[current.index] || [];
+          if (items.length === 0 && ocrItems.length > 0) {
+            setTextItems(ocrItems);
+          } else if (items.length > 0 && ocrItems.length > 0) {
+            setTextItems([...items, ...ocrItems]);
+          } else {
+            setTextItems(items);
+          }
+        }
       })
       .catch(() => {
-        if (!stopped) toast.error("Bu sayfanın metni okunamadı.");
+        if (!stopped) {
+          const ocrItems = ocrItemsByPage[current.index] || [];
+          if (ocrItems.length > 0) {
+            setTextItems(ocrItems);
+          } else {
+            toast.error("Bu sayfanın metni okunamadı.");
+          }
+        }
       })
       .finally(() => {
         if (!stopped) setTextLoading(false);
@@ -879,7 +1011,7 @@ export default function Workspace({
     return () => {
       stopped = true;
     };
-  }, [pdf, current?.index]);
+  }, [pdf, current?.index, ocrItemsByPage]);
 
   const modifiedImagesKey = pageImages
     .filter(img => img.page === active && (img.deleted || img.isModified))
@@ -1142,6 +1274,7 @@ export default function Workspace({
       ? state.removals
       : [...state.removals, { id: item.id, page: item.page, quad: item.quad }];
 
+    const isOcr = Boolean((item as any).isOcr || item.id.startsWith("ocr-"));
     const existing = state.marks.find(m => m.sourceId === item.id);
     const baseMark: Mark = existing
       ? { ...existing, ...updates }
@@ -1161,10 +1294,30 @@ export default function Workspace({
           italic: Boolean(item.italic),
           angle: item.angle,
           sourceId: item.id,
+          bg: isOcr ? "#ffffff" : undefined,
           ...updates
         };
 
-    const nextMarks = [...state.marks.filter(m => m.id !== baseMark.id && m.sourceId !== item.id), baseMark];
+    let nextMarks = [...state.marks.filter(m => m.id !== baseMark.id && m.sourceId !== item.id), baseMark];
+    if (isOcr) {
+      const coverId = `cover-${item.id}`;
+      if (!nextMarks.some(m => m.id === coverId || m.sourceId === coverId)) {
+        const coverMark: Mark = {
+          id: coverId,
+          page: item.page,
+          kind: "highlight",
+          x: item.x - 2,
+          y: item.y - 1,
+          w: item.w + 4,
+          h: Math.max(item.h, item.size * 1.25) + 2,
+          color: "#ffffff",
+          size: 1,
+          opacity: 1,
+          sourceId: coverId
+        };
+        nextMarks = [coverMark, ...nextMarks];
+      }
+    }
     const nextState = { ...state, removals, marks: nextMarks };
 
     if (isSession) {
@@ -1277,7 +1430,25 @@ export default function Workspace({
     const removals = state.removals.some(r => r.id === item.id)
       ? state.removals
       : [...state.removals, { id: item.id, page: item.page, quad: item.quad }];
-    const nextMarks = state.marks.filter(m => m.sourceId !== item.id);
+    let nextMarks = state.marks.filter(m => m.sourceId !== item.id);
+    const isOcr = Boolean((item as any).isOcr || item.id.startsWith("ocr-"));
+    if (isOcr) {
+      const coverId = `cover-${item.id}`;
+      const coverMark: Mark = {
+        id: coverId,
+        page: item.page,
+        kind: "highlight",
+        x: item.x - 2,
+        y: item.y - 1,
+        w: item.w + 4,
+        h: Math.max(item.h, item.size * 1.25) + 2,
+        color: "#ffffff",
+        size: 1,
+        opacity: 1,
+        sourceId: coverId
+      };
+      nextMarks = [coverMark, ...nextMarks.filter(m => m.id !== coverId)];
+    }
     change({ ...state, removals, marks: nextMarks });
     setSelectedOriginal(null);
     setSelected(null);
@@ -1290,7 +1461,29 @@ export default function Workspace({
     if (selectedOriginal) {
       deleteOriginal(selectedOriginal);
     } else if (selected) {
-      const nextMarks = state.marks.filter(m => m.id !== selected);
+      const targetMark = state.marks.find(m => m.id === selected);
+      const isOcrMark = Boolean(targetMark?.sourceId?.startsWith("ocr-"));
+      let nextMarks = state.marks.filter(m => m.id !== selected);
+      if (isOcrMark && targetMark) {
+        const coverId = `cover-${targetMark.sourceId}`;
+        const box = getTextDimensions(targetMark);
+        if (!nextMarks.some(m => m.id === coverId || m.sourceId === coverId)) {
+          const coverMark: Mark = {
+            id: coverId,
+            page: targetMark.page,
+            kind: "highlight",
+            x: targetMark.x - 2,
+            y: targetMark.y - 1,
+            w: box.w + 4,
+            h: box.h + 2,
+            color: "#ffffff",
+            size: 1,
+            opacity: 1,
+            sourceId: coverId
+          };
+          nextMarks = [coverMark, ...nextMarks];
+        }
+      }
       change({ ...state, marks: nextMarks });
       setSelected(null);
       setEditingId(null);
@@ -1799,14 +1992,16 @@ export default function Workspace({
     const isEditing = editingId === m.id;
     const isText = m.kind === "text";
     const box = isText ? getTextDimensions(m) : { w: m.w, h: m.h };
+    const isCover = Boolean(m.sourceId?.startsWith("cover-"));
 
     return (
       <g
         key={m.id}
         transform={isText && m.angle ? `rotate(${m.angle} ${m.x} ${m.y + m.size})` : undefined}
-        className={tool === "select" ? "selectable-mark" : ""}
+        className={tool === "select" && !isCover ? "selectable-mark" : ""}
+        pointerEvents={isCover ? "none" : undefined}
         onPointerDown={e => {
-          if (tool !== "select" || isEditing) return;
+          if (tool !== "select" || isEditing || isCover) return;
           e.stopPropagation();
           e.preventDefault();
           try {
@@ -1823,7 +2018,7 @@ export default function Workspace({
           applyDraft(m);
         }}
         onDoubleClick={e => {
-          if (tool !== "select" || !isText) return;
+          if (tool !== "select" || !isText || isCover) return;
           e.stopPropagation();
           startInlineEditMark(m);
         }}
@@ -1850,7 +2045,8 @@ export default function Workspace({
                   fontStyle: m.italic ? "italic" : "normal",
                   color: m.color,
                   lineHeight: 1.25,
-                  caretColor: "#6552df"
+                  caretColor: "#6552df",
+                  backgroundColor: m.bg || (m.sourceId?.startsWith("ocr-") ? "#ffffff" : undefined)
                 }}
                 value={m.text || ""}
                 onChange={e => updateActiveText(e.target.value, true)}
@@ -1869,26 +2065,37 @@ export default function Workspace({
               />
             </foreignObject>
           ) : (
-            <text
-              x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
-              textAnchor={m.align === "center" ? "middle" : m.align === "right" ? "end" : "start"}
-              y={m.y + m.size}
-              fontSize={m.size}
-              fontFamily={pdfFont(m.font).family}
-              fontWeight={m.bold ? 700 : 400}
-              fontStyle={m.italic ? "italic" : "normal"}
-              fill={m.color}
-            >
-              {(m.text || "").split("\n").map((line, i) => (
-                <tspan
-                  key={i}
-                  x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
-                  dy={i ? m.size * 1.25 : 0}
-                >
-                  {line || " "}
-                </tspan>
-              ))}
-            </text>
+            <>
+              {m.bg && (
+                <rect
+                  x={m.x - 2}
+                  y={m.y - 1}
+                  width={box.w + 4}
+                  height={box.h + 2}
+                  fill={m.bg}
+                />
+              )}
+              <text
+                x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+                textAnchor={m.align === "center" ? "middle" : m.align === "right" ? "end" : "start"}
+                y={m.y + m.size}
+                fontSize={m.size}
+                fontFamily={pdfFont(m.font).family}
+                fontWeight={m.bold ? 700 : 400}
+                fontStyle={m.italic ? "italic" : "normal"}
+                fill={m.color}
+              >
+                {(m.text || "").split("\n").map((line, i) => (
+                  <tspan
+                    key={i}
+                    x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+                    dy={i ? m.size * 1.25 : 0}
+                  >
+                    {line || " "}
+                  </tspan>
+                ))}
+              </text>
+            </>
           )
         ) : m.kind === "highlight" ? (
           <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity={m.opacity ?? 0.35} />
@@ -1906,7 +2113,7 @@ export default function Workspace({
           />
         )}
 
-        {isSelected && m.kind !== "draw" && (
+        {isSelected && m.kind !== "draw" && !isCover && (
           <>
             <rect
               className={`selection-frame ${isEditing ? "is-editing" : ""}`}
@@ -2166,6 +2373,8 @@ export default function Workspace({
                       setSelected(null);
                       setSelectedOriginal(null);
                     }}
+                    hasSelectableText={textItems.length > 0}
+                    onStartOcr={() => setShowOcr(true)}
                   />
                 )
               ) : tool === "text" ? (
@@ -2700,6 +2909,7 @@ export default function Workspace({
         onInsertText={(txt) => {
           addMark({ ...newMark("text", 50, 80), text: txt });
         }}
+        onApplyOcr={handleApplyOcr}
       />
 
       <CompressDialog

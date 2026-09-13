@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   Sliders,
   X,
-  FileCode
+  FileCode,
+  MousePointer2
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +34,7 @@ interface OcrModalProps {
   pdfBytes?: Uint8Array;
   fileName?: string;
   onInsertText?: (text: string) => void;
+  onApplyOcr?: (results: OcrPageResult[]) => void;
 }
 
 export function OcrModal({
@@ -42,7 +44,8 @@ export function OcrModal({
   currentPage,
   pdfBytes,
   fileName = "belge.pdf",
-  onInsertText
+  onInsertText,
+  onApplyOcr
 }: OcrModalProps) {
   const [mode, setMode] = useState<"current" | "all">("current");
   const [cleaningEnabled, setCleaningEnabled] = useState(true);
@@ -223,6 +226,16 @@ export function OcrModal({
     onOpenChange(false);
   };
 
+  const handleApplyToCanvas = () => {
+    if (!results || results.length === 0) {
+      toast.error("Tanınmış metin bulunamadı.");
+      return;
+    }
+    if (onApplyOcr) {
+      onApplyOcr(results);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl bg-white rounded-xl shadow-2xl p-6 border border-slate-100 max-h-[90vh] overflow-y-auto">
@@ -358,14 +371,30 @@ export function OcrModal({
         ) : (
           /* Results view */
           <div className="space-y-4 mt-4">
-            <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-              <div className="flex items-center gap-2 text-emerald-800 text-sm font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{results.length} sayfa başarıyla tarandı.</span>
+            {/* Results Header & Sayfada Düzenle CTA */}
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <div className="flex items-center gap-2 text-emerald-900 text-sm font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{results.length} sayfa başarıyla tarandı</span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full">
+                    %{Math.round(results.reduce((a, b) => a + b.averageConfidence, 0) / results.length)} Güven
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 mt-1">
+                  Metinleri doğrudan PDF sayfası üzerinde tıklayarak, normal bir PDF gibi düzenleyin.
+                </p>
               </div>
-              <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full">
-                %{Math.round(results.reduce((a, b) => a + b.averageConfidence, 0) / results.length)} Güven
-              </span>
+              {onApplyOcr && (
+                <button
+                  type="button"
+                  onClick={handleApplyToCanvas}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-sm transition-all shrink-0 cursor-pointer"
+                >
+                  <MousePointer2 className="w-4 h-4" />
+                  Sayfada Düzenlemeye Başla
+                </button>
+              )}
             </div>
 
             {/* Low-confidence words review chips */}
@@ -412,25 +441,35 @@ export function OcrModal({
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Kapat
                 </button>
                 <button
                   type="button"
                   onClick={() => setResults(null)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   ← Yeni Tarama
                 </button>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {onApplyOcr && (
+                  <button
+                    type="button"
+                    onClick={handleApplyToCanvas}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm cursor-pointer"
+                  >
+                    <MousePointer2 className="w-3.5 h-3.5" />
+                    Sayfada Düzenle
+                  </button>
+                )}
                 {onInsertText && (
                   <button
                     type="button"
                     onClick={handleInsertIntoDocument}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg border border-indigo-200"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg border border-indigo-200 cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" />
                     Belgeye Ekle
@@ -439,7 +478,7 @@ export function OcrModal({
                 <button
                   type="button"
                   onClick={handleDownloadTxt}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 cursor-pointer"
                 >
                   <FileCode className="w-3.5 h-3.5" />
                   TXT İndir
@@ -447,7 +486,7 @@ export function OcrModal({
                 <button
                   type="button"
                   onClick={handleDownloadDocx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg border border-blue-200"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg border border-blue-200 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   DOCX İndir
@@ -455,7 +494,7 @@ export function OcrModal({
                 <button
                   type="button"
                   onClick={handleDownloadSearchablePdf}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Arama Yapılabilir PDF

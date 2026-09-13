@@ -19,6 +19,7 @@ export type EditableText = TextRemoval & {
   letterSpacing?: number;
   lineHeight?: number;
   transform?: number[];
+  isOcr?: boolean;
 };
 
 let instance: Promise<WrappedPdfiumModule> | undefined;

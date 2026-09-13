@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Bold, Italic, Trash2, Check, MousePointer2 } from "lucide-react";
+import { Bold, Italic, Trash2, Check, MousePointer2, ScanText } from "lucide-react";
 import { PDF_FONTS, type PdfFont } from "@/lib/pdf-fonts";
 import type { Mark } from "@/lib/documents";
 
@@ -11,6 +11,8 @@ export interface TextEditControlsProps {
   onDelete: () => void;
   onDone: () => void;
   disabled?: boolean;
+  hasSelectableText?: boolean;
+  onStartOcr?: () => void;
 }
 
 export function TextEditControls({
@@ -18,9 +20,28 @@ export function TextEditControls({
   onUpdateFormat,
   onDelete,
   onDone,
-  disabled = false
+  disabled = false,
+  hasSelectableText,
+  onStartOcr
 }: TextEditControlsProps) {
   if (!selectedMark) {
+    if (hasSelectableText === false && onStartOcr) {
+      return (
+        <div className="flex items-center gap-2 px-2 text-xs select-none">
+          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+            Sayfada seçilebilir metin yok (taranmış PDF)
+          </span>
+          <button
+            type="button"
+            onClick={onStartOcr}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded shadow-xs cursor-pointer transition-colors"
+          >
+            <ScanText size={13} />
+            OCR ile Metinleri Düzenle
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground select-none">
         <MousePointer2 size={14} className="opacity-70 text-indigo-500" />
