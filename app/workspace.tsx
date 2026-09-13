@@ -2341,96 +2341,11 @@ export default function Workspace({
               type="button"
               className="secondary"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowFindReplace(true)}
-              title="Belgede Ara ve Değiştir (Ctrl+F)"
-            >
-              <Search size={15} />
-              <span>Bul</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowOcr(true)}
-              title="Taranmış PDF'i Tanı (Yerel OCR)"
-            >
-              <ScanText size={15} />
-              <span>OCR</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowCompress(true)}
-              title="PDF Boyutunu Sıkıştır"
-            >
-              <Archive size={15} />
-              <span>Sıkıştır</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowPageOrganizer(true)}
-              title="Gelişmiş Sayfa Düzenleyici"
-            >
-              <Layers size={15} />
-              <span>Sayfalar</span>
-            </button>
-            <button
-              type="button"
-              className="secondary group hover:border-rose-300 hover:bg-rose-50/50"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={handleOneClickWatermarkRemoval}
-              disabled={isCleaningWatermarks}
-              title="Belgeden Filigran ve Damgaları Tek Tıkla Kusursuz Temizle"
-            >
-              {isCleaningWatermarks ? (
-                <Loader2 size={15} className="animate-spin text-rose-600" />
-              ) : (
-                <Eraser size={15} className="text-rose-600 group-hover:scale-110 transition-transform" />
-              )}
-              <span>{isCleaningWatermarks ? "Temizleniyor..." : "Filigran Kaldır"}</span>
-            </button>
-            <button
-              type="button"
-              className={`secondary ${formMode !== "none" ? "bg-indigo-50 border-indigo-300 text-indigo-700" : ""}`}
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setFormMode(m => m === "design" ? "fill" : m === "fill" ? "none" : "design")}
-              title="Doldurulabilir Form Alanları"
-            >
-              <FormInput size={15} />
-              <span>{formMode === "design" ? "Form: Tasarım" : formMode === "fill" ? "Form: Doldur" : "Form"}</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setShowFindReplace(prev => !prev)}
               title="Metin / Fiyat Değiştir (Bul ve Değiştir - Ctrl+F)"
             >
               <Search size={15} className="text-amber-400" />
               <span>Metin Değiştir</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowStampModal(true)}
-              title="Resmi Kaşe & Mühür Atölyesi"
-            >
-              <StampIcon size={15} className="text-red-400" />
-              <span>Kaşe</span>
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
-              onClick={() => setShowSecurity(true)}
-              title="Gizlilik ve Güvenlik Araçları (KVKK / Şifreleme)"
-            >
-              <ShieldCheck size={15} />
-              <span>Güvenlik</span>
             </button>
             <button
               type="button"
@@ -2444,10 +2359,30 @@ export default function Workspace({
             </button>
             <button
               type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowPageOrganizer(true)}
+              title="Gelişmiş Sayfa Düzenleyici (Ayır, Döndür, Sil, Sırala)"
+            >
+              <Layers size={15} />
+              <span>Sayfalar</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowCompress(true)}
+              title="PDF Boyutunu Sıkıştır"
+            >
+              <Archive size={15} />
+              <span>Sıkıştır</span>
+            </button>
+            <button
+              type="button"
               className="secondary bg-blue-500/10 border-blue-400/40 text-blue-400 hover:bg-blue-500/20"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setShowToolHub(true)}
-              title="Tüm Atölye Araçları (Ctrl+K)"
+              title="Tüm Atölye Araçları: Kaşe, Güvenlik, Filigran, OCR, Formlar (Ctrl+K)"
             >
               <Sparkles size={15} />
               <span>Araçlar</span>

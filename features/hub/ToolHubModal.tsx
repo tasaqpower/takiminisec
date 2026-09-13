@@ -41,7 +41,7 @@ interface ToolHubModalProps {
 interface ToolDefinition {
   id: ProfessionalToolId;
   title: string;
-  category: 'Tara & Biçim' | 'İnceleme & Düzenleme' | 'Dönüşüm & Otomasyon' | 'Güvenlik & Standartlar';
+  category: 'Önemli Araçlar' | 'Dönüşümler' | 'İnceleme & Düzenleme' | 'Güvenlik & Standartlar';
   description: string;
   badge?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -51,7 +51,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'enhancer',
     title: 'Belge & Görsel Netleştirici',
-    category: 'Tara & Biçim',
+    category: 'Önemli Araçlar',
     description: 'Bulanık taranmış evrakları ve fotoğrafları netleştirin; soluk yazıları koyulaştırıp arka planı temizleyin.',
     badge: 'Yeni',
     icon: Sparkles,
@@ -59,7 +59,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'scanner',
     title: 'Belge Tarayıcı & İyileştirme',
-    category: 'Tara & Biçim',
+    category: 'Önemli Araçlar',
     description: 'Kamera veya görselden 4 noktalı köşe düzeltme, perspektif yamukluk giderme, gölge temizleme ve kontrast filtreleri.',
     badge: 'Paket 1',
     icon: Camera,
@@ -67,7 +67,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'decoration',
     title: 'Filigran, Sayfa No & Üst/Alt Bilgi',
-    category: 'Tara & Biçim',
+    category: 'İnceleme & Düzenleme',
     description: 'Metin/görsel filigran, Romen rakamları (i, ii) veya alfabetik sayfa numaralandırma, 9 konumlu üst ve alt bilgiler.',
     badge: 'Paket 2',
     icon: Stamp,
@@ -75,7 +75,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'page-sizing',
     title: 'Sayfa Kırpma & Yeniden Boyutlandırma',
-    category: 'Tara & Biçim',
+    category: 'Önemli Araçlar',
     description: 'ISO 32000 /CropBox kırpma, otomatik beyaz boşluk kırpma, A3/A4/A5/Letter orantılı vektör ölçekleme.',
     badge: 'Paket 7',
     icon: Crop,
@@ -83,7 +83,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'navigation',
     title: 'İçindekiler, Yer İmleri & Bağlantılar',
-    category: 'Tara & Biçim',
+    category: 'İnceleme & Düzenleme',
     description: 'Tıklanabilir PDF içindekiler tablosu (TOC), hiyerarşik PDF Outlines yer imleri ağacı ve güvenli dış link doğrulayıcı.',
     badge: 'Paket 6',
     icon: Bookmark,
@@ -115,7 +115,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'conversion',
     title: 'Gelişmiş Format Dönüşümleri',
-    category: 'Dönüşüm & Otomasyon',
+    category: 'Dönüşümler',
     description: 'PDF ↔ Word (.docx), Excel (.xlsx), PowerPoint (.pptx), Görsel ZIP ve Excel tablolarından sayfalanmış PDF üretimi.',
     badge: 'Paket 8',
     icon: FileSpreadsheet,
@@ -123,7 +123,7 @@ const TOOLS: ToolDefinition[] = [
   {
     id: 'batch',
     title: 'Toplu Dosya İşlemleri (Batch)',
-    category: 'Dönüşüm & Otomasyon',
+    category: 'Dönüşümler',
     description: 'Birden çok PDF dosyasını eşzamanlı dönüştürün, sıkıştırın, filigranlayın; hata izolasyonu ve ZIP paketi.',
     badge: 'Paket 5',
     icon: Layers3,
@@ -168,6 +168,7 @@ export const ToolHubModal: React.FC<ToolHubModalProps> = ({
   onSelectTool,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Handle ESC or Ctrl+K
   useEffect(() => {
@@ -183,6 +184,7 @@ export const ToolHubModal: React.FC<ToolHubModalProps> = ({
   if (!isOpen) return null;
 
   const filteredTools = TOOLS.filter((tool) => {
+    if (selectedCategory !== 'all' && tool.category !== selectedCategory) return false;
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
     return (
@@ -226,9 +228,30 @@ export const ToolHubModal: React.FC<ToolHubModalProps> = ({
               autoFocus
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Araç veya özellik ara (örn. 'İmza', 'Filigran', 'Excel', 'Kırpma', 'PDF/A')..."
+              placeholder="Araç veya özellik ara (örn. 'İmza', 'Filigran', 'Excel', 'Netleştir', 'Word')..."
               className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
+          </div>
+
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1 text-xs scrollbar-none">
+            {['all', 'Önemli Araçlar', 'Dönüşümler', 'İnceleme & Düzenleme', 'Güvenlik & Standartlar'].map((cat) => {
+              const label = cat === 'all' ? 'Tüm Araçlar' : cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === cat
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
