@@ -413,3 +413,28 @@ html.dark .icon-button:hover {
 .pdf-surface .inline-text-editor {
   color: #000000 !important;
 }
+
+/* ==========================================================================
+   FORMA AI COPILOT FLOATING POSITIONING
+   ========================================================================== */
+.forma-ai-trigger {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 99999 !important;
+}
+
+.forma-ai-modal {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 99999 !important;
+  width: 420px !important;
+  max-width: calc(100vw - 32px) !important;
+  height: 560px !important;
+  max-height: calc(100vh - 48px) !important;
+}

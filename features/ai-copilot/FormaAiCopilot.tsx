@@ -201,7 +201,13 @@ export function FormaAiCopilot({
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
-      setTimeout(() => inputRef.current?.focus(), 150);
+      setTimeout(() => {
+        try {
+          inputRef.current?.focus({ preventScroll: true });
+        } catch {
+          inputRef.current?.focus();
+        }
+      }, 150);
     }
   }, [isOpen, messages]);
 
@@ -425,7 +431,15 @@ export function FormaAiCopilot({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-medium shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 group border border-white/20 backdrop-blur-sm ${className}`}
+          className={`forma-ai-trigger fixed bottom-6 right-6 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-medium shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 group border border-white/20 backdrop-blur-sm ${className}`}
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            top: "auto",
+            left: "auto",
+            zIndex: 99999,
+          }}
           aria-label="Forma AI Asistanını Aç"
         >
           <div className="relative">
@@ -454,7 +468,19 @@ export function FormaAiCopilot({
             const droppedFile = e.dataTransfer.files?.[0];
             if (droppedFile) void processAndLoadFile(droppedFile);
           }}
-          className="fixed bottom-6 right-6 z-[9999] w-[420px] max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-48px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100"
+          className="forma-ai-modal fixed bottom-6 right-6 z-[9999] w-[420px] max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-48px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100"
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            top: "auto",
+            left: "auto",
+            zIndex: 99999,
+            width: "420px",
+            maxWidth: "calc(100vw - 32px)",
+            height: "560px",
+            maxHeight: "calc(100vh - 48px)",
+          }}
         >
           {/* Drag Overlay */}
           {isDragging && (
