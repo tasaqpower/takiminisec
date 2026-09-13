@@ -1,21 +1,29 @@
 /**
  * Forma AI Natural Language Intent Matching Engine
  * Fully offline, rule-based + semantic intent classifier tuned for Turkish & English document tasks.
+ * Covers all capabilities of Forma: themes, watermarks, enhancement, compression, conversions,
+ * KVKK redaction, stamping, page rotation & deletion, page numbering, encryption, OCR, forms, find & replace.
  */
 
 export type AiActionType =
   | 'theme_dark'
   | 'theme_light'
   | 'watermark_remove'
+  | 'watermark_add'
   | 'enhance_document'
   | 'compress_pdf'
   | 'convert_word'
   | 'convert_excel'
   | 'convert_img'
+  | 'convert_pdfa'
   | 'redact_pii'
   | 'stamp_document'
   | 'rotate_pages'
   | 'delete_pages'
+  | 'page_numbers'
+  | 'protect_pdf'
+  | 'ocr_document'
+  | 'flatten_forms'
   | 'find_replace'
   | 'document_info'
   | 'general_help';
@@ -26,10 +34,13 @@ export interface AiIntentResult {
   parameters?: {
     searchTerm?: string;
     replaceTerm?: string;
-    stampType?: 'asli_gibidir' | 'onaylandi' | 'gizli';
+    stampType?: 'asli_gibidir' | 'onaylandi' | 'gizli' | 'odendi' | 'kontrol_edildi';
     angle?: number;
     pages?: number[];
     enhanceMode?: 'document' | 'photo';
+    watermarkText?: string;
+    password?: string;
+    targetPage?: 'first' | 'last' | number;
   };
   explanation: string;
   suggestedReply: string;
@@ -65,7 +76,7 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'theme_dark',
       confidence: 0.98,
       explanation: 'Koyu mod teması aktifleştiriliyor.',
-      suggestedReply: 'Arayüzü hemen gece moduna (koyu moda) geçirdim! 🌙'
+      suggestedReply: 'Arayüzü hemen gece moduna (koyu moda) geçirdim! 🌙',
     };
   }
 
@@ -83,11 +94,31 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'theme_light',
       confidence: 0.98,
       explanation: 'Açık mod teması aktifleştiriliyor.',
-      suggestedReply: 'Arayüzü gündüz moduna (açık moda) geçirdim! ☀️'
+      suggestedReply: 'Arayüzü gündüz moduna (açık moda) geçirdim! ☀️',
     };
   }
 
-  // 3. Watermark Removal
+  // 3. Watermark Add ("filigran ekle", "filigran koy", "filigran bas")
+  if (
+    (n.includes('filigran') || n.includes('fligran') || n.includes('watermark')) &&
+    (n.includes('ekle') || n.includes('koy') || n.includes('bas') || n.includes('yerlestir'))
+  ) {
+    let wmText = 'GİZLİ';
+    if (n.includes('taslak')) wmText = 'TASLAK';
+    if (n.includes('ornek')) wmText = 'ÖRNEK';
+    if (n.includes('kopya')) wmText = 'KOPYA';
+    if (n.includes('iptal')) wmText = 'İPTAL';
+
+    return {
+      action: 'watermark_add',
+      confidence: 0.95,
+      parameters: { watermarkText: wmText },
+      explanation: `Belge sayfalarına yarı saydam '${wmText}' filigranı eklenecek.`,
+      suggestedReply: `Belge sayfalarına '${wmText}' filigranı ekliyorum... 🔏`,
+    };
+  }
+
+  // 4. Watermark Removal
   if (
     n.includes('filigran') ||
     n.includes('fligran') ||
@@ -103,11 +134,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'watermark_remove',
       confidence: 0.95,
       explanation: 'Belgedeki tekrar eden filigranlar, taslak damgaları ve saydam yazılar silinecek.',
-      suggestedReply: 'Belgedeki filigran ve taslak damgalarını vektörel düzeyde temizliyorum... 🧹'
+      suggestedReply: 'Belgedeki filigran ve taslak damgalarını vektörel düzeyde temizliyorum... 🧹',
     };
   }
 
-  // 4. Document / Image Clarification & Enhancement
+  // 5. Document / Image Clarification & Enhancement
   if (
     n.includes('netlestir') ||
     n.includes('net yap') ||
@@ -124,18 +155,18 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'enhance_document',
       confidence: 0.95,
       parameters: {
-        enhanceMode: isPhoto ? 'photo' : 'document'
+        enhanceMode: isPhoto ? 'photo' : 'document',
       },
       explanation: isPhoto
         ? 'Fotoğraf ve renkli görsel keskinleştirme filtresi uygulanacak.'
         : 'Taranmış belge filtresi: Arka plan beyazlatılacak ve soluk yazılar koyulaştırılacak.',
       suggestedReply: isPhoto
         ? 'Görseli renk dengesini koruyarak kristal netliğe kavuşturuyorum... 🖼️✨'
-        : 'Belgedeki soluk yazıları koyulaştırıp arka planı tertemiz beyaz yapıyorum... 📄✨'
+        : 'Belgedeki soluk yazıları koyulaştırıp arka planı tertemiz beyaz yapıyorum... 📄✨',
     };
   }
 
-  // 5. Compression
+  // 6. Compression
   if (
     n.includes('sikistir') ||
     n.includes('boyutunu kucult') ||
@@ -148,11 +179,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'compress_pdf',
       confidence: 0.95,
       explanation: 'Belge görsel kalitesi korunarak maksimum oranda sıkıştırılacak.',
-      suggestedReply: 'PDF dosyasını kalite kaybı olmadan sıkıştırıyorum... 🗜️'
+      suggestedReply: 'PDF dosyasını kalite kaybı olmadan sıkıştırıyorum... 🗜️',
     };
   }
 
-  // 6. KVKK & PII Redaction
+  // 7. KVKK & PII Redaction
   if (
     n.includes('kvkk') ||
     n.includes('sansur') ||
@@ -169,11 +200,27 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'redact_pii',
       confidence: 0.95,
       explanation: 'TC Kimlik, TR IBAN, kredi kartı ve telefon numaraları tespit edilip kalıcı olarak sansürlenecek.',
-      suggestedReply: 'Belgedeki TC Kimlik No, IBAN ve hassas kişisel verileri tespit edip kalıcı olarak maskeliyorum... 🔒'
+      suggestedReply: 'Belgedeki TC Kimlik No, IBAN ve hassas kişisel verileri tespit edip kalıcı olarak maskeliyorum... 🔒',
     };
   }
 
-  // 7. Conversions: Word (.docx)
+  // 8. PDF/A Archival Conversion
+  if (
+    n.includes('pdf/a') ||
+    n.includes('pdfa') ||
+    n.includes('arsiv standardi') ||
+    n.includes('arsivlik') ||
+    n.includes('iso 19005')
+  ) {
+    return {
+      action: 'convert_pdfa',
+      confidence: 0.96,
+      explanation: 'PDF belgesi ISO 19005-2 (PDF/A-2b) uzun vadeli arşiv standardına dönüştürülecek.',
+      suggestedReply: 'Belgeyi uluslararası PDF/A-2b arşiv formatına dönüştürüyorum... 🏛️',
+    };
+  }
+
+  // 9. Conversions: Word (.docx)
   if (
     n.includes('word') ||
     n.includes('docx') ||
@@ -184,11 +231,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'convert_word',
       confidence: 0.95,
       explanation: 'PDF içeriği düzenlenebilir Microsoft Word (.docx) belgesine dönüştürülecek.',
-      suggestedReply: 'PDF belgesini düzenlenebilir Microsoft Word (.docx) formatına çeviriyorum... 📝'
+      suggestedReply: 'PDF belgesini düzenlenebilir Microsoft Word (.docx) formatına çeviriyorum... 📝',
     };
   }
 
-  // 8. Conversions: Excel (.xlsx)
+  // 10. Conversions: Excel (.xlsx)
   if (
     n.includes('excel') ||
     n.includes('xlsx') ||
@@ -200,11 +247,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'convert_excel',
       confidence: 0.95,
       explanation: 'PDF içindeki tablolar çekilip Excel (.xlsx) tablosuna dönüştürülecek.',
-      suggestedReply: 'Belge içerisindeki tabloları Excel (.xlsx) formatına aktarıyorum... 📊'
+      suggestedReply: 'Belge içerisindeki tabloları Excel (.xlsx) formatına aktarıyorum... 📊',
     };
   }
 
-  // 9. Conversions: Image (PNG/JPG)
+  // 11. Conversions: Image (PNG/JPG)
   if (
     n.includes('gorsel yap') ||
     n.includes('resim yap') ||
@@ -216,32 +263,118 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'convert_img',
       confidence: 0.93,
       explanation: 'PDF sayfaları yüksek çözünürlüklü görsellere dönüştürülecek.',
-      suggestedReply: 'PDF sayfalarını yüksek çözünürlüklü görsellere dönüştürüyorum... 🖼️'
+      suggestedReply: 'PDF sayfalarını yüksek çözünürlüklü görsellere dönüştürüyorum... 🖼️',
     };
   }
 
-  // 10. Stamp / Seal
+  // 12. Stamp / Seal
   if (
     n.includes('kase') ||
     n.includes('muhur') ||
     n.includes('asli gibidir') ||
     n.includes('onaylandi') ||
-    n.includes('damgala')
+    n.includes('damgala') ||
+    n.includes('odendi') ||
+    n.includes('kontrol edildi')
   ) {
-    let stampType: 'asli_gibidir' | 'onaylandi' | 'gizli' = 'asli_gibidir';
+    let stampType: 'asli_gibidir' | 'onaylandi' | 'gizli' | 'odendi' | 'kontrol_edildi' = 'asli_gibidir';
     if (n.includes('onay')) stampType = 'onaylandi';
     if (n.includes('gizli')) stampType = 'gizli';
+    if (n.includes('odendi') || n.includes('tahsil')) stampType = 'odendi';
+    if (n.includes('kontrol')) stampType = 'kontrol_edildi';
+
+    const stampName = stampType === 'asli_gibidir' ? 'ASLI GİBİDİR' : stampType.toUpperCase().replace('_', ' ');
 
     return {
       action: 'stamp_document',
       confidence: 0.95,
       parameters: { stampType },
-      explanation: `Belgeye resmi '${stampType.toUpperCase()}' kaşesi basılacak.`,
-      suggestedReply: `Belgenize resmi '${stampType === 'asli_gibidir' ? 'ASLI GİBİDİR' : stampType.toUpperCase()}' kaşesi ekliyorum... 🏷️`
+      explanation: `Belgeye resmi '${stampName}' kaşesi basılacak.`,
+      suggestedReply: `Belgenize resmi '${stampName}' kaşesi ve onay mührü basıyorum... 🏷️`,
     };
   }
 
-  // 11. Find & Replace Text
+  // 13. Page Numbers ("sayfa numarası ekle", "sayfaları numaralandır")
+  if (
+    n.includes('sayfa no') ||
+    n.includes('sayfa numarasi') ||
+    n.includes('numaralandir') ||
+    n.includes('alt bilgi no')
+  ) {
+    return {
+      action: 'page_numbers',
+      confidence: 0.94,
+      explanation: 'Tüm sayfalara sayfa numarası (Sayfa X / Y) eklenecek.',
+      suggestedReply: 'Tüm sayfalara resmi sayfa numaralarını ekliyorum... 🔢',
+    };
+  }
+
+  // 14. Delete Pages ("sayfa sil", "ilk sayfayı sil", "son sayfayı sil")
+  if (
+    (n.includes('sayfa') || n.includes('sayfayi')) &&
+    (n.includes('sil') || n.includes('cikar') || n.includes('at'))
+  ) {
+    const isFirst = n.includes('ilk') || n.includes('1.') || n.includes('birinci');
+    const isLast = n.includes('son');
+    const targetPage = isFirst ? 'first' : isLast ? 'last' : 'last';
+
+    return {
+      action: 'delete_pages',
+      confidence: 0.94,
+      parameters: { targetPage },
+      explanation: `${isFirst ? 'İlk sayfa' : isLast ? 'Son sayfa' : 'Belirtilen sayfa'} belgeden silinecek.`,
+      suggestedReply: `${isFirst ? 'İlk sayfayı' : 'Son sayfayı'} belgeden siliyorum... 🗑️`,
+    };
+  }
+
+  // 15. Password Protection / Encryption ("şifrele", "parola koy", "kilitle")
+  if (
+    n.includes('sifre') ||
+    n.includes('parola') ||
+    n.includes('kilitle') ||
+    n.includes('guvenlik koy')
+  ) {
+    const pwMatch = raw.match(/(?:sifre|parola)[\s:]+([^\s]+)/i);
+    const password = pwMatch ? pwMatch[1].trim() : 'Forma123!';
+
+    return {
+      action: 'protect_pdf',
+      confidence: 0.92,
+      parameters: { password },
+      explanation: `Belge parola ile şifrelenecek (Parola: ${password}).`,
+      suggestedReply: `Belgenizi standart AES koruması ile şifreliyorum (Parola: ${password})... 🔐`,
+    };
+  }
+
+  // 16. OCR / Text Extraction
+  if (
+    n.includes('ocr') ||
+    n.includes('metin tani') ||
+    n.includes('metne dok') ||
+    n.includes('yazilari oku') ||
+    n.includes('metni cikar')
+  ) {
+    return {
+      action: 'ocr_document',
+      confidence: 0.93,
+      explanation: 'Taranmış sayfalar taranarak tüm metinler metin olarak okunacak.',
+      suggestedReply: 'Belgedeki metinleri optik karakter tanıma (OCR) ile okuyup çıkarıyorum... 🔍📄',
+    };
+  }
+
+  // 17. Flatten Forms ("formları düzleştir", "salt okunur yap")
+  if (
+    n.includes('form') && (n.includes('duzlestir') || n.includes('flatten') || n.includes('salt okunur') || n.includes('sabit yap'))
+  ) {
+    return {
+      action: 'flatten_forms',
+      confidence: 0.95,
+      explanation: 'Form alanları düzleştirilerek sabit metne dönüştürülecek.',
+      suggestedReply: 'Belgedeki form alanlarını düzleştirip salt okunur yapıyorum... 📋',
+    };
+  }
+
+  // 18. Find & Replace Text
   const replaceRegex = /(?:['"]?)([^'"\n\r]+)(?:['"]?)\s+(?:kelimesini|yazisini|ifadesini|metnini)\s+(?:['"]?)([^'"\n\r]+)(?:['"]?)\s+(?:ile|olarak|diye)?\s*(?:degistir|yap|degistirelim|guncelle)/i;
   const match = raw.match(replaceRegex);
   if (match) {
@@ -252,11 +385,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       confidence: 0.96,
       parameters: { searchTerm, replaceTerm },
       explanation: `'${searchTerm}' ifadesi '${replaceTerm}' ile değiştirilecek.`,
-      suggestedReply: `Belgede geçen '${searchTerm}' ifadelerini bulup '${replaceTerm}' ile değiştiriyorum... 🔍`
+      suggestedReply: `Belgede geçen '${searchTerm}' ifadelerini bulup '${replaceTerm}' ile değiştiriyorum... 🔍`,
     };
   }
 
-  // 12. Rotate Pages
+  // 19. Rotate Pages
   if (
     n.includes('dondur') ||
     n.includes('cevir') ||
@@ -270,11 +403,11 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       confidence: 0.92,
       parameters: { angle },
       explanation: `Sayfalar saat yönünde ${angle} derece döndürülecek.`,
-      suggestedReply: `Belge sayfalarını saat yönünde ${angle}° döndürüyorum... 🔄`
+      suggestedReply: `Belge sayfalarını saat yönünde ${angle}° döndürüyorum... 🔄`,
     };
   }
 
-  // 13. Document Info & Summary
+  // 20. Document Info & Summary
   if (
     n.includes('kac sayfa') ||
     n.includes('sayfa sayisi') ||
@@ -287,7 +420,7 @@ export function parseUserIntent(prompt: string): AiIntentResult {
       action: 'document_info',
       confidence: 0.90,
       explanation: 'Belge metaverileri ve sayfa analizi raporlanacak.',
-      suggestedReply: 'Belge yapısını inceliyorum, sayfa ve boyut özetini hazırlıyorum... 📋'
+      suggestedReply: 'Belge yapısını inceliyorum, sayfa ve boyut özetini hazırlıyorum... 📋',
     };
   }
 
@@ -296,6 +429,6 @@ export function parseUserIntent(prompt: string): AiIntentResult {
     action: 'general_help',
     confidence: 0.5,
     explanation: 'Genel asistan yardımı ve özellik listesi.',
-    suggestedReply: `Forma AI hizmetinizde! Yapabileceklerimden bazıları:\n\n• 🌙 *"Koyu mod yap"* / *"Açık moda geç"*\n• 🧹 *"Filigranı kaldır"*\n• ✨ *"Yazıları netleştir"* / *"Görseli netleştir"*\n• 🔒 *"TC ve IBAN'ları sansürle (KVKK)"*\n• 🗜️ *"PDF'i sıkıştır"*\n• 📝 *"Word'e dönüştür"*\n• 🏷️ *"Aslı gibidir kaşesi bas"*\n• 🔄 *"Sayfaları 90 derece döndür"*`
+    suggestedReply: `Forma AI hizmetinizde! Ne isterseniz doğrudan söyleyin, hemen yapayım:\n\n• 🌙 "Koyu mod yap" / ☀️ "Açık mod yap"\n• 🧹 "Filigranı kaldır" / 🔏 "Filigran ekle"\n• ✨ "Yazıları netleştir" / 🖼️ "Görseli netleştir"\n• 🔒 "TC ve IBAN'ları sansürle (KVKK)"\n• 🗜️ "PDF'i sıkıştır" (boyut düşür)\n• 📝 "Word'e çevir" / 📊 "Excel'e aktar" / 🖼️ "Görsel yap"\n• 🏛️ "PDF/A arşiv formatına çevir"\n• 🏷️ "ASLI GİBİDİR kaşesi bas" / "ONAYLANDI kaşesi vur"\n• 🔄 "Sayfaları 90 derece döndür" / 🗑️ "İlk/son sayfayı sil"\n• 🔢 "Sayfa numarası ekle"\n• 🔐 "Belgeyi şifrele: parola 123456"\n• 🔍 "[Eski] kelimesini [Yeni] ile değiştir"\n• 📋 "Belgeyi analiz et"`,
   };
 }

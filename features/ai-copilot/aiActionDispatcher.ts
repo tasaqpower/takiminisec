@@ -7,6 +7,9 @@ import { compressPdf } from '../compression/compressPdf.ts';
 import { scanPdfForSensitiveEntities, redactDetectedEntities } from '../security/autoRedact.ts';
 import { pdfToDocx } from '../conversion/docxConverter.ts';
 import { pdfToExcel, pdfToImagesZip } from '../conversion/conversionEngine.ts';
+import { convertToPdfA2b } from '../compliance/complianceEngine.ts';
+import { encryptPdfWithPassword } from '../security/pdfEncryption.ts';
+import { extractPdfText } from '../../lib/documents.ts';
 
 export interface AiActionContext {
   pdfBytes?: Uint8Array | null;
@@ -29,12 +32,11 @@ export interface AiActionResult {
 }
 
 /**
- * Applies an authentic official corporate stamp (ASLI GİBİDİR, ONAYLANDI, GİZLİ)
- * directly into PDF pages using vector drawing with pdf-lib.
+ * Applies an authentic official corporate stamp directly onto the PDF
  */
 async function stampPdfDirectly(
   pdfBytes: Uint8Array,
-  stampType: 'asli_gibidir' | 'onaylandi' | 'gizli' = 'asli_gibidir'
+  stampType: 'asli_gibidir' | 'onaylandi' | 'gizli' | 'odendi' | 'kontrol_edildi' = 'asli_gibidir'
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdfBytes);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -45,16 +47,22 @@ async function stampPdfDirectly(
 
   // Stamp attributes based on type
   const isRed = stampType === 'asli_gibidir' || stampType === 'gizli';
-  const color = isRed ? rgb(0.86, 0.15, 0.15) : rgb(0.11, 0.31, 0.85);
-  const title = stampType === 'asli_gibidir'
-    ? 'ASLI GIBIDIR'
-    : stampType === 'onaylandi'
-    ? 'ONAYLANDI'
-    : 'GIZLIDIR';
+  const isGreen = stampType === 'odendi';
+  const color = isRed
+    ? rgb(0.86, 0.15, 0.15)
+    : isGreen
+    ? rgb(0.08, 0.55, 0.24)
+    : rgb(0.11, 0.31, 0.85);
+
+  let title = 'ASLI GIBIDIR';
+  if (stampType === 'onaylandi') title = 'ONAYLANDI';
+  if (stampType === 'gizli') title = 'GIZLIDIR';
+  if (stampType === 'odendi') title = 'ODENDI';
+  if (stampType === 'kontrol_edildi') title = 'KONTROL EDILDI';
 
   // Apply to last page
   const targetPage = pages[pages.length - 1];
-  const { width, height } = targetPage.getSize();
+  const { width } = targetPage.getSize();
 
   // Stamp dimensions and coordinates (bottom right corner)
   const stampW = 180;
@@ -98,7 +106,7 @@ async function stampPdfDirectly(
   targetPage.drawText(title, {
     x: stampX + 22,
     y: stampY + stampH - 42,
-    size: 16,
+    size: title.length > 10 ? 13 : 16,
     font: fontBold,
     color,
     rotate: degrees(-3),
@@ -118,7 +126,88 @@ async function stampPdfDirectly(
 }
 
 /**
- * Rotates all or target pages in a PDF document by angle degrees
+ * Adds a diagonal semi-transparent watermark across all pages
+ */
+async function addWatermarkToPdf(pdfBytes: Uint8Array, text = 'GİZLİ'): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pages = doc.getPages();
+
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+    const cleanText = text.toUpperCase().replace(/[^\x20-\x7E]/g, ' ');
+    page.drawText(cleanText, {
+      x: width * 0.25,
+      y: height * 0.45,
+      size: 48,
+      font,
+      color: rgb(0.82, 0.82, 0.82),
+      opacity: 0.35,
+      rotate: degrees(45),
+    });
+  }
+
+  return await doc.save();
+}
+
+/**
+ * Adds page numbering "Sayfa X / Y" at the bottom center of each page
+ */
+async function addPageNumbersToPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const pages = doc.getPages();
+  const total = pages.length;
+
+  for (let i = 0; i < total; i++) {
+    const page = pages[i];
+    const { width } = page.getSize();
+    const label = `Sayfa ${i + 1} / ${total}`;
+    const textWidth = font.widthOfTextAtSize(label, 9);
+
+    page.drawText(label, {
+      x: (width - textWidth) / 2,
+      y: 20,
+      size: 9,
+      font,
+      color: rgb(0.45, 0.45, 0.45),
+    });
+  }
+
+  return await doc.save();
+}
+
+/**
+ * Deletes first or last page from a PDF
+ */
+async function deletePdfPage(pdfBytes: Uint8Array, target: 'first' | 'last' = 'last'): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const count = doc.getPageCount();
+  if (count <= 1) {
+    throw new Error('Belgede sadece 1 sayfa var. Tek sayfalık belge silinemez.');
+  }
+
+  const pageIdx = target === 'first' ? 0 : count - 1;
+  doc.removePage(pageIdx);
+  return await doc.save();
+}
+
+/**
+ * Flattens all interactive form fields into static page content
+ */
+async function flattenPdfForms(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const form = doc.getForm();
+  try {
+    form.flatten();
+  } catch {
+    // If no form fields exist, proceed
+  }
+  return await doc.save();
+}
+
+/**
+ * Rotates all pages in a PDF document by angle degrees
  */
 async function rotatePdfPages(pdfBytes: Uint8Array, angle = 90): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdfBytes);
@@ -169,7 +258,31 @@ export async function dispatchAiAction(
       };
     }
 
-    // 3. Watermark Removal
+    // 3. Watermark Add
+    case 'watermark_add': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'watermark_add',
+          message: 'Filigran eklemek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      const wmText = intent.parameters?.watermarkText || 'GİZLİ';
+      onProgress?.(`Belge sayfalarına '${wmText}' filigranı ekleniyor...`);
+
+      const stampedBytes = await addWatermarkToPdf(context.pdfBytes, wmText);
+
+      return {
+        success: true,
+        action: 'watermark_add',
+        message: `Belge sayfalarına '${wmText}' filigranı başarıyla eklendi! 🔏`,
+        newPdfBytes: stampedBytes,
+        newFileName: `${baseName}_filigranli.pdf`,
+      };
+    }
+
+    // 4. Watermark Removal
     case 'watermark_remove': {
       if (!context.pdfBytes) {
         return {
@@ -207,7 +320,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 4. Enhance Document / Scan / Image
+    // 5. Enhance Document / Scan / Image
     case 'enhance_document': {
       if (!context.pdfBytes) {
         return {
@@ -238,7 +351,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 5. Compress PDF
+    // 6. Compress PDF
     case 'compress_pdf': {
       if (!context.pdfBytes) {
         return {
@@ -264,7 +377,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 6. KVKK / PII Redaction
+    // 7. KVKK / PII Redaction
     case 'redact_pii': {
       if (!context.pdfBytes) {
         return {
@@ -298,7 +411,29 @@ export async function dispatchAiAction(
       };
     }
 
-    // 7. Convert to Word (.docx)
+    // 8. PDF/A Archival Standard
+    case 'convert_pdfa': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'convert_pdfa',
+          message: 'PDF/A dönüştürme için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      onProgress?.('Belge ISO 19005-2 PDF/A-2b arşiv formatına uyarlanıyor...');
+      const pdfaBytes = await convertToPdfA2b(context.pdfBytes, { title: baseName });
+
+      return {
+        success: true,
+        action: 'convert_pdfa',
+        message: 'Belgeniz uluslararası PDF/A-2b uzun vadeli arşiv standardına dönüştürüldü! 🏛️',
+        newPdfBytes: pdfaBytes,
+        newFileName: `${baseName}_pdfa.pdf`,
+      };
+    }
+
+    // 9. Convert to Word (.docx)
     case 'convert_word': {
       if (!context.pdfBytes) {
         return {
@@ -323,7 +458,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 8. Convert to Excel (.xlsx)
+    // 10. Convert to Excel (.xlsx)
     case 'convert_excel': {
       if (!context.pdfBytes) {
         return {
@@ -348,7 +483,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 9. Convert to Images (PNG ZIP)
+    // 11. Convert to Images (PNG ZIP)
     case 'convert_img': {
       if (!context.pdfBytes) {
         return {
@@ -373,7 +508,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 10. Stamp Document
+    // 12. Stamp Document
     case 'stamp_document': {
       if (!context.pdfBytes) {
         return {
@@ -384,10 +519,10 @@ export async function dispatchAiAction(
       }
 
       const stampType = intent.parameters?.stampType || 'asli_gibidir';
-      onProgress?.(`Belgeye '${stampType.toUpperCase()}' resmi kaşesi basılıyor...`);
+      const stampLabel = stampType === 'asli_gibidir' ? 'ASLI GİBİDİR' : stampType.toUpperCase().replace('_', ' ');
+      onProgress?.(`Belgeye '${stampLabel}' resmi kaşesi basılıyor...`);
 
       const stampedBytes = await stampPdfDirectly(context.pdfBytes, stampType);
-      const stampLabel = stampType === 'asli_gibidir' ? 'ASLI GİBİDİR' : stampType.toUpperCase();
 
       return {
         success: true,
@@ -398,7 +533,126 @@ export async function dispatchAiAction(
       };
     }
 
-    // 11. Rotate Pages
+    // 13. Page Numbers
+    case 'page_numbers': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'page_numbers',
+          message: 'Sayfa numarası eklemek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      onProgress?.('Sayfa numaraları ekleniyor...');
+      const numberedBytes = await addPageNumbersToPdf(context.pdfBytes);
+
+      return {
+        success: true,
+        action: 'page_numbers',
+        message: 'Tüm sayfalara sayfa numarası (Sayfa X / Y) eklendi! 🔢',
+        newPdfBytes: numberedBytes,
+        newFileName: `${baseName}_numaralandi.pdf`,
+      };
+    }
+
+    // 14. Delete Pages
+    case 'delete_pages': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'delete_pages',
+          message: 'Sayfa silmek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      const target = (intent.parameters?.targetPage as 'first' | 'last') || 'last';
+      onProgress?.(`${target === 'first' ? 'İlk sayfa' : 'Son sayfa'} siliniyor...`);
+
+      const updatedBytes = await deletePdfPage(context.pdfBytes, target);
+
+      return {
+        success: true,
+        action: 'delete_pages',
+        message: `${target === 'first' ? 'İlk sayfa' : 'Son sayfa'} başarıyla silindi! 🗑️`,
+        newPdfBytes: updatedBytes,
+        newFileName: `${baseName}_sayfa_silindi.pdf`,
+      };
+    }
+
+    // 15. Password Protection
+    case 'protect_pdf': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'protect_pdf',
+          message: 'Şifrelemek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      const password = intent.parameters?.password || 'Forma123!';
+      onProgress?.('Belge AES standardı ile şifreleniyor...');
+
+      const encryptedBytes = await encryptPdfWithPassword(context.pdfBytes, password);
+
+      return {
+        success: true,
+        action: 'protect_pdf',
+        message: `Belge başarıyla şifrelendi! Parola: **${password}** 🔐`,
+        newPdfBytes: encryptedBytes,
+        newFileName: `${baseName}_sifreli.pdf`,
+      };
+    }
+
+    // 16. OCR Document
+    case 'ocr_document': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'ocr_document',
+          message: 'Metin tanıma için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      onProgress?.('Sayfadaki metinler taranıyor ve okunuyor...');
+      const lines = await extractPdfText(context.pdfBytes);
+      const joined = lines.filter(Boolean).join('\n');
+      const textPreview = joined.slice(0, 300) || 'Metin ayrıştırılamadı.';
+
+      return {
+        success: true,
+        action: 'ocr_document',
+        message: `🔍 **OCR Metin Tanıma Tamamlandı** (${lines.length} satır):\n\n${textPreview}${joined.length > 300 ? '...' : ''}`,
+        downloadData: {
+          bytes: new TextEncoder().encode(joined),
+          fileName: `${baseName}_okunan_metin.txt`,
+          mimeType: 'text/plain',
+        },
+      };
+    }
+
+    // 17. Flatten Forms
+    case 'flatten_forms': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'flatten_forms',
+          message: 'Form düzleştirmek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      onProgress?.('Form alanları düzleştiriliyor...');
+      const flattenedBytes = await flattenPdfForms(context.pdfBytes);
+
+      return {
+        success: true,
+        action: 'flatten_forms',
+        message: 'Tüm form alanları düzleştirildi ve salt okunur yapıldı! 📋',
+        newPdfBytes: flattenedBytes,
+        newFileName: `${baseName}_duzlestirildi.pdf`,
+      };
+    }
+
+    // 18. Rotate Pages
     case 'rotate_pages': {
       if (!context.pdfBytes) {
         return {
@@ -422,7 +676,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 12. Document Info
+    // 19. Document Info
     case 'document_info': {
       if (!context.pdfBytes) {
         return {
@@ -444,7 +698,7 @@ export async function dispatchAiAction(
       };
     }
 
-    // 13. General Help
+    // 20. General Help
     default: {
       return {
         success: true,

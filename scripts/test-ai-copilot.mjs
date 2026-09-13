@@ -41,6 +41,13 @@ const testCases = [
   { prompt: 'belgeyi onaylandi kasesi ile damgala', expectedAction: 'stamp_document', expectedStamp: 'onaylandi' },
   { prompt: 'sayfalari 90 derece dondur yan duruyor', expectedAction: 'rotate_pages', expectedAngle: 90 },
   { prompt: 'bu belgede kac sayfa var analiz et', expectedAction: 'document_info' },
+  { prompt: 'belgeye GIZLI filigrani ekle', expectedAction: 'watermark_add' },
+  { prompt: 'belgeyi PDF/A arsiv standardina cevir', expectedAction: 'convert_pdfa' },
+  { prompt: 'sayfalara sayfa numarasi ekle', expectedAction: 'page_numbers' },
+  { prompt: 'belgenin ilk sayfasini sil', expectedAction: 'delete_pages' },
+  { prompt: 'belgeyi sifrele: parola 123456', expectedAction: 'protect_pdf' },
+  { prompt: 'form alanlarini duzlestir', expectedAction: 'flatten_forms' },
+  { prompt: 'belgedeki metinleri OCR ile oku', expectedAction: 'ocr_document' },
 ];
 
 let passedIntents = 0;
@@ -163,6 +170,34 @@ async function testDispatcherExecution() {
   assert.strictEqual(excelRes.success, true);
   assert.ok(excelRes.downloadData && excelRes.downloadData.bytes.byteLength > 0);
   console.log(`[PASS] Action: convert_excel executed successfully (${excelRes.downloadData.fileName}: ${excelRes.downloadData.bytes.byteLength} bytes)`);
+
+  // 11. Watermark Add
+  const wmAddRes = await dispatchAiAction(parseUserIntent('belgeye GIZLI filigrani ekle'), ctx);
+  assert.strictEqual(wmAddRes.action, 'watermark_add');
+  assert.strictEqual(wmAddRes.success, true);
+  assert.ok(wmAddRes.newPdfBytes && wmAddRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: watermark_add executed successfully (result: ${wmAddRes.newPdfBytes.byteLength} bytes)`);
+
+  // 12. Page Numbers
+  const numRes = await dispatchAiAction(parseUserIntent('sayfalara sayfa numarasi ekle'), ctx);
+  assert.strictEqual(numRes.action, 'page_numbers');
+  assert.strictEqual(numRes.success, true);
+  assert.ok(numRes.newPdfBytes && numRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: page_numbers executed successfully (result: ${numRes.newPdfBytes.byteLength} bytes)`);
+
+  // 13. PDF/A Archival Conversion
+  const pdfaRes = await dispatchAiAction(parseUserIntent('belgeyi PDF/A arsiv standardina cevir'), ctx);
+  assert.strictEqual(pdfaRes.action, 'convert_pdfa');
+  assert.strictEqual(pdfaRes.success, true);
+  assert.ok(pdfaRes.newPdfBytes && pdfaRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: convert_pdfa executed successfully (result: ${pdfaRes.newPdfBytes.byteLength} bytes)`);
+
+  // 14. Flatten Forms
+  const flatRes = await dispatchAiAction(parseUserIntent('form alanlarini duzlestir'), ctx);
+  assert.strictEqual(flatRes.action, 'flatten_forms');
+  assert.strictEqual(flatRes.success, true);
+  assert.ok(flatRes.newPdfBytes && flatRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: flatten_forms executed successfully (result: ${flatRes.newPdfBytes.byteLength} bytes)`);
 
   console.log('\n======================================================');
   console.log('>>> ALL FORMA AI ACTIONS & INTENTS VERIFIED 100% OK <<<');

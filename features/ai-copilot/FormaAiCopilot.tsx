@@ -10,20 +10,10 @@ import {
   Loader2,
   Paperclip,
   CheckCircle2,
-  AlertCircle,
-  FileText,
-  RotateCw,
-  Moon,
-  Sun,
-  Shield,
-  FileSpreadsheet,
-  FileType,
-  Stamp,
-  RefreshCw,
-  HelpCircle,
-  Bot
+  Bot,
+  UploadCloud,
 } from "lucide-react";
-import { parseUserIntent, type AiActionType } from "./aiIntentEngine";
+import { parseUserIntent } from "./aiIntentEngine";
 import type { AiActionResult } from "./aiActionDispatcher";
 import { toast } from "sonner";
 
@@ -45,19 +35,6 @@ interface ChatMessage {
   isProcessing?: boolean;
 }
 
-const QUICK_ACTIONS = [
-  { label: "Koyu mod yap", prompt: "koyu mod yap", icon: Moon, color: "text-indigo-400" },
-  { label: "Açık mod yap", prompt: "açık mod yap", icon: Sun, color: "text-amber-400" },
-  { label: "Filigranı kaldır", prompt: "bu belgedeki filigranı ve taslak damgalarını kaldır", icon: RefreshCw, color: "text-cyan-400" },
-  { label: "Yazıları netleştir", prompt: "taranmış belgedeki soluk yazıları netleştir ve arka planı beyazlat", icon: Sparkles, color: "text-rose-400" },
-  { label: "TC & IBAN sansürle", prompt: "belgedeki TC kimlik ve IBAN numaralarını KVKK kapsamında sansürle", icon: Shield, color: "text-emerald-400" },
-  { label: "PDF sıkıştır", prompt: "PDF dosyasını kaliteyi koruyarak sıkıştır", icon: FileText, color: "text-blue-400" },
-  { label: "Word'e çevir", prompt: "bu PDF belgesini düzenlenebilir Word (.docx) formatına çevir", icon: FileType, color: "text-sky-400" },
-  { label: "Excel'e aktar", prompt: "belgedeki tabloları Excel tablosuna (.xlsx) aktar", icon: FileSpreadsheet, color: "text-teal-400" },
-  { label: "Aslı gibidir kaşesi", prompt: "belgeye resmi ASLI GİBİDİR kaşesi bas", icon: Stamp, color: "text-red-400" },
-  { label: "Sayfaları 90° döndür", prompt: "sayfaları saat yönünde 90 derece döndür", icon: RotateCw, color: "text-purple-400" },
-];
-
 export function FormaAiCopilot({
   pdfBytes,
   fileName,
@@ -73,6 +50,7 @@ export function FormaAiCopilot({
   const [progressText, setProgressText] = useState<string | null>(null);
   const [activeBytes, setActiveBytes] = useState<Uint8Array | null>(pdfBytes || null);
   const [activeName, setActiveName] = useState<string>(fileName || "Belge.pdf");
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -82,7 +60,7 @@ export function FormaAiCopilot({
     {
       id: "welcome-1",
       sender: "assistant",
-      text: "Merhaba! Ben **Forma AI Belge Asistanı**. Doğal dille söylediğin her komutu doğrudan belgende uygulayabilirim.\n\nNeler yapmamı istersin?",
+      text: "Merhaba! Ben **Forma AI**. Bana ne yapmak istediğini söyle, doğrudan uygulayayım:\n\n• *\"Koyu mod yap\"* / *\"Açık moda geç\"*\n• *\"Filigranı kaldır\"* / *\"Filigran ekle\"*\n• *\"Yazıları netleştir\"* / *\"Görseli netleştir\"*\n• *\"TC ve IBAN'ları sansürle\"*\n• *\"PDF'i sıkıştır\"*\n• *\"Word'e çevir\"* / *\"Excel'e aktar\"*\n• *\"ASLI GİBİDİR kaşesi bas\"*\n• *\"Sayfaları 90 derece döndür\"* / *\"İlk/son sayfayı sil\"*\n• *\"Sayfa numarası ekle\"* / *\"PDF/A yap\"*",
       timestamp: "Forma AI",
     }
   ]);
@@ -139,32 +117,80 @@ export function FormaAiCopilot({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!/\.pdf$/i.test(file.name)) {
-      toast.error("Lütfen geçerli bir PDF dosyası seçin.");
-      return;
-    }
+  const processAndLoadFile = async (file: File) => {
+    setIsProcessing(true);
+    setProgressText(`${file.name} taranıyor ve PDF formatına hazırlanıyor...`);
 
     try {
       const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      setActiveBytes(bytes);
+      let convertedPdfBytes: Uint8Array;
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+
+      if (/\.pdf$/i.test(file.name)) {
+        convertedPdfBytes = new Uint8Array(buf);
+      } else if (/\.(docx|doc)$/i.test(file.name)) {
+        setProgressText("Word belgesi PDF sayfalarına dönüştürülüyor...");
+        const { docxToPdf } = await import("../conversion/docxConverter.ts");
+        convertedPdfBytes = await docxToPdf(new Uint8Array(buf), { title: baseName });
+      } else if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
+        setProgressText("Excel tablosu PDF sayfalarına dönüştürülüyor...");
+        const { excelToPdf } = await import("../conversion/excelToPdf.ts");
+        convertedPdfBytes = await excelToPdf(new Uint8Array(buf), { title: baseName, orientation: "auto" });
+      } else if (/\.(png|jpe?g|webp)$/i.test(file.name)) {
+        setProgressText("Görsel sayfalanmış PDF'e dönüştürülüyor...");
+        const { imagesToPdf } = await import("../conversion/conversionEngine.ts");
+        const isPng = /\.png$/i.test(file.name);
+        convertedPdfBytes = await imagesToPdf(
+          [{ name: file.name, bytes: new Uint8Array(buf), type: isPng ? "png" : "jpeg" }],
+          { pageSize: "A4", orientation: "auto", margin: 15 }
+        );
+      } else if (/\.txt$/i.test(file.name)) {
+        const textContent = new TextDecoder().decode(buf);
+        const { PDFDocument, StandardFonts } = await import("pdf-lib");
+        const doc = await PDFDocument.create();
+        const font = await doc.embedFont(StandardFonts.Helvetica);
+        const lines = textContent.split(/\r?\n/);
+        let page = doc.addPage([595, 842]);
+        let y = 800;
+        for (const line of lines) {
+          if (y < 40) {
+            page = doc.addPage([595, 842]);
+            y = 800;
+          }
+          const cleanLine = line.slice(0, 90).replace(/[^\x20-\x7E]/g, " ");
+          page.drawText(cleanLine, { x: 40, y, size: 10, font });
+          y -= 14;
+        }
+        convertedPdfBytes = await doc.save();
+      } else {
+        toast.error("Desteklenmeyen dosya formatı. (PDF, Word, Excel, Görsel veya TXT seçin)");
+        setIsProcessing(false);
+        setProgressText(null);
+        return;
+      }
+
+      setActiveBytes(convertedPdfBytes);
       setActiveName(file.name);
+
+      if (onApplyPdfBytes) {
+        await onApplyPdfBytes(convertedPdfBytes, file.name);
+      }
 
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           sender: "assistant",
-          text: `📄 **${file.name}** yüklendi ve incelendi. Şimdi ne yapmak istersin? Filigran kaldırabilir, netleştirebilir, sansürleyebilir veya Word'e çevirebilirim.`,
+          text: `📄 **${file.name}** başarıyla yüklendi ve işleme hazırlandı.\n\nŞimdi ne yapmamı istersin? Örneğin:\n• *"bu belgedeki filigranı kaldır"*\n• *"koyu mod yap"*\n• *"ASLI GİBİDİR kaşesi bas"*\n• *"yazıları netleştir"*\n• *"Word'e çevir"*\n• *"TC ve IBAN'ları sansürle"*`,
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
-      toast.success(`${file.name} yapay zekaya yüklendi.`);
-    } catch {
-      toast.error("Dosya okunurken bir hata oluştu.");
+      toast.success(`${file.name} başarıyla yüklendi!`);
+    } catch (err: any) {
+      toast.error(`Dosya yüklenemedi: ${err?.message || "Bilinmeyen hata"}`);
+    } finally {
+      setIsProcessing(false);
+      setProgressText(null);
     }
   };
 
@@ -196,7 +222,7 @@ export function FormaAiCopilot({
       const intent = parseUserIntent(promptToSend);
 
       // 2. Dispatch Action
-      const { dispatchAiAction } = await import("./aiActionDispatcher");
+      const { dispatchAiAction } = await import("./aiActionDispatcher.ts");
       const result = await dispatchAiAction(
         intent,
         {
@@ -255,9 +281,12 @@ export function FormaAiCopilot({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.png,.jpg,.jpeg,.webp"
         className="hidden"
-        onChange={handleFileUpload}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void processAndLoadFile(file);
+        }}
       />
 
       {/* Floating Trigger Button */}
@@ -281,7 +310,31 @@ export function FormaAiCopilot({
 
       {/* Floating Chat Modal */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-32px)] h-[590px] max-h-[calc(100vh-64px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-5 duration-200 text-slate-800 dark:text-slate-100">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const droppedFile = e.dataTransfer.files?.[0];
+            if (droppedFile) void processAndLoadFile(droppedFile);
+          }}
+          className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[calc(100vh-64px)] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-5 duration-200 text-slate-800 dark:text-slate-100 relative"
+        >
+          {/* Drag Overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-50 bg-violet-600/90 text-white flex flex-col items-center justify-center p-6 text-center backdrop-blur-sm animate-in fade-in duration-150">
+              <UploadCloud className="w-12 h-12 mb-3 animate-bounce" />
+              <h4 className="text-base font-bold">Dosyayı Buraya Bırakın</h4>
+              <p className="text-xs text-violet-200 mt-1">
+                PDF, Word (.docx), Excel (.xlsx), Resim (PNG, JPG) veya TXT dosyası kabul edilir.
+              </p>
+            </div>
+          )}
+
           {/* Header */}
           <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/70 backdrop-blur flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -291,7 +344,7 @@ export function FormaAiCopilot({
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-                    Forma AI Belge Asistanı
+                    Forma AI
                   </h3>
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
                 </div>
@@ -304,7 +357,7 @@ export function FormaAiCopilot({
             <div className="flex items-center gap-1">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                title="Yeni PDF Yükle"
+                title="Dosya Yükle (PDF, Word, Excel, Resim)"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
               >
                 <Paperclip className="w-4 h-4" />
@@ -428,22 +481,6 @@ export function FormaAiCopilot({
             )}
 
             <div ref={messagesEndRef} />
-          </div>
-
-          {/* Quick Action Chips Carousel */}
-          <div className="px-3 py-2 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 overflow-x-auto flex gap-1.5 no-scrollbar">
-            {QUICK_ACTIONS.map((qa, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => void handleSendMessage(qa.prompt)}
-                disabled={isProcessing}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/70 hover:border-violet-500/50 hover:bg-violet-500/5 dark:hover:bg-violet-500/10 text-[11px] font-medium text-slate-700 dark:text-slate-300 shrink-0 transition-all active:scale-95 disabled:opacity-50"
-              >
-                <qa.icon className={`w-3.5 h-3.5 ${qa.color}`} />
-                <span>{qa.label}</span>
-              </button>
-            ))}
           </div>
 
           {/* Input Area */}
