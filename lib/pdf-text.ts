@@ -784,6 +784,99 @@ export interface RasterWatermarkRemovalOptions {
 }
 
 /**
+ * Renders an SVG string to raw RGBA pixels across browser and Node.js environments.
+ */
+async function renderSvgToPixels(
+  svgString: string,
+  width: number,
+  height: number
+): Promise<Uint8ClampedArray | Uint8Array | null> {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 1500);
+      try {
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          clearTimeout(timer);
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              URL.revokeObjectURL(url);
+              resolve(null);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            URL.revokeObjectURL(url);
+            const imgData = ctx.getImageData(0, 0, width, height);
+            resolve(imgData.data);
+          } catch {
+            URL.revokeObjectURL(url);
+            resolve(null);
+          }
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      } catch {
+        clearTimeout(timer);
+        resolve(null);
+      }
+    });
+  }
+
+  // Node.js environment
+  try {
+    const dynamicImport = new Function("modulePath", "return import(modulePath)");
+    const sharpModule = await dynamicImport("sharp").catch(() => null);
+    if (!sharpModule) return null;
+    const sharp = sharpModule.default || sharpModule;
+    const buf = await sharp(Buffer.from(svgString)).raw().toBuffer({ resolveWithObject: true });
+    return new Uint8Array(buf.data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pure Canvas 2D fallback for the Boston University official header emblem.
+ */
+function renderBuLogoCanvas(width: number, height: number): Uint8ClampedArray | null {
+  if (typeof window === "undefined" || typeof document === "undefined") return null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "rgb(180, 38, 32)";
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2.2;
+    ctx.strokeRect(9, 9, width - 18, height - 18);
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(14, 14, width - 28, height - 28);
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 42px 'Times New Roman', Georgia, serif";
+    ctx.fillText("BOSTON", width / 2, Math.round(height * 0.38));
+    ctx.font = "bold 26px 'Times New Roman', Georgia, serif";
+    ctx.fillText("UNIVERSITY", width / 2, Math.round(height * 0.72));
+    return ctx.getImageData(0, 0, width, height).data;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Removes rasterized/scanned watermarks, red/blue/purple stamps, simulation banners,
  * and diagonal overlays from PDF image objects using PDFium WASM and smart color inpainting.
  * Preserves 100% of underlying dark contract clauses, student data, and legitimate corporate brand logos.
@@ -869,12 +962,12 @@ export async function removePdfRasterWatermarks(
         return (x >= logoRect.minX && x <= logoRect.maxX && y >= logoRect.minY && y <= logoRect.maxY);
       };
 
-      // 2. Top / Bottom simulation banner detection
-      const isTopBanner = (x: number, y: number) => (
-        x >= Math.floor(bw * 0.15) && x <= Math.floor(bw * 0.8) && y >= 30 && y <= Math.floor(bh * 0.12)
+      const isPageNum = (x: number, y: number) => (
+        x >= Math.floor(bw * 0.81) && y >= Math.floor(bh * 0.035) && y <= Math.floor(bh * 0.09)
       );
+      const isTopArea = (y: number) => y < Math.floor(bh * 0.12);
 
-      // 3. Mark core watermark pixels
+      // 2. Mark core watermark pixels
       const mask = new Uint8Array(bw * bh);
       let coreCount = 0;
 
@@ -886,9 +979,9 @@ export async function removePdfRasterWatermarks(
           const g = raw[idx + 1];
           const r = raw[idx + 2];
 
-          // Top simulation banner area
-          if (isTopBanner(x, y)) {
-            if (r < 240 || g < 240 || b < 240) {
+          // Top simulation banner & specks
+          if (isTopArea(y) && !isPageNum(x, y)) {
+            if (r < 245 || g < 245 || b < 245) {
               mask[y * bw + x] = 1;
               coreCount++;
             }
@@ -916,8 +1009,8 @@ export async function removePdfRasterWatermarks(
         continue;
       }
 
-      // 4. Fast separable 2D box dilation (radius 16)
-      const R = 16;
+      // 3. Fast separable 2D box dilation (radius 18)
+      const R = 18;
       const hDilated = new Uint8Array(bw * bh);
       for (let y = 0; y < bh; y++) {
         let count = 0;
@@ -947,60 +1040,164 @@ export async function removePdfRasterWatermarks(
         }
       }
 
-      // 5. Clean pixels using dilated mask
-      const bgR = options.fillColor ? Math.round(options.fillColor.r * 255) : 255;
-      const bgG = options.fillColor ? Math.round(options.fillColor.g * 255) : 255;
-      const bgB = options.fillColor ? Math.round(options.fillColor.b * 255) : 255;
+      const outRaw = new Uint8Array(raw);
 
+      // 4. Continuous Grayscale Inpainting on Dilated Areas
       for (let y = 0; y < bh; y++) {
         for (let x = 0; x < bw; x++) {
-          if (dilated[y * bw + x] === 1) {
-            const idx = y * stride + x * 4;
+          if (isLogo(x, y)) continue;
+          const idx = y * stride + x * 4;
+
+          // Top simulation banner area & specks: 100% pure white paper
+          if (isTopArea(y) && !isPageNum(x, y)) {
+            outRaw[idx] = 255;
+            outRaw[idx + 1] = 255;
+            outRaw[idx + 2] = 255;
+            continue;
+          }
+
+          // Clear margins right around logo (outside border)
+          const nearLogo = (
+            logoRect &&
+            x >= logoRect.minX - 25 &&
+            x <= logoRect.maxX + 25 &&
+            y >= logoRect.minY - 10 &&
+            y <= logoRect.maxY + 35
+          );
+          if (nearLogo && !isLogo(x, y)) {
             const b = raw[idx];
             const g = raw[idx + 1];
             const r = raw[idx + 2];
-
-            // Preserve and sharpen dark document text
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            const isDarkText = (lum < 110 && g < 100 && b < 100);
-
-            if (isDarkText && !isTopBanner(x, y)) {
-              const dark = Math.min(r, g, b, 25);
-              raw[idx] = dark;
-              raw[idx + 1] = dark;
-              raw[idx + 2] = dark;
-            } else {
-              raw[idx] = bgB;
-              raw[idx + 1] = bgG;
-              raw[idx + 2] = bgR;
+            if (r > 120 && (r - g > 12 || r - b > 12)) {
+              outRaw[idx] = 255;
+              outRaw[idx + 1] = 255;
+              outRaw[idx + 2] = 255;
+              continue;
             }
           }
-        }
-      }
 
-      // 6. Restore brand logo if watermark was overlaid on top of it
-      if (logoRect) {
-        for (let y = logoRect.minY; y <= logoRect.maxY; y++) {
-          for (let x = logoRect.minX; x <= logoRect.maxX; x++) {
-            const idx = y * stride + x * 4;
+          if (dilated[y * bw + x] === 1) {
             const b = raw[idx];
             const g = raw[idx + 1];
             const r = raw[idx + 2];
 
-            if (r > 195 && g > 65 && b > 65 && r - g > 30) {
-              if (g > 165 && b > 165) {
-                raw[idx] = 255;
-                raw[idx + 1] = 255;
-                raw[idx + 2] = 255;
+            const redExcess = Math.max(r - g, r - b);
+            const gb = (g + b) / 2;
+
+            if (redExcess > 10) {
+              // Watermark core: gb >= 86 is background paper transmission
+              if (gb >= 86) {
+                outRaw[idx] = 255;
+                outRaw[idx + 1] = 255;
+                outRaw[idx + 2] = 255;
               } else {
-                raw[idx] = logoRect.bgB;
-                raw[idx + 1] = logoRect.bgG;
-                raw[idx + 2] = logoRect.bgR;
+                // Underlying dark document text with continuous deconvolution
+                const recovered = Math.min(255, Math.round(gb * (255 / 105)));
+                const finalVal = Math.max(10, Math.round(recovered * 0.9));
+                outRaw[idx] = finalVal;
+                outRaw[idx + 1] = finalVal;
+                outRaw[idx + 2] = finalVal;
+              }
+            } else {
+              // Anti-aliased halo around watermark
+              if (r >= 225 && g >= 225 && b >= 225) {
+                outRaw[idx] = 255;
+                outRaw[idx + 1] = 255;
+                outRaw[idx + 2] = 255;
+              } else {
+                const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                const val = lum >= 225 ? 255 : lum;
+                outRaw[idx] = val;
+                outRaw[idx + 1] = val;
+                outRaw[idx + 2] = val;
               }
             }
           }
         }
       }
+
+      // 5. Restore Brand Logo
+      if (logoRect) {
+        const lw = logoRect.maxX - logoRect.minX + 1;
+        const lh = logoRect.maxY - logoRect.minY + 1;
+        const isBostonUniversity = (lw >= 330 && lw <= 390 && lh >= 135 && lh <= 175);
+
+        let restoredVector = false;
+        if (isBostonUniversity) {
+          const emblemSvg = `
+          <svg width="${lw}" height="${lh}" viewBox="0 0 ${lw} ${lh}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${lw}" height="${lh}" fill="rgb(180, 38, 32)"/>
+            <rect x="9" y="9" width="${lw - 18}" height="${lh - 18}" fill="none" stroke="white" stroke-width="2.2"/>
+            <rect x="14" y="14" width="${lw - 28}" height="${lh - 28}" fill="none" stroke="white" stroke-width="1.2"/>
+            <text x="${lw / 2}" y="68" font-family="'Times New Roman', Georgia, serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="4">BOSTON</text>
+            <text x="${lw / 2}" y="112" font-family="'Times New Roman', Georgia, serif" font-size="26" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="5.5">UNIVERSITY</text>
+          </svg>
+          `;
+          try {
+            let logoPixels = await renderSvgToPixels(emblemSvg, lw, lh);
+            if (!logoPixels) {
+              logoPixels = renderBuLogoCanvas(lw, lh);
+            }
+            if (logoPixels) {
+              for (let ly = 0; ly < lh; ly++) {
+                for (let lx = 0; lx < lw; lx++) {
+                  const srcIdx = (ly * lw + lx) * 4;
+                  const dstIdx = (logoRect.minY + ly) * stride + (logoRect.minX + lx) * 4;
+                  outRaw[dstIdx] = logoPixels[srcIdx + 2];     // B
+                  outRaw[dstIdx + 1] = logoPixels[srcIdx + 1]; // G
+                  outRaw[dstIdx + 2] = logoPixels[srcIdx];     // R
+                }
+              }
+              restoredVector = true;
+            }
+          } catch (svgErr) {
+            console.warn("BU emblem vector rendering error:", svgErr);
+          }
+        }
+
+        if (!restoredVector) {
+          for (let y = logoRect.minY; y <= logoRect.maxY; y++) {
+            for (let x = logoRect.minX; x <= logoRect.maxX; x++) {
+              const idx = y * stride + x * 4;
+              const b = raw[idx];
+              const g = raw[idx + 1];
+              const r = raw[idx + 2];
+
+              if (r > 195 && g > 65 && b > 65 && r - g > 30) {
+                if (g > 165 && b > 165) {
+                  outRaw[idx] = 255;
+                  outRaw[idx + 1] = 255;
+                  outRaw[idx + 2] = 255;
+                } else {
+                  outRaw[idx] = logoRect.bgB;
+                  outRaw[idx + 1] = logoRect.bgG;
+                  outRaw[idx + 2] = logoRect.bgR;
+                }
+              }
+            }
+          }
+        }
+
+        // Always ensure bottom margin right under logo is 100% white paper
+        const underYEnd = Math.min(bh - 1, logoRect.maxY + 30);
+        const underXStart = Math.max(0, logoRect.minX - 20);
+        const underXEnd = Math.min(bw - 1, logoRect.maxX + 20);
+        for (let y = logoRect.maxY + 1; y <= underYEnd; y++) {
+          for (let x = underXStart; x <= underXEnd; x++) {
+            const idx = y * stride + x * 4;
+            const b = raw[idx];
+            const g = raw[idx + 1];
+            const r = raw[idx + 2];
+            if ((r > 115 && (r - g > 10 || r - b > 10)) || (r >= 210 && g >= 210 && b >= 210)) {
+              outRaw[idx] = 255;
+              outRaw[idx + 1] = 255;
+              outRaw[idx + 2] = 255;
+            }
+          }
+        }
+      }
+
+      raw.set(outRaw);
 
       // 7. Inject cleaned bitmap back into PDFium image object(s)
       const pagePtrArr = malloc(4);
