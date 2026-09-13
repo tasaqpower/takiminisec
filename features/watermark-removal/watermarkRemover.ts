@@ -1,7 +1,7 @@
-import { removePdfText, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
+import { removePdfText, removePdfTextObjects, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { loadPdf } from "@/lib/documents";
 import { PDFDocument, rgb } from "pdf-lib";
-import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector";
+import { normalizeTurkish, reconstructPageLines, WATERMARK_KEYWORDS } from "./watermarkDetector";
 import { findVisualTextBounds } from "./visualWatermarkDetector";
 import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes";
 
@@ -36,11 +36,39 @@ export async function removeWatermarks(
     for (let i = 0; i < totalPages; i++) targetPages.add(i);
   }
 
-  // 1. Collect candidate removals
+  const selectedSet = new Set(options.candidateIds);
+
+  // 1a. Surgical Object-Level Watermark Removal via PDFium
+  // Removes entire watermark text objects directly from the PDF stream without altering
+  // or redacting any adjacent or overlapping legitimate contract text!
+  const candidateTexts = allCandidates
+    .filter(c => selectedSet.has(c.id) && c.type === "text" && c.text)
+    .map(c => c.text as string);
+
+  if (options.customText?.trim()) {
+    candidateTexts.push(options.customText.trim());
+  }
+
+  let objectRemovalCount = 0;
+  try {
+    const objResult = await removePdfTextObjects(currentBytes, {
+      candidateTexts,
+      targetPages: Array.from(targetPages),
+      keywords: WATERMARK_KEYWORDS
+    });
+    if (objResult.removedCount > 0) {
+      currentBytes = objResult.bytes;
+      objectRemovalCount = objResult.removedCount;
+      removedTextCount += objResult.removedCount;
+    }
+  } catch (objErr) {
+    console.warn("Object-level watermark removal warning:", objErr);
+  }
+
+  // 1b. Collect candidate removals
   const textRemovals: TextRemoval[] = [];
   const imageRemovals: ImageRemoval[] = [];
 
-  const selectedSet = new Set(options.candidateIds);
   for (const cand of allCandidates) {
     if (!selectedSet.has(cand.id)) continue;
 
@@ -204,8 +232,8 @@ export async function removeWatermarks(
   // Clean up PDF.js doc instance
   try { await doc.loadingTask.destroy(); } catch {}
 
-  // 3. Apply Text Removals via PDFium WASM
-  if (textRemovals.length > 0) {
+  // 3. Fallback Quad Text Removals (only if object-level removal did not find anything, or if explicit manualBoxes were drawn)
+  if (textRemovals.length > 0 && (objectRemovalCount === 0 || (options.manualBoxes && options.manualBoxes.length > 0))) {
     // Deduplicate removals by page and quad
     const uniqueRemovals: TextRemoval[] = [];
     const seen = new Set<string>();

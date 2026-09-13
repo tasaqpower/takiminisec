@@ -85,6 +85,180 @@ export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) 
   } finally { if (doc) m.FPDF_CloseDocument(doc); free(input); }
 }
 
+export type TextObjectRemovalTarget = {
+  candidateTexts?: string[];
+  targetPages?: number[];
+  keywords?: string[];
+};
+
+function checkWatermarkMatch(rawText: string, candidateTexts: string[], keywords: string[]): boolean {
+  if (!rawText || rawText.trim().length < 2) return false;
+  const norm = rawText
+    .replace(/İ/g, "i").replace(/I/g, "ı").replace(/ı/g, "i")
+    .replace(/Ğ/g, "g").replace(/ğ/g, "g")
+    .replace(/Ü/g, "u").replace(/ü/g, "u")
+    .replace(/Ş/g, "s").replace(/ş/g, "s")
+    .replace(/Ö/g, "o").replace(/ö/g, "o")
+    .replace(/Ç/g, "c").replace(/ç/g, "c")
+    .toLowerCase()
+    .trim();
+
+  // Contract clause immunity (Madde 1:, Article 2:, etc.)
+  if (/^(?:madde|article|fıkra|fikra|bent|bolum|kisim|ek|taraflar|konu|amac|hukumler|sozlesme|protokol)\s*\d*[:.]?/i.test(norm)) {
+    return false;
+  }
+
+  const spaceless = norm.replace(/[\s\-_.]/g, "");
+
+  // 1. Check against candidate texts
+  for (const cand of candidateTexts) {
+    if (!cand) continue;
+    const candNorm = cand
+      .replace(/İ/g, "i").replace(/I/g, "ı").replace(/ı/g, "i")
+      .replace(/Ğ/g, "g").replace(/ğ/g, "g")
+      .replace(/Ü/g, "u").replace(/ü/g, "u")
+      .replace(/Ş/g, "s").replace(/ş/g, "s")
+      .replace(/Ö/g, "o").replace(/ö/g, "o")
+      .replace(/Ç/g, "c").replace(/ç/g, "c")
+      .toLowerCase()
+      .trim();
+    const candSpaceless = candNorm.replace(/[\s\-_.]/g, "");
+    if (norm === candNorm || spaceless === candSpaceless) return true;
+    if (candNorm.length >= 4 && norm.includes(candNorm)) return true;
+    if (candSpaceless.length >= 4 && spaceless.includes(candSpaceless)) return true;
+  }
+
+  // 2. Check against known keywords
+  for (const kw of keywords) {
+    const kwNorm = kw.toLowerCase().trim();
+    const kwSpaceless = kwNorm.replace(/[\s\-_.]/g, "");
+    if (norm === kwNorm || spaceless === kwSpaceless) return true;
+    if (kwSpaceless.length >= 4 && spaceless.includes(kwSpaceless)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Surgical Object-Level Text Removal via PDFium.
+ * Removes entire text objects directly from the PDF stream without altering or redacting
+ * adjacent or overlapping legitimate contract text.
+ */
+export async function removePdfTextObjects(
+  bytes: Uint8Array,
+  target: TextObjectRemovalTarget
+): Promise<{ bytes: Uint8Array; removedCount: number }> {
+  const m = await engine();
+  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+  const { malloc, free } = heap.wasmExports;
+
+  const input = malloc(bytes.length);
+  let doc = 0;
+  let removedCount = 0;
+
+  const candidateTexts = target.candidateTexts || [];
+  const targetPages = target.targetPages ? new Set(target.targetPages) : null;
+  const keywords = target.keywords || [];
+
+  const bufferSize = 4096;
+  const bufPtr = malloc(bufferSize);
+
+  try {
+    heap.HEAPU8.set(bytes, input);
+    doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
+    if (!doc) throw Error("PDF metin nesnesi düzenlemesi için açılamadı.");
+
+    const pageCount = m.FPDF_GetPageCount(doc);
+
+    for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+      if (targetPages && !targetPages.has(pageIdx)) continue;
+
+      const page = m.FPDF_LoadPage(doc, pageIdx);
+      if (!page) continue;
+      const textPage = m.FPDFText_LoadPage(page);
+
+      const objCount = m.FPDFPage_CountObjects(page);
+      const toRemove: number[] = [];
+
+      for (let i = 0; i < objCount; i++) {
+        const obj = m.FPDFPage_GetObject(page, i);
+        const type = m.FPDFPageObj_GetType(obj);
+
+        if (type === 1) { // FPDF_PAGEOBJ_TEXT
+          heap.HEAPU8.fill(0, bufPtr, bufPtr + bufferSize);
+          const written = m.FPDFTextObj_GetText(obj, textPage, bufPtr, bufferSize);
+          if (written > 2) {
+            const charCount = Math.max(0, Math.floor((written - 2) / 2));
+            const u16 = new Uint16Array(heap.HEAPU8.buffer, bufPtr, charCount);
+            const rawText = String.fromCharCode(...u16);
+
+            if (checkWatermarkMatch(rawText, candidateTexts, keywords)) {
+              toRemove.push(obj);
+            }
+          }
+        } else if (type === 5) { // FPDF_PAGEOBJ_FORM
+          if (m.FPDFFormObj_CountObjects && m.FPDFFormObj_GetObject && m.FPDFFormObj_RemoveObject) {
+            const nestedCount = m.FPDFFormObj_CountObjects(obj);
+            for (let j = 0; j < nestedCount; j++) {
+              const nestedObj = m.FPDFFormObj_GetObject(obj, j);
+              if (nestedObj && m.FPDFPageObj_GetType(nestedObj) === 1) {
+                heap.HEAPU8.fill(0, bufPtr, bufPtr + bufferSize);
+                const written = m.FPDFTextObj_GetText(nestedObj, textPage, bufPtr, bufferSize);
+                if (written > 2) {
+                  const charCount = Math.max(0, Math.floor((written - 2) / 2));
+                  const u16 = new Uint16Array(heap.HEAPU8.buffer, bufPtr, charCount);
+                  const rawText = String.fromCharCode(...u16);
+                  if (checkWatermarkMatch(rawText, candidateTexts, keywords)) {
+                    m.FPDFFormObj_RemoveObject(obj, nestedObj);
+                    removedCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for (const obj of toRemove) {
+        if (m.FPDFPage_RemoveObject(page, obj)) {
+          removedCount++;
+        }
+      }
+
+      if (toRemove.length > 0) {
+        m.FPDFPage_GenerateContent(page);
+      }
+
+      m.FPDFText_ClosePage(textPage);
+      m.FPDF_ClosePage(page);
+    }
+
+    if (removedCount === 0) {
+      return { bytes, removedCount: 0 };
+    }
+
+    const writer = m.PDFiumExt_OpenFileWriter();
+    let output = 0;
+    try {
+      if (!m.PDFiumExt_SaveAsCopy(doc, writer)) throw Error("Düzenlenen PDF oluşturulamadı.");
+      const length = m.PDFiumExt_GetFileWriterSize(writer);
+      output = malloc(length);
+      m.PDFiumExt_GetFileWriterData(writer, output, length);
+      return {
+        bytes: heap.HEAPU8.slice(output, output + length),
+        removedCount
+      };
+    } finally {
+      if (output) free(output);
+      m.PDFiumExt_CloseFileWriter(writer);
+    }
+  } finally {
+    free(bufPtr);
+    if (doc) m.FPDF_CloseDocument(doc);
+    free(input);
+  }
+}
+
 export type ImageRemoval = {
   page: number;
   bounds?: { left: number; bottom: number; right: number; top: number };
