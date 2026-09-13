@@ -47,7 +47,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const essentialTools = [
   { id: "edit", title: "PDF düzenle", desc: "Metin, not, canlı fatura & fiyat düzeltici.", icon: FileText, color: "violet", type: "PDF", popular: true },
-  { id: "enhancer", title: "Belge & Görsel Netleştir", desc: "Bulanık taranmış yazıları koyulaştır ve fotoğrafları keskinleştir.", icon: Sparkles, color: "rose", type: "PDF · JPG · PNG", isNew: true },
+  { id: "enhancer", title: "Görsel Netleştir", desc: "Bulanık taranmış yazıları koyulaştır ve fotoğrafları keskinleştir.", icon: Sparkles, color: "rose", type: "PDF · JPG · PNG", isNew: true },
   { id: "merge", title: "PDF birleştir", desc: "Birden çok dosya, tek bir kusursuz belge.", icon: Merge, color: "teal", type: "PDF" },
   { id: "pages", title: "Sayfaları düzenle", desc: "Ayır, döndür, sırala veya sayfa sil.", icon: Scissors, color: "amber", type: "PDF" },
   { id: "compress", title: "PDF sıkıştır", desc: "Kaliteyi koruyarak dosya boyutunu küçült.", icon: Archive, color: "indigo", type: "PDF" },
@@ -287,7 +287,7 @@ export default function Home() {
                 <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
                   <t.icon /><span>{t.title}</span>
                   {"isNew" in t && t.isNew && (
-                    <span className="nav-new" style={{ background: "#ede9fe", color: "#6d28d9" }}>Yeni</span>
+                    <b className="nav-new not-truncate" style={{ background: "#ede9fe", color: "#6d28d9" }}>Yeni</b>
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -300,7 +300,7 @@ export default function Home() {
                 <SidebarMenuButton className="nav-item" onClick={() => pick(t.id)}>
                   <t.icon /><span>{t.title}</span>
                   {"isNew" in t && t.isNew && (
-                    <span className="nav-new" style={{ background: "#eff6ff", color: "#1d4ed8" }}>Yeni</span>
+                    <b className="nav-new not-truncate" style={{ background: "#eff6ff", color: "#1d4ed8" }}>Yeni</b>
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
