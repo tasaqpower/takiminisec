@@ -43,6 +43,17 @@ async function extractPageTexts(pdfBytes: Uint8Array): Promise<string[][]> {
     throw new Error('Failed to parse PDF: Geçersiz veya bozuk PDF formatı.');
   }
 
+  if (typeof (Promise as any).withResolvers === 'undefined') {
+    (Promise as any).withResolvers = function () {
+      let resolve: any, reject: any;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+  }
+
   const isNode = typeof window === 'undefined';
   try {
     let pdfjsLib: any;
@@ -566,3 +577,5 @@ export async function pdfToPptx(
 
   return await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
+
+export { excelToPdf, parseCsvContent, parseXlsxSheets, type ExcelToPdfOptions } from './excelToPdf';

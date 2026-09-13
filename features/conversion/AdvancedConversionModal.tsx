@@ -4,6 +4,7 @@ import {
   imagesToPdf,
   pdfToExcel,
   pdfToPptx,
+  excelToPdf,
 } from './conversionEngine';
 import type {
   ImageFormat,
@@ -15,6 +16,7 @@ interface AdvancedConversionModalProps {
   onClose: () => void;
   pdfBytes: Uint8Array | null;
   fileName?: string;
+  onOpenConvertedPdf?: (newPdfBytes: Uint8Array, newFileName: string) => void;
 }
 
 export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = ({
@@ -22,8 +24,9 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
   onClose,
   pdfBytes,
   fileName = 'belge',
+  onOpenConvertedPdf,
 }) => {
-  const [activeTab, setActiveTab] = useState<'pdf-to-img' | 'img-to-pdf' | 'pdf-to-xlsx' | 'pdf-to-pptx'>('pdf-to-img');
+  const [activeTab, setActiveTab] = useState<'pdf-to-img' | 'img-to-pdf' | 'pdf-to-xlsx' | 'xlsx-to-pdf' | 'pdf-to-pptx'>('pdf-to-img');
   const [loading, setLoading] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +43,12 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
 
   // PDF to Excel state
   const [sheetName, setSheetName] = useState('Veriler');
+
+  // Excel to PDF state
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [excelOrientation, setExcelOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
+  const [excelTheme, setExcelTheme] = useState<'slate' | 'minimal' | 'corporate'>('slate');
+  const [excelShowRowNumbers, setExcelShowRowNumbers] = useState<boolean>(true);
 
   if (!isOpen) return null;
 
@@ -79,28 +88,21 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    const newItems: ImageToPdfItem[] = [];
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      const isPng = file.type.includes('png') || file.name.endsWith('.png');
-      reader.onload = () => {
-        if (reader.result) {
-          const arr = new Uint8Array(reader.result as ArrayBuffer);
-          setSelectedImages((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              bytes: arr,
-              type: isPng ? 'png' : 'jpeg',
-            },
-          ]);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    });
+    for (const f of files) {
+      const buf = await f.arrayBuffer();
+      const type: ImageFormat = f.type.includes('png') ? 'png' : 'jpeg';
+      newItems.push({
+        name: f.name,
+        bytes: new Uint8Array(buf),
+        type,
+      });
+    }
+    setSelectedImages((prev) => [...prev, ...newItems]);
   };
 
   const handleImgToPdf = async () => {
@@ -111,12 +113,15 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     try {
       setLoading(true);
       setError(null);
-      const outPdf = await imagesToPdf(selectedImages, {
+      const pdfOut = await imagesToPdf(selectedImages, {
         pageSize: imgPdfSize,
         orientation: imgPdfOrientation,
         margin: imgPdfMargin,
       });
-      downloadBlob(outPdf, `gorseller_${Date.now()}.pdf`, 'application/pdf');
+      downloadBlob(pdfOut, 'birlestirilmis_gorseller.pdf', 'application/pdf');
+      if (onOpenConvertedPdf) {
+        onOpenConvertedPdf(pdfOut, 'birlestirilmis_gorseller.pdf');
+      }
       onClose();
     } catch (err: any) {
       setError('PDF oluşturma hatası: ' + err.message);
@@ -133,8 +138,8 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     try {
       setLoading(true);
       setError(null);
-      const xlsxBytes = await pdfToExcel(pdfBytes, { sheetName });
       const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const xlsxBytes = await pdfToExcel(pdfBytes, { sheetName });
       downloadBlob(
         xlsxBytes,
         `${baseName}_tablo.xlsx`,
@@ -148,6 +153,43 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     }
   };
 
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setExcelFile(e.target.files[0]);
+      setError(null);
+    }
+  };
+
+  const handleExcelToPdf = async (openInWorkspace = false) => {
+    if (!excelFile) {
+      setError('Lütfen bir Excel (.xlsx, .xls) veya CSV dosyası seçin.');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const buf = await excelFile.arrayBuffer();
+      const baseName = excelFile.name.replace(/\.[^/.]+$/, '');
+      const pdfOut = await excelToPdf(new Uint8Array(buf), {
+        orientation: excelOrientation,
+        theme: excelTheme,
+        showRowNumbers: excelShowRowNumbers,
+        title: baseName
+      });
+
+      if (openInWorkspace && onOpenConvertedPdf) {
+        onOpenConvertedPdf(pdfOut, `${baseName}.pdf`);
+      } else {
+        downloadBlob(pdfOut, `${baseName}.pdf`, 'application/pdf');
+      }
+      onClose();
+    } catch (err: any) {
+      setError('Excel PDF dönüştürme hatası: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePdfToPptx = async () => {
     if (!pdfBytes) {
       setError('Lütfen önce bir PDF belgesi açın.');
@@ -156,8 +198,8 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
     try {
       setLoading(true);
       setError(null);
-      const pptxBytes = await pdfToPptx(pdfBytes);
       const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const pptxBytes = await pdfToPptx(pdfBytes);
       downloadBlob(
         pptxBytes,
         `${baseName}_sunum.pptx`,
@@ -173,42 +215,39 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
           <div>
-            <h2 className="text-lg font-semibold text-white">Gelişmiş Format Dönüşümleri</h2>
-            <p className="text-xs text-slate-400">PDF belgelerinizi Excel, PowerPoint veya görsel paketlerine çevirin ya da görsellerden PDF üretin</p>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span>Gelişmiş Belge &amp; Format Dönüştürücü</span>
+              <span className="text-[11px] bg-blue-500/20 text-blue-300 font-semibold px-2 py-0.5 rounded-full border border-blue-500/30">
+                ECMA-376 &amp; Vektör
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              İki yönlü dönüşüm: Excel, PowerPoint, Görsel ZIP ve Vektör Tablolar
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors"
           >
             ✕
           </button>
         </div>
 
-        {/* Tab Selector */}
-        <div className="flex border-b border-slate-800 bg-slate-950 px-6 pt-3 overflow-x-auto">
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-800 px-6 pt-3 bg-slate-950/30 gap-1 overflow-x-auto">
           <button
-            onClick={() => setActiveTab('pdf-to-img')}
-            className={`pb-3 px-3 text-xs md:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'pdf-to-img'
-                ? 'border-blue-500 text-blue-400'
+            onClick={() => setActiveTab('xlsx-to-pdf')}
+            className={`pb-3 px-3 text-xs md:text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === 'xlsx-to-pdf'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            PDF → Görüntü (ZIP)
-          </button>
-          <button
-            onClick={() => setActiveTab('img-to-pdf')}
-            className={`pb-3 px-3 text-xs md:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'img-to-pdf'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Görseller → PDF
+            📊 Excel / CSV → PDF
           </button>
           <button
             onClick={() => setActiveTab('pdf-to-xlsx')}
@@ -221,6 +260,26 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
             PDF → Excel (.xlsx)
           </button>
           <button
+            onClick={() => setActiveTab('pdf-to-img')}
+            className={`pb-3 px-3 text-xs md:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === 'pdf-to-img'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            PDF → Görsel (ZIP)
+          </button>
+          <button
+            onClick={() => setActiveTab('img-to-pdf')}
+            className={`pb-3 px-3 text-xs md:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === 'img-to-pdf'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Görseller → PDF
+          </button>
+          <button
             onClick={() => setActiveTab('pdf-to-pptx')}
             className={`pb-3 px-3 text-xs md:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'pdf-to-pptx'
@@ -228,7 +287,7 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            PDF → PowerPoint (.pptx)
+            PDF → PowerPoint
           </button>
         </div>
 
@@ -240,196 +299,276 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
             </div>
           )}
 
-          {progressText && (
-            <div className="p-3 bg-blue-950/50 border border-blue-800 rounded-lg text-blue-300 text-xs flex items-center gap-2">
-              <div className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-              <span>{progressText}</span>
+          {/* TAB: Excel / CSV to PDF */}
+          {activeTab === 'xlsx-to-pdf' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-2 text-xs text-emerald-300">
+                <p className="font-semibold text-sm text-emerald-200 flex items-center gap-2">
+                  <span>Excel ve CSV Tablolarını Kusursuz PDF'e Dönüştürün</span>
+                </p>
+                <p className="text-slate-300">
+                  .xlsx, .xls ve .csv elektronik tablolarınızı okuyarak otomatik sütun genişlikleri, sayfa numaraları, zebra satırları ve tekrarlanan başlıklarla sayfalanmış A4 PDF üretir.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  Excel veya CSV Dosyası Seçin (.xlsx, .xls, .csv)
+                </label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.tsv"
+                  onChange={handleExcelUpload}
+                  className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-slate-950 border border-slate-700 rounded-xl p-2"
+                />
+                {excelFile && (
+                  <p className="text-xs text-emerald-400 mt-1.5 font-medium">
+                    ✓ Seçildi: {excelFile.name} ({(excelFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Sayfa Yönü (Oryantasyon)
+                  </label>
+                  <select
+                    value={excelOrientation}
+                    onChange={(e: any) => setExcelOrientation(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="auto">Otomatik (Genişliğe Göre)</option>
+                    <option value="landscape">Yatay / Landscape (Geniş Tablolar İçin)</option>
+                    <option value="portrait">Dikey / Portrait</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Tablo Teması &amp; Başlık
+                  </label>
+                  <select
+                    value={excelTheme}
+                    onChange={(e: any) => setExcelTheme(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="slate">Modern Slate (Koyu Başlık &amp; Zebra)</option>
+                    <option value="corporate">Kurumsal Lacivert (Resmi Rapor)</option>
+                    <option value="minimal">Sade Minimal (Beyaz &amp; İnce Çizgili)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  id="excelRowNums"
+                  checked={excelShowRowNumbers}
+                  onChange={(e) => setExcelShowRowNumbers(e.target.checked)}
+                  className="rounded accent-emerald-500 cursor-pointer"
+                />
+                <label htmlFor="excelRowNums" className="cursor-pointer">
+                  Satır numaralarını göster (# 1, 2, 3...)
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  disabled={loading || !excelFile}
+                  onClick={() => handleExcelToPdf(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? 'Dönüştürülüyor...' : 'PDF Olarak İndir'}
+                </button>
+
+                {onOpenConvertedPdf && (
+                  <button
+                    disabled={loading || !excelFile}
+                    onClick={() => handleExcelToPdf(true)}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    Atölyede Aç &amp; İmzala
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* TAB 1: PDF to Images */}
+          {/* TAB: PDF to Images */}
           {activeTab === 'pdf-to-img' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Görsel Formatı</label>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Görüntü Formatı
+                  </label>
                   <select
                     value={imgFormat}
-                    onChange={(e) => setImgFormat(e.target.value as ImageFormat)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+                    onChange={(e: any) => setImgFormat(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
                   >
-                    <option value="png">PNG (Kayıpsız, Şeffaflık Destekli)</option>
-                    <option value="jpeg">JPEG (Küçük Dosya Boyutu)</option>
+                    <option value="png">PNG (Kayıpsız &amp; Şeffaf)</option>
+                    <option value="jpeg">JPG (Kompakt Dosya Boyutu)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Çözünürlük (DPI)</label>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Çözünürlük (DPI)
+                  </label>
                   <select
                     value={imgDpi}
-                    onChange={(e) => setImgDpi(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+                    onChange={(e: any) => setImgDpi(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
                   >
-                    <option value={72}>72 DPI (Ekran Görünümü / Hızlı)</option>
-                    <option value={150}>150 DPI (Standart Kalite / Önerilen)</option>
-                    <option value={300}>300 DPI (Yüksek Çözünürlük / Baskı)</option>
+                    <option value={72}>72 DPI (Hızlı &amp; Küçük)</option>
+                    <option value={150}>150 DPI (Standart Kalite)</option>
+                    <option value={300}>300 DPI (Baskı &amp; Yüksek Çözünürlük)</option>
                   </select>
                 </div>
               </div>
-
-              <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400">
-                📦 Belgedeki tüm sayfalar seçilen format ve çözünürlükte işlenerek tek bir <strong className="text-slate-300">ZIP arşivi</strong> olarak indirilecektir.
-              </div>
-
+              <p className="text-xs text-slate-400 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                Tüm sayfalar bağımsız yüksek çözünürlüklü görsel dosyalarına dönüştürülerek tek bir .zip arşivi olarak indirilir.
+              </p>
               <button
-                type="button"
-                onClick={handlePdfToImg}
                 disabled={loading || !pdfBytes}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-900/30"
+                onClick={handlePdfToImg}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                Görselleri ZIP Olarak İndir
+                {loading ? progressText || 'Dönüştürülüyor...' : 'Görüntü Arşivini İndir (.zip)'}
               </button>
             </div>
           )}
 
-          {/* TAB 2: Images to PDF */}
+          {/* TAB: Images to PDF */}
           {activeTab === 'img-to-pdf' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Görselleri Seç (PNG / JPEG)</label>
+                <label className="text-xs font-medium text-slate-300 block mb-1">
+                  Görselleri Seçin (Birden Fazla Seçilebilir)
+                </label>
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/jpg"
                   multiple
+                  accept="image/png,image/jpeg,image/webp"
                   onChange={handleImageUpload}
-                  className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500"
+                  className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 border border-slate-700 rounded-xl p-2"
                 />
               </div>
 
               {selectedImages.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-slate-300">Seçilen Görseller ({selectedImages.length}):</div>
-                  <div className="max-h-32 overflow-y-auto space-y-1 p-2 bg-slate-950 rounded border border-slate-800">
-                    {selectedImages.map((img, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs text-slate-400 px-2 py-1 bg-slate-900 rounded">
-                        <span className="truncate max-w-[300px]">{idx + 1}. {img.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="text-red-400 hover:text-red-300 text-xs ml-2"
-                        >
-                          Kaldır
-                        </button>
-                      </div>
-                    ))}
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 max-h-32 overflow-y-auto space-y-1">
+                  <div className="text-xs font-semibold text-slate-300 mb-1">
+                    Seçilen Görseller ({selectedImages.length}):
                   </div>
+                  {selectedImages.map((img, i) => (
+                    <div key={i} className="text-xs text-slate-400 flex justify-between">
+                      <span>{i + 1}. {img.name}</span>
+                      <span className="uppercase text-[10px] text-slate-500">{img.type}</span>
+                    </div>
+                  ))}
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Sayfa Boyutu</label>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Sayfa Boyutu
+                  </label>
                   <select
                     value={imgPdfSize}
-                    onChange={(e) => setImgPdfSize(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    onChange={(e: any) => setImgPdfSize(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200"
                   >
-                    <option value="A4">A4 Standardı</option>
-                    <option value="fit-image">Görsele Göre Uyarla</option>
+                    <option value="A4">Standart A4</option>
                     <option value="Letter">Letter</option>
+                    <option value="fit-image">Görsele Göre Uyarla</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Yönlendirme</label>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Yönlendirme
+                  </label>
                   <select
                     value={imgPdfOrientation}
-                    onChange={(e) => setImgPdfOrientation(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    onChange={(e: any) => setImgPdfOrientation(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200"
                   >
                     <option value="auto">Otomatik</option>
-                    <option value="portrait">Dikey</option>
-                    <option value="landscape">Yatay</option>
+                    <option value="portrait">Dikey (Portrait)</option>
+                    <option value="landscape">Yatay (Landscape)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Kenarlık (pt)</label>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">
+                    Kenar Boşluğu ({imgPdfMargin}pt)
+                  </label>
                   <input
-                    type="number"
+                    type="range"
+                    min="0"
+                    max="50"
                     value={imgPdfMargin}
                     onChange={(e) => setImgPdfMargin(Number(e.target.value))}
-                    min={0}
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    className="w-full accent-blue-500 mt-2"
                   />
                 </div>
               </div>
 
               <button
-                type="button"
-                onClick={handleImgToPdf}
                 disabled={loading || selectedImages.length === 0}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-900/30"
+                onClick={handleImgToPdf}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                Görselleri PDF Olarak Birleştir
+                {loading ? 'PDF Birleştiriliyor...' : 'Görsellerden PDF Oluştur'}
               </button>
             </div>
           )}
 
-          {/* TAB 3: PDF to Excel */}
+          {/* TAB: PDF to Excel */}
           {activeTab === 'pdf-to-xlsx' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Çalışma Sayfası Başlığı</label>
+                <label className="text-xs font-medium text-slate-300 block mb-1">
+                  Excel Çalışma Sayfası Adı
+                </label>
                 <input
                   type="text"
                   value={sheetName}
                   onChange={(e) => setSheetName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                  placeholder="Veriler"
                 />
               </div>
-
-              <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1">
+              <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
                 <p>📊 <strong className="text-slate-300">Akıllı Hücre Ayrıştırma:</strong> Belgedeki satırlar ve koordinat hizalamaları taranarak standart ECMA-376 OpenXML (.xlsx) tablosuna dönüştürülür.</p>
-                <p>Tüm sayısal veriler otomatik olarak Excel sayı hücresine çevrilir.</p>
+                <p>💡 Sayfa sonları otomatik olarak [Sayfa X] ayırıcıları ile Excel satırlarına yansıtılır.</p>
               </div>
-
               <button
-                type="button"
-                onClick={handlePdfToExcel}
                 disabled={loading || !pdfBytes}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-emerald-900/30"
+                onClick={handlePdfToExcel}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                Excel Tablosu Olarak İndir (.xlsx)
+                {loading ? 'Tablo Oluşturuluyor...' : 'Excel Tablosu Olarak İndir (.xlsx)'}
               </button>
             </div>
           )}
 
-          {/* TAB 4: PDF to PPTX */}
+          {/* TAB: PDF to PPTX */}
           {activeTab === 'pdf-to-pptx' && (
             <div className="space-y-4">
-              <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1">
-                <p>📽️ <strong className="text-slate-300">Doğal Sunum Slaytları:</strong> Belgedeki her sayfa bağımsız bir 16:9 geniş ekran slayta aktarılır.</p>
-                <p>Başlıklar ve metin paragrafları düzenlenebilir PowerPoint kutuları olarak oluşturulur.</p>
+              <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
+                <p>📽️ <strong className="text-slate-300">ECMA-376 PowerPoint (.pptx):</strong> Her bir PDF sayfası ayrı bir 16:9 geniş ekran slayta yerleştirilir.</p>
+                <p>🎨 Başlık ve gövde metinleri düzenlenebilir OpenXML şekilleri olarak aktarılır.</p>
               </div>
-
               <button
-                type="button"
-                onClick={handlePdfToPptx}
                 disabled={loading || !pdfBytes}
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-amber-900/30"
+                onClick={handlePdfToPptx}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                PowerPoint Sunumu Olarak İndir (.pptx)
+                {loading ? 'Sunum Hazırlanıyor...' : 'PowerPoint Sunumu İndir (.pptx)'}
               </button>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-4 border-t border-slate-800 bg-slate-950/80">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            Kapat
-          </button>
         </div>
       </div>
     </div>

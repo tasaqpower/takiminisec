@@ -13,6 +13,7 @@ import {
   Search,
   Sparkles,
   Eraser,
+  EyeOff,
 } from 'lucide-react';
 
 export type ProfessionalToolId =
@@ -26,7 +27,9 @@ export type ProfessionalToolId =
   | 'page-sizing'
   | 'conversion'
   | 'signature'
-  | 'compliance';
+  | 'compliance'
+  | 'stamp'
+  | 'kvkk';
 
 interface ToolHubModalProps {
   isOpen: boolean;
@@ -131,6 +134,22 @@ const TOOLS: ToolDefinition[] = [
     description: 'ISO 19005-2 PDF/A-2b sRGB profil dönüştürücü, WCAG 2.1 AA erişilebilirlik skoru (0-100) ve tek tıkla düzeltme.',
     badge: 'Paket 10',
     icon: CheckCheck,
+  },
+  {
+    id: 'stamp',
+    title: 'Kurumsal Kaşe & Mühür Atölyesi',
+    category: 'İnceleme & Düzenleme',
+    description: 'Resmi standartlarda Aslı Gibidir, Onaylandı veya şirket unvanlı yuvarlak mühür ve kaşe oluşturun, belgeye damgalayın.',
+    badge: 'Yeni',
+    icon: Stamp,
+  },
+  {
+    id: 'kvkk',
+    title: '1-Tıkla KVKK & PII Sansürleme',
+    category: 'Güvenlik & Standartlar',
+    description: 'TC Kimlik No, TR IBAN, kredi kartı, telefon ve e-postaları otomatik tespit edip kalıcı olarak içerikten siler ve maskeler.',
+    badge: 'Yeni',
+    icon: EyeOff,
   },
 ];
 

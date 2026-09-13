@@ -36,7 +36,9 @@ import {
   FormInput,
   Sparkles,
   Eraser,
-  Loader2
+  Loader2,
+  Stamp as StampIcon,
+  EyeOff
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -106,6 +108,7 @@ import { PageSizingModal } from "@/features/page-sizing/PageSizingModal";
 import { AdvancedConversionModal } from "@/features/conversion/AdvancedConversionModal";
 import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSignatureModal";
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
+import { StampGeneratorModal } from "@/features/stamp/StampGeneratorModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -325,12 +328,13 @@ export default function Workspace({
   const [showCompress, setShowCompress] = useState(intent === "compress");
   const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
   const [isCleaningWatermarks, setIsCleaningWatermarks] = useState(false);
-  const [showSecurity, setShowSecurity] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(intent === "kvkk");
+  const [showStampModal, setShowStampModal] = useState(intent === "stamp");
   const [showToolHub, setShowToolHub] = useState(false);
   const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(
     intent === "convert"
       ? "conversion"
-      : ["scanner", "decoration", "navigation", "annotations", "compare", "batch", "page-sizing", "conversion", "signature", "compliance"].includes(intent as any)
+      : ["scanner", "decoration", "navigation", "annotations", "compare", "batch", "page-sizing", "conversion", "signature", "compliance", "stamp", "kvkk"].includes(intent as any)
       ? (intent as ProfessionalToolId)
       : null
   );
@@ -945,6 +949,8 @@ export default function Workspace({
           if (stopped) return;
           await installPdf(data);
           if (intent === "sign") setSignOpen(true);
+          if (intent === "stamp") setShowStampModal(true);
+          if (intent === "kvkk") setShowSecurity(true);
           if (intent === "convert" || intent === "conversion") setActiveProfessionalTool("conversion");
           else if (["scanner", "decoration", "navigation", "annotations", "compare", "batch", "page-sizing", "compliance"].includes(intent)) {
             setActiveProfessionalTool(intent as ProfessionalToolId);
@@ -1670,6 +1676,25 @@ export default function Workspace({
     setSelected(mark.id);
   }
 
+  const handleApplyStamp = (stampDataUrl: string, stampW: number, stampH: number) => {
+    const stampMark: Mark = {
+      id: crypto.randomUUID(),
+      page: current?.index ?? active,
+      kind: "signature",
+      x: Math.max(50, Math.round((dimensions.baseWidth - stampW) / 2)),
+      y: Math.max(50, Math.round((dimensions.baseHeight - stampH) / 2)),
+      w: stampW,
+      h: stampH,
+      color: "#dc2626",
+      size: 16,
+      image: stampDataUrl,
+      opacity: 0.95,
+      angle: -3.5
+    };
+    addMark(stampMark);
+    setTool("select");
+  };
+
   function newMark(kind: Mark["kind"], x: number, y: number): Mark {
     return {
       id: crypto.randomUUID(),
@@ -2380,8 +2405,18 @@ export default function Workspace({
               type="button"
               className="secondary"
               style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
+              onClick={() => setShowStampModal(true)}
+              title="Resmi Kaşe & Mühür Atölyesi"
+            >
+              <StampIcon size={15} className="text-red-400" />
+              <span>Kaşe</span>
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              style={{ minHeight: "36px", padding: "0 10px", fontSize: "12px", gap: "6px" }}
               onClick={() => setShowSecurity(true)}
-              title="Gizlilik ve Güvenlik Araçları"
+              title="Gizlilik ve Güvenlik Araçları (KVKK / Şifreleme)"
             >
               <ShieldCheck size={15} />
               <span>Güvenlik</span>
@@ -2413,13 +2448,18 @@ export default function Workspace({
                 { id: "text", label: "Metin ekle", icon: Type },
                 { id: "highlight", label: "Vurgula", icon: Highlighter },
                 { id: "draw", label: "Çiz", icon: PenLine },
-                { id: "signature", label: "İmza", icon: PenLine }
+                { id: "signature", label: "İmza", icon: PenLine },
+                { id: "stamp", label: "Kaşe / Mühür", icon: StampIcon }
               ].map(t => (
                 <button
                   key={t.id}
                   className={tool === t.id ? "active" : ""}
                   aria-pressed={tool === t.id}
                   onClick={() => {
+                    if (t.id === "stamp") {
+                      setShowStampModal(true);
+                      return;
+                    }
                     setTool(t.id as Tool);
                     finishInlineEdit();
                     setSelected(null);
@@ -3051,6 +3091,12 @@ export default function Workspace({
         onApplySanitizedBytes={(newBytes) => setBytes(newBytes)}
       />
 
+      <StampGeneratorModal
+        open={showStampModal}
+        onOpenChange={setShowStampModal}
+        onApplyStampToDocument={handleApplyStamp}
+      />
+
       <ToolHubModal
         isOpen={showToolHub}
         onClose={() => setShowToolHub(false)}
@@ -3058,6 +3104,12 @@ export default function Workspace({
           if (toolId === 'watermark-removal') {
             setShowToolHub(false);
             void handleOneClickWatermarkRemoval();
+          } else if (toolId === 'stamp') {
+            setShowToolHub(false);
+            setShowStampModal(true);
+          } else if (toolId === 'kvkk') {
+            setShowToolHub(false);
+            setShowSecurity(true);
           } else {
             setActiveProfessionalTool(toolId);
           }
@@ -3136,6 +3188,10 @@ export default function Workspace({
         onClose={() => setActiveProfessionalTool(null)}
         pdfBytes={bytes}
         fileName={files[0]?.name}
+        onOpenConvertedPdf={(newPdfBytes) => {
+          handleApplyProfessionalPdf(newPdfBytes);
+          setActiveProfessionalTool(null);
+        }}
       />
 
       <DigitalSignatureModal

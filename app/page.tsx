@@ -24,7 +24,10 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
-  Eraser
+  Eraser,
+  FileSpreadsheet,
+  EyeOff,
+  Stamp
 } from "lucide-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -41,6 +44,9 @@ import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
 const tools = [
   { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
   { id:"watermark", title:"Filigran kaldır", desc:"Damga, mühür ve taslak yazılarını sıfır hasarla sil.", icon:Eraser, color:"rose", type:"PDF" },
+  { id:"excel-to-pdf", title:"Excel → PDF", desc:"Tablolarını şık ve sayfalanmış PDF'e dönüştür.", icon:FileSpreadsheet, color:"teal", type:"XLSX · CSV" },
+  { id:"stamp", title:"Resmi Kaşe & Mühür", desc:"Aslı gibidir, onaylandı veya kurumsal kaşe bas.", icon:Stamp, color:"rose", type:"PDF" },
+  { id:"kvkk", title:"KVKK & Sansür", desc:"TC, IBAN, telefon ve kart bilgilerini otomatik maskele.", icon:EyeOff, color:"amber", type:"PDF" },
   { id:"word", title:"Word düzenle", desc:"Kelimelerine son şeklini ver.", icon:FileType2, color:"blue", type:"DOCX" },
   { id:"convert", title:"Dosya dönüştür", desc:"İhtiyacın olan formata geç.", icon:FileInput, color:"orange", type:"PDF · DOCX" },
   { id:"sign", title:"PDF imzala", desc:"İmzanı çiz, belgede yerine koy.", icon:PenLine, color:"pink", type:"PDF" },
@@ -82,8 +88,8 @@ export default function Home() {
 
   async function open(files: File[], action = intentRef.current, draft?: FormaDraft) {
     if (!files.length) return;
-    if (files.some(f => ! /\.(pdf|docx|txt|png|jpe?g)$/i.test(f.name))) {
-      toast.error("PDF, DOCX, TXT, PNG veya JPG dosyası seç.");
+    if (files.some(f => ! /\.(pdf|docx|txt|png|jpe?g|xlsx|xls|csv)$/i.test(f.name))) {
+      toast.error("PDF, DOCX, TXT, PNG, JPG, Excel veya CSV dosyası seç.");
       return;
     }
     if (files.some(f => f.size > 50 * 1024 * 1024)) {
@@ -92,11 +98,21 @@ export default function Home() {
     }
     setLoading(true);
     try {
+      if (/\.(xlsx|xls|csv)$/i.test(files[0].name)) {
+        const buf = await files[0].arrayBuffer();
+        const baseName = files[0].name.replace(/\.[^/.]+$/, '');
+        const { excelToPdf } = await import("@/features/conversion/excelToPdf");
+        const convertedBytes = await excelToPdf(new Uint8Array(buf), { title: baseName, orientation: "auto" });
+        const pdfFile = new File([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
+        files = [pdfFile];
+        toast.success("Excel tablosu sayfalanmış vektör PDF'e dönüştürüldü!");
+      }
+
       const m = await import("./workspace");
       setEditor(() => m.default);
       setWorkspace({ files, intent: action, id: crypto.randomUUID(), draft });
-    } catch {
-      toast.error("Düzenleyici açılamadı. Lütfen yeniden dene.");
+    } catch (err: any) {
+      toast.error("Dosya açılamadı: " + (err?.message || "Lütfen yeniden dene."));
     } finally {
       setLoading(false);
     }
@@ -108,7 +124,13 @@ export default function Home() {
       setIntent(action);
       if (input.current) {
         input.current.multiple = action === "merge";
-        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "convert", "conversion"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+        input.current.accept = action === "excel-to-pdf"
+          ? ".xlsx,.xls,.csv"
+          : action === "word"
+          ? ".docx,.txt"
+          : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "convert", "conversion", "stamp", "kvkk"].includes(action)
+          ? ".pdf"
+          : ".pdf,.docx,.txt,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
         input.current.click();
       }
     });
@@ -130,6 +152,10 @@ export default function Home() {
       pick("pages");
     } else if (toolId === "signature") {
       pick("sign");
+    } else if (toolId === "stamp") {
+      pick("stamp");
+    } else if (toolId === "kvkk") {
+      pick("kvkk");
     } else {
       pick(toolId);
     }
