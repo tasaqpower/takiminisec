@@ -43,6 +43,7 @@ import { ToolHubModal, type ProfessionalToolId } from "@/features/hub/ToolHubMod
 import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
 import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
 import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const essentialTools = [
   { id: "edit", title: "PDF düzenle", desc: "Metin, not, canlı fatura & fiyat düzeltici.", icon: FileText, color: "violet", type: "PDF", popular: true },
@@ -268,6 +269,12 @@ export default function Home() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => setShowToolHub(true)}>
+                <Sparkles className="text-amber-500" /><span>Tüm Araçlar</span>
+                <span className="nav-new" style={{ background: "#fef3c7", color: "#b45309" }}>Ctrl+K</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton className="nav-item" onClick={() => pick("edit")}>
                 <FolderOpen /><span>Dosya aç</span>
               </SidebarMenuButton>
@@ -313,6 +320,7 @@ export default function Home() {
           </div>
         </SidebarContent>
         <SidebarFooter className="sidebar-footer">
+          <ThemeToggle showLabel className="w-full justify-start mb-2" />
           <button onClick={() => setHelp(true)}>
             <BookOpen size={17} /> Kısa kullanım rehberi <ArrowUpRight size={15} />
           </button>
@@ -331,17 +339,7 @@ export default function Home() {
             <strong>{workspace ? "Belge düzenleyici" : "Genel bakış"}</strong>
           </div>
           <span className="private-label"><ShieldCheck size={15} /> Tamamen cihazında</span>
-          <button
-            type="button"
-            className="secondary"
-            style={{ minHeight: "36px", padding: "0 13px", fontSize: "12px", gap: "7px", borderRadius: "8px" }}
-            onClick={() => setShowToolHub(true)}
-            title="Tüm Atölye Araçları (Ctrl+K)"
-          >
-            <Sparkles size={15} className="text-amber-500" />
-            <span>Tüm Araçlar</span>
-            <span style={{ fontSize: "10px", background: "#f0eff6", border: "1px solid #e2dfea", borderRadius: "4px", padding: "1px 5px", color: "#777189" }}>Ctrl+K</span>
-          </button>
+          <ThemeToggle showLabel />
           <button className="top-help" aria-label="Kullanım rehberi" onClick={() => setHelp(true)}>
             <BookOpen size={18} />
           </button>
@@ -400,16 +398,14 @@ export default function Home() {
               <div className="section-heading">
                 <div>
                   <h2>
-                    {category === "conversions" ? "Dönüşümler" : category === "all" ? "Tüm Atölye Araçları" : "Önemli Araçlar"}
+                    {category === "conversions" ? "Dönüşümler" : "Önemli Araçlar"}
                     <span>
-                      {category === "conversions" ? conversionTools.length : category === "all" ? allTools.length : essentialTools.length}
+                      {category === "conversions" ? conversionTools.length : essentialTools.length}
                     </span>
                   </h2>
                   <p>
                     {category === "conversions"
                       ? "Word, Excel, Görsel ve PDF arasında yüksek kaliteli çift yönlü dönüşümler."
-                      : category === "all"
-                      ? "Forma'nın sunduğu tüm profesyonel araçlar tek ekranda."
                       : "Günlük işlerinde en çok ihtiyaç duyduğun kritik belge araçları."}
                   </p>
                 </div>
@@ -418,13 +414,12 @@ export default function Home() {
                     <TabsList className="category-tabs">
                       <TabsTrigger value="essential">Önemli Araçlar</TabsTrigger>
                       <TabsTrigger value="conversions">Dönüşümler</TabsTrigger>
-                      <TabsTrigger value="all">Tüm Araçlar</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
               </div>
               <div className="tool-grid">
-                {(category === "conversions" ? conversionTools : category === "all" ? allTools : essentialTools)
+                {(category === "conversions" ? conversionTools : essentialTools)
                   .map(t => (
                     <button className="tool-card" key={t.id} onClick={() => pick(t.id)}>
                       <div className="tool-card-top">

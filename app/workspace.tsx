@@ -110,6 +110,7 @@ import { DigitalSignatureModal } from "@/features/digital-signature/DigitalSigna
 import { ComplianceModal } from "@/features/compliance/ComplianceModal";
 import { StampGeneratorModal } from "@/features/stamp/StampGeneratorModal";
 import { DocumentEnhancerModal } from "@/features/enhancer/DocumentEnhancerModal";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -2389,6 +2390,7 @@ export default function Workspace({
             </button>
           </div>
         )}
+        <ThemeToggle />
         <button className="primary" disabled={!!busy} onClick={() => setExportOpen(true)}>
           <Download size={17} />
           <span>Dışa aktar</span>
