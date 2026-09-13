@@ -56,7 +56,9 @@ export const WATERMARK_KEYWORDS = [
   "sample", "specimen", "test", "evaluation", "evaluation copy", "trial", "trial version", "preview", "demo",
   "unofficial", "not for official use", "for review only", "for review", "for internal use only", "internal use only",
   "watermark", "watermarked", "copyright", "all rights reserved",
-  "wondershare", "pdfelement", "smallpdf", "ilovepdf", "foxit", "nitro"
+  "wondershare", "pdfelement", "smallpdf", "ilovepdf", "foxit", "nitro",
+  // Template & stock watermarks
+  "se9nse", "sense", "template", "shutterstock", "getty", "istock", "envato", "freepik", "stock"
 ];
 
 export function analyzeWatermarkColor(colorHex?: string): {

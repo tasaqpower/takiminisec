@@ -967,7 +967,32 @@ export async function removePdfRasterWatermarks(
       );
       const isTopArea = (y: number) => y < Math.floor(bh * 0.12);
 
-      // 2. Mark core watermark pixels
+      // 2. Detect if there is a centered header logo watermark (e.g. Consulting Agreement dual-tone emblem + "se9nse")
+      const cXStart = Math.floor(bw * 0.30), cXEnd = Math.floor(bw * 0.70);
+      const cYStart = Math.floor(bh * 0.03), cYEnd = Math.floor(bh * 0.22);
+
+      let centeredRedPixels = 0;
+      let centeredGrayPixels = 0;
+
+      for (let y = cYStart; y <= Math.floor(bh * 0.14); y += 2) {
+        for (let x = cXStart; x <= cXEnd; x += 2) {
+          const idx = y * stride + x * 4;
+          const b = raw[idx];
+          const g = raw[idx + 1];
+          const r = raw[idx + 2];
+          if (r > 160 && (r - g >= 20) && (r - b >= 20)) {
+            centeredRedPixels++;
+          }
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum >= 130 && lum <= 200 && Math.abs(r - g) < 12 && Math.abs(r - b) < 12) {
+            centeredGrayPixels++;
+          }
+        }
+      }
+
+      const hasCenteredEmblem = (centeredRedPixels >= 20 && centeredGrayPixels >= 20);
+
+      // 3. Mark core watermark pixels
       const mask = new Uint8Array(bw * bh);
       let coreCount = 0;
 
@@ -979,8 +1004,8 @@ export async function removePdfRasterWatermarks(
           const g = raw[idx + 1];
           const r = raw[idx + 2];
 
-          // Top simulation banner & specks
-          if (isTopArea(y) && !isPageNum(x, y)) {
+          // Top simulation banner & specks (only if not centered template emblem)
+          if (isTopArea(y) && !isPageNum(x, y) && !hasCenteredEmblem) {
             if (r < 245 || g < 245 || b < 245) {
               mask[y * bw + x] = 1;
               coreCount++;
@@ -1002,114 +1027,156 @@ export async function removePdfRasterWatermarks(
         }
       }
 
-      if (coreCount < 80) {
+      if (coreCount < 80 && !hasCenteredEmblem) {
         // No significant watermark pixels found on this page
         m.FPDFBitmap_Destroy(bmp);
         m.FPDF_ClosePage(page);
         continue;
       }
 
-      // 3. Fast separable 2D box dilation (radius 18)
-      const R = 18;
-      const hDilated = new Uint8Array(bw * bh);
-      for (let y = 0; y < bh; y++) {
-        let count = 0;
-        const yOff = y * bw;
-        for (let x = 0; x < bw; x++) {
-          if (x === 0) {
-            for (let k = 0; k <= R && k < bw; k++) count += mask[yOff + k];
-          } else {
-            if (x + R < bw) count += mask[yOff + x + R];
-            if (x - R - 1 >= 0) count -= mask[yOff + x - R - 1];
-          }
-          if (count > 0) hDilated[yOff + x] = 1;
-        }
-      }
-
-      const dilated = new Uint8Array(bw * bh);
-      for (let x = 0; x < bw; x++) {
-        let count = 0;
-        for (let y = 0; y < bh; y++) {
-          if (y === 0) {
-            for (let k = 0; k <= R && k < bh; k++) count += hDilated[k * bw + x];
-          } else {
-            if (y + R < bh) count += hDilated[(y + R) * bw + x];
-            if (y - R - 1 >= 0) count -= hDilated[(y - R - 1) * bw + x];
-          }
-          if (count > 0 && !isLogo(x, y)) dilated[y * bw + x] = 1;
-        }
-      }
-
       const outRaw = new Uint8Array(raw);
 
-      // 4. Continuous Grayscale Inpainting on Dilated Areas
-      for (let y = 0; y < bh; y++) {
-        for (let x = 0; x < bw; x++) {
-          if (isLogo(x, y)) continue;
-          const idx = y * stride + x * 4;
+      // 4A. If centered emblem watermark exists, apply surgical vertical zone cleanup
+      if (hasCenteredEmblem) {
+        const yTopStart = Math.floor(bh * 0.032);
+        const yTitleStart = Math.floor(bh * 0.136);
+        const yTitleEnd = Math.floor(bh * 0.158);
+        const yWatermarkEnd = Math.floor(bh * 0.219);
 
-          // Top simulation banner area & specks: 100% pure white paper
-          if (isTopArea(y) && !isPageNum(x, y)) {
-            outRaw[idx] = 255;
-            outRaw[idx + 1] = 255;
-            outRaw[idx + 2] = 255;
-            continue;
-          }
-
-          // Clear margins right around logo (outside border)
-          const nearLogo = (
-            logoRect &&
-            x >= logoRect.minX - 25 &&
-            x <= logoRect.maxX + 25 &&
-            y >= logoRect.minY - 10 &&
-            y <= logoRect.maxY + 35
-          );
-          if (nearLogo && !isLogo(x, y)) {
+        for (let y = yTopStart; y <= yWatermarkEnd; y++) {
+          for (let x = cXStart; x <= cXEnd; x++) {
+            const idx = y * stride + x * 4;
             const b = raw[idx];
             const g = raw[idx + 1];
             const r = raw[idx + 2];
-            if (r > 120 && (r - g > 12 || r - b > 12)) {
+            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+            if (y >= yTitleStart && y <= yTitleEnd) {
+              // Title text band: "CONSULTING AGREEMENT FOR HOURLY WORK"
+              if (lum < 115) {
+                // Sharpen text
+                const finalVal = Math.max(10, Math.min(r, g, b, 45));
+                outRaw[idx] = finalVal;
+                outRaw[idx + 1] = finalVal;
+                outRaw[idx + 2] = finalVal;
+              } else {
+                // Eradicate watermark & whiten paper
+                outRaw[idx] = 255;
+                outRaw[idx + 1] = 255;
+                outRaw[idx + 2] = 255;
+              }
+            } else {
+              // Above title or below title (se9nse letters & emblem lobes)
+              outRaw[idx] = 255;
+              outRaw[idx + 1] = 255;
+              outRaw[idx + 2] = 255;
+            }
+          }
+        }
+      }
+
+      // 4B. Fast separable 2D box dilation & Continuous Grayscale Inpainting (for stamps/banners)
+      if (coreCount >= 80) {
+        const R = 18;
+        const hDilated = new Uint8Array(bw * bh);
+        for (let y = 0; y < bh; y++) {
+          let count = 0;
+          const yOff = y * bw;
+          for (let x = 0; x < bw; x++) {
+            if (x === 0) {
+              for (let k = 0; k <= R && k < bw; k++) count += mask[yOff + k];
+            } else {
+              if (x + R < bw) count += mask[yOff + x + R];
+              if (x - R - 1 >= 0) count -= mask[yOff + x - R - 1];
+            }
+            if (count > 0) hDilated[yOff + x] = 1;
+          }
+        }
+
+        const dilated = new Uint8Array(bw * bh);
+        for (let x = 0; x < bw; x++) {
+          let count = 0;
+          for (let y = 0; y < bh; y++) {
+            if (y === 0) {
+              for (let k = 0; k <= R && k < bh; k++) count += hDilated[k * bw + x];
+            } else {
+              if (y + R < bh) count += hDilated[(y + R) * bw + x];
+              if (y - R - 1 >= 0) count -= hDilated[(y - R - 1) * bw + x];
+            }
+            if (count > 0 && !isLogo(x, y)) dilated[y * bw + x] = 1;
+          }
+        }
+
+        for (let y = 0; y < bh; y++) {
+          if (hasCenteredEmblem && y <= Math.floor(bh * 0.22)) continue;
+
+          for (let x = 0; x < bw; x++) {
+            if (isLogo(x, y)) continue;
+            const idx = y * stride + x * 4;
+
+            // Top simulation banner area & specks: 100% pure white paper
+            if (isTopArea(y) && !isPageNum(x, y)) {
               outRaw[idx] = 255;
               outRaw[idx + 1] = 255;
               outRaw[idx + 2] = 255;
               continue;
             }
-          }
 
-          if (dilated[y * bw + x] === 1) {
-            const b = raw[idx];
-            const g = raw[idx + 1];
-            const r = raw[idx + 2];
-
-            const redExcess = Math.max(r - g, r - b);
-            const gb = (g + b) / 2;
-
-            if (redExcess > 10) {
-              // Watermark core: gb >= 86 is background paper transmission
-              if (gb >= 86) {
+            // Clear margins right around logo (outside border)
+            const nearLogo = (
+              logoRect &&
+              x >= logoRect.minX - 25 &&
+              x <= logoRect.maxX + 25 &&
+              y >= logoRect.minY - 10 &&
+              y <= logoRect.maxY + 35
+            );
+            if (nearLogo && !isLogo(x, y)) {
+              const b = raw[idx];
+              const g = raw[idx + 1];
+              const r = raw[idx + 2];
+              if (r > 120 && (r - g > 12 || r - b > 12)) {
                 outRaw[idx] = 255;
                 outRaw[idx + 1] = 255;
                 outRaw[idx + 2] = 255;
-              } else {
-                // Underlying dark document text with continuous deconvolution
-                const recovered = Math.min(255, Math.round(gb * (255 / 105)));
-                const finalVal = Math.max(10, Math.round(recovered * 0.9));
-                outRaw[idx] = finalVal;
-                outRaw[idx + 1] = finalVal;
-                outRaw[idx + 2] = finalVal;
+                continue;
               }
-            } else {
-              // Anti-aliased halo around watermark
-              if (r >= 225 && g >= 225 && b >= 225) {
-                outRaw[idx] = 255;
-                outRaw[idx + 1] = 255;
-                outRaw[idx + 2] = 255;
+            }
+
+            if (dilated[y * bw + x] === 1) {
+              const b = raw[idx];
+              const g = raw[idx + 1];
+              const r = raw[idx + 2];
+
+              const redExcess = Math.max(r - g, r - b);
+              const gb = (g + b) / 2;
+
+              if (redExcess > 10) {
+                // Watermark core: gb >= 86 is background paper transmission
+                if (gb >= 86) {
+                  outRaw[idx] = 255;
+                  outRaw[idx + 1] = 255;
+                  outRaw[idx + 2] = 255;
+                } else {
+                  // Underlying dark document text with continuous deconvolution
+                  const recovered = Math.min(255, Math.round(gb * (255 / 105)));
+                  const finalVal = Math.max(10, Math.round(recovered * 0.9));
+                  outRaw[idx] = finalVal;
+                  outRaw[idx + 1] = finalVal;
+                  outRaw[idx + 2] = finalVal;
+                }
               } else {
-                const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-                const val = lum >= 225 ? 255 : lum;
-                outRaw[idx] = val;
-                outRaw[idx + 1] = val;
-                outRaw[idx + 2] = val;
+                // Anti-aliased halo around watermark
+                if (r >= 225 && g >= 225 && b >= 225) {
+                  outRaw[idx] = 255;
+                  outRaw[idx + 1] = 255;
+                  outRaw[idx + 2] = 255;
+                } else {
+                  const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                  const val = lum >= 225 ? 255 : lum;
+                  outRaw[idx] = val;
+                  outRaw[idx + 1] = val;
+                  outRaw[idx + 2] = val;
+                }
               }
             }
           }

@@ -597,12 +597,6 @@ export default function Workspace({
 
       const allCandidates = [...candidates, ...visualCands];
 
-      if (allCandidates.length === 0) {
-        toast.info("Belgenizde belirgin bir filigran veya taslak damgası tespit edilmedi. Belgeniz zaten tertemiz.", { id: toastId });
-        setIsCleaningWatermarks(false);
-        return;
-      }
-
       // Automatically sample authentic page background tone
       let fillColor = { r: 1, g: 1, b: 1 };
       try {
@@ -631,7 +625,7 @@ export default function Workspace({
           { id: toastId, duration: 4500 }
         );
       } else {
-        toast.info("Tespit edilen filigranlar temizlenemedi veya içerik korumalı.", { id: toastId });
+        toast.info("Belgenizde belirgin bir filigran veya taslak damgası tespit edilmedi. Belgeniz zaten tertemiz.", { id: toastId });
       }
     } catch (err: any) {
       console.error("1-click watermark removal error:", err);
