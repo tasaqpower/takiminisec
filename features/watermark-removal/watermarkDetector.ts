@@ -42,6 +42,66 @@ export const WATERMARK_KEYWORDS = [
   "not for official use"
 ];
 
+export function analyzeWatermarkColor(colorHex?: string): {
+  isFaint: boolean;
+  isRedStamp: boolean;
+  isBlueStamp: boolean;
+  isWatermarkColor: boolean;
+  score: number;
+  label?: string;
+} {
+  if (!colorHex || !colorHex.startsWith("#")) {
+    return { isFaint: false, isRedStamp: false, isBlueStamp: false, isWatermarkColor: false, score: 0 };
+  }
+
+  const clean = colorHex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2) || "0", 16);
+  const g = parseInt(clean.substring(2, 4) || "0", 16);
+  const b = parseInt(clean.substring(4, 6) || "0", 16);
+
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - b), Math.abs(g - b));
+  const isNeutral = maxDiff < 35;
+
+  // 1. Faint / Light Gray (Watermark tone: lum between 115 and 245)
+  if (isNeutral && lum >= 115 && lum <= 245) {
+    return {
+      isFaint: true,
+      isRedStamp: false,
+      isBlueStamp: false,
+      isWatermarkColor: true,
+      score: lum >= 140 ? 55 : 40,
+      label: `Açık gri filigran tonu (${colorHex})`
+    };
+  }
+
+  // 2. Red / Pink / Orange Stamp / Watermark
+  if (r > 135 && (r - g >= 30) && (r - b >= 30)) {
+    return {
+      isFaint: false,
+      isRedStamp: true,
+      isBlueStamp: false,
+      isWatermarkColor: true,
+      score: 50,
+      label: `Kırmızı/pembe damga rengi (${colorHex})`
+    };
+  }
+
+  // 3. Blue / Cyan Stamp
+  if (b > 135 && (b - r >= 25)) {
+    return {
+      isFaint: false,
+      isRedStamp: false,
+      isBlueStamp: true,
+      isWatermarkColor: true,
+      score: 40,
+      label: `Mavi mühür rengi (${colorHex})`
+    };
+  }
+
+  return { isFaint: false, isRedStamp: false, isBlueStamp: false, isWatermarkColor: false, score: 0 };
+}
+
 export interface ReconstructedLine {
   page: number;
   text: string;
@@ -197,13 +257,27 @@ export async function detectWatermarks(
       const avgFontSize = group.fontSizes.reduce((a, b) => a + b, 0) / group.fontSizes.length;
       const hasDiagonal = group.angles.some((a) => {
         const absA = Math.abs(a % 180);
-        return (absA >= 15 && absA <= 75) || (absA >= 105 && absA <= 165);
+        return (absA >= 10 && absA <= 80) || (absA >= 100 && absA <= 170);
       });
+
+      // Analyze colors in the group
+      let bestColor = { isWatermarkColor: false, score: 0, label: "" };
+      for (const col of group.colors) {
+        const a = analyzeWatermarkColor(col);
+        if (a.score > bestColor.score) {
+          bestColor = { isWatermarkColor: a.isWatermarkColor, score: a.score, label: a.label || "" };
+        }
+      }
 
       const matchedKw = group.matchedKeywords;
       const keywordMatched = matchedKw.length > 0;
       const repeatsOnMultiplePages = numPages > 1 && (pageCount >= 2 || pageCount / numPages >= 0.5);
-      const isLargeFont = avgFontSize >= 24;
+      
+      // Repeating lines on the SAME page (e.g. tile pattern watermark: 2+ lines on one page)
+      const maxLinesOnOnePage = Math.max(...Array.from(group.pages).map(p => group.lines.filter(l => l.page === p).length), 0);
+      const isTilePattern = maxLinesOnOnePage >= 2;
+
+      const isLargeFont = avgFontSize >= 22;
       const isRepeatedHeaderFooter =
         repeatsOnMultiplePages &&
         (normKey.includes("www") ||
@@ -219,25 +293,42 @@ export async function detectWatermarks(
         confidence += 65 + (matchedKw.length - 1) * 15;
         reasons.push(`Filigran anahtar kelimesi: ${matchedKw.join(", ")}`);
       }
+
+      // Diagonal placement is an exceptionally strong watermark signal in documents
       if (hasDiagonal) {
-        confidence += 30;
-        reasons.push("Çapraz/açılı yerleşim");
+        confidence += 60;
+        reasons.push(`Çapraz/açılı yerleşim (${Math.round(group.angles[0] || 45)}°)`);
       }
+
+      // Distinct watermark / stamp color (light gray, red stamp, blue stamp)
+      if (bestColor.isWatermarkColor) {
+        confidence += bestColor.score;
+        if (bestColor.label) reasons.push(bestColor.label);
+      }
+
+      // Tile pattern on same page
+      if (isTilePattern) {
+        confidence += 40;
+        reasons.push(`Sayfada tekrarlayan desen (${maxLinesOnOnePage} kez)`);
+      }
+
       if (repeatsOnMultiplePages) {
-        confidence += 30;
+        confidence += 40;
         reasons.push(`${pageCount} sayfada tekrarlandı`);
       }
+
       if (isLargeFont) {
-        confidence += avgFontSize >= 32 ? 25 : 15;
+        confidence += avgFontSize >= 32 ? 30 : 20;
         reasons.push(`Büyük yazı boyutu (${Math.round(avgFontSize)}pt)`);
       }
+
       if (isRepeatedHeaderFooter) {
         confidence += 25;
         reasons.push("Tekrarlayan alt/üst bilgi");
       }
 
-      // If confidence >= 40 or keyword match
-      if (confidence >= 40 || keywordMatched) {
+      // Accept candidate if confidence >= 35, or if keyword matched, or if diagonal, or if watermark color
+      if (confidence >= 35 || keywordMatched || hasDiagonal || bestColor.isWatermarkColor || isTilePattern) {
         // Collect all constituent text removals from lines
         const removals: { id: string; page: number; quad: number[] }[] = [];
         const seenRemoval = new Set<string>();
@@ -256,19 +347,6 @@ export async function detectWatermarks(
           }
         }
 
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        for (const line of group.lines) {
-          for (const it of line.items) {
-            if (it.x < minX) minX = it.x;
-            if (it.x + it.w > maxX) maxX = it.x + it.w;
-            if (it.y < minY) minY = it.y;
-            if (it.y + it.h > maxY) maxY = it.y + it.h;
-          }
-        }
-        const bounds = Number.isFinite(minX) && maxX > minX
-          ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-          : undefined;
-
         candidates.push({
           id: `wm-text-${candidateIndex++}`,
           type: "text",
@@ -279,9 +357,11 @@ export async function detectWatermarks(
           angle: Math.round(group.angles[0] || 0),
           color: Array.from(group.colors)[0] || "#222222",
           reason: reasons.join(" · "),
-          confidence: Math.min(99, confidence),
+          confidence: Math.min(99, Math.max(confidence, keywordMatched ? 95 : 75)),
           textRemovals: removals,
-          imageBounds: bounds
+          // CRITICAL: imageBounds is undefined for vector text candidates!
+          // PDFium removePdfText removes glyphs at the byte level with ZERO opaque rectangles.
+          imageBounds: undefined
         });
       }
     }

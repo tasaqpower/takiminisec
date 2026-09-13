@@ -34,7 +34,9 @@ import {
   ChevronRight,
   Plus,
   X,
-  Palette
+  Palette,
+  ShieldCheck,
+  MousePointerClick
 } from "lucide-react";
 import { toast } from "sonner";
 import { detectWatermarks } from "./watermarkDetector";
@@ -50,6 +52,8 @@ import {
   renderPdfPageToCanvas,
   detectPageBackgroundColor
 } from "./visualWatermarkDetector";
+import { loadPdf } from "@/lib/documents";
+import { editablePageText, type EditableText } from "@/lib/pdf-text";
 import type { WatermarkCandidate, WatermarkRemovalOptions, WatermarkBox } from "./watermarkTypes";
 
 interface WatermarkRemovalModalProps {
@@ -102,18 +106,26 @@ export function WatermarkRemovalModal({
   const [isAiScanning, setIsAiScanning] = useState(false);
   const [aiDetectedList, setAiDetectedList] = useState<AiDetectedWatermark[]>([]);
 
-  // Visual Tab: Canvas & Multi-Box & Brush State
+  // Visual Tab: Canvas & Tools
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const brushCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [previewPageSize, setPreviewPageSize] = useState<{ width: number; height: number; scale: number } | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
 
-  // Tools: "box" | "brush"
-  const [activeTool, setActiveTool] = useState<"box" | "brush">("box");
+  // Vector Text on active page (for 1-click Target Picker)
+  const [pageTextItems, setPageTextItems] = useState<EditableText[]>([]);
+  const [hoveredTextItem, setHoveredTextItem] = useState<EditableText | null>(null);
+  const [selectedTextElement, setSelectedTextElement] = useState<string | null>(null);
+
+  // Tools: "pick" (Click to Erase) | "box" (Multi-Box) | "brush" (Magic Brush)
+  const [activeTool, setActiveTool] = useState<"pick" | "box" | "brush">("pick");
   const [brushSize, setBrushSize] = useState<number>(24);
   const [hasBrushStrokes, setHasBrushStrokes] = useState<boolean>(false);
   const isBrushingRef = useRef<boolean>(false);
+
+  // Dark text preservation toggle (avoids erasing underlying black contract text)
+  const [protectDarkText, setProtectDarkText] = useState<boolean>(true);
 
   // Multi-box selection
   const [manualBoxes, setManualBoxes] = useState<WatermarkBox[]>([]);
@@ -166,7 +178,7 @@ export function WatermarkRemovalModal({
     setActiveTab(tab);
   };
 
-  // Run auto-detection when modal opens
+  // Run auto-detection when modal opens or activePage changes
   useEffect(() => {
     if (!open || !pdfBytes) {
       userSwitchedTabRef.current = false;
@@ -175,6 +187,7 @@ export function WatermarkRemovalModal({
       setAiDetectedList([]);
       setManualBoxes([]);
       setHasBrushStrokes(false);
+      setSelectedTextElement(null);
       return;
     }
 
@@ -202,8 +215,8 @@ export function WatermarkRemovalModal({
         if (!active) return;
         setCandidates(finalCandidates);
 
-        // Pre-select high confidence candidates
-        const highConf = new Set(finalCandidates.filter((c) => c.confidence >= 50).map((c) => c.id));
+        // Pre-select high confidence candidates (confidence >= 60)
+        const highConf = new Set(finalCandidates.filter((c) => c.confidence >= 60).map((c) => c.id));
 
         if (!userSwitchedTabRef.current) {
           if (highConf.size > 0) {
@@ -213,7 +226,6 @@ export function WatermarkRemovalModal({
             setSelectedIds(new Set([finalCandidates[0].id]));
             setActiveTab("auto");
           } else {
-            // Default to visual area selection
             setActiveTab("visual");
           }
         } else {
@@ -236,22 +248,23 @@ export function WatermarkRemovalModal({
     };
   }, [open, pdfBytes, activePage]);
 
-  // Load interactive page preview canvas for "Sayfada İşaretle ve Sil"
+  // Load interactive page preview canvas and extract text items for "Tıkla ve Sil"
   useEffect(() => {
     if (!open || !pdfBytes || activeTab !== "visual") return;
 
     let active = true;
     setIsPreviewLoading(true);
 
-    renderPdfPageToCanvas(pdfBytes, activePage - 1, 1.25)
-      .then(({ canvas, pageWidth, pageHeight }) => {
+    // 1. Render PDF page image
+    renderPdfPageToCanvas(pdfBytes, activePage - 1, 1.3)
+      .then(async ({ canvas, pageWidth, pageHeight }) => {
         if (!active) return;
 
-        // Automatically detect paper background tone from margin pixels
+        // Detect authentic paper background tone from margin pixels
         const detectedColor = detectPageBackgroundColor(canvas);
         setDetectedPaperColor(detectedColor);
 
-        // Draw preview
+        // Draw page image onto preview canvas
         if (previewCanvasRef.current) {
           const target = previewCanvasRef.current;
           target.width = canvas.width;
@@ -279,6 +292,19 @@ export function WatermarkRemovalModal({
           height: pageHeight,
           scale: canvas.width / pageWidth
         });
+
+        // 2. Extract vector text items for 1-click Target Picker
+        try {
+          const doc = await loadPdf(pdfBytes);
+          const page = await doc.getPage(activePage);
+          const texts = await editablePageText(page);
+          if (active) {
+            setPageTextItems(texts);
+          }
+          try { await doc.loadingTask.destroy(); } catch {}
+        } catch (textErr) {
+          console.warn("Vector text extraction error:", textErr);
+        }
       })
       .catch((err) => {
         console.error("Preview canvas render error:", err);
@@ -346,6 +372,41 @@ export function WatermarkRemovalModal({
     return detectedPaperColor;
   };
 
+  // --- 1-CLICK ELEMENT PICKER (Tıkla ve Cerrahi Sil) ---
+  const handleQuickRemoveText = async (targetText: string, scope: "all" | "current") => {
+    if (!pdfBytes || !targetText.trim()) return;
+
+    setIsApplying(true);
+    const toastId = toast.loading(`"${targetText}" cerrahi olarak siliniyor (0 daksil, 0 hasar)...`);
+
+    try {
+      const eff = getEffectiveFillColor();
+      const options: WatermarkRemovalOptions = {
+        candidateIds: [],
+        customText: targetText.trim(),
+        customCaseSensitive: false,
+        pageScope: scope,
+        currentPage: activePage - 1,
+        fillColor: { r: eff.r, g: eff.g, b: eff.b }
+      };
+
+      const result = await removeWatermarks(pdfBytes, [], options);
+
+      if (result.totalRemoved > 0) {
+        onApplyRemoval(result.pdfBytes, result.totalRemoved);
+        onOpenChange(false);
+        toast.success(`⚡ "${targetText}" başarıyla silindi! (${result.totalRemoved} öğe temizlendi, çevre yazılar korundu)`, { id: toastId });
+      } else {
+        toast.warning("Metin bulunamadı veya kaldırılamadı.", { id: toastId });
+      }
+    } catch (err: any) {
+      console.error("Quick text removal failed:", err);
+      toast.error("Filigran silinirken bir hata oluştu.", { id: toastId });
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
   // --- MULTI-BOX PRESETS & HANDLERS ---
   const addPresetBox = (type: "center" | "header" | "footer") => {
     const canvas = previewCanvasRef.current;
@@ -357,8 +418,8 @@ export function WatermarkRemovalModal({
     const boxId = "box-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
 
     if (type === "center") {
-      const bw = Math.round(w * 0.76);
-      const bh = Math.round(h * 0.35);
+      const bw = Math.round(w * 0.70);
+      const bh = Math.round(h * 0.30);
       newBox = {
         id: boxId,
         x: Math.round((w - bw) / 2),
@@ -370,7 +431,7 @@ export function WatermarkRemovalModal({
       };
     } else if (type === "header") {
       const bw = Math.round(w * 0.85);
-      const bh = Math.round(h * 0.12);
+      const bh = Math.round(h * 0.10);
       newBox = {
         id: boxId,
         x: Math.round((w - bw) / 2),
@@ -382,11 +443,11 @@ export function WatermarkRemovalModal({
       };
     } else {
       const bw = Math.round(w * 0.85);
-      const bh = Math.round(h * 0.12);
+      const bh = Math.round(h * 0.10);
       newBox = {
         id: boxId,
         x: Math.round((w - bw) / 2),
-        y: Math.round(h * 0.85),
+        y: Math.round(h * 0.86),
         w: bw,
         h: bh,
         label: "Alt Bilgi (Footer)",
@@ -407,7 +468,7 @@ export function WatermarkRemovalModal({
     setActiveDrawingBox(null);
   };
 
-  // --- CANVAS MOUSE / TOUCH EVENTS (BOX DRAWING & BRUSH) ---
+  // --- CANVAS MOUSE / TOUCH EVENTS ---
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = brushCanvasRef.current || previewCanvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -433,6 +494,14 @@ export function WatermarkRemovalModal({
 
   const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoords(e);
+
+    if (activeTool === "pick") {
+      // Find clicked vector text item under cursor
+      if (hoveredTextItem) {
+        setSelectedTextElement(hoveredTextItem.text);
+      }
+      return;
+    }
 
     if (activeTool === "brush") {
       const bCanvas = brushCanvasRef.current;
@@ -460,6 +529,34 @@ export function WatermarkRemovalModal({
 
   const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoords(e);
+
+    if (activeTool === "pick" && previewPageSize && previewCanvasRef.current) {
+      // Hit test vector text items
+      const canvas = previewCanvasRef.current;
+      const scaleX = canvas.width / previewPageSize.width;
+      const scaleY = canvas.height / previewPageSize.height;
+
+      let hitItem: EditableText | null = null;
+      for (const item of pageTextItems) {
+        if (!item.text?.trim()) continue;
+        const itemCanvasX = item.x * scaleX;
+        const itemCanvasY = canvas.height - (item.y + item.h) * scaleY;
+        const itemCanvasW = item.w * scaleX;
+        const itemCanvasH = item.h * scaleY;
+
+        if (
+          x >= itemCanvasX - 4 &&
+          x <= itemCanvasX + itemCanvasW + 4 &&
+          y >= itemCanvasY - 4 &&
+          y <= itemCanvasY + itemCanvasH + 4
+        ) {
+          hitItem = item;
+          break;
+        }
+      }
+      setHoveredTextItem(hitItem);
+      return;
+    }
 
     if (activeTool === "brush" && isBrushingRef.current) {
       const bCanvas = brushCanvasRef.current;
@@ -519,10 +616,12 @@ export function WatermarkRemovalModal({
     toast.info("Fırça temizlendi.");
   };
 
-  // Export brush canvas mask to a PNG data URL where painted pixels are effectiveFillColor
+  // Export brush canvas mask to a PNG data URL with smart dark-text preservation
   const exportBrushMaskDataUrl = (): string | undefined => {
-    if (!hasBrushStrokes || !brushCanvasRef.current) return undefined;
+    if (!hasBrushStrokes || !brushCanvasRef.current || !previewCanvasRef.current) return undefined;
     const bCanvas = brushCanvasRef.current;
+    const pCanvas = previewCanvasRef.current;
+
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = bCanvas.width;
     exportCanvas.height = bCanvas.height;
@@ -530,27 +629,41 @@ export function WatermarkRemovalModal({
     if (!expCtx) return undefined;
 
     const bCtx = bCanvas.getContext("2d");
-    if (!bCtx) return undefined;
+    const pCtx = pCanvas.getContext("2d");
+    if (!bCtx || !pCtx) return undefined;
 
-    const imgData = bCtx.getImageData(0, 0, bCanvas.width, bCanvas.height);
-    const data = imgData.data;
+    const brushImgData = bCtx.getImageData(0, 0, bCanvas.width, bCanvas.height);
+    const pageImgData = pCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+    const bData = brushImgData.data;
+    const pData = pageImgData.data;
+
     const eff = getEffectiveFillColor();
     const targetR = Math.round(eff.r * 255);
     const targetG = Math.round(eff.g * 255);
     const targetB = Math.round(eff.b * 255);
 
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] > 20) {
-        data[i] = targetR;
-        data[i + 1] = targetG;
-        data[i + 2] = targetB;
-        data[i + 3] = 255;
+    for (let i = 0; i < bData.length; i += 4) {
+      if (bData[i + 3] > 20) {
+        // Pixel is inside the brush stroke
+        if (protectDarkText) {
+          // Check luminance of the underlying page pixel
+          const pageLum = 0.299 * pData[i] + 0.587 * pData[i + 1] + 0.114 * pData[i + 2];
+          // If the pixel is dark black contract text (lum < 115), preserve it completely!
+          if (pageLum < 115) {
+            bData[i + 3] = 0; // Transparent (do not overwrite dark text)
+            continue;
+          }
+        }
+        bData[i] = targetR;
+        bData[i + 1] = targetG;
+        bData[i + 2] = targetB;
+        bData[i + 3] = 255;
       } else {
-        data[i + 3] = 0;
+        bData[i + 3] = 0;
       }
     }
 
-    expCtx.putImageData(imgData, 0, 0);
+    expCtx.putImageData(brushImgData, 0, 0);
     return exportCanvas.toDataURL("image/png");
   };
 
@@ -570,7 +683,7 @@ export function WatermarkRemovalModal({
     }
 
     setIsApplying(true);
-    const toastId = toast.loading("Seçilen alanlar kusursuzca siliniyor...");
+    const toastId = toast.loading("Seçilen alanlar cerrahi olarak temizleniyor (yazılar korunuyor)...");
 
     try {
       const canvas = previewCanvasRef.current;
@@ -606,7 +719,7 @@ export function WatermarkRemovalModal({
       if (result.totalRemoved > 0) {
         onApplyRemoval(result.pdfBytes, result.totalRemoved);
         onOpenChange(false);
-        toast.success(`✨ ${result.totalRemoved} alan başarıyla silindi ve kağıt tonuyla eşitlendi!`, { id: toastId });
+        toast.success(`✨ ${result.totalRemoved} alan başarıyla silindi, diğer tüm yazılar korundu!`, { id: toastId });
       } else {
         toast.warning("İşlem uygulanamadı, lütfen tekrar deneyin.", { id: toastId });
       }
@@ -623,7 +736,7 @@ export function WatermarkRemovalModal({
     if (!pdfBytes) return;
 
     setIsAutoCleaning(true);
-    const toastId = toast.loading("Filigranlar otomatik tespit ediliyor...");
+    const toastId = toast.loading("Filigranlar renk ve açı analizleriyle taranıyor...");
 
     try {
       let activeCandidates: WatermarkCandidate[] = [...candidates];
@@ -647,7 +760,7 @@ export function WatermarkRemovalModal({
 
       // 2. If no candidates, run local detector (vector + visual OCR)
       if (activeCandidates.length === 0) {
-        toast.loading("Belge katmanları taranıyor...", { id: toastId });
+        toast.loading("Belge katmanları taranıyor (renk, açı, desen)...", { id: toastId });
         activeCandidates = await detectWatermarks(pdfBytes);
       }
 
@@ -666,9 +779,9 @@ export function WatermarkRemovalModal({
 
       const eff = getEffectiveFillColor();
 
-      // 4. If candidates found, remove them
+      // 4. If candidates found, remove them CERRAHİ olarak (zero daksil)
       if (activeCandidates.length > 0) {
-        toast.loading(`${activeCandidates.length} filigran temizleniyor...`, { id: toastId });
+        toast.loading(`${activeCandidates.length} filigran cerrahi olarak temizleniyor...`, { id: toastId });
         const options: WatermarkRemovalOptions = {
           candidateIds: activeCandidates.map((c) => c.id),
           pageScope,
@@ -681,7 +794,7 @@ export function WatermarkRemovalModal({
         if (result.totalRemoved > 0) {
           onApplyRemoval(result.pdfBytes, result.totalRemoved);
           onOpenChange(false);
-          toast.success(`⚡ Harika! ${result.totalRemoved} filigran başarıyla tespit edilip temizlendi.`, { id: toastId });
+          toast.success(`⚡ Harika! ${result.totalRemoved} filigran çevre metinlere zarar vermeden silindi.`, { id: toastId });
           return;
         }
       }
@@ -720,7 +833,7 @@ export function WatermarkRemovalModal({
 
       // If nothing could be found automatically, switch to visual area selection
       toast.dismiss(toastId);
-      toast.info("Belirgin bir metin filigranı otomatik bulunamadı. Lütfen '🎯 Sayfada İşaretle & Sil' sekmesinden filigranı kutu içine alın veya fırça ile boyayın.");
+      toast.info("Otomatik bulunamadı. Lütfen '🎯 Sayfada İşaretle & Sil' sekmesinden filigrana tıklayın veya kutu içine alın.");
       setActiveTab("visual");
     } catch (err: any) {
       console.error("Auto clean failed:", err);
@@ -806,7 +919,7 @@ export function WatermarkRemovalModal({
       if (result.totalRemoved > 0) {
         onApplyRemoval(result.pdfBytes, result.totalRemoved);
         onOpenChange(false);
-        toast.success(`Filigran başarıyla kaldırıldı! (${result.totalRemoved} öğe temizlendi)`);
+        toast.success(`Filigran başarıyla kaldırıldı! (${result.totalRemoved} öğe temizlendi, çevre yazılar korundu)`);
       } else {
         toast.warning("Seçili kriterlerle eşleşen filigran bulunamadı veya kaldırılamadı.");
       }
@@ -827,14 +940,15 @@ export function WatermarkRemovalModal({
         <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Eraser className="w-5 h-5 text-indigo-600" />
-            <span>Profesyonel Filigran Temizleme</span>
-            <span className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-              10/10 Suite
+            <span>Kusursuz Filigran Temizleyici</span>
+            <span className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Sıfır Hasar · Cerrahi Silme
             </span>
           </div>
         </DialogTitle>
         <DialogDescription className="text-sm text-slate-500 mt-0.5">
-          Vektörel metinler, taranmış damgalar, arka plan logoları ve geçersiz ibarelerini akıllı kağıt rengi uyumuyla silin.
+          Etraftaki sözleşme metinlerine, tablolara veya imzalara <strong>asla zarar vermeden</strong> yalnızca filigranı temizleyin.
         </DialogDescription>
 
         {/* 1-Click Instant Auto Clean Banner */}
@@ -846,16 +960,14 @@ export function WatermarkRemovalModal({
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Tek Tıkla Otomatik Bul ve Sil</span>
-                  <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    AI & OCR Hibrit
+                  <span>Tek Tıkla Otomatik Bul ve Cerrahi Sil</span>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    Çevre Yazılar Korunur
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {apiKey.trim()
-                    ? "Gemini Vision AI ve yerel görsel OCR ile tüm filigranları otomatik tespit edip yok eder."
-                    : "Görsel OCR ve akıllı katman analizi ile filigran ve taslak damgalarını otomatik bulup temizler."}
+                  Açılı, açık gri, kırmızı mühür veya tekrarlayan filigranları tespit edip arka plandaki yazılara dokunmadan yok eder.
                 </p>
               </div>
             </div>
@@ -868,7 +980,7 @@ export function WatermarkRemovalModal({
               {isAutoCleaning ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Otomatik Temizleniyor...</span>
+                  <span>Cerrahi Olarak Temizleniyor...</span>
                 </>
               ) : (
                 <>
@@ -892,7 +1004,7 @@ export function WatermarkRemovalModal({
             }`}
           >
             <Target className="w-3.5 h-3.5" />
-            🎯 Sayfada İşaretle & Sil (Kutu + Fırça)
+            🎯 Sayfada İşaretle & Sil (Tıkla / Kutu / Fırça)
             {visualTotalAreas > 0 && (
               <span className="px-1.5 py-0.2 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">
                 {visualTotalAreas}
@@ -948,15 +1060,28 @@ export function WatermarkRemovalModal({
           </button>
         </div>
 
-        {/* TAB 1: 🎯 Sayfada İşaretle & Sil (Multi-Box + Magic Brush + Color Picker + Zoom/Pages) */}
+        {/* TAB 1: 🎯 Sayfada İşaretle & Sil */}
         {activeTab === "visual" && (
           <div className="space-y-3 pt-3">
-            {/* Toolbar: Tools, Presets, Paper Color, Page Navigator, Zoom */}
+            {/* Toolbar: Tools, Presets, Dark Text Protection, Paper Color, Page Navigator, Zoom */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-              {/* Row 1: Tool Selection & Presets */}
+              {/* Row 1: Mode Switcher (Pick vs Box vs Brush) & Protection Toggle */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* Mode toggle: Box vs Brush */}
+                {/* Mode toggle */}
                 <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTool("pick")}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      activeTool === "pick"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                    title="Sayfadaki filigrana tıklayın, anında tüm belgeden cerrahi olarak yok edilsin"
+                  >
+                    <MousePointerClick className="w-3.5 h-3.5" />
+                    🎯 Tıkla ve Sil
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveTool("box")}
@@ -984,14 +1109,19 @@ export function WatermarkRemovalModal({
                 </div>
 
                 {/* Sub-controls based on active tool */}
-                {activeTool === "box" ? (
+                {activeTool === "pick" ? (
+                  <div className="text-[11px] text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1.5">
+                    <MousePointerClick className="w-3.5 h-3.5" />
+                    <span>Sayfadaki herhangi bir filigrana veya yazıya tıklayarak anında silin</span>
+                  </div>
+                ) : activeTool === "box" ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => addPresetBox("center")}
                       className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      📌 Orta Filigran Ekle
+                      📌 Orta Filigran
                     </button>
                     <button
                       type="button"
@@ -1020,7 +1150,7 @@ export function WatermarkRemovalModal({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] text-slate-500 font-medium">Fırça Boyutu:</span>
+                    <span className="text-[11px] text-slate-500 font-medium">Fırça:</span>
                     {[
                       { size: 14, label: "İnce" },
                       { size: 24, label: "Orta" },
@@ -1052,6 +1182,21 @@ export function WatermarkRemovalModal({
                     )}
                   </div>
                 )}
+
+                {/* Dark text protection toggle */}
+                <button
+                  type="button"
+                  onClick={() => setProtectDarkText(!protectDarkText)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                    protectDarkText
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                      : "bg-slate-100 border-slate-200 text-slate-500"
+                  }`}
+                  title="Alttaki siyah sözleşme metinlerinin silinmesini önler"
+                >
+                  <ShieldCheck className={`w-3.5 h-3.5 ${protectDarkText ? "text-emerald-600" : "text-slate-400"}`} />
+                  <span>Metinleri Koru: {protectDarkText ? "Açık" : "Kapalı"}</span>
+                </button>
               </div>
 
               {/* Row 2: Paper Color Tone Matching, Zoom, and Page Switcher */}
@@ -1060,7 +1205,7 @@ export function WatermarkRemovalModal({
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-700">
                     <Palette className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Daksil / Kağıt Rengi:</span>
+                    <span>Kağıt Tonu:</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -1071,7 +1216,6 @@ export function WatermarkRemovalModal({
                           ? "bg-indigo-50 border-indigo-300 text-indigo-800 ring-1 ring-indigo-400"
                           : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
-                      title="Sayfa kenarlarından taranarak bulunan orijinal kağıt rengi"
                     >
                       <span
                         className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs inline-block"
@@ -1115,7 +1259,6 @@ export function WatermarkRemovalModal({
                           value={customColorHex}
                           onChange={(e) => setCustomColorHex(e.target.value)}
                           className="w-6 h-6 p-0 border border-slate-300 rounded cursor-pointer"
-                          title="Renk paletinden ton seç"
                         />
                       )}
                     </div>
@@ -1177,12 +1320,51 @@ export function WatermarkRemovalModal({
               </div>
             </div>
 
+            {/* Quick Action Bar for Clicked Element (Tıkla ve Sil) */}
+            {selectedTextElement && (
+              <div className="p-3 bg-indigo-50 border border-indigo-300 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MousePointerClick className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span className="text-xs text-indigo-950 truncate">
+                    Seçilen Filigran: <strong className="font-bold text-indigo-700">&ldquo;{selectedTextElement}&rdquo;</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRemoveText(selectedTextElement, "all")}
+                    disabled={isApplying}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Zap className="w-3 h-3 fill-current" />
+                    <span>Tüm Belgeden Sil</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickRemoveText(selectedTextElement, "current")}
+                    disabled={isApplying}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Bu Sayfadan Sil
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTextElement(null)}
+                    className="p-1 hover:bg-indigo-100 rounded text-indigo-600 cursor-pointer"
+                    title="İptal"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Interactive Canvas Workspace */}
             <div className="relative border border-slate-300 rounded-xl overflow-hidden bg-slate-200 flex items-center justify-center min-h-[340px] max-h-[440px] overflow-auto p-4">
               {isPreviewLoading && (
                 <div className="absolute inset-0 z-30 bg-white/80 flex flex-col items-center justify-center gap-2 text-slate-600">
                   <Loader2 className="w-7 h-7 animate-spin text-indigo-600" />
-                  <span className="text-xs font-semibold">Sayfa ve kağıt tonu yükleniyor...</span>
+                  <span className="text-xs font-semibold">Sayfa yükleniyor...</span>
                 </div>
               )}
 
@@ -1197,7 +1379,7 @@ export function WatermarkRemovalModal({
                 {/* Base Page Canvas */}
                 <canvas ref={previewCanvasRef} className="block max-w-none" />
 
-                {/* Freehand Magic Brush Canvas Overlay */}
+                {/* Freehand Magic Brush / Interactive Events Canvas Overlay */}
                 <canvas
                   ref={brushCanvasRef}
                   onMouseDown={handlePointerDown}
@@ -1207,9 +1389,31 @@ export function WatermarkRemovalModal({
                   onTouchMove={handlePointerMove}
                   onTouchEnd={handlePointerUp}
                   className={`absolute inset-0 z-10 block max-w-none ${
-                    activeTool === "brush" ? "cursor-crosshair pointer-events-auto" : "cursor-crosshair pointer-events-auto"
+                    activeTool === "pick"
+                      ? "cursor-pointer pointer-events-auto"
+                      : "cursor-crosshair pointer-events-auto"
                   }`}
                 />
+
+                {/* Highlight Hovered Text Item in "Pick" Mode */}
+                {activeTool === "pick" && hoveredTextItem && previewPageSize && previewCanvasRef.current && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: hoveredTextItem.x * (previewCanvasRef.current.width / previewPageSize.width),
+                      top:
+                        previewCanvasRef.current.height -
+                        (hoveredTextItem.y + hoveredTextItem.h) * (previewCanvasRef.current.height / previewPageSize.height),
+                      width: hoveredTextItem.w * (previewCanvasRef.current.width / previewPageSize.width),
+                      height: hoveredTextItem.h * (previewCanvasRef.current.height / previewPageSize.height)
+                    }}
+                    className="border-2 border-indigo-600 bg-indigo-500/25 pointer-events-none rounded-xs z-25 transition-all shadow-sm"
+                  >
+                    <span className="absolute -top-5 left-0 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.2 rounded shadow whitespace-nowrap">
+                      Tıkla ve Sil: {hoveredTextItem.text}
+                    </span>
+                  </div>
+                )}
 
                 {/* Active Drawing Box Preview */}
                 {activeDrawingBox && activeDrawingBox.w > 0 && activeDrawingBox.h > 0 && (
@@ -1264,16 +1468,20 @@ export function WatermarkRemovalModal({
             {/* Bottom Status & Removal Trigger */}
             <div className="flex items-center justify-between gap-3 pt-1">
               <div className="text-xs text-slate-600">
-                {visualTotalAreas > 0 ? (
+                {activeTool === "pick" ? (
+                  <span className="text-indigo-700 font-medium">
+                    💡 İpucu: Sayfada silmek istediğiniz herhangi bir filigran veya yazıya tıklayın.
+                  </span>
+                ) : visualTotalAreas > 0 ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     {manualBoxes.length > 0 && `${manualBoxes.length} kutu`}
                     {manualBoxes.length > 0 && hasBrushStrokes && " + "}
-                    {hasBrushStrokes && "Sihirli fırça alanı"} silinmek üzere hazır!
+                    {hasBrushStrokes && "Sihirli fırça alanı"} seçildi. (Alttaki siyah metinler korunur)
                   </span>
                 ) : (
                   <span className="text-slate-500">
-                    Sayfada kutu çizerek veya sihirli fırça ile boyayarak kaldırılacak yerleri işaretleyin.
+                    Kutu çizerek veya sihirli fırça ile boyayarak kaldırılacak yerleri işaretleyin.
                   </span>
                 )}
               </div>
@@ -1292,24 +1500,26 @@ export function WatermarkRemovalModal({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleApplyVisualSelections}
-                  disabled={isApplying || visualTotalAreas === 0}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Kusursuzca Siliniyor...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Bu Alanları Sil ve Kağıda Uydur ({visualTotalAreas})</span>
-                    </>
-                  )}
-                </button>
+                {activeTool !== "pick" && (
+                  <button
+                    type="button"
+                    onClick={handleApplyVisualSelections}
+                    disabled={isApplying || visualTotalAreas === 0}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isApplying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Cerrahi Siliniyor...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Seçili Alanları Sil ({visualTotalAreas})</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1321,14 +1531,14 @@ export function WatermarkRemovalModal({
             {isScanning ? (
               <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-                <p className="text-xs">Belge ve sayfa katmanları taranıyor...</p>
+                <p className="text-xs">Belge katmanları, renkler ve açılar taranıyor...</p>
               </div>
             ) : candidates.length === 0 ? (
               <div className="py-8 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
                 <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
                 <p className="text-xs font-medium text-slate-700">Otomatik filigran algılanamadı</p>
                 <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                  Belgenizde standart bir vektörel filigran metni yakalanamadı. Taranmış damgaları silmek için <strong>🎯 Sayfada İşaretle & Sil</strong> sekmesindeki kutu veya sihirli fırçayı kullanabilir ya da <strong>Özel Metin Sil</strong> sekmesine geçebilirsiniz.
+                  Belgenizde belirgin bir filigran yakalanamadı. Silmek için <strong>🎯 Sayfada İşaretle & Sil</strong> sekmesinden filigrana tıklayabilir ya da <strong>Özel Metin Sil</strong> sekmesine geçebilirsiniz.
                 </p>
                 <div className="flex justify-center gap-3 mt-2">
                   <button
@@ -1408,16 +1618,17 @@ export function WatermarkRemovalModal({
                               %{cand.confidence} Güven
                             </span>
                             <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">
-                              {cand.type === "image" ? "Görsel / Damga" : "Metin Filigranı"}
+                              {cand.type === "image" ? "Görsel / Damga" : "Vektörel Metin (Cerrahi)"}
                             </span>
-                            {cand.id.startsWith("wm-vis-") && (
+                            {cand.angle ? (
                               <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-semibold">
-                                Görsel OCR
+                                {cand.angle}° Çapraz
                               </span>
-                            )}
-                            {cand.id.startsWith("wm-ai-") && (
-                              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-semibold">
-                                AI Tespitli
+                            ) : null}
+                            {cand.color && cand.color !== "#222222" && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-semibold flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: cand.color }} />
+                                {cand.color}
                               </span>
                             )}
                           </div>
@@ -1434,12 +1645,6 @@ export function WatermarkRemovalModal({
                               <>
                                 <span>·</span>
                                 <span>{cand.fontSize}pt</span>
-                              </>
-                            ) : null}
-                            {cand.angle ? (
-                              <>
-                                <span>·</span>
-                                <span>{cand.angle}° açı</span>
                               </>
                             ) : null}
                           </div>
@@ -1491,8 +1696,9 @@ export function WatermarkRemovalModal({
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-400 pt-1">
-                Girdiğiniz metin, hem vektörel PDF nesnelerinde hem de taranmış resim belgelerinde görsel OCR ile taranarak akıllı arka planla temizlenir.
+              <p className="text-[11px] text-emerald-700 font-medium pt-1 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Girdiğiniz metin, PDF içerik akışından harf harf cerrahi olarak silinir. Alttaki veya etraftaki hiçbir yazıya daksil çekilmez.</span>
               </p>
             </div>
 
@@ -1617,7 +1823,7 @@ export function WatermarkRemovalModal({
           </div>
         )}
 
-        {/* Page Scope Configuration (for auto / custom / ai tabs) */}
+        {/* Page Scope Configuration */}
         {activeTab !== "visual" && (
           <div className="pt-4 border-t border-slate-100 space-y-2 mt-4">
             <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -1662,7 +1868,7 @@ export function WatermarkRemovalModal({
           </div>
         )}
 
-        {/* Action Footer (for non-visual tabs) */}
+        {/* Action Footer */}
         {activeTab !== "visual" && (
           <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100 mt-4">
             <button
@@ -1687,7 +1893,7 @@ export function WatermarkRemovalModal({
               {isApplying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Filigran Temizleniyor...
+                  Cerrahi Olarak Siliniyor...
                 </>
               ) : (
                 <>

@@ -140,6 +140,31 @@ export async function removeWatermarks(
     }
   }
 
+  // 2d. Check if manualBoxes enclose any vector text on the page
+  if (options.manualBoxes && options.manualBoxes.length > 0) {
+    for (const pageIdx of targetPages) {
+      if (pageIdx < 0 || pageIdx >= totalPages) continue;
+      try {
+        const page = await doc.getPage(pageIdx + 1);
+        const pageTexts = await editablePageText(page);
+        for (const box of options.manualBoxes) {
+          for (const item of pageTexts) {
+            const cx = item.x + item.w / 2;
+            const cy = item.y + item.h / 2;
+            if (cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h) {
+              textRemovals.push({
+                id: item.id,
+                page: pageIdx,
+                quad: item.quad
+              });
+              (box as any).hasVectorText = true;
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
   // Visual text search fallback for scanned / image pages
   const visualCoverBounds: { page: number; x: number; y: number; w: number; h: number }[] = [];
   if (options.customText && options.customText.trim().length > 0 && textRemovals.length === 0 && typeof window !== "undefined") {
@@ -264,9 +289,15 @@ export async function removeWatermarks(
       ? rgb(options.fillColor.r, options.fillColor.g, options.fillColor.b)
       : rgb(1, 1, 1);
 
-    // 6a. Detected candidate bounds
+    // 6a. Detected candidate bounds - ONLY FOR RASTER CANDIDATES!
+    // CRITICAL: NEVER draw solid rectangles for vector text!
+    // removePdfText already surgically deleted vector glyphs without touching anything else.
     for (const cand of allCandidates) {
       if (!selectedSet.has(cand.id)) continue;
+
+      if (cand.type === "text" || (cand.textRemovals && cand.textRemovals.length > 0)) {
+        continue;
+      }
 
       if (cand.imageBounds) {
         for (const pIdx of cand.pages) {
@@ -288,8 +319,13 @@ export async function removeWatermarks(
     }
 
     // 6b. Multi-box manual selection areas
+    // ONLY draw rectangle if the box did NOT match vector text (i.e. it is covering a raster image/stamp)
     if (options.manualBoxes && options.manualBoxes.length > 0) {
       for (const box of options.manualBoxes) {
+        if ((box as any).hasVectorText) {
+          // Vector text was already surgically removed by PDFium WASM! Do NOT draw opaque cover!
+          continue;
+        }
         for (const pIdx of targetPages) {
           if (pIdx >= 0 && pIdx < pages.length) {
             const page = pages[pIdx];
@@ -334,32 +370,6 @@ export async function removeWatermarks(
         }
       } catch (brushErr) {
         console.warn("Brush mask embedding error:", brushErr);
-      }
-    }
-
-    // 6d. Custom text quads if custom text was applied
-    if (options.customText && textRemovals.length > 0) {
-      for (const r of textRemovals) {
-        if (targetPages.has(r.page) && r.page >= 0 && r.page < pages.length && r.quad && r.quad.length === 8) {
-          const page = pages[r.page];
-          const xs = [r.quad[0], r.quad[2], r.quad[4], r.quad[6]];
-          const ys = [r.quad[1], r.quad[3], r.quad[5], r.quad[7]];
-          const minX = Math.min(...xs);
-          const maxX = Math.max(...xs);
-          const minY = Math.min(...ys);
-          const maxY = Math.max(...ys);
-
-          page.drawRectangle({
-            x: Math.max(0, minX - 2),
-            y: Math.max(0, minY - 2),
-            width: (maxX - minX) + 4,
-            height: (maxY - minY) + 4,
-            color: fillColor,
-            opacity: 1
-          });
-          coverDrawn = true;
-          removedCoverCount++;
-        }
       }
     }
 

@@ -185,13 +185,15 @@ export async function detectVisualWatermarks(
             const normLine = normalizeTurkish(line.text);
             const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
             if (matchedKw.length > 0) {
-              // Diagonal watermark found across the page
-              const padW = canvas.width * 0.75;
-              const padH = canvas.height * 0.55;
+              // Diagonal watermark found across the page - use tight bounding box
+              const padW = Math.min(canvas.width, Math.max(160, (line.bbox?.width || 200) + 40));
+              const padH = Math.min(canvas.height, Math.max(50, (line.bbox?.height || 50) + 30));
+              const boxX = Math.max(0, Math.min(canvas.width - padW, (canvas.width - padW) / 2));
+              const boxY = Math.max(0, Math.min(canvas.height - padH, (canvas.height - padH) / 2));
               matchedBoxes.push({
                 text: line.text,
-                x: (canvas.width - padW) / 2,
-                y: (canvas.height - padH) / 2,
+                x: boxX,
+                y: boxY,
                 w: padW,
                 h: padH,
                 reason: `Çapraz (${angle}°) filigran tespit edildi: ${matchedKw.join(", ")}`,
