@@ -3,13 +3,120 @@ import { editablePageText, type EditableText, type ImageRemoval } from "@/lib/pd
 import { detectImagesOnPage } from "@/features/image-editor/imageDetector";
 import type { WatermarkCandidate } from "./watermarkTypes";
 
-const WATERMARK_KEYWORDS = [
-  "DRAFT", "TASLAK", "GİZLİ", "GIZLI", "CONFIDENTIAL", "ÖRNEKTİR", "ORNEKTIR",
-  "KOPYA", "COPY", "NUMUNE", "DENEME", "CAMSCANNER", "WATERMARK",
-  "FILIGRAN", "FİLİGRAN", "İPTAL", "IPTAL", "VOID", "SAMPLE", "TEST",
-  "SPECIMEN", "EVALUATION", "TRIAL", "PREVIEW", "ÖĞRENCİ", "OGRENCI",
-  "KORUMALI", "UNOFFICIAL", "FOR REVIEW", "GİZLİDİR", "GIZLIDIR", "BELGE KOPYASI"
+export function normalizeTurkish(text: string): string {
+  if (!text) return "";
+  return text
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export const WATERMARK_KEYWORDS = [
+  // Turkish invalidity & draft & sample indicators
+  "gecersiz", "gecersizdir",
+  "ornek", "ornektir", "ornek belge", "ornek belgedir",
+  "taslak", "taslaktir",
+  "gizli", "gizlidir",
+  "kopya", "kopyadir", "belge kopyasi", "surettir",
+  "iptal", "iptal edilmistir",
+  "deneme", "numune",
+  "ogrenci", "ogrenci belgesi",
+  "resmi degildir", "bilgi icindir",
+  "kontrolsuz", "kontrolsuz kopya",
+  "onaylanmamis", "onaylanmamistir",
+  "asli gibidir",
+  "filigran", "korumali",
+  // English & common indicators
+  "draft", "confidential", "copy", "void", "sample", "test",
+  "specimen", "evaluation", "trial", "preview", "unofficial",
+  "for review", "do not copy", "watermark", "camscanner",
+  "not for official use"
 ];
+
+export interface ReconstructedLine {
+  page: number;
+  text: string;
+  items: EditableText[];
+  angle: number;
+  size: number;
+  color: string;
+}
+
+export function reconstructPageLines(items: EditableText[]): ReconstructedLine[] {
+  if (!items || items.length === 0) return [];
+
+  const lines: ReconstructedLine[] = [];
+  const used = new Set<number>();
+
+  for (let i = 0; i < items.length; i++) {
+    if (used.has(i)) continue;
+    const base = items[i];
+    const angleRad = ((base.angle || 0) * Math.PI) / 180;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+
+    const basePerp = -base.x * sin + base.y * cos;
+    const baseProj = base.x * cos + base.y * sin;
+
+    const lineItems: { item: EditableText; proj: number }[] = [{ item: base, proj: baseProj }];
+    used.add(i);
+
+    for (let j = i + 1; j < items.length; j++) {
+      if (used.has(j)) continue;
+      const other = items[j];
+      if (other.page !== base.page) continue;
+
+      const diff = Math.abs((base.angle || 0) - (other.angle || 0)) % 180;
+      if (diff > 5 && diff < 175) continue;
+
+      const otherPerp = -other.x * sin + other.y * cos;
+      const otherProj = other.x * cos + other.y * sin;
+
+      const maxFontSize = Math.max(base.size || 12, other.size || 12);
+      if (Math.abs(basePerp - otherPerp) > maxFontSize * 0.6) continue;
+
+      lineItems.push({ item: other, proj: otherProj });
+      used.add(j);
+    }
+
+    lineItems.sort((a, b) => a.proj - b.proj);
+    const sorted = lineItems.map((li) => li.item);
+
+    let fullText = "";
+    for (const it of sorted) {
+      const t = it.text?.trim() || "";
+      if (!t) continue;
+      if (!fullText) fullText = t;
+      else if (fullText.endsWith("/") || fullText.endsWith("-") || t.startsWith("/") || t.startsWith("-")) {
+        fullText += " " + t;
+      } else {
+        fullText += " " + t;
+      }
+    }
+
+    if (fullText.length > 0) {
+      lines.push({
+        page: base.page,
+        text: fullText,
+        items: sorted,
+        angle: base.angle || 0,
+        size: sorted.reduce((acc, it) => acc + (it.size || 12), 0) / sorted.length,
+        color: base.color || "#222222"
+      });
+    }
+  }
+
+  return lines;
+}
 
 export async function detectWatermarks(
   pdfBytes: Uint8Array,
@@ -36,39 +143,50 @@ export async function detectWatermarks(
       } catch {}
     }
 
-    // 2. Group text items by normalized text string
-    const textGroups = new Map<string, {
-      rawText: string;
-      items: { page: number; item: EditableText }[];
-      pages: Set<number>;
-      angles: number[];
-      fontSizes: number[];
-      colors: Set<string>;
-    }>();
+    // 2. Reconstruct lines per page & group by normalized text
+    const textGroups = new Map<
+      string,
+      {
+        rawText: string;
+        lines: ReconstructedLine[];
+        pages: Set<number>;
+        angles: number[];
+        fontSizes: number[];
+        colors: Set<string>;
+        matchedKeywords: string[];
+      }
+    >();
 
     for (const { page, items } of allPageTexts) {
-      for (const item of items) {
-        const str = item.text?.trim();
-        if (!str || str.length < 2) continue;
-        const normKey = str.toLowerCase().replace(/\s+/g, " ");
+      const lines = reconstructPageLines(items);
 
-        let group = textGroups.get(normKey);
+      // Process both reconstructed lines and individual multichar items
+      for (const line of lines) {
+        const str = line.text?.trim();
+        if (!str || str.length < 2) continue;
+        const norm = normalizeTurkish(str);
+        if (!norm) continue;
+
+        const matched = WATERMARK_KEYWORDS.filter((kw) => norm.includes(kw));
+
+        let group = textGroups.get(norm);
         if (!group) {
           group = {
             rawText: str,
-            items: [],
+            lines: [],
             pages: new Set(),
             angles: [],
             fontSizes: [],
-            colors: new Set()
+            colors: new Set(),
+            matchedKeywords: matched
           };
-          textGroups.set(normKey, group);
+          textGroups.set(norm, group);
         }
-        group.items.push({ page, item });
+        group.lines.push(line);
         group.pages.add(page);
-        group.angles.push(item.angle || 0);
-        group.fontSizes.push(item.size || 12);
-        if (item.color) group.colors.add(item.color);
+        group.angles.push(line.angle || 0);
+        group.fontSizes.push(line.size || 12);
+        if (line.color) group.colors.add(line.color);
       }
     }
 
@@ -76,34 +194,33 @@ export async function detectWatermarks(
     let candidateIndex = 1;
     for (const [normKey, group] of textGroups.entries()) {
       const pageCount = group.pages.size;
-      const upperText = group.rawText.toUpperCase();
       const avgFontSize = group.fontSizes.reduce((a, b) => a + b, 0) / group.fontSizes.length;
-      const hasDiagonal = group.angles.some(a => {
+      const hasDiagonal = group.angles.some((a) => {
         const absA = Math.abs(a % 180);
-        return absA >= 15 && absA <= 75;
+        return (absA >= 15 && absA <= 75) || (absA >= 105 && absA <= 165);
       });
 
-      const keywordMatched = WATERMARK_KEYWORDS.some(kw => upperText.includes(kw));
+      const matchedKw = group.matchedKeywords;
+      const keywordMatched = matchedKw.length > 0;
       const repeatsOnMultiplePages = numPages > 1 && (pageCount >= 2 || pageCount / numPages >= 0.5);
-      const isLargeFont = avgFontSize >= 28;
-      const isRepeatedHeaderFooter = repeatsOnMultiplePages && (
-        group.rawText.includes("www.") ||
-        group.rawText.includes(".com") ||
-        group.rawText.includes("http") ||
-        group.rawText.includes("©") ||
-        group.rawText.includes("Sayfa") ||
-        group.rawText.includes("Taranmış")
-      );
+      const isLargeFont = avgFontSize >= 24;
+      const isRepeatedHeaderFooter =
+        repeatsOnMultiplePages &&
+        (normKey.includes("www") ||
+          normKey.includes("com") ||
+          normKey.includes("http") ||
+          normKey.includes("sayfa") ||
+          normKey.includes("taranmis"));
 
       let confidence = 0;
       const reasons: string[] = [];
 
       if (keywordMatched) {
-        confidence += 55;
-        reasons.push("Filigran anahtar kelimesi eşleşti");
+        confidence += 65 + (matchedKw.length - 1) * 15;
+        reasons.push(`Filigran anahtar kelimesi: ${matchedKw.join(", ")}`);
       }
       if (hasDiagonal) {
-        confidence += 35;
+        confidence += 30;
         reasons.push("Çapraz/açılı yerleşim");
       }
       if (repeatsOnMultiplePages) {
@@ -111,7 +228,7 @@ export async function detectWatermarks(
         reasons.push(`${pageCount} sayfada tekrarlandı`);
       }
       if (isLargeFont) {
-        confidence += 20;
+        confidence += avgFontSize >= 32 ? 25 : 15;
         reasons.push(`Büyük yazı boyutu (${Math.round(avgFontSize)}pt)`);
       }
       if (isRepeatedHeaderFooter) {
@@ -119,24 +236,38 @@ export async function detectWatermarks(
         reasons.push("Tekrarlayan alt/üst bilgi");
       }
 
-      // If confidence >= 40 or single-page strong match (keyword + diagonal or keyword + large font)
-      if (confidence >= 40 || (keywordMatched && (hasDiagonal || isLargeFont || numPages === 1))) {
+      // If confidence >= 40 or keyword match
+      if (confidence >= 40 || keywordMatched) {
+        // Collect all constituent text removals from lines
+        const removals: { id: string; page: number; quad: number[] }[] = [];
+        const seenRemoval = new Set<string>();
+
+        for (const line of group.lines) {
+          for (const it of line.items) {
+            const key = `${it.page}_${it.id}`;
+            if (!seenRemoval.has(key)) {
+              seenRemoval.add(key);
+              removals.push({
+                id: it.id,
+                page: it.page,
+                quad: it.quad
+              });
+            }
+          }
+        }
+
         candidates.push({
           id: `wm-text-${candidateIndex++}`,
           type: "text",
           text: group.rawText,
-          count: group.items.length,
+          count: removals.length,
           pages: Array.from(group.pages).sort((a, b) => a - b),
           fontSize: Math.round(avgFontSize),
           angle: Math.round(group.angles[0] || 0),
           color: Array.from(group.colors)[0] || "#222222",
           reason: reasons.join(" · "),
           confidence: Math.min(99, confidence),
-          textRemovals: group.items.map(({ page, item }) => ({
-            id: item.id,
-            page,
-            quad: item.quad
-          }))
+          textRemovals: removals
         });
       }
     }

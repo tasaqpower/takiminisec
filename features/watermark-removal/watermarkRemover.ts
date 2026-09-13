@@ -1,6 +1,7 @@
 import { removePdfText, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { loadPdf } from "@/lib/documents";
 import { PDFDocument } from "pdf-lib";
+import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector";
 import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes";
 
 export interface WatermarkRemovalResult {
@@ -58,22 +59,80 @@ export async function removeWatermarks(
 
   // 2. Custom text removal across targeted pages
   if (options.customText && options.customText.trim().length > 0) {
-    const searchText = options.customCaseSensitive ? options.customText.trim() : options.customText.trim().toLowerCase();
+    const searchRaw = options.customText.trim();
+    const searchNorm = normalizeTurkish(searchRaw);
+    const searchWords = searchNorm.split(" ").filter(w => w.length > 0);
 
     for (const pageIdx of targetPages) {
       if (pageIdx < 0 || pageIdx >= totalPages) continue;
       try {
         const page = await doc.getPage(pageIdx + 1);
         const pageTexts = await editablePageText(page);
+        const matchedItemIds = new Set<string>();
 
+        // 2a. Line-level matching (catches multi-word watermarks assembled into lines)
+        const lines = reconstructPageLines(pageTexts);
+        for (const line of lines) {
+          const lineRaw = line.text;
+          const lineNorm = normalizeTurkish(lineRaw);
+
+          const isMatch = options.customCaseSensitive
+            ? lineRaw.includes(searchRaw)
+            : (lineRaw.toLowerCase().includes(searchRaw.toLowerCase()) || lineNorm.includes(searchNorm));
+
+          if (isMatch) {
+            for (const it of line.items) {
+              matchedItemIds.add(it.id);
+              textRemovals.push({
+                id: it.id,
+                page: pageIdx,
+                quad: it.quad
+              });
+            }
+          }
+        }
+
+        // 2b. Individual item matching
         for (const item of pageTexts) {
-          const itemText = options.customCaseSensitive ? item.text : item.text.toLowerCase();
-          if (itemText.includes(searchText)) {
+          if (matchedItemIds.has(item.id)) continue;
+          const itemRaw = item.text || "";
+          const itemNorm = normalizeTurkish(itemRaw);
+
+          const isMatch = options.customCaseSensitive
+            ? itemRaw.includes(searchRaw)
+            : (itemRaw.toLowerCase().includes(searchRaw.toLowerCase()) || itemNorm.includes(searchNorm));
+
+          if (isMatch) {
+            matchedItemIds.add(item.id);
             textRemovals.push({
               id: item.id,
               page: pageIdx,
               quad: item.quad
             });
+          }
+        }
+
+        // 2c. Sliding window token matching (for multi-word phrases spanning disjoint items)
+        if (searchWords.length > 1) {
+          for (let i = 0; i < pageTexts.length; i++) {
+            const windowItems: typeof pageTexts = [];
+            for (let j = i; j < Math.min(pageTexts.length, i + 12); j++) {
+              windowItems.push(pageTexts[j]);
+              const combinedNorm = normalizeTurkish(windowItems.map(w => w.text).join(" "));
+              if (combinedNorm.includes(searchNorm)) {
+                for (const itm of windowItems) {
+                  if (!matchedItemIds.has(itm.id)) {
+                    matchedItemIds.add(itm.id);
+                    textRemovals.push({
+                      id: itm.id,
+                      page: pageIdx,
+                      quad: itm.quad
+                    });
+                  }
+                }
+                break;
+              }
+            }
           }
         }
       } catch {}
@@ -135,13 +194,29 @@ export async function removeWatermarks(
         if (!annotObj) continue;
 
         const subtype = annotObj.get?.("Subtype")?.toString();
-        const contents = annotObj.get?.("Contents")?.toString()?.toLowerCase() || "";
-        const name = annotObj.get?.("NM")?.toString()?.toLowerCase() || "";
+        const contents = annotObj.get?.("Contents")?.toString() || "";
+        const name = annotObj.get?.("NM")?.toString() || "";
+        const normContents = normalizeTurkish(contents);
+        const normName = normalizeTurkish(name);
+        const searchNorm = options.customText ? normalizeTurkish(options.customText) : "";
 
         const isWatermarkAnnot =
           subtype === "/Watermark" ||
-          subtype === "/Stamp" && (contents.includes("watermark") || contents.includes("draft") || contents.includes("taslak") || contents.includes("kopya")) ||
-          name.includes("watermark");
+          (subtype === "/Stamp" && (
+            normContents.includes("watermark") ||
+            normContents.includes("draft") ||
+            normContents.includes("taslak") ||
+            normContents.includes("kopya") ||
+            normContents.includes("gecersiz") ||
+            normContents.includes("ornek") ||
+            normContents.includes("belge") ||
+            normContents.includes("iptal") ||
+            normContents.includes("void") ||
+            normContents.includes("sample") ||
+            (searchNorm.length > 0 && normContents.includes(searchNorm))
+          )) ||
+          normName.includes("watermark") ||
+          (searchNorm.length > 0 && normName.includes(searchNorm));
 
         if (isWatermarkAnnot) {
           removedAnnotationCount++;
