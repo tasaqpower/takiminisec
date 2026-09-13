@@ -44,6 +44,7 @@ import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
 import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
 import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FormaAiCopilot } from "@/features/ai-copilot/FormaAiCopilot";
 
 export const essentialTools = [
   { id: "edit", title: "PDF düzenle", desc: "Metin, not, canlı fatura & fiyat düzeltici.", icon: FileText, color: "violet", type: "PDF", popular: true },
@@ -569,6 +570,12 @@ export default function Home() {
             );
             await open([convertedFile], "edit");
           }}
+        />
+      )}
+
+      {!workspace && (
+        <FormaAiCopilot
+          onOpenDocument={(files) => open(files, "edit")}
         />
       )}
 

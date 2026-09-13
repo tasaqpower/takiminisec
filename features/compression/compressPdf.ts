@@ -343,3 +343,6 @@ export async function compressPdfDocument(
       : `Özel mod: Yapı, çözünürlük ve nesne akışları optimize edildi.`
   };
 }
+
+export { compressPdfDocument as compressPdf };
+

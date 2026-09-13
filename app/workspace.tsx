@@ -111,6 +111,7 @@ import { ComplianceModal } from "@/features/compliance/ComplianceModal";
 import { StampGeneratorModal } from "@/features/stamp/StampGeneratorModal";
 import { DocumentEnhancerModal } from "@/features/enhancer/DocumentEnhancerModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FormaAiCopilot } from "@/features/ai-copilot/FormaAiCopilot";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
@@ -3180,6 +3181,15 @@ export default function Workspace({
         onImportToWorkspace={(newPdfBytes: Uint8Array) => {
           handleApplyProfessionalPdf(newPdfBytes);
           setActiveProfessionalTool(null);
+        }}
+      />
+
+      <FormaAiCopilot
+        pdfBytes={bytes}
+        fileName={files[0]?.name}
+        currentPage={active}
+        onApplyPdfBytes={async (newBytes) => {
+          await handleApplyProfessionalPdf(newBytes);
         }}
       />
     </div>

@@ -1,9 +1,9 @@
-import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
-import { loadPdf } from "@/lib/documents";
+import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "../../lib/pdf-text.ts";
+import { loadPdf } from "../../lib/documents.ts";
 import { PDFDocument, rgb } from "pdf-lib";
-import { normalizeTurkish, reconstructPageLines, WATERMARK_KEYWORDS } from "./watermarkDetector";
-import { findVisualTextBounds } from "./visualWatermarkDetector";
-import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes";
+import { normalizeTurkish, reconstructPageLines, WATERMARK_KEYWORDS } from "./watermarkDetector.ts";
+import { findVisualTextBounds } from "./visualWatermarkDetector.ts";
+import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes.ts";
 
 export interface WatermarkRemovalResult {
   pdfBytes: Uint8Array;

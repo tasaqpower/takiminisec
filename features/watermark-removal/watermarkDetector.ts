@@ -1,7 +1,7 @@
-import { loadPdf } from "@/lib/documents";
-import { editablePageText, type EditableText, type ImageRemoval } from "@/lib/pdf-text";
-import { detectImagesOnPage } from "@/features/image-editor/imageDetector";
-import type { WatermarkCandidate } from "./watermarkTypes";
+import { loadPdf } from "../../lib/documents.ts";
+import { editablePageText, type EditableText, type ImageRemoval } from "../../lib/pdf-text.ts";
+import { detectImagesOnPage } from "../image-editor/imageDetector.ts";
+import type { WatermarkCandidate } from "./watermarkTypes.ts";
 
 export function normalizeTurkish(text: string): string {
   if (!text) return "";
