@@ -268,12 +268,6 @@ export default function Home() {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton className="nav-item" onClick={() => setShowToolHub(true)}>
-                <Sparkles className="text-amber-500" /><span>Tüm Araçlar</span>
-                <span className="nav-new" style={{ background: "#fef3c7", color: "#b45309" }}>Ctrl+K</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
               <SidebarMenuButton className="nav-item" onClick={() => pick("edit")}>
                 <FolderOpen /><span>Dosya aç</span>
               </SidebarMenuButton>
@@ -372,17 +366,6 @@ export default function Home() {
                 <p>Düzenle, dönüştür, imzala. Hepsi aynı çalışma alanında.</p>
               </div>
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ fontSize: "12px", minHeight: "39px", gap: "7px", borderRadius: "9px" }}
-                  onClick={() => setShowToolHub(true)}
-                  title="Tüm Atölye Araçları (Ctrl+K)"
-                >
-                  <Sparkles size={16} className="text-amber-500" />
-                  <span>Tüm Atölye Araçları</span>
-                  <span style={{ fontSize: "10px", background: "#f0eff6", border: "1px solid #e2dfea", borderRadius: "4px", padding: "1px 5px", color: "#777189" }}>Ctrl+K</span>
-                </button>
                 <button className="secondary create-doc" style={{ marginTop: 0 }} onClick={newDoc}>
                   <FilePlus2 size={17} /> Yeni belge
                 </button>
@@ -431,15 +414,6 @@ export default function Home() {
                   </p>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="secondary"
-                    style={{ minHeight: "34px", padding: "0 12px", fontSize: "11px", gap: "6px", borderRadius: "8px", border: "1px solid #e0dced" }}
-                    onClick={() => setShowToolHub(true)}
-                  >
-                    <Sparkles size={14} className="text-amber-500" />
-                    <span>Tüm Araçlar (Ctrl+K)</span>
-                  </button>
                   <Tabs value={category} onValueChange={setCategory}>
                     <TabsList className="category-tabs">
                       <TabsTrigger value="essential">Önemli Araçlar</TabsTrigger>
