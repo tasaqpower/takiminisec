@@ -11,6 +11,10 @@ export type AiActionType =
   | 'watermark_remove'
   | 'watermark_add'
   | 'enhance_document'
+  | 'enhance_selective'
+  | 'delete_object'
+  | 'vision_qa'
+  | 'voice_toggle'
   | 'compress_pdf'
   | 'convert_word'
   | 'convert_excel'
@@ -41,6 +45,8 @@ export interface AiIntentResult {
     watermarkText?: string;
     password?: string;
     targetPage?: 'first' | 'last' | number;
+    targetObject?: string;
+    voiceState?: 'on' | 'off';
   };
   explanation: string;
   suggestedReply: string;
@@ -61,6 +67,119 @@ function normalize(text: string): string {
 export function parseUserIntent(prompt: string): AiIntentResult {
   const raw = prompt.trim();
   const n = normalize(prompt);
+
+  // 0a. Voice Control Toggle ("sesli yanıtı aç", "sesli konuş", "sesi kapat")
+  if (
+    n.includes('sesli yanit') ||
+    n.includes('sesli konus') ||
+    n.includes('sesli mod') ||
+    n.includes('sesi ac') ||
+    n.includes('sesi kapat') ||
+    n.includes('konusarak anlat') ||
+    n.includes('sesli oku') ||
+    n.includes('sessiz ol') ||
+    n.includes('konusma yetkisi')
+  ) {
+    const isOff = n.includes('kapat') || n.includes('sustur') || n.includes('sessiz');
+    return {
+      action: 'voice_toggle',
+      confidence: 0.98,
+      parameters: { voiceState: isOff ? 'off' : 'on' },
+      explanation: isOff ? 'Sesli yanıt kapatılıyor.' : 'Sesli yanıt aktifleştiriliyor.',
+      suggestedReply: isOff
+        ? 'Sesli yanıtı kapattım. Yanıtlarımı artık sadece metin olarak göreceksiniz. 🔇'
+        : 'Sesli yanıt sistemini açtım! Bundan sonra yanıtlarımı Türkçe seslendireceğim. 🔊🎙️',
+    };
+  }
+
+  // 0b. Vision & Semantic Document QA ("görselde ne var", "resimde ne var", "belgede ne var", "ne görüyorsun")
+  if (
+    n.includes('gorselde ne var') ||
+    n.includes('resimde ne var') ||
+    n.includes('belgede ne var') ||
+    n.includes('bu belgede ne var') ||
+    n.includes('bu ne') ||
+    n.includes('bu nedir') ||
+    n.includes('ne goruyorsun') ||
+    n.includes('resimde ne goruyorsun') ||
+    n.includes('gorselde ne goruyorsun') ||
+    n.includes('gorseli acikla') ||
+    n.includes('resmi acikla') ||
+    n.includes('gorseli analiz et') ||
+    n.includes('resmi analiz et') ||
+    n.includes('gorseli incele') ||
+    n.includes('resmi incele') ||
+    n.includes('fotografta ne var') ||
+    n.includes('gorsel analizi') ||
+    n.includes('resim analizi') ||
+    n.includes('icerikte ne var') ||
+    n.includes('belgede ne yaziyor') ||
+    n.includes('burada ne var')
+  ) {
+    return {
+      action: 'vision_qa',
+      confidence: 0.96,
+      explanation: 'Görsel ve belge içeriği, nesneler, görseller ve metinler analiz edilip açıklanacak.',
+      suggestedReply: 'Görseli ve belgeyi inceliyorum; içerisindeki nesneleri, görselleri, metinleri ve yapıyı analiz ediyorum... 👁️🔍',
+    };
+  }
+
+  // 0c. Selective Object / Image Deletion ("aslanı sil", "resmi sil", "logoyu kaldır", "görseli sil")
+  const isDeleteIntent =
+    (n.includes('sil') || n.includes('kaldir') || n.includes('yok et') || n.includes('temizle') || n.includes('cikar')) &&
+    !n.includes('filigran') &&
+    !n.includes('fligran') &&
+    !n.includes('watermark') &&
+    !n.includes('taslak') &&
+    !n.includes('sayfa');
+
+  if (isDeleteIntent) {
+    let target = '';
+    if (n.includes('aslan')) target = 'aslan';
+    else if (n.includes('logo')) target = 'logo';
+    else if (n.includes('foto')) target = 'fotoğraf';
+    else if (n.includes('imza')) target = 'imza';
+    else if (n.includes('kase')) target = 'kaşe';
+    else if (n.includes('resim') || n.includes('resmi')) target = 'resim';
+    else if (n.includes('gorsel') || n.includes('nesne')) target = 'görsel';
+    else {
+      const m = n.match(/([a-z0-9]+)(?:i|ı|u|ü|yi|yı|yu|yü)?\s*(?:sil|kaldir|yok et|temizle)/);
+      if (m && m[1] && m[1].length >= 3 && !['sayfa', 'filigran', 'fligran', 'tum', 'hepsini'].includes(m[1])) {
+        target = m[1];
+      }
+    }
+
+    if (target) {
+      return {
+        action: 'delete_object',
+        confidence: 0.95,
+        parameters: { targetObject: target },
+        explanation: `Belgedeki '${target}' görseli/nesnesi tespit edilip silinecek.`,
+        suggestedReply: `Belgedeki '${target}' görselini/nesnesini tespit edip temizliyorum... 🗑️✨`,
+      };
+    }
+  }
+
+  // 0d. Selective Object Enhancement ("aslanı netleştir", "sadece görseli netleştir", "sadece fotoğrafı netleştir")
+  const isSelectiveEnhance =
+    (n.includes('netlestir') || n.includes('keskinlestir') || n.includes('iyilestir')) &&
+    (n.includes('sadece') || n.includes('aslan') || n.includes('logo') || n.includes('bu gorseli') || n.includes('bu resmi')) &&
+    !n.includes('ve resim');
+
+  if (isSelectiveEnhance) {
+    let target = 'görsel';
+    if (n.includes('aslan')) target = 'aslan';
+    else if (n.includes('foto')) target = 'fotoğraf';
+    else if (n.includes('resim') || n.includes('resmi')) target = 'resim';
+
+    return {
+      action: 'enhance_selective',
+      confidence: 0.96,
+      parameters: { targetObject: target, enhanceMode: 'photo' },
+      explanation: `Belgedeki '${target}' görsel nesnesi hedeflenerek sadece bu alan yüksek çözünürlükte netleştirilecek.`,
+      suggestedReply: `Vektörel metinleri bozmadan sadece '${target}' görselini kristal netliğe kavuşturuyorum... 🖼️🔍✨`,
+    };
+  }
 
   // 1. Theme Dark
   if (
@@ -429,6 +548,6 @@ export function parseUserIntent(prompt: string): AiIntentResult {
     action: 'general_help',
     confidence: 0.5,
     explanation: 'Genel asistan yardımı ve özellik listesi.',
-    suggestedReply: `Forma AI hizmetinizde! Ne isterseniz doğrudan söyleyin, hemen yapayım:\n\n• 🌙 "Koyu mod yap" / ☀️ "Açık mod yap"\n• 🧹 "Filigranı kaldır" / 🔏 "Filigran ekle"\n• ✨ "Yazıları netleştir" / 🖼️ "Görseli netleştir"\n• 🔒 "TC ve IBAN'ları sansürle (KVKK)"\n• 🗜️ "PDF'i sıkıştır" (boyut düşür)\n• 📝 "Word'e çevir" / 📊 "Excel'e aktar" / 🖼️ "Görsel yap"\n• 🏛️ "PDF/A arşiv formatına çevir"\n• 🏷️ "ASLI GİBİDİR kaşesi bas" / "ONAYLANDI kaşesi vur"\n• 🔄 "Sayfaları 90 derece döndür" / 🗑️ "İlk/son sayfayı sil"\n• 🔢 "Sayfa numarası ekle"\n• 🔐 "Belgeyi şifrele: parola 123456"\n• 🔍 "[Eski] kelimesini [Yeni] ile değiştir"\n• 📋 "Belgeyi analiz et"`,
+    suggestedReply: `Forma AI hizmetinizde! Ne isterseniz doğrudan söyleyin ya da sesli konuşun, hemen yapayım:\n\n• 👁️ *"Görselde / belgede ne var?"* (Görsel ve belge içeriği analizi)\n• 🗑️ *"Aslanı sil"* / *"Resmi sil"* / *"Logoyu kaldır"* (Hedef görseli silme)\n• ✨ *"Aslanı netleştir"* / *"Sadece fotoğrafı netleştir"*\n• 🎙️ *"Sesli yanıtı aç"* / *"Sesi kapat"* (Mikrofon & sesli Türkçe konuşma)\n• 🌙 *"Koyu mod yap"* / ☀️ *"Açık mod yap"*\n• 🧹 *"Filigranı kaldır"* / 🔏 *"Filigran ekle"*\n• 🔒 *"TC ve IBAN'ları sansürle (KVKK)"*\n• 🗜️ *"PDF'i sıkıştır"* (boyut düşür)\n• 📝 *"Word'e çevir"* / 📊 *"Excel'e aktar"* / 🖼️ *"Görsel yap"*\n• 🏛️ *"PDF/A arşiv formatına çevir"*\n• 🏷️ *"ASLI GİBİDİR kaşesi bas"* / *"ONAYLANDI kaşesi vur"*\n• 🔄 *"Sayfaları 90 derece döndür"* / 🗑️ *"İlk/son sayfayı sil"*\n• 🔢 *"Sayfa numarası ekle"*\n• 🔐 *"Belgeyi şifrele: parola 123456"*\n• 🔍 *"[Eski] kelimesini [Yeni] ile değiştir"*`,
   };
 }

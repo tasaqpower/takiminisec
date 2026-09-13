@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   Bot,
   UploadCloud,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { parseUserIntent } from "./aiIntentEngine";
 import type { AiActionResult } from "./aiActionDispatcher";
@@ -51,16 +55,125 @@ export function FormaAiCopilot({
   const [activeBytes, setActiveBytes] = useState<Uint8Array | null>(pdfBytes || null);
   const [activeName, setActiveName] = useState<string>(fileName || "Belge.pdf");
   const [isDragging, setIsDragging] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      setVoiceEnabled(localStorage.getItem("forma_ai_voice") === "true");
+    }
   }, []);
+
+  const stripMarkdownForSpeech = (md: string): string => {
+    return md
+      .replace(/[\*\_~`#>]/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/•/g, "")
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+      .replace(/\n+/g, ". ")
+      .trim();
+  };
+
+  const speakText = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const clean = stripMarkdownForSpeech(text);
+      if (!clean) return;
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = "tr-TR";
+      const voices = window.speechSynthesis.getVoices();
+      const trVoice = voices.find(v => v.lang.startsWith("tr") || v.lang === "tr-TR");
+      if (trVoice) utterance.voice = trVoice;
+      utterance.rate = 1.05;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Ignore speech errors
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const toggleVoice = () => {
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("forma_ai_voice", String(next));
+    }
+    if (next) {
+      speakText("Sesli yanıt sistemi açıldı! Sizi dinlemeye ve yanıt vermeye hazırım.");
+      toast.success("Sesli yanıt sistemi açıldı (Türkçe)");
+    } else {
+      stopSpeaking();
+      toast.info("Sesli yanıt kapatıldı");
+    }
+  };
+
+  const startListening = () => {
+    if (typeof window === "undefined") return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      toast.error("Tarayıcınız ses tanımayı desteklemiyor. (Google Chrome veya Edge önerilir)");
+      return;
+    }
+
+    try {
+      stopSpeaking();
+      const recognition = new SpeechRec();
+      recognition.lang = "tr-TR";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((r: any) => r[0]?.transcript || "")
+          .join("");
+        setInputText(transcript);
+      };
+
+      recognition.onerror = (e: any) => {
+        setIsListening(false);
+        if (e.error === "not-allowed") {
+          toast.error("Mikrofon erişim izni verilmedi. Lütfen tarayıcı ayarlarından mikrofona izin verin.");
+        } else if (e.error !== "no-speech") {
+          toast.error(`Ses tanıma uyarısı: ${e.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      toast.error("Mikrofon başlatılamadı.");
+    }
+  };
+
+  const stopListening = () => {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    setIsListening(false);
+  };
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome-1",
       sender: "assistant",
-      text: "Merhaba! Ben **Forma AI**. Bana ne yapmak istediğini söyle, doğrudan uygulayayım:\n\n• *\"Koyu mod yap\"* / *\"Açık moda geç\"*\n• *\"Filigranı kaldır\"* / *\"Filigran ekle\"*\n• *\"Yazıları netleştir\"* / *\"Görseli netleştir\"*\n• *\"TC ve IBAN'ları sansürle\"*\n• *\"PDF'i sıkıştır\"*\n• *\"Word'e çevir\"* / *\"Excel'e aktar\"*\n• *\"ASLI GİBİDİR kaşesi bas\"*\n• *\"Sayfaları 90 derece döndür\"* / *\"İlk/son sayfayı sil\"*\n• *\"Sayfa numarası ekle\"* / *\"PDF/A yap\"*",
+      text: "Merhaba! Ben **Forma AI**. Bana sesli konuşabilir veya yazabilirsiniz:\n\n• 👁️ *\"Görselde / belgede ne var?\"* (Görsel ve belge içeriği analizi)\n• 🗑️ *\"Aslanı sil\"* / *\"Resmi sil\"* / *\"Logoyu kaldır\"*\n• ✨ *\"Aslanı netleştir\"* / *\"Sadece fotoğrafı netleştir\"*\n• 🎙️ *\"Sesli yanıtı aç\"* / *\"Sesi kapat\"* (Mikrofon & sesli Türkçe konuşma)\n• 🌙 *\"Koyu mod yap\"* / ☀️ *\"Açık mod yap\"*\n• 🧹 *\"Filigranı kaldır\"* / 🔏 *\"Filigran ekle\"*\n• 🔒 *\"TC ve IBAN'ları sansürle (KVKK)\"*\n• 🗜️ *\"PDF'i sıkıştır\"*\n• 📝 *\"Word'e çevir\"* / 📊 *\"Excel'e aktar\"*\n• 🏷️ *\"ASLI GİBİDİR kaşesi bas\"*\n• 🔄 *\"Sayfaları 90 derece döndür\"* / 🗑️ *\"İlk/son sayfayı sil\"*",
       timestamp: "Forma AI",
     }
   ]);
@@ -233,7 +346,17 @@ export function FormaAiCopilot({
         (prog) => setProgressText(prog)
       );
 
-      // 3. If new PDF bytes returned, update active state & workspace
+      // 3. Handle voice state changes if triggered by voice_toggle
+      if (result.metadata?.voiceState === 'on') {
+        setVoiceEnabled(true);
+        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'true');
+      } else if (result.metadata?.voiceState === 'off') {
+        setVoiceEnabled(false);
+        if (typeof window !== 'undefined') localStorage.setItem('forma_ai_voice', 'false');
+        stopSpeaking();
+      }
+
+      // 4. If new PDF bytes returned, update active state & workspace
       if (result.newPdfBytes) {
         setActiveBytes(result.newPdfBytes);
         if (result.newFileName) {
@@ -258,6 +381,11 @@ export function FormaAiCopilot({
           actionResult: result,
         }
       ]);
+
+      // 5. Read aloud if voice output is enabled
+      if (voiceEnabled || result.metadata?.voiceState === 'on') {
+        speakText(result.message);
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -356,6 +484,18 @@ export function FormaAiCopilot({
 
             <div className="flex items-center gap-1">
               <button
+                onClick={toggleVoice}
+                title={voiceEnabled ? "Sesli Yanıtı Kapat" : "Sesli Yanıtı Aç (Türkçe Konuşma)"}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  voiceEnabled
+                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 ring-1 ring-emerald-500/30"
+                    : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                }`}
+                aria-label="Sesli Yanıt Aç/Kapat"
+              >
+                {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 title="Dosya Yükle (PDF, Word, Excel, Resim)"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
@@ -363,7 +503,10 @@ export function FormaAiCopilot({
                 <Paperclip className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  stopSpeaking();
+                  setIsOpen(false);
+                }}
                 title="Kapat"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
               >
@@ -461,12 +604,25 @@ export function FormaAiCopilot({
                     </div>
                   )}
 
-                  <div
-                    className={`text-[9px] text-right ${
-                      msg.sender === "user" ? "text-violet-200" : "text-slate-400"
-                    }`}
-                  >
-                    {msg.timestamp}
+                  <div className="flex items-center justify-between pt-1">
+                    {msg.sender === "assistant" ? (
+                      <button
+                        onClick={() => speakText(msg.text)}
+                        title="Sesli Dinle"
+                        className="p-1 rounded text-slate-400 hover:text-violet-600 dark:hover:text-violet-300 transition-colors flex items-center gap-1 text-[10px]"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        <span>Dinle</span>
+                      </button>
+                    ) : <span />}
+
+                    <div
+                      className={`text-[9px] ${
+                        msg.sender === "user" ? "text-violet-200" : "text-slate-400"
+                      }`}
+                    >
+                      {msg.timestamp}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -485,9 +641,25 @@ export function FormaAiCopilot({
 
           {/* Input Area */}
           <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            {isListening && (
+              <div className="mb-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span className="font-medium">Sizi dinliyorum... Şimdi Türkçe konuşabilirsiniz</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={stopListening}
+                  className="text-[11px] underline hover:text-rose-700"
+                >
+                  Tamamla
+                </button>
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (isListening) stopListening();
                 void handleSendMessage();
               }}
               className="flex items-center gap-2"
@@ -497,10 +669,24 @@ export function FormaAiCopilot({
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Örn: Filigranı kaldır, koyu mod yap..."
+                placeholder={isListening ? "Konuşmanız yazılıyor..." : "Örn: Aslanı sil, görselde ne var, netleştir..."}
                 disabled={isProcessing}
                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
+              <button
+                type="button"
+                onClick={isListening ? stopListening : startListening}
+                disabled={isProcessing}
+                title={isListening ? "Dinlemeyi Durdur" : "Sesle Söyle (Mikrofon)"}
+                className={`p-2.5 rounded-xl transition-all shadow-sm ${
+                  isListening
+                    ? "bg-rose-600 text-white animate-pulse ring-4 ring-rose-500/30 shadow-rose-500/40"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/70"
+                }`}
+                aria-label="Mikrofon ile Sesli Komut"
+              >
+                {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4" />}
+              </button>
               <button
                 type="submit"
                 disabled={!inputText.trim() || isProcessing}

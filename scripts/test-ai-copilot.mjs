@@ -48,6 +48,17 @@ const testCases = [
   { prompt: 'belgeyi sifrele: parola 123456', expectedAction: 'protect_pdf' },
   { prompt: 'form alanlarini duzlestir', expectedAction: 'flatten_forms' },
   { prompt: 'belgedeki metinleri OCR ile oku', expectedAction: 'ocr_document' },
+  { prompt: 'gorselde ne var', expectedAction: 'vision_qa' },
+  { prompt: 'resimde ne goruyorsun', expectedAction: 'vision_qa' },
+  { prompt: 'bu belgede ne var', expectedAction: 'vision_qa' },
+  { prompt: 'aslani sil', expectedAction: 'delete_object', expectedTarget: 'aslan' },
+  { prompt: 'resmi sil', expectedAction: 'delete_object', expectedTarget: 'resim' },
+  { prompt: 'logoyu kaldir', expectedAction: 'delete_object', expectedTarget: 'logo' },
+  { prompt: 'fotografi sil', expectedAction: 'delete_object', expectedTarget: 'fotoğraf' },
+  { prompt: 'aslani netlestir', expectedAction: 'enhance_selective', expectedTarget: 'aslan' },
+  { prompt: 'sadece gorseli netlestir', expectedAction: 'enhance_selective', expectedTarget: 'görsel' },
+  { prompt: 'sesli yaniti ac', expectedAction: 'voice_toggle', expectedVoiceState: 'on' },
+  { prompt: 'sesi kapat', expectedAction: 'voice_toggle', expectedVoiceState: 'off' },
 ];
 
 let passedIntents = 0;
@@ -58,6 +69,20 @@ for (const tc of testCases) {
     tc.expectedAction,
     `Failed for prompt: "${tc.prompt}". Expected ${tc.expectedAction}, got ${result.action}`
   );
+  if (tc.expectedTarget) {
+    assert.strictEqual(
+      result.parameters?.targetObject,
+      tc.expectedTarget,
+      `Failed target for prompt: "${tc.prompt}". Expected ${tc.expectedTarget}, got ${result.parameters?.targetObject}`
+    );
+  }
+  if (tc.expectedVoiceState) {
+    assert.strictEqual(
+      result.parameters?.voiceState,
+      tc.expectedVoiceState,
+      `Failed voiceState for prompt: "${tc.prompt}". Expected ${tc.expectedVoiceState}, got ${result.parameters?.voiceState}`
+    );
+  }
 
   if (tc.expectedMode) {
     assert.strictEqual(result.parameters?.enhanceMode, tc.expectedMode);
@@ -198,6 +223,44 @@ async function testDispatcherExecution() {
   assert.strictEqual(flatRes.success, true);
   assert.ok(flatRes.newPdfBytes && flatRes.newPdfBytes.byteLength > 0);
   console.log(`[PASS] Action: flatten_forms executed successfully (result: ${flatRes.newPdfBytes.byteLength} bytes)`);
+
+  // Embed a sample image into the test document to test vision and selective object operations
+  const redDotPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVQIW2P8z8Dwn4GBgZEBAwMACOEB/wM2o9MAAAAASUVORK5CYII=';
+  const imgBytes = Buffer.from(redDotPngBase64, 'base64');
+  const imgDoc = await PDFDocument.load(initialBytes);
+  const embeddedImage = await imgDoc.embedPng(imgBytes);
+  const imgPage = imgDoc.getPages()[0];
+  imgPage.drawImage(embeddedImage, { x: 50, y: 50, width: 40, height: 40 });
+  const sampleWithImageBytes = await imgDoc.save();
+  const ctxWithImg = { pdfBytes: sampleWithImageBytes, fileName: 'ornek_aslanli_belge.pdf' };
+
+  // 15. Vision QA ("görselde ne var")
+  const visionRes = await dispatchAiAction(parseUserIntent('gorselde ne var'), ctxWithImg);
+  assert.strictEqual(visionRes.action, 'vision_qa');
+  assert.strictEqual(visionRes.success, true);
+  assert.ok(visionRes.message.includes('Görsel ve Belge İçerik Analizi'));
+  console.log(`[PASS] Action: vision_qa executed successfully:\n${visionRes.message.split('\n').slice(0, 4).join('\n')}`);
+
+  // 16. Selective Object Deletion ("aslanı sil")
+  const delRes = await dispatchAiAction(parseUserIntent('aslani sil'), ctxWithImg);
+  assert.strictEqual(delRes.action, 'delete_object');
+  assert.strictEqual(delRes.success, true);
+  assert.ok(delRes.newPdfBytes && delRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: delete_object executed successfully: ${delRes.message}`);
+
+  // 17. Selective Enhancement ("aslanı netleştir")
+  const enhSelRes = await dispatchAiAction(parseUserIntent('aslani netlestir'), ctxWithImg);
+  assert.strictEqual(enhSelRes.action, 'enhance_selective');
+  assert.strictEqual(enhSelRes.success, true);
+  assert.ok(enhSelRes.newPdfBytes && enhSelRes.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: enhance_selective executed successfully: ${enhSelRes.message}`);
+
+  // 18. Voice Control Toggle ("sesli yanıtı aç")
+  const voiceRes = await dispatchAiAction(parseUserIntent('sesli yaniti ac'), ctx);
+  assert.strictEqual(voiceRes.action, 'voice_toggle');
+  assert.strictEqual(voiceRes.success, true);
+  assert.strictEqual(voiceRes.metadata?.voiceState, 'on');
+  console.log(`[PASS] Action: voice_toggle executed successfully: ${voiceRes.message}`);
 
   console.log('\n======================================================');
   console.log('>>> ALL FORMA AI ACTIONS & INTENTS VERIFIED 100% OK <<<');

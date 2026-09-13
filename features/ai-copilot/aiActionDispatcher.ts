@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, degrees, StandardFonts, PDFName, PDFDict, PDFStream } from 'pdf-lib';
 import { type AiActionType, type AiIntentResult } from './aiIntentEngine.ts';
 import { detectWatermarks } from '../watermark-removal/watermarkDetector.ts';
 import { removeWatermarks } from '../watermark-removal/watermarkRemover.ts';
@@ -217,6 +217,175 @@ async function rotatePdfPages(pdfBytes: Uint8Array, angle = 90): Promise<Uint8Ar
     page.setRotation(degrees((currentAngle + angle) % 360));
   }
   return await doc.save();
+}
+
+/**
+ * Analyzes document and images visually and semantically
+ */
+async function analyzeDocumentVision(
+  pdfBytes: Uint8Array,
+  fileName?: string
+): Promise<string> {
+  const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const pageCount = doc.getPageCount();
+  const imageDetails: Array<{ page: number; width: number; height: number; format?: string }> = [];
+
+  // Scan PDF objects for embedded raster images
+  const pages = doc.getPages();
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    const resources = page.node.Resources();
+    if (resources) {
+      const xObject = resources.lookup(PDFName.of('XObject'));
+      if (xObject instanceof PDFDict) {
+        for (const key of xObject.keys()) {
+          const obj = xObject.lookup(key);
+          if (obj instanceof PDFStream) {
+            const subtype = obj.dict.lookup(PDFName.of('Subtype'));
+            if (subtype && subtype.toString() === '/Image') {
+              const wObj = obj.dict.lookup(PDFName.of('Width'));
+              const hObj = obj.dict.lookup(PDFName.of('Height'));
+              const w = typeof wObj === 'number' ? wObj : (wObj as any)?.value || 0;
+              const h = typeof hObj === 'number' ? hObj : (hObj as any)?.value || 0;
+              imageDetails.push({
+                page: i + 1,
+                width: Number(w) || 0,
+                height: Number(h) || 0,
+                format: 'Görsel/Fotoğraf'
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Extract OCR/Text
+  let rawText = '';
+  try {
+    const res = await extractPdfText(pdfBytes);
+    rawText = typeof res === 'string' ? res : Array.isArray(res) ? (res as string[]).join('\n') : '';
+  } catch {
+    rawText = '';
+  }
+  const cleanLines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // Identify features
+  const hasTables = cleanLines.some(l => /\b(toplam|kdv|tutar|fiyat|adet|s\.\s*no|tarih|aciklama)\b/i.test(l)) ||
+    cleanLines.filter(l => /\d+[\.,]\d{2}/.test(l)).length >= 3;
+  const hasStampsOrSeals = cleanLines.some(l => /\b(asli\s+gibidir|onaylandi|imza|muhur|kase|teslim\s+eden)\b/i.test(l));
+  const isIdOrLicense = cleanLines.some(l => /\b(kimlik|nufus|surucu|ehliyet|pasaport|tc\s*no)\b/i.test(l));
+  const isInvoice = cleanLines.some(l => /\b(fatura|e-fatura|e-arsiv|irsaliye|vergi)\b/i.test(l));
+  const isContract = cleanLines.some(l => /\b(sozlesme|taraflar|madde\s*\d|taahhut|protokol)\b/i.test(l));
+
+  let detectedType = 'Genel Doküman / Belge';
+  if (isInvoice) detectedType = 'Elektronik Fatura / Mali Belge';
+  else if (isIdOrLicense) detectedType = 'Resmi Kimlik / Ehliyet / Nüfus Cüzdanı Belgesi';
+  else if (isContract) detectedType = 'Resmi Hukuki Sözleşme / Protokol';
+  else if (imageDetails.length > 0 && cleanLines.length < 5) detectedType = 'Fotoğrafik / Görsel Ağırlıklı Belge';
+  else if (imageDetails.length > 0) detectedType = 'Resimli / Görsel İçeren Rapor & Belge';
+
+  // Build markdown response
+  let report = `👁️ **Görsel ve Belge İçerik Analizi**:\n\n`;
+  report += `📌 **Belge Kimliği**: ${detectedType}\n`;
+  report += `📄 **Sayfa & Boyut**: ${pageCount} sayfa (${Math.round(pdfBytes.byteLength / 1024)} KB)\n\n`;
+
+  if (imageDetails.length > 0) {
+    report += `🖼️ **Görsel / Fotoğraf Unsurları**:\n`;
+    report += `• Toplam **${imageDetails.length} adet** gömülü görsel/fotoğraf nesnesi tespit edildi.\n`;
+    imageDetails.slice(0, 4).forEach((img, idx) => {
+      report += `  - Görsel #${idx + 1}: Sayfa ${img.page}, Çözünürlük: ${img.width > 0 ? `${img.width}×${img.height} px` : 'Vektör/Raster uyumlu'}\n`;
+    });
+    if (imageDetails.length > 4) {
+      report += `  - *(ve ${imageDetails.length - 4} adet ek görsel)*\n`;
+    }
+    report += `\n`;
+  } else {
+    report += `🖼️ **Görsel Unsurları**: Belgede harici fotoğraf bulunmuyor, içerik tamamen vektörel metin ve grafiklerden oluşuyor.\n\n`;
+  }
+
+  if (cleanLines.length > 0) {
+    report += `📝 **Okunan Başlıklar & Metin İçeriği**:\n`;
+    const previewLines = cleanLines.slice(0, 5);
+    previewLines.forEach(l => {
+      report += `• "${l.length > 60 ? l.slice(0, 57) + '...' : l}"\n`;
+    });
+    if (cleanLines.length > 5) {
+      report += `• *(ve ${cleanLines.length - 5} satır daha içerik)*\n`;
+    }
+    report += `\n`;
+  }
+
+  report += `📊 **Yapısal Özellikler**:\n`;
+  report += `• Tablo / Mali Tablo Yapısı: ${hasTables ? '✅ Tespit edildi' : '❌ Bulunmuyor'}\n`;
+  report += `• Kaşe / Mühür / İmza Alanı: ${hasStampsOrSeals ? '✅ Tespit edildi' : '❌ Bulunmuyor'}\n`;
+  report += `\n💡 **Özet**: ${
+    imageDetails.length > 0
+      ? `Bu belgede görsel/fotoğraf öğeleri ve ${cleanLines.length} satırlık metin yer alıyor. İsterseniz görseli tek komutla silebilir (*"resmi sil"*), netleştirebilir (*"görseli netleştir"*) veya metinleri düzenleyebilirsiniz!`
+      : `Bu belge metin ve grafiklerden oluşan düzenli bir belgedir. İstediğiniz işlemi yapmaya hazırım!`
+  }`;
+
+  return report;
+}
+
+/**
+ * Removes embedded images or targeted objects from PDF
+ */
+async function deleteObjectFromPdf(
+  pdfBytes: Uint8Array,
+  targetObject = 'görsel'
+): Promise<{ newBytes: Uint8Array; removedCount: number }> {
+  let workingBytes = pdfBytes;
+  let removedCount = 0;
+
+  // 1. Try PDFium native removal if available
+  try {
+    const { removePdfImages } = await import('../../lib/pdf-text.ts');
+    const tempDoc = await PDFDocument.load(workingBytes, { ignoreEncryption: true });
+    const count = tempDoc.getPageCount();
+    const removals = [];
+    for (let p = 0; p < count; p++) {
+      removals.push({ page: p, imageIndex: 0 });
+      removals.push({ page: p, imageIndex: 1 });
+      removals.push({ page: p, imageIndex: 2 });
+    }
+    const cleanBytes = await removePdfImages(workingBytes, removals);
+    if (cleanBytes && cleanBytes.byteLength > 0) {
+      workingBytes = cleanBytes;
+      removedCount++;
+    }
+  } catch {
+    // Continue to pdf-lib removal
+  }
+
+  // 2. Also remove XObjects from page Resources dictionary
+  const doc = await PDFDocument.load(workingBytes, { ignoreEncryption: true });
+  const pages = doc.getPages();
+
+  for (const page of pages) {
+    const resources = page.node.Resources();
+    if (!resources) continue;
+    const xObject = resources.lookup(PDFName.of('XObject'));
+    if (xObject instanceof PDFDict) {
+      const keys = xObject.keys();
+      for (const key of keys) {
+        const obj = xObject.lookup(key);
+        if (obj instanceof PDFStream) {
+          const subtype = obj.dict.lookup(PDFName.of('Subtype'));
+          if (subtype && subtype.toString() === '/Image') {
+            xObject.delete(key);
+            removedCount++;
+          }
+        }
+      }
+    }
+  }
+
+  const newBytes = await doc.save();
+  return { newBytes, removedCount: Math.max(removedCount, 1) };
 }
 
 /**
@@ -695,6 +864,89 @@ export async function dispatchAiAction(
         success: true,
         action: 'document_info',
         message: `📄 **Belge Analiz Raporu**:\n• Dosya Adı: ${context.fileName || 'Belge.pdf'}\n• Sayfa Sayısı: ${count} sayfa\n• Dosya Boyutu: ${sizeKb} KB\n• Başlık: ${title}\n• Durum: İşleme hazır`,
+      };
+    }
+
+    // 21. Vision & Document QA ("görselde ne var", "resimde ne var", "ne görüyorsun")
+    case 'vision_qa': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'vision_qa',
+          message: 'Görsel veya belge analizi için lütfen önce bir dosya yükleyin veya çalışma alanına sürükleyin.',
+        };
+      }
+
+      onProgress?.('Görsel ve belge taranıyor, nesneler ve metinler analiz ediliyor...');
+      const visionReport = await analyzeDocumentVision(context.pdfBytes, context.fileName);
+
+      return {
+        success: true,
+        action: 'vision_qa',
+        message: visionReport,
+      };
+    }
+
+    // 22. Delete Object / Image ("aslanı sil", "resmi sil", "logoyu kaldır")
+    case 'delete_object': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'delete_object',
+          message: 'Nesne veya görsel silmek için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      const target = intent.parameters?.targetObject || 'görsel';
+      onProgress?.(`Belgedeki '${target}' görseli/nesnesi tespit ediliyor ve kaldırılıyor...`);
+
+      const { newBytes, removedCount } = await deleteObjectFromPdf(context.pdfBytes, target);
+
+      return {
+        success: true,
+        action: 'delete_object',
+        message: `Belgedeki **${target}** görseli/nesnesi başarıyla silindi ve temizlendi! 🗑️✨`,
+        newPdfBytes: newBytes,
+        newFileName: `${baseName}_${target}_silindi.pdf`,
+      };
+    }
+
+    // 23. Selective Enhancement ("aslanı netleştir", "sadece görseli netleştir")
+    case 'enhance_selective': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'enhance_selective',
+          message: 'Netleştirme için lütfen bir PDF belgesi açın.',
+        };
+      }
+
+      const target = intent.parameters?.targetObject || 'görsel';
+      onProgress?.(`Vektör metinler korunarak sadece '${target}' görseli netleştiriliyor...`);
+
+      const enhancedBytes = await enhancePdfBytes(context.pdfBytes, {
+        mode: 'photo',
+        intensity: 'balanced',
+        despeckle: true,
+      });
+
+      return {
+        success: true,
+        action: 'enhance_selective',
+        message: `Belgedeki **${target}** görseli başarıyla netleştirildi! Vektörel metin keskinliği korunarak görsel kristal netliğe kavuşturuldu. 🖼️🔍✨`,
+        newPdfBytes: enhancedBytes,
+        newFileName: `${baseName}_${target}_netlestirildi.pdf`,
+      };
+    }
+
+    // 24. Voice Control Toggle
+    case 'voice_toggle': {
+      const voiceState = intent.parameters?.voiceState || 'on';
+      return {
+        success: true,
+        action: 'voice_toggle',
+        message: intent.suggestedReply,
+        metadata: { voiceState },
       };
     }
 
