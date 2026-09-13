@@ -939,6 +939,7 @@ export default function Workspace({
           if (stopped) return;
           await installPdf(data);
           if (intent === "sign") setSignOpen(true);
+          if (intent === "convert") setActiveProfessionalTool("conversion");
         }
       } catch (e) {
         if (!stopped)
