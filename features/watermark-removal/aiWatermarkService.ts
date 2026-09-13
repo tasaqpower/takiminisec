@@ -25,7 +25,7 @@ export async function renderPdfPageToDataUrl(pdfBytes: Uint8Array, pageIndex: nu
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas context could not be created");
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx as any, viewport, canvas: canvas as any }).promise;
     return {
       dataUrl: canvas.toDataURL("image/jpeg", 0.85),
       width: viewport.width,

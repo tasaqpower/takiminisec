@@ -342,6 +342,19 @@ export async function detectWatermarks(
       }
     }
 
+    // 4. If no vector text or image watermark candidates found, run local Visual OCR detector
+    if (candidates.length === 0 && typeof window !== "undefined") {
+      try {
+        const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
+        const visualCands = await detectVisualWatermarks(pdfBytes, 0);
+        if (visualCands && visualCands.length > 0) {
+          candidates.push(...visualCands);
+        }
+      } catch (visErr) {
+        console.warn("Visual watermark detection fallback error:", visErr);
+      }
+    }
+
     // Sort by confidence descending
     candidates.sort((a, b) => b.confidence - a.confidence);
 

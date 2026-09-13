@@ -2,6 +2,7 @@ import { removePdfText, removePdfImages, editablePageText, type TextRemoval, typ
 import { loadPdf } from "@/lib/documents";
 import { PDFDocument, rgb } from "pdf-lib";
 import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector";
+import { findVisualTextBounds } from "./visualWatermarkDetector";
 import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes";
 
 export interface WatermarkRemovalResult {
@@ -136,6 +137,21 @@ export async function removeWatermarks(
           }
         }
       } catch {}
+    }
+  }
+
+  // Visual text search fallback for scanned / image pages
+  const visualCoverBounds: { page: number; x: number; y: number; w: number; h: number }[] = [];
+  if (options.customText && options.customText.trim().length > 0 && textRemovals.length === 0 && typeof window !== "undefined") {
+    try {
+      for (const pageIdx of targetPages) {
+        const vBounds = await findVisualTextBounds(currentBytes, pageIdx, options.customText);
+        for (const b of vBounds) {
+          visualCoverBounds.push({ page: pageIdx, ...b });
+        }
+      }
+    } catch (visErr) {
+      console.warn("Visual text search fallback error:", visErr);
     }
   }
 
@@ -288,6 +304,23 @@ export async function removeWatermarks(
           coverDrawn = true;
           removedCoverCount++;
         }
+      }
+    }
+
+    // Also cover visual search bounds found via OCR
+    for (const vb of visualCoverBounds) {
+      if (targetPages.has(vb.page) && vb.page >= 0 && vb.page < pages.length) {
+        const page = pages[vb.page];
+        page.drawRectangle({
+          x: Math.max(0, vb.x - 2),
+          y: Math.max(0, vb.y - 2),
+          width: vb.w + 4,
+          height: vb.h + 4,
+          color: rgb(1, 1, 1),
+          opacity: 1
+        });
+        coverDrawn = true;
+        removedCoverCount++;
       }
     }
 
