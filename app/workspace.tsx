@@ -327,7 +327,13 @@ export default function Workspace({
   const [isCleaningWatermarks, setIsCleaningWatermarks] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
   const [showToolHub, setShowToolHub] = useState(false);
-  const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(null);
+  const [activeProfessionalTool, setActiveProfessionalTool] = useState<ProfessionalToolId | null>(
+    intent === "convert"
+      ? "conversion"
+      : ["scanner", "decoration", "navigation", "annotations", "compare", "batch", "page-sizing", "conversion", "signature", "compliance"].includes(intent as any)
+      ? (intent as ProfessionalToolId)
+      : null
+  );
   const [formMode, setFormMode] = useState<"none" | "design" | "fill">("none");
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
   const [detectedImages, setDetectedImages] = useState<PdfDetectedImage[]>([]);
@@ -939,7 +945,10 @@ export default function Workspace({
           if (stopped) return;
           await installPdf(data);
           if (intent === "sign") setSignOpen(true);
-          if (intent === "convert") setActiveProfessionalTool("conversion");
+          if (intent === "convert" || intent === "conversion") setActiveProfessionalTool("conversion");
+          else if (["scanner", "decoration", "navigation", "annotations", "compare", "batch", "page-sizing", "compliance"].includes(intent)) {
+            setActiveProfessionalTool(intent as ProfessionalToolId);
+          }
         }
       } catch (e) {
         if (!stopped)

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Archive,
   ArrowRight,
@@ -33,6 +33,10 @@ import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescripti
 import { Toaster, toast } from "sonner";
 import { RecoveryDialog } from "@/features/autosave/RecoveryDialog";
 import type { FormaDraft } from "@/features/autosave/db";
+import { ToolHubModal, type ProfessionalToolId } from "@/features/hub/ToolHubModal";
+import { DocumentScannerModal } from "@/features/scanner/DocumentScannerModal";
+import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
+import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
 
 const tools = [
   { id:"edit", title:"PDF düzenle", desc:"Metin, not ve vurgular ekle.", icon:FileText, color:"violet", type:"PDF" },
@@ -54,6 +58,20 @@ export default function Home() {
   const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
   const [dirty, setDirty] = useState(false), [leave, setLeave] = useState(false);
   const nextAction = useRef<(() => void) | null>(null);
+
+  const [showToolHub, setShowToolHub] = useState(false);
+  const [activeStandaloneTool, setActiveStandaloneTool] = useState<ProfessionalToolId | null>(null);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowToolHub(v => !v);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   function guard(action: () => void) {
     if (dirty && workspace) {
@@ -90,11 +108,32 @@ export default function Home() {
       setIntent(action);
       if (input.current) {
         input.current.multiple = action === "merge";
-        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+        input.current.accept = action === "word" ? ".docx,.txt" : ["edit", "sign", "merge", "pages", "compress", "ocr", "watermark", "decoration", "navigation", "annotations", "compliance", "convert", "conversion"].includes(action) ? ".pdf" : ".pdf,.docx,.txt,.png,.jpg,.jpeg";
         input.current.click();
       }
     });
   }
+
+  const handleSelectToolFromHub = (toolId: ProfessionalToolId) => {
+    setShowToolHub(false);
+    if (toolId === "scanner") {
+      setActiveStandaloneTool("scanner");
+    } else if (toolId === "compare") {
+      setActiveStandaloneTool("compare");
+    } else if (toolId === "batch") {
+      setActiveStandaloneTool("batch");
+    } else if (toolId === "watermark-removal") {
+      pick("watermark");
+    } else if (toolId === "conversion") {
+      pick("convert");
+    } else if (toolId === "page-sizing") {
+      pick("pages");
+    } else if (toolId === "signature") {
+      pick("sign");
+    } else {
+      pick(toolId);
+    }
+  };
 
   async function newDoc() {
     await open([new globalThis.File([""], "Adsız belge.txt", { type: "text/plain" })], "word");
@@ -118,6 +157,12 @@ export default function Home() {
             <SidebarMenuItem>
               <SidebarMenuButton className="nav-item" isActive={!workspace} onClick={() => guard(() => setWorkspace(null))}>
                 <LayoutGrid /><span>Genel bakış</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => setShowToolHub(true)}>
+                <Sparkles className="text-amber-500" /><span>Tüm Araçlar</span>
+                <span className="nav-new" style={{ background: "#fef3c7", color: "#b45309" }}>Ctrl+K</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -163,6 +208,17 @@ export default function Home() {
             <strong>{workspace ? "Belge düzenleyici" : "Genel bakış"}</strong>
           </div>
           <span className="private-label"><ShieldCheck size={15} /> Tamamen cihazında</span>
+          <button
+            type="button"
+            className="secondary"
+            style={{ minHeight: "36px", padding: "0 13px", fontSize: "12px", gap: "7px", borderRadius: "8px" }}
+            onClick={() => setShowToolHub(true)}
+            title="Tüm Atölye Araçları (Ctrl+K)"
+          >
+            <Sparkles size={15} className="text-amber-500" />
+            <span>Tüm Araçlar</span>
+            <span style={{ fontSize: "10px", background: "#f0eff6", border: "1px solid #e2dfea", borderRadius: "4px", padding: "1px 5px", color: "#777189" }}>Ctrl+K</span>
+          </button>
           <button className="top-help" aria-label="Kullanım rehberi" onClick={() => setHelp(true)}>
             <BookOpen size={18} />
           </button>
@@ -186,7 +242,22 @@ export default function Home() {
                 <h1>Belgelerine yer aç.</h1>
                 <p>Düzenle, dönüştür, imzala. Hepsi aynı çalışma alanında.</p>
               </div>
-              <button className="secondary create-doc" onClick={newDoc}><FilePlus2 size={17} /> Yeni belge</button>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ fontSize: "12px", minHeight: "39px", gap: "7px", borderRadius: "9px" }}
+                  onClick={() => setShowToolHub(true)}
+                  title="Tüm Atölye Araçları (Ctrl+K)"
+                >
+                  <Sparkles size={16} className="text-amber-500" />
+                  <span>Tüm Atölye Araçları</span>
+                  <span style={{ fontSize: "10px", background: "#f0eff6", border: "1px solid #e2dfea", borderRadius: "4px", padding: "1px 5px", color: "#777189" }}>Ctrl+K</span>
+                </button>
+                <button className="secondary create-doc" style={{ marginTop: 0 }} onClick={newDoc}>
+                  <FilePlus2 size={17} /> Yeni belge
+                </button>
+              </div>
             </div>
             <section
               className={`upload-zone ${dragging ? "dragging" : ""}`}
@@ -219,13 +290,24 @@ export default function Home() {
                   <h2>Her belgeye bir araç<span>{tools.length}</span></h2>
                   <p>Yapmak istediğini seç, hemen başla.</p>
                 </div>
-                <Tabs value={category} onValueChange={setCategory}>
-                  <TabsList className="category-tabs">
-                    <TabsTrigger value="all">Tüm araçlar</TabsTrigger>
-                    <TabsTrigger value="pdf">PDF</TabsTrigger>
-                    <TabsTrigger value="word">Word</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    style={{ minHeight: "34px", padding: "0 12px", fontSize: "11px", gap: "6px", borderRadius: "8px", border: "1px solid #e0dced" }}
+                    onClick={() => setShowToolHub(true)}
+                  >
+                    <Sparkles size={14} className="text-amber-500" />
+                    <span>Tüm 11 Aracı Gör (Ctrl+K)</span>
+                  </button>
+                  <Tabs value={category} onValueChange={setCategory}>
+                    <TabsList className="category-tabs">
+                      <TabsTrigger value="all">Tüm araçlar</TabsTrigger>
+                      <TabsTrigger value="pdf">PDF</TabsTrigger>
+                      <TabsTrigger value="word">Word</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
               </div>
               <div className="tool-grid">
                 {tools
@@ -303,6 +385,36 @@ export default function Home() {
           await open([file], draft.intent || "edit", draft);
         }}
       />
+      <ToolHubModal
+        isOpen={showToolHub}
+        onClose={() => setShowToolHub(false)}
+        onSelectTool={handleSelectToolFromHub}
+      />
+
+      <DocumentScannerModal
+        isOpen={activeStandaloneTool === 'scanner'}
+        onClose={() => setActiveStandaloneTool(null)}
+        onImportToWorkspace={async (newPdfBytes, newFileName) => {
+          setActiveStandaloneTool(null);
+          const scannedFile = new globalThis.File(
+            [newPdfBytes as unknown as BlobPart],
+            newFileName || "Taranmis_Belge.pdf",
+            { type: "application/pdf" }
+          );
+          await open([scannedFile], "edit");
+        }}
+      />
+
+      <PdfCompareModal
+        isOpen={activeStandaloneTool === 'compare'}
+        onClose={() => setActiveStandaloneTool(null)}
+      />
+
+      <BatchProcessingModal
+        isOpen={activeStandaloneTool === 'batch'}
+        onClose={() => setActiveStandaloneTool(null)}
+      />
+
       <Toaster position="bottom-right" richColors closeButton />
     </SidebarProvider>
   );
