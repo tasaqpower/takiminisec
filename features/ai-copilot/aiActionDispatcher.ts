@@ -11,7 +11,14 @@ import { pdfToExcel, pdfToImagesZip } from '../conversion/conversionEngine.ts';
 import { convertToPdfA2b } from '../compliance/complianceEngine.ts';
 import { encryptPdfWithPassword } from '../security/pdfEncryption.ts';
 import { extractPdfText, loadPdf, exportPdf, canEncodeWinAnsi, type Mark } from '../../lib/documents.ts';
-import { editablePageText, type TextRemoval } from '../../lib/pdf-text.ts';
+import {
+  editablePageText,
+  extractPdfImageBitmap,
+  canRemovePdfImage,
+  removePdfImages,
+  updatePdfImageBitmap,
+  type TextRemoval,
+} from '../../lib/pdf-text.ts';
 
 export interface SelectedImageContext {
   id?: string;
@@ -563,7 +570,6 @@ async function extractRgbaPixels(
 
   // 2. Strictly matched PDFium rendered bitmap extraction (supports JPEG, PNG, CCITT, JBIG2, etc.)
   try {
-    const { extractPdfImageBitmap } = await import('../../lib/pdf-text.ts');
     const bmp = await extractPdfImageBitmap(pdfBytes, {
       page: selectedImage.page,
       bounds: selectedImage.originalBounds,
@@ -587,7 +593,6 @@ async function deleteSelectedImageFromPdf(
   selectedImage: SelectedImageContext
 ): Promise<{ success: boolean; newBytes?: Uint8Array; message: string; removedCount: number }> {
   try {
-    const { canRemovePdfImage, removePdfImages } = await import('../../lib/pdf-text.ts');
     const removal = {
       page: selectedImage.page,
       bounds: selectedImage.originalBounds,
@@ -665,7 +670,6 @@ async function enhanceSelectedImageInPdf(
     );
 
     // Surgical in-place replacement via PDFium FPDFImageObj_SetBitmap
-    const { updatePdfImageBitmap } = await import('../../lib/pdf-text.ts');
     const updateResult = await updatePdfImageBitmap(
       pdfBytes,
       {
