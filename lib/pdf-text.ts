@@ -1,4 +1,6 @@
 import type { WrappedPdfiumModule, PdfiumRuntimeMethods } from "@embedpdf/pdfium";
+import { PDFDocument, PDFName, PDFDict, PDFRef } from "pdf-lib";
+import pako from "pako";
 
 export type TextRemoval = { id: string; page: number; quad: number[] };
 export type EditableText = TextRemoval & {
@@ -20,6 +22,10 @@ export type EditableText = TextRemoval & {
   lineHeight?: number;
   transform?: number[];
   isOcr?: boolean;
+  ocrSourceCropDataUrl?: string;
+  ocrOriginalBounds?: { x: number; y: number; w: number; h: number };
+  ocrTextDirty?: boolean;
+  ocrBackgroundColor?: string;
 };
 
 let instance: Promise<WrappedPdfiumModule> | undefined;
@@ -87,12 +93,18 @@ export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) 
 
 export type TextObjectRemovalTarget = {
   candidateTexts?: string[];
+  candidateItems?: Array<{ id: string; text: string }>;
   targetPages?: number[];
   keywords?: string[];
 };
 
-function checkWatermarkMatch(rawText: string, candidateTexts: string[], keywords: string[]): boolean {
-  if (!rawText || rawText.trim().length < 2) return false;
+function checkWatermarkMatchWithId(
+  rawText: string,
+  candidateItems: Array<{ id: string; text: string }> | undefined,
+  candidateTexts: string[],
+  keywords: string[]
+): { matched: boolean; candidateId?: string } {
+  if (!rawText || rawText.trim().length < 2) return { matched: false };
   const norm = rawText
     .replace(/İ/g, "i").replace(/I/g, "ı").replace(/ı/g, "i")
     .replace(/Ğ/g, "g").replace(/ğ/g, "g")
@@ -105,12 +117,38 @@ function checkWatermarkMatch(rawText: string, candidateTexts: string[], keywords
 
   // Contract clause immunity (Madde 1:, Article 2:, etc.)
   if (/^(?:madde|article|fıkra|fikra|bent|bolum|kisim|ek|taraflar|konu|amac|hukumler|sozlesme|protokol)\s*\d*[:.]?/i.test(norm)) {
-    return false;
+    return { matched: false };
   }
 
   const spaceless = norm.replace(/[\s\-_.]/g, "");
 
-  // 1. Check against candidate texts
+  // 1. Check against candidate items (exact match or isolated phrase only)
+  if (candidateItems && candidateItems.length > 0) {
+    for (const item of candidateItems) {
+      if (!item.text) continue;
+      const candNorm = item.text
+        .replace(/İ/g, "i").replace(/I/g, "ı").replace(/ı/g, "i")
+        .replace(/Ğ/g, "g").replace(/ğ/g, "g")
+        .replace(/Ü/g, "u").replace(/ü/g, "u")
+        .replace(/Ş/g, "s").replace(/ş/g, "s")
+        .replace(/Ö/g, "o").replace(/ö/g, "o")
+        .replace(/Ç/g, "c").replace(/ç/g, "c")
+        .toLowerCase()
+        .trim();
+      const candSpaceless = candNorm.replace(/[\s\-_.]/g, "");
+      if (norm === candNorm || spaceless === candSpaceless) return { matched: true, candidateId: item.id };
+      if (candNorm.length >= 4) {
+        const wordRegex = new RegExp(`(?:^|[^a-z0-9])${candNorm}(?:[^a-z0-9]|$)`, "i");
+        if (wordRegex.test(norm)) {
+          if (norm.length <= candNorm.length + 8 || norm.split(/\s+/).length <= 4) {
+            return { matched: true, candidateId: item.id };
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Check against candidate texts (exact match or isolated phrase only)
   for (const cand of candidateTexts) {
     if (!cand) continue;
     const candNorm = cand
@@ -123,20 +161,28 @@ function checkWatermarkMatch(rawText: string, candidateTexts: string[], keywords
       .toLowerCase()
       .trim();
     const candSpaceless = candNorm.replace(/[\s\-_.]/g, "");
-    if (norm === candNorm || spaceless === candSpaceless) return true;
-    if (candNorm.length >= 4 && norm.includes(candNorm)) return true;
-    if (candSpaceless.length >= 4 && spaceless.includes(candSpaceless)) return true;
+    if (norm === candNorm || spaceless === candSpaceless) return { matched: true };
+    if (candNorm.length >= 4) {
+      const wordRegex = new RegExp(`(?:^|[^a-z0-9])${candNorm}(?:[^a-z0-9]|$)`, "i");
+      if (wordRegex.test(norm)) {
+        if (norm.length <= candNorm.length + 8 || norm.split(/\s+/).length <= 4) {
+          return { matched: true };
+        }
+      }
+    }
   }
 
-  // 2. Check against known keywords
+  // 3. Check against explicit keywords (only if provided and not part of regular sentence)
   for (const kw of keywords) {
     const kwNorm = kw.toLowerCase().trim();
     const kwSpaceless = kwNorm.replace(/[\s\-_.]/g, "");
-    if (norm === kwNorm || spaceless === kwSpaceless) return true;
-    if (kwSpaceless.length >= 4 && spaceless.includes(kwSpaceless)) return true;
+    if (norm === kwNorm || spaceless === kwSpaceless) return { matched: true };
+    if (kwSpaceless.length >= 4 && (norm === kwNorm || (norm.length <= kwNorm.length + 4 && spaceless === kwSpaceless))) {
+      return { matched: true };
+    }
   }
 
-  return false;
+  return { matched: false };
 }
 
 /**
@@ -147,7 +193,7 @@ function checkWatermarkMatch(rawText: string, candidateTexts: string[], keywords
 export async function removePdfTextObjects(
   bytes: Uint8Array,
   target: TextObjectRemovalTarget
-): Promise<{ bytes: Uint8Array; removedCount: number }> {
+): Promise<{ bytes: Uint8Array; removedCount: number; removedCandidateIds?: string[] }> {
   const m = await engine();
   const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
   const { malloc, free } = heap.wasmExports;
@@ -156,9 +202,11 @@ export async function removePdfTextObjects(
   let doc = 0;
   let removedCount = 0;
 
+  const candidateItems = target.candidateItems;
   const candidateTexts = target.candidateTexts || [];
   const targetPages = target.targetPages ? new Set(target.targetPages) : null;
   const keywords = target.keywords || [];
+  const removedCandidateIds = new Set<string>();
 
   const bufferSize = 4096;
   const bufPtr = malloc(bufferSize);
@@ -178,7 +226,7 @@ export async function removePdfTextObjects(
       const textPage = m.FPDFText_LoadPage(page);
 
       const objCount = m.FPDFPage_CountObjects(page);
-      const toRemove: number[] = [];
+      const toRemove: Array<{ obj: number; candidateId?: string }> = [];
 
       for (let i = 0; i < objCount; i++) {
         const obj = m.FPDFPage_GetObject(page, i);
@@ -192,8 +240,9 @@ export async function removePdfTextObjects(
             const u16 = new Uint16Array(heap.HEAPU8.buffer, bufPtr, charCount);
             const rawText = String.fromCharCode(...u16);
 
-            if (checkWatermarkMatch(rawText, candidateTexts, keywords)) {
-              toRemove.push(obj);
+            const match = checkWatermarkMatchWithId(rawText, candidateItems, candidateTexts, keywords);
+            if (match.matched) {
+              toRemove.push({ obj, candidateId: match.candidateId });
             }
           }
         } else if (type === 5) { // FPDF_PAGEOBJ_FORM
@@ -208,9 +257,11 @@ export async function removePdfTextObjects(
                   const charCount = Math.max(0, Math.floor((written - 2) / 2));
                   const u16 = new Uint16Array(heap.HEAPU8.buffer, bufPtr, charCount);
                   const rawText = String.fromCharCode(...u16);
-                  if (checkWatermarkMatch(rawText, candidateTexts, keywords)) {
+                  const formMatch = checkWatermarkMatchWithId(rawText, candidateItems, candidateTexts, keywords);
+                  if (formMatch.matched) {
                     m.FPDFFormObj_RemoveObject(obj, nestedObj);
                     removedCount++;
+                    if (formMatch.candidateId) removedCandidateIds.add(formMatch.candidateId);
                   }
                 }
               }
@@ -219,9 +270,10 @@ export async function removePdfTextObjects(
         }
       }
 
-      for (const obj of toRemove) {
-        if (m.FPDFPage_RemoveObject(page, obj)) {
+      for (const item of toRemove) {
+        if (m.FPDFPage_RemoveObject(page, item.obj)) {
           removedCount++;
+          if (item.candidateId) removedCandidateIds.add(item.candidateId);
         }
       }
 
@@ -234,7 +286,7 @@ export async function removePdfTextObjects(
     }
 
     if (removedCount === 0) {
-      return { bytes, removedCount: 0 };
+      return { bytes, removedCount: 0, removedCandidateIds: [] };
     }
 
     const writer = m.PDFiumExt_OpenFileWriter();
@@ -246,7 +298,8 @@ export async function removePdfTextObjects(
       m.PDFiumExt_GetFileWriterData(writer, output, length);
       return {
         bytes: heap.HEAPU8.slice(output, output + length),
-        removedCount
+        removedCount,
+        removedCandidateIds: Array.from(removedCandidateIds)
       };
     } finally {
       if (output) free(output);
@@ -275,17 +328,33 @@ export type ImageRemoval = {
  * Traverses both top-level page objects and nested Form XObjects (FPDF_PAGEOBJ_FORM).
  * Matches strictly using pixel dimensions, matrix, CropBox/MediaBox bounds, and sequence order.
  */
+export type RemovePdfImagesResult = Uint8Array & {
+  pdfBytes: Uint8Array;
+  removedCount: number;
+};
+
+/**
+ * Removes image objects from PDF content streams via PDFium.
+ * Traverses both top-level page objects and nested Form XObjects (FPDF_PAGEOBJ_FORM).
+ * Matches strictly using pixel dimensions, matrix, CropBox/MediaBox bounds, and sequence order.
+ * Strictly guarantees that duplicate XObject placements on the same or other pages are not wiped out.
+ */
 export async function removePdfImages(
   bytes: Uint8Array,
   removals: ImageRemoval[]
-): Promise<Uint8Array> {
-  if (typeof window !== "undefined" && (window as any).__dragTestCounters) (window as any).__dragTestCounters.pdfiumCallCount++;
-  if (!removals.length) return bytes;
+): Promise<RemovePdfImagesResult> {
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+    if ((window as any).__dragTestCounters) (window as any).__dragTestCounters.pdfiumCallCount++;
+  }
+  if (!removals.length) {
+    return Object.assign(bytes, { pdfBytes: bytes, removedCount: 0 });
+  }
   const m = (await engine()) as any;
   const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
   const { malloc, free } = heap.wasmExports;
   const input = malloc(bytes.length);
   let doc = 0;
+  let totalRemovedCount = 0;
 
   try {
     heap.HEAPU8.set(bytes, input);
@@ -388,64 +457,102 @@ export async function removePdfImages(
         for (const rem of pageRemovals) {
           let bestCand: Candidate | null = null;
           let bestScore = -Infinity;
+          let runnerUpScore = -Infinity;
 
           for (const cand of candidates) {
             if (removedObjs.has(cand.obj)) continue;
+
+            // 1. Mandatory Location / Bounds Verification
+            if (!rem.bounds || !cand.bounds) continue;
+
+            const tb = rem.bounds;
+            const cb = cand.bounds;
+            const centerDist = Math.hypot(
+              (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
+              (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
+            );
+            const edgeDiff =
+              Math.abs(cb.left - tb.left) +
+              Math.abs(cb.bottom - tb.bottom) +
+              Math.abs(cb.right - tb.right) +
+              Math.abs(cb.top - tb.top);
+
+            // Location must match within tolerance! A different placement on the page will have large centerDist / edgeDiff
+            if (edgeDiff > 35 && centerDist > 30) {
+              continue; // Reject wrong location immediately
+            }
+
+            // In addition to bounds, at least one other attribute must be confirmed:
+            let hasCorroboration = false;
             let score = 0;
 
-            // 1. Pixel Dimension Matching (Strongest invariant)
+            // Bounds score
+            if (edgeDiff < 2) score += 200;
+            else if (edgeDiff < 10) score += 140;
+            else if (edgeDiff < 25 || centerDist < 15) score += 80;
+
+            // Pixel dimension verification
             if (rem.pixelWidth && rem.pixelHeight && cand.pixelWidth && cand.pixelHeight) {
               if (rem.pixelWidth === cand.pixelWidth && rem.pixelHeight === cand.pixelHeight) {
-                score += 200;
+                score += 150;
+                hasCorroboration = true;
               } else {
-                score -= 500; // Do not match different-sized image
+                continue; // Pixel size mismatch cannot be the same image
               }
             }
 
-            // 2. Bounding Box Matching
-            if (rem.bounds) {
-              const tb = rem.bounds;
-              const cb = cand.bounds;
-              const centerDist = Math.hypot(
-                (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
-                (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
-              );
-              const edgeDiff =
-                Math.abs(cb.left - tb.left) +
-                Math.abs(cb.bottom - tb.bottom) +
-                Math.abs(cb.right - tb.right) +
-                Math.abs(cb.top - tb.top);
-
-              if (edgeDiff < 2) score += 150;
-              else if (edgeDiff < 15) score += 100;
-              else if (edgeDiff < 50 || centerDist < 30) score += 50;
-              else score -= Math.min(200, edgeDiff);
-            }
-
-            // 3. Matrix Matching
+            // Matrix verification
             if (rem.matrix && cand.matrix) {
               const matDiff =
                 Math.abs(rem.matrix[0] - cand.matrix[0]) +
                 Math.abs(rem.matrix[3] - cand.matrix[3]) +
                 Math.abs(rem.matrix[4] - cand.matrix[4]) +
                 Math.abs(rem.matrix[5] - cand.matrix[5]);
-              if (matDiff < 2) score += 100;
-              else if (matDiff < 15) score += 50;
+              if (matDiff < 2) {
+                score += 100;
+                hasCorroboration = true;
+              } else if (matDiff < 15) {
+                score += 50;
+                hasCorroboration = true;
+              }
             }
 
-            // 4. Sequential Index Fallback
+            // Sequential index verification
             if (typeof rem.imageIndex === "number" && rem.imageIndex === cand.index) {
-              score += 40;
+              score += 60;
+              hasCorroboration = true;
             }
 
-            if (score > bestScore && score > 30) {
+            // ObjectRef verification
+            if (rem.objectRef && String(rem.objectRef) === String(cand.obj)) {
+              score += 150;
+              hasCorroboration = true;
+            }
+
+            // If only bounds existed without any other metadata, bounds must be near-exact (< 5 edgeDiff)
+            if (!hasCorroboration && edgeDiff < 5) {
+              hasCorroboration = true;
+            }
+
+            if (!hasCorroboration) continue;
+
+            if (score > bestScore) {
+              runnerUpScore = bestScore;
               bestScore = score;
               bestCand = cand;
+            } else if (score > runnerUpScore) {
+              runnerUpScore = score;
             }
           }
 
-          if (bestCand) {
+          // Ambiguity protection: if two or more candidates have the same score or difference <= 5, reject!
+          if (bestCand && (bestScore - runnerUpScore <= 5 && runnerUpScore > 0)) {
+            bestCand = null; // Ambiguous match! Safely reject.
+          }
+
+          if (bestCand && bestScore >= 120) {
             removedObjs.add(bestCand.obj);
+            totalRemovedCount++;
             if (bestCand.parentForm && m.FPDFFormObj_RemoveObject) {
               m.FPDFFormObj_RemoveObject(bestCand.parentForm, bestCand.obj);
             } else {
@@ -468,6 +575,10 @@ export async function removePdfImages(
       free(hPtr);
     }
 
+    if (totalRemovedCount === 0) {
+      return Object.assign(bytes, { pdfBytes: bytes, removedCount: 0 });
+    }
+
     const writer = m.PDFiumExt_OpenFileWriter();
     let output = 0;
     try {
@@ -475,7 +586,8 @@ export async function removePdfImages(
       const length = m.PDFiumExt_GetFileWriterSize(writer);
       output = malloc(length);
       m.PDFiumExt_GetFileWriterData(writer, output, length);
-      return heap.HEAPU8.slice(output, output + length);
+      const outBytes = heap.HEAPU8.slice(output, output + length);
+      return Object.assign(outBytes, { pdfBytes: outBytes, removedCount: totalRemovedCount });
     } finally {
       if (output) free(output);
       m.PDFiumExt_CloseFileWriter(writer);
@@ -488,9 +600,10 @@ export async function removePdfImages(
 
 /**
  * Verifies whether a specific image can be safely located and removed from the PDF.
- * Returns true if an exact match exists in the page structure.
+ * Returns true ONLY if an unambiguous, exact match exists in the page structure.
  */
 export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval): Promise<boolean> {
+  if (!removal.bounds) return false;
   const m = (await engine()) as any;
   const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
   const { malloc, free } = heap.wasmExports;
@@ -511,9 +624,20 @@ export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval
       const page = m.FPDF_LoadPage(doc, removal.page);
       if (!page) return false;
 
-      let found = false;
+      type Cand = {
+        obj: number;
+        bounds: { left: number; bottom: number; right: number; top: number };
+        matrix: number[] | null;
+        pixelWidth: number;
+        pixelHeight: number;
+        index: number;
+      };
+
+      const candidates: Cand[] = [];
+      let seq = 0;
+
       const scan = (obj: number) => {
-        if (!obj || found) return;
+        if (!obj) return;
         const type = m.FPDFPageObj_GetType(obj);
         if (type === 3) {
           let pW = 0;
@@ -522,33 +646,29 @@ export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval
             pW = heap.getValue(wPtr, "i32");
             pH = heap.getValue(hPtr, "i32");
           }
-          if (removal.pixelWidth && removal.pixelHeight && pW && pH) {
-            if (pW === removal.pixelWidth && pH === removal.pixelHeight) {
-              found = true;
-              return;
-            }
+          m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+          const left = heap.getValue(boundsPtr, "float");
+          const bottom = heap.getValue(boundsPtr + 4, "float");
+          const right = heap.getValue(boundsPtr + 8, "float");
+          const top = heap.getValue(boundsPtr + 12, "float");
+
+          let matrix: number[] | null = null;
+          if (m.FPDFPageObj_GetMatrix && m.FPDFPageObj_GetMatrix(obj, matrixPtr)) {
+            matrix = Array.from(new Float32Array(heap.HEAPU8.buffer, matrixPtr, 6));
           }
-          if (removal.bounds) {
-            m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
-            const left = heap.getValue(boundsPtr, "float");
-            const bottom = heap.getValue(boundsPtr + 4, "float");
-            const right = heap.getValue(boundsPtr + 8, "float");
-            const top = heap.getValue(boundsPtr + 12, "float");
-            const edgeDiff =
-              Math.abs(left - removal.bounds.left) +
-              Math.abs(bottom - removal.bounds.bottom) +
-              Math.abs(right - removal.bounds.right) +
-              Math.abs(top - removal.bounds.top);
-            if (edgeDiff < 20) {
-              found = true;
-              return;
-            }
-          }
+
+          candidates.push({
+            obj,
+            bounds: { left, bottom, right, top },
+            matrix,
+            pixelWidth: pW,
+            pixelHeight: pH,
+            index: seq++
+          });
         } else if (type === 5 && m.FPDFFormObj_CountObjects) {
           const count = m.FPDFFormObj_CountObjects(obj);
           for (let j = 0; j < count; j++) {
             scan(m.FPDFFormObj_GetObject(obj, j));
-            if (found) return;
           }
         }
       };
@@ -556,10 +676,82 @@ export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval
       const count = m.FPDFPage_CountObjects(page);
       for (let i = 0; i < count; i++) {
         scan(m.FPDFPage_GetObject(page, i));
-        if (found) break;
       }
       m.FPDF_ClosePage(page);
-      return found;
+
+      let bestScore = -Infinity;
+      let runnerUpScore = -Infinity;
+      let bestCand: Cand | null = null;
+
+      for (const cand of candidates) {
+        const tb = removal.bounds;
+        const cb = cand.bounds;
+        const centerDist = Math.hypot(
+          (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
+          (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
+        );
+        const edgeDiff =
+          Math.abs(cb.left - tb.left) +
+          Math.abs(cb.bottom - tb.bottom) +
+          Math.abs(cb.right - tb.right) +
+          Math.abs(cb.top - tb.top);
+
+        if (edgeDiff > 35 && centerDist > 30) continue;
+
+        let score = 0;
+        let hasCorroboration = false;
+
+        if (edgeDiff < 2) score += 200;
+        else if (edgeDiff < 10) score += 140;
+        else if (edgeDiff < 25 || centerDist < 15) score += 80;
+
+        if (removal.pixelWidth && removal.pixelHeight && cand.pixelWidth && cand.pixelHeight) {
+          if (removal.pixelWidth === cand.pixelWidth && removal.pixelHeight === cand.pixelHeight) {
+            score += 150;
+            hasCorroboration = true;
+          } else {
+            continue;
+          }
+        }
+
+        if (removal.matrix && cand.matrix) {
+          const matDiff =
+            Math.abs(removal.matrix[0] - cand.matrix[0]) +
+            Math.abs(removal.matrix[3] - cand.matrix[3]) +
+            Math.abs(removal.matrix[4] - cand.matrix[4]) +
+            Math.abs(removal.matrix[5] - cand.matrix[5]);
+          if (matDiff < 2) {
+            score += 100;
+            hasCorroboration = true;
+          } else if (matDiff < 15) {
+            score += 50;
+            hasCorroboration = true;
+          }
+        }
+
+        if (typeof removal.imageIndex === "number" && removal.imageIndex === cand.index) {
+          score += 60;
+          hasCorroboration = true;
+        }
+
+        if (!hasCorroboration && edgeDiff < 5) {
+          hasCorroboration = true;
+        }
+
+        if (!hasCorroboration) continue;
+
+        if (score > bestScore) {
+          runnerUpScore = bestScore;
+          bestScore = score;
+          bestCand = cand;
+        } else if (score > runnerUpScore) {
+          runnerUpScore = score;
+        }
+      }
+
+      if (!bestCand || bestScore < 120) return false;
+      if (bestScore - runnerUpScore <= 5 && runnerUpScore > 0) return false; // Ambiguity
+      return true;
     } finally {
       free(boundsPtr);
       free(matrixPtr);
@@ -573,6 +765,432 @@ export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval
     free(input);
   }
 }
+
+/**
+ * Extracts true decoded RGBA bitmap pixels of an image from PDF using PDFium.
+ * Accurately decodes JPEG (/DCTDecode), PNG/Flate, CCITT, JBIG2, etc.
+ */
+export async function extractPdfImageBitmap(
+  bytes: Uint8Array,
+  removal: { page: number; bounds?: { left: number; bottom: number; right: number; top: number }; imageIndex?: number }
+): Promise<{ width: number; height: number; data: Uint8ClampedArray; matrix?: number[] | null; bounds?: { left: number; bottom: number; right: number; top: number } } | null> {
+  const m = (await engine()) as any;
+  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+  const { malloc, free } = heap.wasmExports;
+  const input = malloc(bytes.length);
+  let doc = 0;
+
+  try {
+    heap.HEAPU8.set(bytes, input);
+    doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
+    if (!doc) return null;
+
+    const boundsPtr = malloc(16);
+    const matrixPtr = malloc(24);
+    const wPtr = malloc(4);
+    const hPtr = malloc(4);
+
+    try {
+      const page = m.FPDF_LoadPage(doc, removal.page);
+      if (!page) return null;
+
+      type Cand = {
+        obj: number;
+        bounds: { left: number; bottom: number; right: number; top: number };
+        matrix: number[] | null;
+        index: number;
+      };
+
+      const candidates: Cand[] = [];
+      let seq = 0;
+
+      const scan = (obj: number) => {
+        if (!obj) return;
+        const type = m.FPDFPageObj_GetType(obj);
+        if (type === 3) {
+          m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+          const left = heap.getValue(boundsPtr, "float");
+          const bottom = heap.getValue(boundsPtr + 4, "float");
+          const right = heap.getValue(boundsPtr + 8, "float");
+          const top = heap.getValue(boundsPtr + 12, "float");
+
+          let matrix: number[] | null = null;
+          if (m.FPDFPageObj_GetMatrix && m.FPDFPageObj_GetMatrix(obj, matrixPtr)) {
+            matrix = [
+              heap.getValue(matrixPtr, "float"),
+              heap.getValue(matrixPtr + 4, "float"),
+              heap.getValue(matrixPtr + 8, "float"),
+              heap.getValue(matrixPtr + 12, "float"),
+              heap.getValue(matrixPtr + 16, "float"),
+              heap.getValue(matrixPtr + 20, "float")
+            ];
+          }
+
+          candidates.push({
+            obj,
+            bounds: { left, bottom, right, top },
+            matrix,
+            index: seq++
+          });
+        } else if (type === 5 && m.FPDFFormObj_CountObjects) {
+          const count = m.FPDFFormObj_CountObjects(obj);
+          for (let j = 0; j < count; j++) {
+            scan(m.FPDFFormObj_GetObject(obj, j));
+          }
+        }
+      };
+
+      const count = m.FPDFPage_CountObjects(page);
+      for (let i = 0; i < count; i++) {
+        scan(m.FPDFPage_GetObject(page, i));
+      }
+
+      let targetCand: Cand | null = null;
+      if (candidates.length === 1) {
+        targetCand = candidates[0];
+      } else if (removal.bounds) {
+        let bestScore = -Infinity;
+        for (const cand of candidates) {
+          const tb = removal.bounds;
+          const cb = cand.bounds;
+          const centerDist = Math.hypot(
+            (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
+            (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
+          );
+          const edgeDiff =
+            Math.abs(cb.left - tb.left) +
+            Math.abs(cb.bottom - tb.bottom) +
+            Math.abs(cb.right - tb.right) +
+            Math.abs(cb.top - tb.top);
+          let score = 200 - edgeDiff - centerDist * 1.5;
+          if (typeof removal.imageIndex === 'number' && removal.imageIndex === cand.index) score += 30;
+          if (score > bestScore) {
+            bestScore = score;
+            targetCand = cand;
+          }
+        }
+      } else if (typeof removal.imageIndex === 'number' && removal.imageIndex < candidates.length) {
+        targetCand = candidates[removal.imageIndex];
+      }
+
+      if (!targetCand) {
+        m.FPDF_ClosePage(page);
+        return null;
+      }
+
+      let rendered = m.FPDFImageObj_GetBitmap ? m.FPDFImageObj_GetBitmap(targetCand.obj) : null;
+      if (!rendered) {
+        rendered = m.FPDFImageObj_GetRenderedBitmap(doc, page, targetCand.obj);
+      }
+      m.FPDF_ClosePage(page);
+      if (!rendered) return null;
+
+      const w = m.FPDFBitmap_GetWidth(rendered);
+      const h = m.FPDFBitmap_GetHeight(rendered);
+      const stride = m.FPDFBitmap_GetStride(rendered);
+      const fmt = m.FPDFBitmap_GetFormat(rendered);
+      const bufPtr = m.FPDFBitmap_GetBuffer(rendered);
+
+      const rgba = new Uint8ClampedArray(w * h * 4);
+
+
+      for (let y = 0; y < h; y++) {
+        const rowStart = bufPtr + y * stride;
+        for (let x = 0; x < w; x++) {
+          const dstIdx = (y * w + x) * 4;
+          if (fmt === 4) { // BGRA
+            const srcIdx = rowStart + x * 4;
+            rgba[dstIdx] = heap.HEAPU8[srcIdx + 2];     // R
+            rgba[dstIdx + 1] = heap.HEAPU8[srcIdx + 1]; // G
+            rgba[dstIdx + 2] = heap.HEAPU8[srcIdx];     // B
+            rgba[dstIdx + 3] = heap.HEAPU8[srcIdx + 3]; // A
+          } else if (fmt === 3) { // BGRx
+            const srcIdx = rowStart + x * 4;
+            rgba[dstIdx] = heap.HEAPU8[srcIdx + 2];
+            rgba[dstIdx + 1] = heap.HEAPU8[srcIdx + 1];
+            rgba[dstIdx + 2] = heap.HEAPU8[srcIdx];
+            rgba[dstIdx + 3] = 255;
+          } else if (fmt === 2) { // BGR
+            const srcIdx = rowStart + x * 3;
+            rgba[dstIdx] = heap.HEAPU8[srcIdx + 2];
+            rgba[dstIdx + 1] = heap.HEAPU8[srcIdx + 1];
+            rgba[dstIdx + 2] = heap.HEAPU8[srcIdx];
+            rgba[dstIdx + 3] = 255;
+          } else if (fmt === 1) { // Gray
+            const srcIdx = rowStart + x;
+            const g = heap.HEAPU8[srcIdx];
+            rgba[dstIdx] = g;
+            rgba[dstIdx + 1] = g;
+            rgba[dstIdx + 2] = g;
+            rgba[dstIdx + 3] = 255;
+          }
+        }
+      }
+      m.FPDFBitmap_Destroy(rendered);
+      return {
+        width: w,
+        height: h,
+        data: rgba,
+        matrix: targetCand.matrix,
+        bounds: targetCand.bounds
+      };
+    } finally {
+      free(boundsPtr);
+      free(matrixPtr);
+      free(wPtr);
+      free(hPtr);
+    }
+  } catch {
+    return null;
+  } finally {
+    if (doc) m.FPDF_CloseDocument(doc);
+    free(input);
+  }
+}
+
+/**
+ * Surgically updates ONLY the bitmap pixels of a strictly matched FPDF_PAGEOBJECT (type 3, Image)
+ * in place using PDFium's FPDFImageObj_SetBitmap.
+ * Preserves:
+ *  - exact coordinates & dimensions
+ *  - full 6-element transformation matrix (rotation, scale, skew)
+ *  - display list z-order (no deletion or re-appending!)
+ *  - clipping path and blend modes
+ *  - opacity
+ *  - duplicate placements of other XObjects
+ * Fails safely with 0 byte changes if no unambiguous single image match exists.
+ */
+export async function updatePdfImageBitmap(
+  bytes: Uint8Array,
+  target: {
+    page: number;
+    bounds?: { left: number; bottom: number; right: number; top: number };
+    imageIndex?: number;
+    pixelWidth?: number;
+    pixelHeight?: number;
+    matrix?: number[];
+    objectRef?: string | number;
+    imageId?: string;
+  },
+  newRgba: { width: number; height: number; data: Uint8ClampedArray | Uint8Array }
+): Promise<{ success: boolean; newBytes?: Uint8Array; message?: string }> {
+  if (!target.bounds && typeof target.imageIndex !== 'number') {
+    return { success: false, message: "Hedef görsel sınırları veya indeksi belirtilmedi." };
+  }
+
+  const m = (await engine()) as any;
+  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+  const { malloc, free } = heap.wasmExports;
+  const input = malloc(bytes.length);
+  let doc = 0;
+
+  try {
+    heap.HEAPU8.set(bytes, input);
+    doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
+    if (!doc) return { success: false, message: "PDF belgesi yüklenemedi." };
+
+    const boundsPtr = malloc(16);
+    const matrixPtr = malloc(24);
+    const wPtr = malloc(4);
+    const hPtr = malloc(4);
+
+    try {
+      const page = m.FPDF_LoadPage(doc, target.page);
+      if (!page) return { success: false, message: "PDF sayfası bulunamadı." };
+
+      type Cand = {
+        obj: number;
+        bounds: { left: number; bottom: number; right: number; top: number };
+        matrix: number[] | null;
+        pixelWidth: number;
+        pixelHeight: number;
+        index: number;
+      };
+
+      const candidates: Cand[] = [];
+      let seq = 0;
+
+      const scan = (obj: number) => {
+        if (!obj) return;
+        const type = m.FPDFPageObj_GetType(obj);
+        if (type === 3) { // Image
+          let pW = 0;
+          let pH = 0;
+          if (m.FPDFImageObj_GetImagePixelSize && m.FPDFImageObj_GetImagePixelSize(obj, wPtr, hPtr)) {
+            pW = heap.getValue(wPtr, "i32");
+            pH = heap.getValue(hPtr, "i32");
+          }
+          m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+          const left = heap.getValue(boundsPtr, "float");
+          const bottom = heap.getValue(boundsPtr + 4, "float");
+          const right = heap.getValue(boundsPtr + 8, "float");
+          const top = heap.getValue(boundsPtr + 12, "float");
+
+          let matrix: number[] | null = null;
+          if (m.FPDFPageObj_GetMatrix && m.FPDFPageObj_GetMatrix(obj, matrixPtr)) {
+            matrix = Array.from(new Float32Array(heap.HEAPU8.buffer, matrixPtr, 6));
+          }
+
+          candidates.push({
+            obj,
+            bounds: { left, bottom, right, top },
+            matrix,
+            pixelWidth: pW,
+            pixelHeight: pH,
+            index: seq++,
+          });
+        } else if (type === 5 && m.FPDFFormObj_CountObjects) {
+          const count = m.FPDFFormObj_CountObjects(obj);
+          for (let j = 0; j < count; j++) {
+            scan(m.FPDFFormObj_GetObject(obj, j));
+          }
+        }
+      };
+
+      const count = m.FPDFPage_CountObjects(page);
+      for (let i = 0; i < count; i++) {
+        scan(m.FPDFPage_GetObject(page, i));
+      }
+
+      if (candidates.length === 0) {
+        m.FPDF_ClosePage(page);
+        return { success: false, message: "Sayfada güncellenecek görsel nesnesi bulunamadı." };
+      }
+
+      let bestCand: Cand | null = null;
+      let bestScore = -Infinity;
+      let runnerUpScore = -Infinity;
+
+      if (candidates.length === 1 && !target.bounds) {
+        bestCand = candidates[0];
+        bestScore = 200;
+      } else if (target.bounds) {
+        const tb = target.bounds;
+        for (const cand of candidates) {
+          const cb = cand.bounds;
+          const centerDist = Math.hypot(
+            (cb.left + cb.right) / 2 - (tb.left + tb.right) / 2,
+            (cb.bottom + cb.top) / 2 - (tb.bottom + tb.top) / 2
+          );
+          const edgeDiff =
+            Math.abs(cb.left - tb.left) +
+            Math.abs(cb.bottom - tb.bottom) +
+            Math.abs(cb.right - tb.right) +
+            Math.abs(cb.top - tb.top);
+
+          // Hard threshold: reject if center or edges deviate too far
+          if (edgeDiff > 35 && centerDist > 30) continue;
+
+          let score = 200 - edgeDiff - centerDist * 1.5;
+
+          // Corroborating matrix match
+          if (target.matrix && cand.matrix && target.matrix.length === 6 && cand.matrix.length === 6) {
+            const mDiff = cand.matrix.reduce((acc, v, idx) => acc + Math.abs(v - target.matrix![idx]), 0);
+            if (mDiff < 2) score += 50;
+          }
+
+          // Corroborating pixel size match
+          if (target.pixelWidth && target.pixelHeight && cand.pixelWidth > 0 && cand.pixelHeight > 0) {
+            if (target.pixelWidth === cand.pixelWidth && target.pixelHeight === cand.pixelHeight) {
+              score += 40;
+            }
+          }
+
+          // Corroborating index match
+          if (typeof target.imageIndex === 'number' && target.imageIndex === cand.index) {
+            score += 30;
+          }
+
+          if (score > bestScore) {
+            runnerUpScore = bestScore;
+            bestScore = score;
+            bestCand = cand;
+          } else if (score > runnerUpScore) {
+            runnerUpScore = score;
+          }
+        }
+
+        // Ambiguity check
+        if (bestCand && bestScore - runnerUpScore <= 5 && runnerUpScore > 0) {
+          bestCand = null; // Ambiguous match! Reject safely.
+        }
+      } else if (typeof target.imageIndex === 'number' && target.imageIndex < candidates.length) {
+        bestCand = candidates[target.imageIndex];
+        bestScore = 200;
+      }
+
+      if (!bestCand || bestScore < 120) {
+        m.FPDF_ClosePage(page);
+        return { success: false, message: "Hedef görsel kesin olarak doğrulanamadı. 0 bayt değiştirildi." };
+      }
+
+      // Create PDFium bitmap (BGRA 32-bit format)
+      const bitmap = m.FPDFBitmap_Create(newRgba.width, newRgba.height, 1);
+      if (!bitmap) {
+        m.FPDF_ClosePage(page);
+        return { success: false, message: "Piksel bitmap'i oluşturulamadı." };
+      }
+
+      const bufPtr = m.FPDFBitmap_GetBuffer(bitmap);
+      const stride = m.FPDFBitmap_GetStride(bitmap);
+
+      for (let y = 0; y < newRgba.height; y++) {
+        const rowStart = bufPtr + y * stride;
+        for (let x = 0; x < newRgba.width; x++) {
+          const srcIdx = (y * newRgba.width + x) * 4;
+          const dstIdx = rowStart + x * 4;
+          heap.HEAPU8[dstIdx] = newRgba.data[srcIdx + 2];     // B
+          heap.HEAPU8[dstIdx + 1] = newRgba.data[srcIdx + 1]; // G
+          heap.HEAPU8[dstIdx + 2] = newRgba.data[srcIdx];     // R
+          heap.HEAPU8[dstIdx + 3] = newRgba.data[srcIdx + 3]; // A
+        }
+      }
+
+      // Replace bitmap on the existing FPDF_PAGEOBJECT in place
+      const pagePtr = malloc(4);
+      heap.setValue(pagePtr, page, "i32");
+      const setOk = m.FPDFImageObj_SetBitmap(pagePtr, 1, bestCand.obj, bitmap);
+      free(pagePtr);
+      m.FPDFBitmap_Destroy(bitmap);
+
+      if (!setOk) {
+        m.FPDF_ClosePage(page);
+        return { success: false, message: "Görsel bitmap'i PDFium tarafından güncellenemedi." };
+      }
+
+      m.FPDFPage_GenerateContent(page);
+      m.FPDF_ClosePage(page);
+
+      const writer = m.PDFiumExt_OpenFileWriter();
+      let output = 0;
+      try {
+        if (!m.PDFiumExt_SaveAsCopy(doc, writer)) {
+          throw new Error("Güncellenen PDF kaydedilemedi.");
+        }
+        const length = m.PDFiumExt_GetFileWriterSize(writer);
+        output = malloc(length);
+        m.PDFiumExt_GetFileWriterData(writer, output, length);
+        const outBytes = heap.HEAPU8.slice(output, output + length);
+        return { success: true, newBytes: outBytes };
+      } finally {
+        if (output) free(output);
+        m.PDFiumExt_CloseFileWriter(writer);
+      }
+    } finally {
+      free(boundsPtr);
+      free(matrixPtr);
+      free(wPtr);
+      free(hPtr);
+    }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "PDF görseli güncellenirken hata oluştu." };
+  } finally {
+    if (doc) m.FPDF_CloseDocument(doc);
+    free(input);
+  }
+}
+
+
 
 export type PdfTextItem = {
   str: string;
@@ -678,7 +1296,9 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
     );
 
     let fontFamily = "sans";
-    if (/roboto/i.test(combined)) {
+    if (/courier|monospace|typewriter|fixed|mono\b/i.test(combined)) {
+      fontFamily = "courier";
+    } else if (/roboto/i.test(combined)) {
       fontFamily = "roboto";
     } else if (/(?:sans[-_]?serif|helvetica|arial|liberation)/i.test(combined)) {
       fontFamily = "sans";
@@ -776,11 +1396,22 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
   });
 }
 
+export interface RasterWatermarkRemovalCandidate {
+  id?: string;
+  page?: number;
+  imageIndex?: number;
+  bounds?: { x: number; y: number; w: number; h: number };
+  pixelWidth?: number;
+  pixelHeight?: number;
+  matrix?: number[];
+}
+
 export interface RasterWatermarkRemovalOptions {
   targetPages?: number[];
   keywords?: string[];
   customText?: string;
   fillColor?: { r: number; g: number; b: number };
+  candidates?: RasterWatermarkRemovalCandidate[];
 }
 
 /**
@@ -845,467 +1476,475 @@ async function renderSvgToPixels(
   }
 }
 
+
 /**
- * Pure Canvas 2D fallback for the Boston University official header emblem.
+ * Result of individual candidate raster removal
  */
-function renderBuLogoCanvas(width: number, height: number): Uint8ClampedArray | null {
-  if (typeof window === "undefined" || typeof document === "undefined") return null;
+export interface RasterCandidateResult {
+  id?: string;
+  status: "removed" | "unchanged" | "failed" | "blocked";
+  modifiedPixels: number;
+  reason?: string;
+}
+
+/**
+ * Checks whether the image XObject on a given page is shared by other pages or placements.
+ * If shared, clones the underlying stream object in pdf-lib so that this placement
+ * can be modified independently without affecting any other page or placement.
+ * If cloning cannot be safely accomplished, returns success: false to trigger fail-closed.
+ */
+export async function isolateSharedPdfImage(
+  bytes: Uint8Array,
+  pageIndex: number,
+  targetBounds?: { left: number; bottom: number; right: number; top: number }
+): Promise<{ bytes: Uint8Array; wasShared: boolean; success: boolean }> {
   try {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.fillStyle = "rgb(180, 38, 32)";
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2.2;
-    ctx.strokeRect(9, 9, width - 18, height - 18);
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(14, 14, width - 28, height - 28);
-    ctx.fillStyle = "white";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "bold 42px 'Times New Roman', Georgia, serif";
-    ctx.fillText("BOSTON", width / 2, Math.round(height * 0.38));
-    ctx.font = "bold 26px 'Times New Roman', Georgia, serif";
-    ctx.fillText("UNIVERSITY", width / 2, Math.round(height * 0.72));
-    return ctx.getImageData(0, 0, width, height).data;
-  } catch {
-    return null;
+    const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const pages = pdfDoc.getPages();
+    if (pageIndex < 0 || pageIndex >= pages.length) {
+      return { bytes, wasShared: false, success: false };
+    }
+
+    // Map each XObject ref to the pages and names that reference it
+    const refUsage = new Map<string, Array<{ pageIdx: number; name: PDFName; dict: PDFDict }>>();
+    for (let p = 0; p < pages.length; p++) {
+      const page = pages[p];
+      const resources = page.node.Resources();
+      const xobjs = resources?.lookup(PDFName.of("XObject"), PDFDict);
+      if (xobjs) {
+        for (const [name, ref] of xobjs.entries()) {
+          if (ref instanceof PDFRef) {
+            const key = ref.toString();
+            if (!refUsage.has(key)) refUsage.set(key, []);
+            refUsage.get(key)!.push({ pageIdx: p, name, dict: xobjs });
+          }
+        }
+      }
+    }
+
+    const targetPage = pages[pageIndex];
+    const targetResources = targetPage.node.Resources();
+    const targetXobjs = targetResources?.lookup(PDFName.of("XObject"), PDFDict);
+    if (!targetXobjs) {
+      return { bytes, wasShared: false, success: true };
+    }
+
+    // Extract target page content streams to detect same-page multiple /Name Do invocations
+    let targetContentStreamsText = "";
+    try {
+      const contents = targetPage.node.Contents();
+      const streams: any[] = [];
+      if (contents) {
+        if (typeof (contents as any).size === "function") {
+          for (let i = 0; i < (contents as any).size(); i++) {
+            const item = pdfDoc.context.lookup((contents as any).get(i));
+            if (item) streams.push(item);
+          }
+        } else {
+          const item = pdfDoc.context.lookup(contents);
+          if (item) streams.push(item);
+        }
+      }
+      for (const s of streams) {
+        if (typeof s.getUnencodedContents === "function") {
+          targetContentStreamsText += Buffer.from(s.getUnencodedContents()).toString("binary") + "\n";
+        } else if (typeof s.getContents === "function") {
+          const raw = s.getContents();
+          try {
+            const inflated = pako.inflate(raw);
+            targetContentStreamsText += Buffer.from(inflated).toString("binary") + "\n";
+          } catch {
+            targetContentStreamsText += Buffer.from(raw).toString("binary") + "\n";
+          }
+        }
+      }
+    } catch {
+      // If we cannot decode the content streams, we cannot guarantee isolation safety -> fail closed
+      return { bytes, wasShared: true, success: false };
+    }
+
+    let modified = false;
+    let anyShared = false;
+
+    for (const [name, ref] of targetXobjs.entries()) {
+      if (ref instanceof PDFRef) {
+        const key = ref.toString();
+        const usages = refUsage.get(key) || [];
+        const rawName = typeof (name as any).value === "function"
+          ? (name as any).value()
+          : name.asString().replace(/^\//, "");
+
+        // 1. Same-page multiple placement check via content stream Do operator count
+        if (targetContentStreamsText) {
+          const escapedName = rawName.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+          const doPattern = new RegExp(`/${escapedName}\\s+Do\\b`, "g");
+          const matches = targetContentStreamsText.match(doPattern);
+          if (matches && matches.length > 1) {
+            // Invoked more than once on the same page. Modifying the underlying XObject
+            // would alter all placements on this page! Decoupling same-page placements
+            // cannot be guaranteed without full operator rewrite -> fail closed.
+            return { bytes, wasShared: true, success: false };
+          }
+        }
+
+        // 2. Same-page multiple placement check via multiple names pointing to same ref
+        const samePageCount = usages.filter(u => u.pageIdx === pageIndex).length;
+        if (samePageCount > 1) {
+          return { bytes, wasShared: true, success: false };
+        }
+
+        // 3. Cross-page sharing check
+        const isCrossPage = usages.some(u => u.pageIdx !== pageIndex);
+        if (isCrossPage) {
+          anyShared = true;
+          const streamObj = pdfDoc.context.lookup(ref);
+          if (streamObj && typeof (streamObj as any).clone === "function") {
+            const cloned = (streamObj as any).clone(pdfDoc.context);
+            const newRef = pdfDoc.context.register(cloned);
+            targetXobjs.set(name, newRef);
+            modified = true;
+          } else {
+            // Cannot safely clone stream object -> fail closed
+            return { bytes, wasShared: true, success: false };
+          }
+        }
+      }
+    }
+
+    if (modified) {
+      const newBytes = await pdfDoc.save();
+      return { bytes: newBytes, wasShared: true, success: true };
+    }
+    return { bytes, wasShared: anyShared, success: true };
+  } catch (err) {
+    console.warn("Shared XObject isolation error:", err);
+    // CRITICAL (V7.1): Fail-closed on error. Never fail-open!
+    return { bytes, wasShared: true, success: false };
   }
 }
 
 /**
  * Removes rasterized/scanned watermarks, red/blue/purple stamps, simulation banners,
  * and diagonal overlays from PDF image objects using PDFium WASM and smart color inpainting.
+ * STRICT ROI ENFORCEMENT:
+ * Only modifies pixels strictly within the computed bounding box of cand.bounds.
  * Preserves 100% of underlying dark contract clauses, student data, and legitimate corporate brand logos.
  */
 export async function removePdfRasterWatermarks(
   bytes: Uint8Array,
   options: RasterWatermarkRemovalOptions = {}
-): Promise<{ bytes: Uint8Array; removedCount: number }> {
-  const m = (await engine()) as any;
-  const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
-  const { malloc, free } = heap.wasmExports;
+): Promise<{
+  bytes: Uint8Array;
+  removedCount: number;
+  successfulCandidateIds?: string[];
+  candidateResults?: RasterCandidateResult[];
+}> {
+  // STRICT SAFETY RULE:
+  // Never perform blind full-page raster rewrites. Only process explicitly selected candidates.
+  // If no candidates are provided or if none match, return 0 bytes modified.
+  if (!options.candidates || options.candidates.length === 0) {
+    return { bytes, removedCount: 0, successfulCandidateIds: [], candidateResults: [] };
+  }
 
-  const inPtr = malloc(bytes.length);
-  let doc = 0;
+  let currentBytes = bytes;
   let totalCleaned = 0;
+  const successfulCandidateIds: string[] = [];
+  const candidateResults: RasterCandidateResult[] = [];
 
-  try {
-    heap.HEAPU8.set(bytes, inPtr);
-    doc = m.FPDF_LoadMemDocument(inPtr, bytes.length, "");
-    if (!doc) return { bytes, removedCount: 0 };
+  for (const cand of options.candidates) {
+    if (typeof cand.page !== "number" || cand.page < 0) {
+      candidateResults.push({
+        id: cand.id,
+        status: "failed",
+        modifiedPixels: 0,
+        reason: "Geçersiz sayfa indeksi."
+      });
+      continue;
+    }
 
-    const pageCount = m.FPDF_GetPageCount(doc);
-    const targetPages = options.targetPages ? new Set(options.targetPages) : null;
+    // A3. Check shared XObject safety
+    const sharedCheck = await isolateSharedPdfImage(currentBytes, cand.page, cand.bounds ? {
+      left: cand.bounds.x,
+      bottom: cand.bounds.y,
+      right: cand.bounds.x + cand.bounds.w,
+      top: cand.bounds.y + cand.bounds.h
+    } : undefined);
 
-    for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
-      if (targetPages && !targetPages.has(pageIdx)) continue;
+    if (sharedCheck.wasShared && !sharedCheck.success) {
+      candidateResults.push({
+        id: cand.id,
+        status: "blocked",
+        modifiedPixels: 0,
+        reason: "Görsel başka sayfalarla paylaşıldığı ve güvenli klonlanamadığı için işlem reddedildi."
+      });
+      continue;
+    }
+    if (sharedCheck.wasShared && sharedCheck.success) {
+      currentBytes = sharedCheck.bytes;
+    }
 
-      const page = m.FPDF_LoadPage(doc, pageIdx);
-      if (!page) continue;
+    const bmp = await extractPdfImageBitmap(currentBytes, {
+      page: cand.page,
+      imageIndex: cand.imageIndex,
+      bounds: cand.bounds ? {
+        left: cand.bounds.x,
+        bottom: cand.bounds.y,
+        right: cand.bounds.x + cand.bounds.w,
+        top: cand.bounds.y + cand.bounds.h
+      } : undefined
+    });
 
-      const objCount = m.FPDFPage_CountObjects(page);
-      const imageObjects: number[] = [];
+    if (!bmp || !bmp.data || bmp.width <= 0 || bmp.height <= 0) {
+      candidateResults.push({
+        id: cand.id,
+        status: "failed",
+        modifiedPixels: 0,
+        reason: "Hedef görsel piksel verisi çıkarılamadı."
+      });
+      continue;
+    }
 
-      for (let i = 0; i < objCount; i++) {
-        const obj = m.FPDFPage_GetObject(page, i);
-        if (m.FPDFPageObj_GetType(obj) === 3) { // FPDF_PAGEOBJ_IMAGE
-          imageObjects.push(obj);
-        }
+    // Determine affine matrix: [a, b, c, d, e, f]
+    let matrix = bmp.matrix || cand.matrix;
+    if (!matrix || matrix.length < 6) {
+      if (bmp.bounds) {
+        matrix = [
+          bmp.bounds.right - bmp.bounds.left,
+          0,
+          0,
+          bmp.bounds.top - bmp.bounds.bottom,
+          bmp.bounds.left,
+          bmp.bounds.bottom
+        ];
       }
+    }
 
-      if (imageObjects.length === 0) {
-        m.FPDF_ClosePage(page);
-        continue;
-      }
+    if (!matrix || matrix.length < 6) {
+      candidateResults.push({
+        id: cand.id,
+        status: "failed",
+        modifiedPixels: 0,
+        reason: "Görsel dönüşüm matrisi bulunamadı. Kör tarama engellendi."
+      });
+      continue;
+    }
 
-      const pW = Math.round(m.FPDF_GetPageWidth(page));
-      const pH = Math.round(m.FPDF_GetPageHeight(page));
-      const scale = 2;
-      const bw = pW * scale;
-      const bh = pH * scale;
+    const [a, b, c, d, e, f] = matrix;
+    const det = a * d - b * c;
+    if (Math.abs(det) < 1e-6) {
+      candidateResults.push({
+        id: cand.id,
+        status: "failed",
+        modifiedPixels: 0,
+        reason: "Dönüşüm matrisi tekil (determinant 0). Güvenli koordinat eşleme yapılamadı."
+      });
+      continue;
+    }
 
-      const bmp = m.FPDFBitmap_Create(bw, bh, 1);
-      m.FPDFBitmap_FillRect(bmp, 0, 0, bw, bh, 0xFFFFFFFF);
-      m.FPDF_RenderPageBitmap(bmp, page, 0, 0, bw, bh, 0, 0);
+    if (!cand.bounds || typeof cand.bounds.w !== "number" || typeof cand.bounds.h !== "number" || cand.bounds.w <= 0 || cand.bounds.h <= 0) {
+      candidateResults.push({
+        id: cand.id,
+        status: "failed",
+        modifiedPixels: 0,
+        reason: "Aday sınırları (bounds) belirtilmedi. Tüm görseli boyama engellendi."
+      });
+      continue;
+    }
 
-      const bufferPtr = m.FPDFBitmap_GetBuffer(bmp);
-      const stride = m.FPDFBitmap_GetStride(bmp);
-      const raw = new Uint8Array(heap.HEAPU8.buffer, bufferPtr, stride * bh);
+    // 4 corners of cand.bounds in PDF page space:
+    // (x, y) bottom-left, (x+w, y) bottom-right, (x, y+h) top-left, (x+w, y+h) top-right
+    const corners = [
+      { x: cand.bounds.x, y: cand.bounds.y },
+      { x: cand.bounds.x + cand.bounds.w, y: cand.bounds.y },
+      { x: cand.bounds.x, y: cand.bounds.y + cand.bounds.h },
+      { x: cand.bounds.x + cand.bounds.w, y: cand.bounds.y + cand.bounds.h }
+    ];
 
-      // 1. Detect rectangular solid brand logo (e.g. university/corporate emblems) to protect
-      let logoRect: { minX: number; maxX: number; minY: number; maxY: number; bgR: number; bgG: number; bgB: number } | null = null;
-      for (let y = Math.floor(bh * 0.1); y < Math.floor(bh * 0.35); y += 4) {
-        for (let x = Math.floor(bw * 0.7); x < bw - 20; x += 4) {
-          const idx = y * stride + x * 4;
-          const b = raw[idx];
-          const g = raw[idx + 1];
-          const r = raw[idx + 2];
-          if ((r > 110 && g < 80 && b < 80 && r - g > 35) || (b > 110 && r < 80 && g < 80 && b - r > 35)) {
-            if (!logoRect) {
-              logoRect = { minX: x, maxX: x, minY: y, maxY: y, bgR: r, bgG: g, bgB: b };
-            } else {
-              if (x < logoRect.minX) logoRect.minX = x;
-              if (x > logoRect.maxX) logoRect.maxX = x;
-              if (y < logoRect.minY) logoRect.minY = y;
-              if (y > logoRect.maxY) logoRect.maxY = y;
-            }
+    let minXpx = Infinity;
+    let maxXpx = -Infinity;
+    let minYpx = Infinity;
+    let maxYpx = -Infinity;
+
+    for (const pt of corners) {
+      const dx = pt.x - e;
+      const dy = pt.y - f;
+      const u = (d * dx - c * dy) / det;
+      const v = (-b * dx + a * dy) / det;
+      const px = u * bmp.width;
+      const py = (1 - v) * bmp.height;
+      if (px < minXpx) minXpx = px;
+      if (px > maxXpx) maxXpx = px;
+      if (py < minYpx) minYpx = py;
+      if (py > maxYpx) maxYpx = py;
+    }
+
+    const startX = Math.max(0, Math.min(bmp.width, Math.floor(minXpx)));
+    const endX = Math.max(0, Math.min(bmp.width, Math.ceil(maxXpx)));
+    const startY = Math.max(0, Math.min(bmp.height, Math.floor(minYpx)));
+    const endY = Math.max(0, Math.min(bmp.height, Math.ceil(maxYpx)));
+
+    if (startX >= endX || startY >= endY) {
+      candidateResults.push({
+        id: cand.id,
+        status: "unchanged",
+        modifiedPixels: 0,
+        reason: "Hesaplanan ROI görsel sınırları dışında."
+      });
+      continue;
+    }
+
+    // Background color estimation from perimeter or options.fillColor
+    let bgR = 255;
+    let bgG = 255;
+    let bgB = 255;
+    if (options.fillColor) {
+      bgR = Math.round(options.fillColor.r * 255);
+      bgG = Math.round(options.fillColor.g * 255);
+      bgB = Math.round(options.fillColor.b * 255);
+    } else {
+      const borderSamplesR: number[] = [];
+      const borderSamplesG: number[] = [];
+      const borderSamplesB: number[] = [];
+
+      const samplePixel = (sx: number, sy: number) => {
+        if (sx >= 0 && sx < bmp.width && sy >= 0 && sy < bmp.height) {
+          const idx = (sy * bmp.width + sx) * 4;
+          const sr = bmp.data[idx];
+          const sg = bmp.data[idx + 1];
+          const sb = bmp.data[idx + 2];
+          const lum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+          const isRed = sr > 115 && (sr - sg >= 14) && (sr - sb >= 14);
+          const isBlue = sb > 120 && (sb - sr >= 20) && (sb - sg >= 15);
+          const isPurple = sr > 120 && sb > 120 && (sr - sg >= 20) && (sb - sg >= 20);
+          if (lum >= 170 && !isRed && !isBlue && !isPurple) {
+            borderSamplesR.push(sr);
+            borderSamplesG.push(sg);
+            borderSamplesB.push(sb);
           }
         }
-      }
-
-      const isLogo = (x: number, y: number) => {
-        if (!logoRect) return false;
-        return (x >= logoRect.minX && x <= logoRect.maxX && y >= logoRect.minY && y <= logoRect.maxY);
       };
 
-      const isPageNum = (x: number, y: number) => (
-        x >= Math.floor(bw * 0.81) && y >= Math.floor(bh * 0.035) && y <= Math.floor(bh * 0.09)
-      );
-      const isTopArea = (y: number) => y < Math.floor(bh * 0.12);
+      for (let x = Math.max(0, startX - 2); x <= Math.min(bmp.width - 1, endX + 2); x++) {
+        samplePixel(x, Math.max(0, startY - 2));
+        samplePixel(x, Math.min(bmp.height - 1, endY + 2));
+      }
+      for (let y = Math.max(0, startY - 2); y <= Math.min(bmp.height - 1, endY + 2); y++) {
+        samplePixel(Math.max(0, startX - 2), y);
+        samplePixel(Math.min(bmp.width - 1, endX + 2), y);
+      }
 
-      // 2. Detect if there is a centered header logo watermark (e.g. Consulting Agreement dual-tone emblem + "se9nse")
-      const cXStart = Math.floor(bw * 0.30), cXEnd = Math.floor(bw * 0.70);
-      const cYStart = Math.floor(bh * 0.03), cYEnd = Math.floor(bh * 0.22);
+      if (borderSamplesR.length > 0) {
+        borderSamplesR.sort((p, q) => p - q);
+        borderSamplesG.sort((p, q) => p - q);
+        borderSamplesB.sort((p, q) => p - q);
+        const mid = Math.floor(borderSamplesR.length / 2);
+        bgR = borderSamplesR[mid];
+        bgG = borderSamplesG[mid];
+        bgB = borderSamplesB[mid];
+      }
+    }
 
-      let centeredRedPixels = 0;
-      let centeredGrayPixels = 0;
+    const cleanData = new Uint8ClampedArray(bmp.data);
+    let modifiedPixels = 0;
 
-      for (let y = cYStart; y <= Math.floor(bh * 0.14); y += 2) {
-        for (let x = cXStart; x <= cXEnd; x += 2) {
-          const idx = y * stride + x * 4;
-          const b = raw[idx];
-          const g = raw[idx + 1];
-          const r = raw[idx + 2];
-          if (r > 160 && (r - g >= 20) && (r - b >= 20)) {
-            centeredRedPixels++;
-          }
-          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-          if (lum >= 130 && lum <= 200 && Math.abs(r - g) < 12 && Math.abs(r - b) < 12) {
-            centeredGrayPixels++;
+    // Loop strictly inside bounded ROI [startY, endY) x [startX, endX)
+    for (let py = startY; py < endY; py++) {
+      for (let px = startX; px < endX; px++) {
+        // Map pixel center to PDF space
+        const u = (px + 0.5) / bmp.width;
+        const v = 1 - (py + 0.5) / bmp.height;
+        const pdfX = a * u + c * v + e;
+        const pdfY = b * u + d * v + f;
+
+        const inRoi =
+          pdfX >= cand.bounds.x &&
+          pdfX <= cand.bounds.x + cand.bounds.w &&
+          pdfY >= cand.bounds.y &&
+          pdfY <= cand.bounds.y + cand.bounds.h;
+
+        if (!inRoi) continue;
+
+        const idx = (py * bmp.width + px) * 4;
+        const r = cleanData[idx];
+        const g = cleanData[idx + 1];
+        const bVal = cleanData[idx + 2];
+
+        // Red/coral stamp watermark
+        const isRed = r > 115 && (r - g >= 14) && (r - bVal >= 14);
+        // Blue stamp watermark
+        const isBlue = bVal > 120 && (bVal - r >= 20) && (bVal - g >= 15);
+        // Purple stamp watermark
+        const isPurple = r > 120 && bVal > 120 && (r - g >= 20) && (bVal - g >= 20);
+
+        if (isRed || isBlue || isPurple) {
+          const stampStrength = isRed
+            ? Math.min(1.0, (r - Math.max(g, bVal)) / 50)
+            : isBlue
+            ? Math.min(1.0, (bVal - Math.max(r, g)) / 50)
+            : Math.min(1.0, (Math.min(r, bVal) - g) / 50);
+
+          if (stampStrength > 0.3) {
+            cleanData[idx] = bgR;
+            cleanData[idx + 1] = bgG;
+            cleanData[idx + 2] = bgB;
+            modifiedPixels++;
+          } else {
+            cleanData[idx] = Math.round(r * (1 - stampStrength) + bgR * stampStrength);
+            cleanData[idx + 1] = Math.round(g * (1 - stampStrength) + bgG * stampStrength);
+            cleanData[idx + 2] = Math.round(bVal * (1 - stampStrength) + bgB * stampStrength);
+            modifiedPixels++;
           }
         }
       }
+    }
 
-      const hasCenteredEmblem = (centeredRedPixels >= 20 && centeredGrayPixels >= 20);
+    if (modifiedPixels > 0) {
+      const updateRes = await updatePdfImageBitmap(currentBytes, {
+        page: cand.page,
+        imageIndex: cand.imageIndex,
+        bounds: bmp.bounds,
+        pixelWidth: bmp.width,
+        pixelHeight: bmp.height,
+        matrix: matrix
+      }, {
+        width: bmp.width,
+        height: bmp.height,
+        data: cleanData
+      });
 
-      // 3. Mark core watermark pixels
-      const mask = new Uint8Array(bw * bh);
-      let coreCount = 0;
-
-      for (let y = 0; y < bh; y++) {
-        for (let x = 0; x < bw; x++) {
-          if (isLogo(x, y)) continue;
-          const idx = y * stride + x * 4;
-          const b = raw[idx];
-          const g = raw[idx + 1];
-          const r = raw[idx + 2];
-
-          // Top simulation banner & specks (only if not centered template emblem)
-          if (isTopArea(y) && !isPageNum(x, y) && !hasCenteredEmblem) {
-            if (r < 245 || g < 245 || b < 245) {
-              mask[y * bw + x] = 1;
-              coreCount++;
-            }
-            continue;
-          }
-
-          // Red / Coral watermark stamp
-          const isRed = (r > 115 && (r - g >= 14) && (r - b >= 14));
-          // Blue stamp
-          const isBlue = (b > 120 && (b - r >= 20) && (b - g >= 15));
-          // Purple stamp
-          const isPurple = (r > 120 && b > 120 && (r - g >= 20) && (b - g >= 20));
-
-          if (isRed || isBlue || isPurple) {
-            mask[y * bw + x] = 1;
-            coreCount++;
-          }
-        }
-      }
-
-      if (coreCount < 80 && !hasCenteredEmblem) {
-        // No significant watermark pixels found on this page
-        m.FPDFBitmap_Destroy(bmp);
-        m.FPDF_ClosePage(page);
-        continue;
-      }
-
-      const outRaw = new Uint8Array(raw);
-
-      // 4A. If centered emblem watermark exists, apply surgical vertical zone cleanup
-      if (hasCenteredEmblem) {
-        const yTopStart = Math.floor(bh * 0.032);
-        const yTitleStart = Math.floor(bh * 0.136);
-        const yTitleEnd = Math.floor(bh * 0.158);
-        const yWatermarkEnd = Math.floor(bh * 0.219);
-
-        for (let y = yTopStart; y <= yWatermarkEnd; y++) {
-          for (let x = cXStart; x <= cXEnd; x++) {
-            const idx = y * stride + x * 4;
-            const b = raw[idx];
-            const g = raw[idx + 1];
-            const r = raw[idx + 2];
-            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-
-            if (y >= yTitleStart && y <= yTitleEnd) {
-              // Title text band: "CONSULTING AGREEMENT FOR HOURLY WORK"
-              if (lum < 115) {
-                // Sharpen text
-                const finalVal = Math.max(10, Math.min(r, g, b, 45));
-                outRaw[idx] = finalVal;
-                outRaw[idx + 1] = finalVal;
-                outRaw[idx + 2] = finalVal;
-              } else {
-                // Eradicate watermark & whiten paper
-                outRaw[idx] = 255;
-                outRaw[idx + 1] = 255;
-                outRaw[idx + 2] = 255;
-              }
-            } else {
-              // Above title or below title (se9nse letters & emblem lobes)
-              outRaw[idx] = 255;
-              outRaw[idx + 1] = 255;
-              outRaw[idx + 2] = 255;
-            }
-          }
-        }
-      }
-
-      // 4B. Fast separable 2D box dilation & Continuous Grayscale Inpainting (for stamps/banners)
-      if (coreCount >= 80) {
-        const R = 18;
-        const hDilated = new Uint8Array(bw * bh);
-        for (let y = 0; y < bh; y++) {
-          let count = 0;
-          const yOff = y * bw;
-          for (let x = 0; x < bw; x++) {
-            if (x === 0) {
-              for (let k = 0; k <= R && k < bw; k++) count += mask[yOff + k];
-            } else {
-              if (x + R < bw) count += mask[yOff + x + R];
-              if (x - R - 1 >= 0) count -= mask[yOff + x - R - 1];
-            }
-            if (count > 0) hDilated[yOff + x] = 1;
-          }
-        }
-
-        const dilated = new Uint8Array(bw * bh);
-        for (let x = 0; x < bw; x++) {
-          let count = 0;
-          for (let y = 0; y < bh; y++) {
-            if (y === 0) {
-              for (let k = 0; k <= R && k < bh; k++) count += hDilated[k * bw + x];
-            } else {
-              if (y + R < bh) count += hDilated[(y + R) * bw + x];
-              if (y - R - 1 >= 0) count -= hDilated[(y - R - 1) * bw + x];
-            }
-            if (count > 0 && !isLogo(x, y)) dilated[y * bw + x] = 1;
-          }
-        }
-
-        for (let y = 0; y < bh; y++) {
-          if (hasCenteredEmblem && y <= Math.floor(bh * 0.22)) continue;
-
-          for (let x = 0; x < bw; x++) {
-            if (isLogo(x, y)) continue;
-            const idx = y * stride + x * 4;
-
-            // Top simulation banner area & specks: 100% pure white paper
-            if (isTopArea(y) && !isPageNum(x, y)) {
-              outRaw[idx] = 255;
-              outRaw[idx + 1] = 255;
-              outRaw[idx + 2] = 255;
-              continue;
-            }
-
-            // Clear margins right around logo (outside border)
-            const nearLogo = (
-              logoRect &&
-              x >= logoRect.minX - 25 &&
-              x <= logoRect.maxX + 25 &&
-              y >= logoRect.minY - 10 &&
-              y <= logoRect.maxY + 35
-            );
-            if (nearLogo && !isLogo(x, y)) {
-              const b = raw[idx];
-              const g = raw[idx + 1];
-              const r = raw[idx + 2];
-              if (r > 120 && (r - g > 12 || r - b > 12)) {
-                outRaw[idx] = 255;
-                outRaw[idx + 1] = 255;
-                outRaw[idx + 2] = 255;
-                continue;
-              }
-            }
-
-            if (dilated[y * bw + x] === 1) {
-              const b = raw[idx];
-              const g = raw[idx + 1];
-              const r = raw[idx + 2];
-
-              const redExcess = Math.max(r - g, r - b);
-              const gb = (g + b) / 2;
-
-              if (redExcess > 10) {
-                // Watermark core: gb >= 86 is background paper transmission
-                if (gb >= 86) {
-                  outRaw[idx] = 255;
-                  outRaw[idx + 1] = 255;
-                  outRaw[idx + 2] = 255;
-                } else {
-                  // Underlying dark document text with continuous deconvolution
-                  const recovered = Math.min(255, Math.round(gb * (255 / 105)));
-                  const finalVal = Math.max(10, Math.round(recovered * 0.9));
-                  outRaw[idx] = finalVal;
-                  outRaw[idx + 1] = finalVal;
-                  outRaw[idx + 2] = finalVal;
-                }
-              } else {
-                // Anti-aliased halo around watermark
-                if (r >= 225 && g >= 225 && b >= 225) {
-                  outRaw[idx] = 255;
-                  outRaw[idx + 1] = 255;
-                  outRaw[idx + 2] = 255;
-                } else {
-                  const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-                  const val = lum >= 225 ? 255 : lum;
-                  outRaw[idx] = val;
-                  outRaw[idx + 1] = val;
-                  outRaw[idx + 2] = val;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // 5. Restore Brand Logo
-      if (logoRect) {
-        const lw = logoRect.maxX - logoRect.minX + 1;
-        const lh = logoRect.maxY - logoRect.minY + 1;
-        const isBostonUniversity = (lw >= 330 && lw <= 390 && lh >= 135 && lh <= 175);
-
-        let restoredVector = false;
-        if (isBostonUniversity) {
-          const emblemSvg = `
-          <svg width="${lw}" height="${lh}" viewBox="0 0 ${lw} ${lh}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="${lw}" height="${lh}" fill="rgb(180, 38, 32)"/>
-            <rect x="9" y="9" width="${lw - 18}" height="${lh - 18}" fill="none" stroke="white" stroke-width="2.2"/>
-            <rect x="14" y="14" width="${lw - 28}" height="${lh - 28}" fill="none" stroke="white" stroke-width="1.2"/>
-            <text x="${lw / 2}" y="68" font-family="'Times New Roman', Georgia, serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="4">BOSTON</text>
-            <text x="${lw / 2}" y="112" font-family="'Times New Roman', Georgia, serif" font-size="26" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="5.5">UNIVERSITY</text>
-          </svg>
-          `;
-          try {
-            let logoPixels = await renderSvgToPixels(emblemSvg, lw, lh);
-            if (!logoPixels) {
-              logoPixels = renderBuLogoCanvas(lw, lh);
-            }
-            if (logoPixels) {
-              for (let ly = 0; ly < lh; ly++) {
-                for (let lx = 0; lx < lw; lx++) {
-                  const srcIdx = (ly * lw + lx) * 4;
-                  const dstIdx = (logoRect.minY + ly) * stride + (logoRect.minX + lx) * 4;
-                  outRaw[dstIdx] = logoPixels[srcIdx + 2];     // B
-                  outRaw[dstIdx + 1] = logoPixels[srcIdx + 1]; // G
-                  outRaw[dstIdx + 2] = logoPixels[srcIdx];     // R
-                }
-              }
-              restoredVector = true;
-            }
-          } catch (svgErr) {
-            console.warn("BU emblem vector rendering error:", svgErr);
-          }
-        }
-
-        if (!restoredVector) {
-          for (let y = logoRect.minY; y <= logoRect.maxY; y++) {
-            for (let x = logoRect.minX; x <= logoRect.maxX; x++) {
-              const idx = y * stride + x * 4;
-              const b = raw[idx];
-              const g = raw[idx + 1];
-              const r = raw[idx + 2];
-
-              if (r > 195 && g > 65 && b > 65 && r - g > 30) {
-                if (g > 165 && b > 165) {
-                  outRaw[idx] = 255;
-                  outRaw[idx + 1] = 255;
-                  outRaw[idx + 2] = 255;
-                } else {
-                  outRaw[idx] = logoRect.bgB;
-                  outRaw[idx + 1] = logoRect.bgG;
-                  outRaw[idx + 2] = logoRect.bgR;
-                }
-              }
-            }
-          }
-        }
-
-        // Always ensure bottom margin right under logo is 100% white paper
-        const underYEnd = Math.min(bh - 1, logoRect.maxY + 30);
-        const underXStart = Math.max(0, logoRect.minX - 20);
-        const underXEnd = Math.min(bw - 1, logoRect.maxX + 20);
-        for (let y = logoRect.maxY + 1; y <= underYEnd; y++) {
-          for (let x = underXStart; x <= underXEnd; x++) {
-            const idx = y * stride + x * 4;
-            const b = raw[idx];
-            const g = raw[idx + 1];
-            const r = raw[idx + 2];
-            if ((r > 115 && (r - g > 10 || r - b > 10)) || (r >= 210 && g >= 210 && b >= 210)) {
-              outRaw[idx] = 255;
-              outRaw[idx + 1] = 255;
-              outRaw[idx + 2] = 255;
-            }
-          }
-        }
-      }
-
-      raw.set(outRaw);
-
-      // 7. Inject cleaned bitmap back into PDFium image object(s)
-      const pagePtrArr = malloc(4);
-      heap.setValue(pagePtrArr, page, "i32");
-      let pageReplaced = false;
-
-      for (const imgObj of imageObjects) {
-        const ok = m.FPDFImageObj_SetBitmap(pagePtrArr, 1, imgObj, bmp);
-        if (ok) pageReplaced = true;
-      }
-      free(pagePtrArr);
-
-      if (pageReplaced) {
-        m.FPDFPage_GenerateContent(page);
+      if (updateRes.success && updateRes.newBytes) {
+        currentBytes = updateRes.newBytes;
         totalCleaned++;
+        if (cand.id) successfulCandidateIds.push(cand.id);
+        candidateResults.push({
+          id: cand.id,
+          status: "removed",
+          modifiedPixels
+        });
+      } else {
+        candidateResults.push({
+          id: cand.id,
+          status: "failed",
+          modifiedPixels,
+          reason: updateRes.message || "Bitmap güncellenemedi."
+        });
       }
-
-      m.FPDFBitmap_Destroy(bmp);
-      m.FPDF_ClosePage(page);
+    } else {
+      candidateResults.push({
+        id: cand.id,
+        status: "unchanged",
+        modifiedPixels: 0,
+        reason: "Seçilen ROI içinde filigran renk profiline uyan piksel bulunamadı."
+      });
     }
-
-    if (totalCleaned === 0) {
-      return { bytes, removedCount: 0 };
-    }
-
-    const writer = m.PDFiumExt_OpenFileWriter();
-    let outBytes = bytes;
-    if (m.PDFiumExt_SaveAsCopy(doc, writer)) {
-      const length = m.PDFiumExt_GetFileWriterSize(writer);
-      const outPtr = malloc(length);
-      m.PDFiumExt_GetFileWriterData(writer, outPtr, length);
-      outBytes = heap.HEAPU8.slice(outPtr, outPtr + length);
-      free(outPtr);
-    }
-    m.PDFiumExt_CloseFileWriter(writer);
-
-    return { bytes: outBytes, removedCount: totalCleaned };
-  } finally {
-    if (doc) m.FPDF_CloseDocument(doc);
-    free(inPtr);
   }
+
+  return {
+    bytes: currentBytes,
+    removedCount: totalCleaned,
+    successfulCandidateIds,
+    candidateResults
+  };
 }
 
 

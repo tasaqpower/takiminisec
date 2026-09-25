@@ -5,7 +5,7 @@ import {
   PDFHexString,
   PDFNumber,
   rgb,
-} from '@cantoo/pdf-lib';
+} from 'pdf-lib';
 import forge from 'node-forge';
 import type {
   DigitalCertificateInfo,
@@ -14,13 +14,34 @@ import type {
 } from './signatureTypes';
 
 /**
+ * Generates a cryptographically secure random password using crypto.getRandomValues
+ */
+export function generateSecurePassword(length = 16): string {
+  const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+  let result = '';
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < length; i++) {
+      result += chars[bytes[i] % chars.length];
+    }
+  } else {
+    for (let i = 0; i < length; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+  }
+  return result;
+}
+
+/**
  * Generate a local self-signed X.509 certificate and RSA private key
  */
 export function generateSelfSignedCertificate(options: {
   commonName: string;
   organization?: string;
   country?: string;
-}): { cert: forge.pki.Certificate; key: forge.pki.rsa.PrivateKey; p12Bytes: Uint8Array; password?: string } {
+  password?: string;
+}): { cert: forge.pki.Certificate; key: forge.pki.rsa.PrivateKey; p12Bytes: Uint8Array; password: string } {
   const pki = forge.pki;
   const keys = pki.rsa.generateKeyPair({ bits: 2048, workers: -1 });
 
@@ -44,14 +65,17 @@ export function generateSelfSignedCertificate(options: {
   // Self-sign with SHA-256
   cert.sign(keys.privateKey, forge.md.sha256.create());
 
+  // Generate strong random password if not supplied
+  const password = options.password || generateSecurePassword(16);
+
   // Package to PKCS#12
-  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, cert, 'forma123', {
+  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, cert, password, {
     algorithm: '3des',
   });
   const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
   const p12Bytes = new Uint8Array(Buffer.from(p12Der, 'binary'));
 
-  return { cert, key: keys.privateKey, p12Bytes, password: 'forma123' };
+  return { cert, key: keys.privateKey, p12Bytes, password };
 }
 
 /**

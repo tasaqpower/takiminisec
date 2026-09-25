@@ -73,6 +73,23 @@ export function TextEditControls({
         ))}
       </select>
 
+      {/* Font Match Quality Badge */}
+      {selectedMark.sourceId?.startsWith("ocr-") || selectedMark.fontMatchQuality === "görsel eşleştirme" ? (
+        <span
+          className="px-2 py-1 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 select-none whitespace-nowrap"
+          title="Yazı tipi taranmış belgeden görsel eşleştirme ile Courier / Daktilo olarak belirlendi."
+        >
+          Görsel Eşleştirme
+        </span>
+      ) : (selectedMark as any).isApproximateFont || selectedMark.fontMatchQuality === "yaklaşık eşleşme" ? (
+        <span
+          className="px-2 py-1 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200 select-none whitespace-nowrap"
+          title="Kaynak yazı tipi Unicode karakterleri desteklemediği için en yakın font kullanıldı."
+        >
+          Yaklaşık Eşleşme
+        </span>
+      ) : null}
+
       {/* Font Size */}
       <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 h-8">
         <span className="text-[10px] text-muted-foreground uppercase font-semibold">Pt</span>

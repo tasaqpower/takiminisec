@@ -20,16 +20,24 @@ import {
   RotateCcw,
   FileText,
   Wrench,
+  AlertTriangle,
 } from "lucide-react";
 import { parseUserIntent } from "./aiIntentEngine";
-import type { AiActionResult } from "./aiActionDispatcher";
+import type { AiActionResult, SelectedImageContext } from "./aiActionDispatcher";
+import type { Mark } from "../../lib/documents.ts";
+import type { TextRemoval } from "../../lib/pdf-text.ts";
 import { toast } from "sonner";
 
 export interface FormaAiCopilotProps {
   pdfBytes?: Uint8Array | null;
   fileName?: string;
   currentPage?: number;
+  selectedImage?: SelectedImageContext | null;
+  existingMarks?: Mark[];
+  existingRemovals?: TextRemoval[];
   onApplyPdfBytes?: (bytes: Uint8Array, newFileName?: string) => Promise<void> | void;
+  onApplyMarksAndRemovals?: (newMarks: Mark[], newRemovals: TextRemoval[]) => void;
+  onRollbackMarksAndRemovals?: (marksToRemove: Mark[], removalsToRemove: TextRemoval[]) => void;
   onOpenDocument?: (files: File[]) => Promise<void> | void;
   className?: string;
 }
@@ -58,7 +66,12 @@ export function FormaAiCopilot({
   pdfBytes,
   fileName,
   currentPage = 0,
+  selectedImage,
+  existingMarks = [],
+  existingRemovals = [],
   onApplyPdfBytes,
+  onApplyMarksAndRemovals,
+  onRollbackMarksAndRemovals,
   onOpenDocument,
   className = ""
 }: FormaAiCopilotProps) {
@@ -76,6 +89,7 @@ export function FormaAiCopilot({
   const [pendingPlan, setPendingPlan] = useState<ActionPlan | null>(null);
   const [historyStack, setHistoryStack] = useState<{ bytes: Uint8Array; name: string }[]>([]);
   const [lastExecutedAction, setLastExecutedAction] = useState<any>(null);
+  const [selectedWatermarkCandidateIds, setSelectedWatermarkCandidateIds] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -141,6 +155,17 @@ export function FormaAiCopilot({
       return;
     }
 
+    if (typeof window !== "undefined") {
+      const acknowledged = localStorage.getItem("forma_voice_privacy_acknowledged");
+      if (!acknowledged) {
+        toast.info(
+          "Ses tanıma tarayıcınız tarafından sağlanır ve bazı tarayıcılarda ses işlenmek üzere tarayıcı sağlayıcısına gönderilebilir.",
+          { duration: 6000 }
+        );
+        localStorage.setItem("forma_voice_privacy_acknowledged", "true");
+      }
+    }
+
     try {
       stopSpeaking();
       const recognition = new SpeechRec();
@@ -191,7 +216,7 @@ export function FormaAiCopilot({
     {
       id: "welcome-1",
       sender: "assistant",
-      text: "Merhaba! Ben **Forma AI**. Bana sesli konuşabilir veya yazabilirsiniz:\n\n• 👁️ *\"Görselde / belgede ne var?\"* (Görsel ve belge içeriği analizi)\n• 🗑️ *\"Aslanı sil\"* / *\"Resmi sil\"* / *\"Logoyu kaldır\"*\n• ✨ *\"Aslanı netleştir\"* / *\"Sadece fotoğrafı netleştir\"*\n• 🎙️ *\"Sesli yanıtı aç\"* / *\"Sesi kapat\"* (Mikrofon & sesli Türkçe konuşma)\n• 🌙 *\"Koyu mod yap\"* / ☀️ *\"Açık mod yap\"*\n• 🧹 *\"Filigranı kaldır\"* / 🔏 *\"Filigran ekle\"*\n• 🔒 *\"TC ve IBAN'ları sansürle (KVKK)\"*\n• 🗜️ *\"PDF'i sıkıştır\"*\n• 📝 *\"Word'e çevir\"* / 📊 *\"Excel'e aktar\"*\n• 🏷️ *\"ASLI GİBİDİR kaşesi bas\"*\n• 🔄 *\"Sayfaları 90 derece döndür\"* / 🗑️ *\"İlk/son sayfayı sil\"*",
+      text: "Merhaba! Ben **Forma AI**. Bana sesli konuşabilir veya yazabilirsiniz:\n\n• 📄 *\"Belgenin yapısını ve metnini özetle\"*\n• 🗑️ *\"Seçili görseli sil\"* / *\"Bu görseli kaldır\"*\n• ✨ *\"Seçili görseli netleştir\"*\n• 🎙️ *\"Sesli yanıtı aç\"* / *\"Sesi kapat\"*\n• 🌙 *\"Koyu mod yap\"* / ☀️ *\"Açık mod yap\"*\n• 🧹 *\"Filigranı kaldır\"* / 🔏 *\"Filigran ekle\"*\n• 🔒 *\"TC ve IBAN'ları sansürle (KVKK)\"*\n• 🗜️ *\"PDF'i sıkıştır\"*\n• 📝 *\"Word'e çevir\"* / 📊 *\"Excel'e aktar\"*\n• 🏷️ *\"ASLI GİBİDİR kaşesi bas\"*\n• 🔄 *\"Sayfaları 90 derece döndür\"* / 🗑️ *\"İlk/son sayfayı sil\"*",
       timestamp: "Forma AI",
     }
   ]);
@@ -264,8 +289,8 @@ export function FormaAiCopilot({
         return {
           id: crypto.randomUUID(),
           intent,
-          title: '🧹 Filigran ve Damga Temizleme',
-          description: 'Belgedeki tüm filigranlar, taslak damgaları ve mühürler yazı yapısına zarar verilmeden cerrahi olarak temizlenecek.',
+          title: '🧹 Filigran Temizleme',
+          description: 'Tespit edilen filigran ve taslak damgası nesneleri onayınızla temizlenecek.',
           targetDetails: `${currentDocName} · Tüm Sayfalar`,
           status: 'pending',
         };
@@ -273,8 +298,8 @@ export function FormaAiCopilot({
         return {
           id: crypto.randomUUID(),
           intent,
-          title: `🗑️ '${intent.parameters?.targetObject || 'Görsel'}' Nesnesini Silme`,
-          description: `Belgedeki '${intent.parameters?.targetObject || 'hedef'}' görseli/nesnesi tespit edilip kalıcı olarak silinecek.`,
+          title: '🗑️ Seçili Görseli Silme',
+          description: 'Seçili görsel nesnesi doğrulanıp belgeden kalıcı olarak silinecek.',
           targetDetails: `${currentDocName} · Sayfa ${pageNum}`,
           status: 'pending',
         };
@@ -282,8 +307,8 @@ export function FormaAiCopilot({
         return {
           id: crypto.randomUUID(),
           intent,
-          title: `✨ '${intent.parameters?.targetObject || 'Görsel'}' Netleştirme`,
-          description: `Yazıların vektörel keskinliği korunarak sadece '${intent.parameters?.targetObject || 'hedef'}' görseline yüksek çözünürlüklü filtre uygulanacak.`,
+          title: '✨ Seçili Görseli Netleştirme',
+          description: 'Diğer görseller ve vektörel metinler korunarak yalnızca seçili görsel izole edilip netleştirilecek.',
           targetDetails: `${currentDocName} · Sayfa ${pageNum}`,
           status: 'pending',
         };
@@ -395,6 +420,15 @@ export function FormaAiCopilot({
           targetDetails: `${currentDocName}`,
           status: 'pending',
         };
+      case 'find_replace':
+        return {
+          id: crypto.randomUUID(),
+          intent,
+          title: '🔄 Akıllı Metin & İsim Değiştirme',
+          description: `'${intent.parameters?.searchTerm || ''}' ifadesi '${intent.parameters?.replaceTerm || ''}' ile değiştirilecek. Orijinal etiketler, font, punto ve satır yerleşimi korunacak.`,
+          targetDetails: `${currentDocName} · Sayfa İçi Değiştirme`,
+          status: 'pending',
+        };
       default:
         return null;
     }
@@ -421,9 +455,15 @@ export function FormaAiCopilot({
           pdfBytes: activeBytes,
           fileName: activeName,
           currentPage,
+          selectedImage: selectedImage || null,
+          confirmedCandidateIds: intentToRun.confirmedCandidateIds,
+          existingMarks,
+          existingRemovals,
         },
         (prog) => setProgressText(prog)
       );
+
+      setLastExecutedAction(result);
 
       if (result.metadata?.voiceState === 'on') {
         setVoiceEnabled(true);
@@ -434,7 +474,11 @@ export function FormaAiCopilot({
         stopSpeaking();
       }
 
-      if (result.newPdfBytes) {
+      if (result.newMarks && result.newRemovals && onApplyMarksAndRemovals) {
+        onApplyMarksAndRemovals(result.newMarks, result.newRemovals);
+        // Do NOT set activeBytes to newPdfBytes: changes are managed as workspace marks/removals
+        // over the clean base PDF bytes so exportPdf applies them exactly once.
+      } else if (result.newPdfBytes) {
         setActiveBytes(result.newPdfBytes);
         if (result.newFileName) {
           setActiveName(result.newFileName);
@@ -478,6 +522,21 @@ export function FormaAiCopilot({
   };
 
   const handleRollback = async () => {
+    if (lastExecutedAction?.newMarks && lastExecutedAction?.newRemovals && onRollbackMarksAndRemovals) {
+      onRollbackMarksAndRemovals(lastExecutedAction.newMarks, lastExecutedAction.newRemovals);
+      setLastExecutedAction(null);
+      toast.success("Önceki duruma başarıyla geri dönüldü!");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "assistant",
+          text: `↩️ **Geri Alındı:** Yapılan metin değişikliği çalışma alanından kaldırıldı. Orijinal belgeniz korundu. ✨`,
+          timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ]);
+      return;
+    }
     if (historyStack.length === 0) {
       toast.info("Geri alınacak önceki bir sürüm bulunamadı.");
       return;
@@ -619,7 +678,7 @@ export function FormaAiCopilot({
         {
           id: crypto.randomUUID(),
           sender: "assistant",
-          text: `📄 **${file.name}** başarıyla yüklendi ve işleme hazırlandı! 🎉\n\nŞimdi ne yapmamı istersin? İster sesli söyle, ister yaz:\n• *"Görselde ne var? / Bunu analiz et"*\n• *"Aslanı / logoyu sil"*\n• *"Yazıları ve fotoğrafları netleştir"*\n• *"Bu belgedeki filigranı kaldır"*\n• *"Word'e / Excel'e çevir"*\n• *"Koyu mod yap"*`,
+          text: `📄 **${file.name}** başarıyla yüklendi ve işleme hazırlandı! 🎉\n\nŞimdi ne yapmamı istersin? İster sesli söyle, ister yaz:\n• *"Belgenin yapısını ve metnini özetle"*\n• *"Seçili görseli sil"*\n• *"Seçili görseli netleştir"*\n• *"Bu belgedeki filigranı kaldır"*\n• *"Word'e / Excel'e çevir"*\n• *"Koyu mod yap"*`,
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
@@ -950,6 +1009,123 @@ export function FormaAiCopilot({
                     </div>
                   )}
 
+                  {/* Unsupported Font Characters Warning Card */}
+                  {msg.actionResult?.stoppedDueToUnsupportedChars && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs shadow-sm space-y-2">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-200">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>Yazı Tipi Karakter Uyarısı</span>
+                      </div>
+                      <p className="text-[11px] text-amber-900 dark:text-amber-300">
+                        Hedef metin, belgenin orijinal yazı tipinde bulunmayan karakterler içermektedir. Belge orijinalliğini korumak için işlem durduruldu.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            if (msg.actionResult?.metadata?.searchTerm && msg.actionResult?.metadata?.replaceTerm) {
+                              executeConfirmedAction({
+                                action: "find_replace",
+                                parameters: {
+                                  searchTerm: msg.actionResult.metadata.searchTerm,
+                                  replaceTerm: msg.actionResult.metadata.replaceTerm,
+                                  allowApproximateFont: true,
+                                },
+                                confirmedCandidateIds: ['allow_approximate']
+                              });
+                            }
+                          }}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium shadow-sm transition-all text-[11px] active:scale-95 disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Yaklaşık Yazı Tipi İle Uygula</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Watermark Candidate Confirmation Card */}
+                  {msg.actionResult?.metadata?.pendingConfirmation && msg.actionResult.metadata.candidates && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 text-xs shadow-sm space-y-2.5">
+                      <div className="flex items-center gap-1.5 font-bold text-violet-800 dark:text-violet-200">
+                        <Sparkles className="w-4 h-4 text-violet-600" />
+                        <span>Filigran Adayları (Kaldırmak İstediklerinizi Seçin)</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {msg.actionResult.metadata.candidates.map((cand: any) => {
+                          const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? msg.actionResult!.metadata!.candidates.map((c: any) => c.id);
+                          const isChecked = currentSelected.includes(cand.id);
+                          return (
+                            <label
+                              key={cand.id}
+                              className="flex items-start gap-2 p-2 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-violet-300 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...currentSelected, cand.id]
+                                    : currentSelected.filter((id: string) => id !== cand.id);
+                                  setSelectedWatermarkCandidateIds((prev) => ({ ...prev, [msg.id]: next }));
+                                }}
+                                className="mt-0.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                  {cand.text || "Görsel / Damga Nesnesi"}
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                                  <span>Sayfa: {cand.pages ? cand.pages.map((p: number) => p + 1).join(", ") : "1"}</span>
+                                  <span>Güven: %{cand.confidence}</span>
+                                  {cand.reason && <span className="truncate">({cand.reason})</span>}
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? msg.actionResult!.metadata!.candidates.map((c: any) => c.id);
+                            if (currentSelected.length === 0) {
+                              toast.error("Lütfen temizlemek için en az bir filigran adayı seçin.");
+                              return;
+                            }
+                            executeConfirmedAction({
+                              action: "watermark_remove",
+                              confirmedCandidateIds: currentSelected,
+                            });
+                          }}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-sm transition-all text-[11px] active:scale-95 disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Seçilen Filigranları Temizle</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: crypto.randomUUID(),
+                                sender: "assistant",
+                                text: "Filigran temizleme işlemi iptal edildi. Belgenizde hiçbir değişiklik yapılmadı. ✨",
+                                timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+                              }
+                            ]);
+                          }}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-[11px] transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Vazgeç</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action Result Action Card with Correction Loop */}
                   {msg.actionResult && (
                     <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2">
@@ -1111,7 +1287,7 @@ export function FormaAiCopilot({
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={isListening ? "Konuşmanız yazılıyor..." : "Örn: Aslanı sil, görselde ne var, netleştir..."}
+                placeholder={isListening ? "Konuşmanız yazılıyor..." : "Örn: Seçili görseli sil, belgenin yapısını özetle, netleştir..."}
                 disabled={isProcessing}
                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
               />

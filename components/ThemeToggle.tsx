@@ -7,6 +7,17 @@ export function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
+  const applyTheme = (t: "light" | "dark") => {
+    const root = document.documentElement;
+    if (t === "dark") {
+      root.classList.add("dark");
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      root.setAttribute("data-theme", "light");
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("forma_theme");
@@ -20,17 +31,6 @@ export function useTheme() {
       applyTheme(initial);
     }
   }, []);
-
-  const applyTheme = (t: "light" | "dark") => {
-    const root = document.documentElement;
-    if (t === "dark") {
-      root.classList.add("dark");
-      root.setAttribute("data-theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      root.setAttribute("data-theme", "light");
-    }
-  };
 
   const changeTheme = (newTheme: "light" | "dark") => {
     setTheme(newTheme);
@@ -47,9 +47,10 @@ export function useTheme() {
 
 interface ThemeToggleProps {
   className?: string;
+  showLabel?: boolean;
 }
 
-export function ThemeToggle({ className = "" }: ThemeToggleProps) {
+export function ThemeToggle({ className = "", showLabel }: ThemeToggleProps) {
   const { theme, changeTheme, mounted } = useTheme();
 
   return (

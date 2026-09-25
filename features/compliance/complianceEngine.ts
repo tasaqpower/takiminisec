@@ -4,7 +4,7 @@ import {
   PDFString,
   PDFArray,
   PDFBool,
-} from '@cantoo/pdf-lib';
+} from 'pdf-lib';
 import type {
   PdfAConversionOptions,
   AccessibilityReport,

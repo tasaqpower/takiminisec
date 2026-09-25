@@ -9,11 +9,30 @@ export interface OcrWord {
   confidence: number;
 }
 
+export interface OcrStyleEstimate {
+  fontCategory: "sans" | "serif" | "courier";
+  bold: boolean;
+  italic: boolean;
+  textColor: string;
+  backgroundColor: string;
+  cropDataUrl: string;
+  estimatedSize: number;
+}
+
+export interface OcrSegment {
+  text: string;
+  bbox: { x: number; y: number; width: number; height: number };
+  cropDataUrl?: string;
+  style?: OcrStyleEstimate;
+}
+
 export interface OcrLine {
   text: string;
   bbox: { x: number; y: number; width: number; height: number };
   words: OcrWord[];
   confidence: number;
+  style?: OcrStyleEstimate;
+  segments?: OcrSegment[];
 }
 
 export interface OcrPageResult {
@@ -124,6 +143,379 @@ export function postProcessTurkishOcr(text: string): string {
 }
 
 /**
+ * Binary search for the optimal font size fitting targetWidth and targetHeight
+ */
+export function fitFontSizeToBox(
+  text: string,
+  targetWidth: number,
+  targetHeight: number,
+  fontFamily: string,
+  bold = false,
+  minSize = 6,
+  maxSize = 72
+): number {
+  const clean = (text || "").trim();
+  const isMono = fontFamily.toLowerCase().includes("courier") || fontFamily.toLowerCase().includes("mono");
+  // For monospace text, pitch is strictly 0.60 * fontSize per character
+  if (isMono && clean.length > 0 && targetWidth > 0) {
+    const monoSize = Math.round((targetWidth / (clean.length * 0.60)) * 10) / 10;
+    if (monoSize >= minSize && monoSize <= maxSize) {
+      return Math.round(monoSize);
+    }
+  }
+
+  // General typographic baseline: OCR targetHeight is tight ink bounding box (cap-height),
+  // whereas font em size is roughly 1.35x - 1.50x cap-height.
+  const estimatedEmFromHeight = Math.max(minSize, Math.min(maxSize, Math.round(targetHeight * 1.42)));
+
+  if (typeof document === "undefined" || typeof document.createElement !== "function") {
+    return estimatedEmFromHeight;
+  }
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return estimatedEmFromHeight;
+
+    let low = minSize;
+    let high = Math.min(maxSize, Math.max(minSize, Math.round(targetHeight * 2.2)));
+    let best = low;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      ctx.font = `${bold ? "bold " : ""}${mid}px ${fontFamily}`;
+      const metrics = ctx.measureText(clean);
+      const measuredW = metrics.width;
+      const estimatedCapH = mid * 0.70;
+
+      // Fit to width and cap-height
+      if (measuredW <= targetWidth * 1.05 && estimatedCapH <= targetHeight * 1.25) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return Math.max(best, Math.min(maxSize, Math.round(targetHeight * 1.25)));
+  } catch {
+    return estimatedEmFromHeight;
+  }
+}
+
+/**
+ * Estimates font category, weight, color, background color, and high-res crop
+ * locally from the rendered page canvas without external AI or network calls.
+ */
+export function analyzeCropStyle(
+  canvas: HTMLCanvasElement,
+  bbox: { x: number; y: number; width: number; height: number },
+  text: string,
+  words: OcrWord[] = [],
+  pad = 2
+): OcrStyleEstimate {
+  const cleanText = (text || "").trim();
+  const isTypewriterPattern = /^(Name|Date|ID|No|Ref|Sign|Tarih|Adı|Soyadı|Tc|Sicil|Konu|Sayı|Tel|Fax)[:\s]/i.test(cleanText);
+  const fallbackSize = Math.max(8, Math.min(72, Math.round(bbox.height * 1.42)));
+
+  const fallback: OcrStyleEstimate = {
+    fontCategory: isTypewriterPattern ? "courier" : "sans",
+    bold: false,
+    italic: false,
+    textColor: "#000000",
+    backgroundColor: "#ffffff",
+    cropDataUrl: "",
+    estimatedSize: fallbackSize
+  };
+
+  if (!canvas || typeof canvas.getContext !== "function" || bbox.width <= 0 || bbox.height <= 0) {
+    return fallback;
+  }
+
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return fallback;
+
+    const cropX = Math.max(0, Math.floor(bbox.x - pad));
+    const cropY = Math.max(0, Math.floor(bbox.y - pad));
+    const cropW = Math.min(canvas.width - cropX, Math.ceil(bbox.width + pad * 2));
+    const cropH = Math.min(canvas.height - cropY, Math.ceil(bbox.height + pad * 2));
+
+    if (cropW <= 0 || cropH <= 0) return fallback;
+
+    // 1. Pixel data extraction for color, background, and stroke analysis
+    const imgData = ctx.getImageData(cropX, cropY, cropW, cropH);
+    const data = imgData.data;
+
+    // Sample background color along perimeter (edges)
+    const bgR: number[] = [];
+    const bgG: number[] = [];
+    const bgB: number[] = [];
+
+    for (let x = 0; x < cropW; x++) {
+      const topIdx = (0 * cropW + x) * 4;
+      bgR.push(data[topIdx]);
+      bgG.push(data[topIdx + 1]);
+      bgB.push(data[topIdx + 2]);
+      const btmIdx = ((cropH - 1) * cropW + x) * 4;
+      bgR.push(data[btmIdx]);
+      bgG.push(data[btmIdx + 1]);
+      bgB.push(data[btmIdx + 2]);
+    }
+    for (let y = 1; y < cropH - 1; y++) {
+      const leftIdx = (y * cropW + 0) * 4;
+      bgR.push(data[leftIdx]);
+      bgG.push(data[leftIdx + 1]);
+      bgB.push(data[leftIdx + 2]);
+      const rightIdx = (y * cropW + (cropW - 1)) * 4;
+      bgR.push(data[rightIdx]);
+      bgG.push(data[rightIdx + 1]);
+      bgB.push(data[rightIdx + 2]);
+    }
+
+    const median = (arr: number[]) => {
+      if (!arr.length) return 255;
+      const s = [...arr].sort((a, b) => a - b);
+      return s[Math.floor(s.length / 2)] ?? 255;
+    };
+
+    const medBgR = median(bgR);
+    const medBgG = median(bgG);
+    const medBgB = median(bgB);
+    const bgLum = 0.299 * medBgR + 0.587 * medBgG + 0.114 * medBgB;
+    const backgroundColor = `#${((1 << 24) + (medBgR << 16) + (medBgG << 8) + medBgB).toString(16).slice(1)}`;
+
+    // 2. High-resolution crop to data URL with dual-threshold Euclidean color distance alpha matting
+    let cropDataUrl = "";
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+      try {
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = cropW;
+        cropCanvas.height = cropH;
+        const cctx = cropCanvas.getContext("2d");
+        if (cctx) {
+          cctx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+          const cImgData = cctx.getImageData(0, 0, cropW, cropH);
+          const cData = cImgData.data;
+
+          // Dual-threshold Euclidean distance alpha matting:
+          // dist <= 16: Definite background -> alpha 0
+          // dist >= 52: Definite text/foreground -> alpha original (or 255)
+          // 16 < dist < 52: Smooth transition zone -> alpha = round(((dist - 16) / 36) * 255)
+          const lowerThreshold = 16;
+          const upperThreshold = 52;
+          const range = upperThreshold - lowerThreshold;
+
+          for (let pi = 0; pi < cData.length; pi += 4) {
+            const dr = cData[pi] - medBgR;
+            const dg = cData[pi + 1] - medBgG;
+            const db = cData[pi + 2] - medBgB;
+            const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+
+            if (dist <= lowerThreshold) {
+              cData[pi + 3] = 0;
+            } else if (dist < upperThreshold) {
+              const alphaNorm = (dist - lowerThreshold) / range;
+              cData[pi + 3] = Math.round(alphaNorm * (cData[pi + 3] || 255));
+            }
+            // else dist >= upperThreshold: keep full opacity
+          }
+          cctx.putImageData(cImgData, 0, 0);
+          cropDataUrl = cropCanvas.toDataURL("image/png");
+        }
+      } catch {}
+    }
+
+    // 3. Text color, glyph bounding envelope, and normalized stroke/bold analysis
+    const textR: number[] = [];
+    const textG: number[] = [];
+    const textB: number[] = [];
+    let darkPixelCount = 0;
+
+    let minGlyphX = cropW;
+    let maxGlyphX = 0;
+    let minGlyphY = cropH;
+    let maxGlyphY = 0;
+
+    for (let y = 0; y < cropH; y++) {
+      for (let x = 0; x < cropW; x++) {
+        const i = (y * cropW + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const dr = r - medBgR;
+        const dg = g - medBgG;
+        const db = b - medBgB;
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (dist >= 35 || bgLum - lum > 35) {
+          darkPixelCount++;
+          textR.push(r);
+          textG.push(g);
+          textB.push(b);
+          if (x < minGlyphX) minGlyphX = x;
+          if (x > maxGlyphX) maxGlyphX = x;
+          if (y < minGlyphY) minGlyphY = y;
+          if (y > maxGlyphY) maxGlyphY = y;
+        }
+      }
+    }
+
+    let textColor = "#000000";
+    if (textR.length > 0) {
+      const medTextR = median(textR);
+      const medTextG = median(textG);
+      const medTextB = median(textB);
+      textColor = `#${((1 << 24) + (medTextR << 16) + (medTextG << 8) + medTextB).toString(16).slice(1)}`;
+    }
+
+    // Measure horizontal stroke thickness across glyph bounding rows
+    let totalRunLength = 0;
+    let runCount = 0;
+    if (darkPixelCount > 0 && maxGlyphY >= minGlyphY && maxGlyphX >= minGlyphX) {
+      for (let y = minGlyphY; y <= maxGlyphY; y++) {
+        let currentRun = 0;
+        for (let x = minGlyphX; x <= maxGlyphX; x++) {
+          const i = (y * cropW + x) * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const dr = r - medBgR;
+          const dg = g - medBgG;
+          const db = b - medBgB;
+          const isDark = (dr * dr + dg * dg + db * db) >= 1225; // 35^2
+          if (isDark) {
+            currentRun++;
+          } else {
+            if (currentRun > 0) {
+              totalRunLength += currentRun;
+              runCount++;
+              currentRun = 0;
+            }
+          }
+        }
+        if (currentRun > 0) {
+          totalRunLength += currentRun;
+          runCount++;
+        }
+      }
+    }
+
+    // Normalized dark ratio by actual glyph bounding envelope (not whole padding box)
+    const glyphW = Math.max(1, maxGlyphX - minGlyphX + 1);
+    const glyphH = Math.max(1, maxGlyphY - minGlyphY + 1);
+    const glyphArea = glyphW * glyphH;
+    const normalizedDarkRatio = (darkPixelCount > 0 && glyphArea > 0) ? darkPixelCount / glyphArea : 0;
+    const avgStrokeWidth = runCount > 0 ? totalRunLength / runCount : 1;
+    const strokeRatio = avgStrokeWidth / glyphH;
+
+    // Bold rule: Default to regular in ambiguous cases.
+    // Bold requires sufficient glyph dark ratio AND substantial stroke thickness.
+    const bold = darkPixelCount > 15 && (
+      (normalizedDarkRatio > 0.18 && strokeRatio > 0.13) ||
+      (avgStrokeWidth >= 3.2 && strokeRatio > 0.12) ||
+      normalizedDarkRatio > 0.32
+    );
+
+    // 4. Monospace Courier detection:
+    // Word character pitch variance is the PRIMARY signal.
+    // Keyword regex is only supporting.
+    let isMonospace = false;
+    if (words.length >= 2 && cleanText.length >= 6) {
+      const charWidths = words.map(w => w.bbox.width / Math.max(1, w.text.length));
+      const avgCharW = charWidths.reduce((a, b) => a + b, 0) / charWidths.length;
+      const variance = charWidths.reduce((acc, val) => acc + Math.pow(val - avgCharW, 2), 0) / charWidths.length;
+      if (variance < 2.0 && avgCharW > 4.0) {
+        isMonospace = true;
+      }
+    }
+
+    if (!isMonospace && isTypewriterPattern) {
+      // If keyword matched, verify it doesn't have extreme proportional variance
+      if (words.length >= 2) {
+        const charWidths = words.map(w => w.bbox.width / Math.max(1, w.text.length));
+        const avgCharW = charWidths.reduce((a, b) => a + b, 0) / charWidths.length;
+        const variance = charWidths.reduce((acc, val) => acc + Math.pow(val - avgCharW, 2), 0) / charWidths.length;
+        if (variance < 4.5) {
+          isMonospace = true;
+        }
+      } else {
+        isMonospace = true;
+      }
+    }
+
+    let fontCategory: "sans" | "serif" | "courier" = "sans";
+    if (isMonospace) {
+      fontCategory = "courier";
+    } else if (typeof document !== "undefined" && typeof document.createElement === "function") {
+      try {
+        const mCanvas = document.createElement("canvas");
+        const mCtx = mCanvas.getContext("2d");
+        if (mCtx) {
+          const testSize = 20;
+          mCtx.font = `${bold ? "bold " : ""}${testSize}px "Liberation Sans", Helvetica, Arial, sans-serif`;
+          const sansW = mCtx.measureText(cleanText).width;
+          mCtx.font = `${bold ? "bold " : ""}${testSize}px "Lora", Georgia, serif`;
+          const serifW = mCtx.measureText(cleanText).width;
+          mCtx.font = `${bold ? "bold " : ""}${testSize}px "Courier New", Courier, monospace`;
+          const courierW = mCtx.measureText(cleanText).width;
+
+          const targetRatio = bbox.width / Math.max(1, bbox.height);
+          const sansRatio = sansW / (testSize * 1.25);
+          const serifRatio = serifW / (testSize * 1.25);
+          const courierRatio = courierW / (testSize * 1.25);
+
+          const diffSans = Math.abs(sansRatio - targetRatio);
+          const diffSerif = Math.abs(serifRatio - targetRatio);
+          const diffCourier = Math.abs(courierRatio - targetRatio);
+
+          if (diffCourier < diffSans && diffCourier < diffSerif) {
+            fontCategory = "courier";
+          } else if (diffSerif < diffSans) {
+            fontCategory = "serif";
+          } else {
+            fontCategory = "sans";
+          }
+        }
+      } catch {}
+    }
+
+    const estimatedSize = fitFontSizeToBox(
+      cleanText,
+      bbox.width,
+      bbox.height,
+      fontCategory === "courier" ? "'Courier New', Courier, monospace" : fontCategory === "serif" ? "Lora, Georgia, serif" : "sans-serif",
+      bold
+    );
+
+    return {
+      fontCategory,
+      bold,
+      italic: false,
+      textColor,
+      backgroundColor,
+      cropDataUrl,
+      estimatedSize
+    };
+  } catch (err) {
+    console.warn("analyzeCropStyle error:", err);
+    return fallback;
+  }
+}
+
+/**
+ * Creates an isolated transparent PNG crop for a specific bounding box from the raw page canvas.
+ * Background pixels are sampled from the perimeter and made transparent in the PNG alpha channel.
+ */
+export function createTransparentCrop(
+  canvas: HTMLCanvasElement,
+  bbox: { x: number; y: number; width: number; height: number },
+  pad = 2
+): { cropDataUrl: string; backgroundColor: string } {
+  const est = analyzeCropStyle(canvas, bbox, "", [], pad);
+  return { cropDataUrl: est.cropDataUrl, backgroundColor: est.backgroundColor };
+}
+
+/**
  * Recognizes text from a canvas using real local Tesseract.js engine
  */
 export async function performOcrOnCanvas(
@@ -155,7 +547,11 @@ export async function performOcrOnCanvas(
   }
 
   const worker = await getOcrWorker(languages, onProgress);
-  const result = await worker.recognize(processedCanvas, {}, { blocks: true });
+  let imageInput: any = processedCanvas;
+  if (typeof (processedCanvas as any).toBuffer === "function") {
+    imageInput = (processedCanvas as any).toBuffer("image/png");
+  }
+  const result = await worker.recognize(imageInput, {}, { blocks: true });
   const data = result.data as any;
 
   const lines: OcrLine[] = [];
@@ -192,16 +588,66 @@ export async function performOcrOnCanvas(
 
       if (lineWords.length > 0) {
         const lineText = isTur ? postProcessTurkishOcr(l.text.trim()) : l.text.trim();
+        const lineBbox = {
+          x: Math.round(l.bbox.x0),
+          y: Math.round(l.bbox.y0),
+          width: Math.round(l.bbox.x1 - l.bbox.x0),
+          height: Math.round(l.bbox.y1 - l.bbox.y0)
+        };
+        // Analyze style and extract crop from the unbinarized source canvas for 100% color/style fidelity
+        const style = analyzeCropStyle(canvas, lineBbox, lineText, lineWords);
+
+        // Segment-level decomposition with separate transparent crops per segment
+        const segments: OcrSegment[] = [];
+        let curWords: OcrWord[] = [lineWords[0]];
+        for (let wi = 1; wi < lineWords.length; wi++) {
+          const prev = lineWords[wi - 1];
+          const curr = lineWords[wi];
+          const gap = curr.bbox.x - (prev.bbox.x + prev.bbox.width);
+          if (gap > 35) {
+            const minX = curWords[0].bbox.x;
+            const minY = Math.min(...curWords.map(w => w.bbox.y));
+            const maxX = curWords[curWords.length - 1].bbox.x + curWords[curWords.length - 1].bbox.width;
+            const maxY = Math.max(...curWords.map(w => w.bbox.y + w.bbox.height));
+            const segBbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+            const segCrop = createTransparentCrop(canvas, segBbox);
+            const segText = curWords.map(w => w.text).join(" ");
+            const segStyle = analyzeCropStyle(canvas, segBbox, segText, curWords);
+            segments.push({
+              text: segText,
+              bbox: segBbox,
+              cropDataUrl: segCrop.cropDataUrl,
+              style: { ...segStyle, backgroundColor: segCrop.backgroundColor }
+            });
+            curWords = [curr];
+          } else {
+            curWords.push(curr);
+          }
+        }
+        if (curWords.length > 0) {
+          const minX = curWords[0].bbox.x;
+          const minY = Math.min(...curWords.map(w => w.bbox.y));
+          const maxX = curWords[curWords.length - 1].bbox.x + curWords[curWords.length - 1].bbox.width;
+          const maxY = Math.max(...curWords.map(w => w.bbox.y + w.bbox.height));
+          const segBbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+          const segCrop = createTransparentCrop(canvas, segBbox);
+          const segText = curWords.map(w => w.text).join(" ");
+          const segStyle = analyzeCropStyle(canvas, segBbox, segText, curWords);
+          segments.push({
+            text: segText,
+            bbox: segBbox,
+            cropDataUrl: segCrop.cropDataUrl,
+            style: { ...segStyle, backgroundColor: segCrop.backgroundColor }
+          });
+        }
+
         lines.push({
           text: lineText,
-          bbox: {
-            x: Math.round(l.bbox.x0),
-            y: Math.round(l.bbox.y0),
-            width: Math.round(l.bbox.x1 - l.bbox.x0),
-            height: Math.round(l.bbox.y1 - l.bbox.y0)
-          },
+          bbox: lineBbox,
           words: lineWords,
-          confidence: Math.round(l.confidence || 0)
+          confidence: Math.round(l.confidence || 0),
+          style,
+          segments
         });
       }
     }

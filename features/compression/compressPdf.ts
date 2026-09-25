@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFNumber, PDFRawStream } from "@cantoo/pdf-lib";
+import { PDFDocument, PDFName, PDFNumber, PDFRawStream } from "pdf-lib";
 
 export type CompressionPreset = "light" | "balanced" | "strong" | "custom";
 

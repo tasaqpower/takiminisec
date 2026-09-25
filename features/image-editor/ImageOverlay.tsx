@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import type { PdfImageItem, PdfDetectedImage, PdfImageEdit } from "./imageTypes";
+import { computeResizedBounds, transformDeltaForRotation } from "@/lib/resize-geometry";
 
 interface ImageOverlayProps {
   detectedImages?: PdfDetectedImage[];
@@ -15,6 +16,9 @@ interface ImageOverlayProps {
   onDragStateChange?: (isDragging: boolean) => void;
   pageWidth: number;
   pageHeight: number;
+  baseWidth?: number;
+  baseHeight?: number;
+  rotation?: number;
   zoom?: number;
   tool?: string;
 }
@@ -33,6 +37,9 @@ export function ImageOverlay({
   onDragStateChange,
   pageWidth,
   pageHeight,
+  baseWidth,
+  baseHeight,
+  rotation = 0,
   zoom = 1,
   tool = "select"
 }: ImageOverlayProps) {
@@ -68,16 +75,21 @@ export function ImageOverlay({
     pointerId?: number;
   } | null>(null);
 
+  const [isDragging, setIsDraggingState] = useState(false);
   const isDraggingRef = useRef(false);
   const setIsDragging = (dragging: boolean) => {
     if (isDraggingRef.current !== dragging) {
       isDraggingRef.current = dragging;
-      if (typeof window !== "undefined") {
-        (window as any).__isDraggingImage = dragging;
-      }
+      setIsDraggingState(dragging);
       onDragStateChange?.(dragging);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+      (window as any).__isDraggingImage = isDragging;
+    }
+  }, [isDragging]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -86,13 +98,16 @@ export function ImageOverlay({
 
       e.preventDefault();
       const z = zoom > 0 ? zoom : 1;
-      const dx = (e.clientX - state.startX) / z;
-      const dy = (e.clientY - state.startY) / z;
+      const rawDx = (e.clientX - state.startX) / z;
+      const rawDy = (e.clientY - state.startY) / z;
+      const { dx, dy } = transformDeltaForRotation(rawDx, rawDy, rotation);
       const el = imageElementRefs.current.get(selectedImage.id);
+      const effectiveBaseW = baseWidth || pageWidth;
+      const effectiveBaseH = baseHeight || pageHeight;
 
       if (state.type === "move") {
-        const nextX = Math.max(0, Math.min(pageWidth - selectedImage.w, state.initialX + dx));
-        const nextY = Math.max(0, Math.min(pageHeight - selectedImage.h, state.initialY + dy));
+        const nextX = Math.max(0, Math.min(effectiveBaseW - selectedImage.w, state.initialX + dx));
+        const nextY = Math.max(0, Math.min(effectiveBaseH - selectedImage.h, state.initialY + dy));
         pendingUpdateRef.current = { x: Math.round(nextX), y: Math.round(nextY) };
 
         if (!rafIdRef.current) {
@@ -106,35 +121,27 @@ export function ImageOverlay({
           });
         }
       } else if (state.type === "resize" && state.corner) {
-        const { initialX, initialY, initialW, initialH } = state;
-        let newX = initialX;
-        let newY = initialY;
-        let newW = initialW;
-        let newH = initialH;
-
-        if (state.corner === "se") {
-          newW = Math.max(20, initialW + dx);
-          newH = Math.max(20, initialH + dy);
-        } else if (state.corner === "sw") {
-          newW = Math.max(20, initialW - dx);
-          newX = initialX + (initialW - newW);
-          newH = Math.max(20, initialH + dy);
-        } else if (state.corner === "ne") {
-          newW = Math.max(20, initialW + dx);
-          newH = Math.max(20, initialH - dy);
-          newY = initialY + (initialH - newH);
-        } else if (state.corner === "nw") {
-          newW = Math.max(20, initialW - dx);
-          newX = initialX + (initialW - newW);
-          newH = Math.max(20, initialH - dy);
-          newY = initialY + (initialH - newH);
-        }
+        const resized = computeResizedBounds({
+          kind: "image",
+          corner: state.corner,
+          startRect: {
+            x: state.initialX,
+            y: state.initialY,
+            w: state.initialW,
+            h: state.initialH
+          },
+          dx,
+          dy,
+          pageWidth: effectiveBaseW,
+          pageHeight: effectiveBaseH,
+          minSize: 12
+        });
 
         pendingUpdateRef.current = {
-          x: Math.round(newX),
-          y: Math.round(newY),
-          w: Math.round(newW),
-          h: Math.round(newH)
+          x: Math.round(resized.x),
+          y: Math.round(resized.y),
+          w: Math.round(resized.w),
+          h: Math.round(resized.h)
         };
 
         if (!rafIdRef.current) {
@@ -168,35 +175,23 @@ export function ImageOverlay({
 
     const handlePointerUp = (e: PointerEvent) => {
       const state = dragStateRef.current;
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
+      if (!state) return;
+
+      if (state.capturedTarget && typeof state.capturedTarget.releasePointerCapture === "function" && state.pointerId !== undefined) {
+        try {
+          state.capturedTarget.releasePointerCapture(state.pointerId);
+        } catch {}
       }
-      if (state && selectedImage) {
-        if (state.capturedTarget && typeof state.pointerId === "number") {
-          try {
-            state.capturedTarget.releasePointerCapture(state.pointerId);
-          } catch {}
-        }
-        const el = imageElementRefs.current.get(selectedImage.id);
-        if (pendingUpdateRef.current) {
-          const updates = { ...pendingUpdateRef.current, isModified: true };
-          if (el) {
-            el.style.transform = `rotate(${updates.rotation ?? selectedImage.rotation ?? 0}deg)`;
-            if (typeof updates.x === "number") el.style.left = `${updates.x}px`;
-            if (typeof updates.y === "number") el.style.top = `${updates.y}px`;
-            if (typeof updates.w === "number") el.style.width = `${updates.w}px`;
-            if (typeof updates.h === "number") el.style.height = `${updates.h}px`;
-          }
-          onUpdate(selectedImage.id, updates);
-          onCommit?.(selectedImage.id);
-        } else if (el) {
-          el.style.transform = `rotate(${selectedImage.rotation || 0}deg)`;
-        }
-      }
-      pendingUpdateRef.current = null;
+
       dragStateRef.current = null;
       setIsDragging(false);
+
+      if (pendingUpdateRef.current && selectedImage) {
+        const update = { ...pendingUpdateRef.current };
+        pendingUpdateRef.current = null;
+        onUpdate(selectedImage.id, update);
+        onCommit?.(selectedImage.id);
+      }
     };
 
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
@@ -212,7 +207,19 @@ export function ImageOverlay({
         rafIdRef.current = null;
       }
     };
-  }, [selectedImage, pageWidth, pageHeight, zoom, onUpdate, onCommit]);
+  }, [selectedImage, pageWidth, pageHeight, baseWidth, baseHeight, rotation, zoom, onUpdate, onCommit]);
+
+  const rot = (((rotation || 0) % 360) + 360) % 360;
+  const effectiveBaseW = baseWidth || pageWidth;
+  const effectiveBaseH = baseHeight || pageHeight;
+  const rotationTransform =
+    rot === 90
+      ? `translate(${effectiveBaseH}px, 0px) rotate(90deg)`
+      : rot === 180
+      ? `translate(${effectiveBaseW}px, ${effectiveBaseH}px) rotate(180deg)`
+      : rot === 270
+      ? `translate(0px, ${effectiveBaseW}px) rotate(270deg)`
+      : undefined;
 
   return (
     <div
@@ -226,11 +233,21 @@ export function ImageOverlay({
         userSelect: "none"
       }}
     >
+      <div
+        style={{
+          width: `${effectiveBaseW}px`,
+          height: `${effectiveBaseH}px`,
+          transform: rotationTransform,
+          transformOrigin: "0 0",
+          position: "relative",
+          pointerEvents: "none"
+        }}
+      >
       {/* 1. Transparent hit-boxes for detected images that have not been modified/transitioned */}
       {activeDetected.map((det) => {
         const isNonMovable = det.isMovable === false;
         // Background scans or full-page images should never intercept clicks or block text selection
-        const isBackgroundScan = det.w >= pageWidth * 0.85 && det.h >= pageHeight * 0.85;
+        const isBackgroundScan = det.w >= effectiveBaseW * 0.85 && det.h >= effectiveBaseH * 0.85;
         const canInteract = tool === "select" && !isNonMovable && !isBackgroundScan;
 
         return (
@@ -350,16 +367,18 @@ export function ImageOverlay({
             {isSelected && !isNonMovable && (
               <>
                 {(["nw", "ne", "se", "sw"] as const).map((corner) => {
+                  const hitSize = 18;
+                  const dotSize = 8;
                   const getPos = () => {
                     switch (corner) {
                       case "nw":
-                        return { top: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2, cursor: "nwse-resize" };
+                        return { top: -hitSize / 2, left: -hitSize / 2, cursor: "nwse-resize" };
                       case "ne":
-                        return { top: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2, cursor: "nesw-resize" };
+                        return { top: -hitSize / 2, right: -hitSize / 2, cursor: "nesw-resize" };
                       case "se":
-                        return { bottom: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2, cursor: "nwse-resize" };
+                        return { bottom: -hitSize / 2, right: -hitSize / 2, cursor: "nwse-resize" };
                       case "sw":
-                        return { bottom: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2, cursor: "nesw-resize" };
+                        return { bottom: -hitSize / 2, left: -hitSize / 2, cursor: "nesw-resize" };
                     }
                   };
                   const pos = getPos();
@@ -370,13 +389,17 @@ export function ImageOverlay({
                       data-corner={corner}
                       style={{
                         position: "absolute",
-                        width: HANDLE_SIZE,
-                        height: HANDLE_SIZE,
+                        width: hitSize,
+                        height: hitSize,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         touchAction: "none",
                         userSelect: "none",
+                        pointerEvents: "auto",
+                        zIndex: 20,
                         ...pos
                       }}
-                      className="bg-white border-2 border-indigo-600 rounded-sm shadow-sm"
                       onPointerDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -401,7 +424,19 @@ export function ImageOverlay({
                         };
                         setIsDragging(true);
                       }}
-                    />
+                    >
+                      <div
+                        style={{
+                          width: dotSize,
+                          height: dotSize,
+                          borderRadius: "50%",
+                          backgroundColor: "#8b5cf6",
+                          border: "1.5px solid #ffffff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                          pointerEvents: "none"
+                        }}
+                      />
+                    </div>
                   );
                 })}
               </>
@@ -409,6 +444,7 @@ export function ImageOverlay({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

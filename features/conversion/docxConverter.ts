@@ -362,7 +362,7 @@ export async function docxToPdf(
       docxBytes.byteOffset,
       docxBytes.byteOffset + docxBytes.byteLength
     );
-    const res = await mammoth.convertToHtml({ arrayBuffer });
+    const res = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer as any });
     mammothHtml = res.value;
   }
 
@@ -405,8 +405,8 @@ export async function docxToPdf(
     // Determine block styles
     let fontSize = 11;
     let isHeading = false;
-    let isBullet = tag === "li";
-    let isTableRow = tag === "tr";
+    const isBullet = tag === "li";
+    const isTableRow = tag === "tr";
     let activeFont = fontRegular;
     let textColor = rgb(0.12, 0.15, 0.2);
 

@@ -107,6 +107,13 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // Migration: ensure legacy external AI key is safely removed from browser storage
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("forma_gemini_api_key");
+      }
+    } catch {}
+
     const handleKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -153,7 +160,7 @@ export default function Home() {
         const baseName = files[0].name.replace(/\.[^/.]+$/, '');
         const { docxToPdf } = await import("@/features/conversion/docxConverter");
         const convertedBytes = await docxToPdf(new Uint8Array(buf), { title: baseName });
-        const pdfFile = new File([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
+        const pdfFile = new (File as any)([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
         files = [pdfFile];
         toast.success("Word belgesi sayfalanmış vektör PDF'e dönüştürüldü!");
       }
@@ -162,7 +169,7 @@ export default function Home() {
         const baseName = files[0].name.replace(/\.[^/.]+$/, '');
         const { excelToPdf } = await import("@/features/conversion/excelToPdf");
         const convertedBytes = await excelToPdf(new Uint8Array(buf), { title: baseName, orientation: "auto" });
-        const pdfFile = new File([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
+        const pdfFile = new (File as any)([convertedBytes], `${baseName}.pdf`, { type: "application/pdf" });
         files = [pdfFile];
         toast.success("Excel tablosu sayfalanmış vektör PDF'e dönüştürüldü!");
       }
@@ -181,7 +188,7 @@ export default function Home() {
           margin: 15,
         });
         const baseName = files[0].name.replace(/\.[^/.]+$/, "");
-        const pdfFile = new File([convertedBytes as unknown as BlobPart], `${baseName}.pdf`, { type: "application/pdf" });
+        const pdfFile = new (File as any)([convertedBytes as unknown as BlobPart], `${baseName}.pdf`, { type: "application/pdf" });
         files = [pdfFile];
         toast.success("Görsel sayfalanmış PDF belgesine dönüştürüldü!");
       }
@@ -454,7 +461,7 @@ export default function Home() {
                               Yeni
                             </span>
                           )}
-                          {"popular" in t && t.popular && (
+                          {"popular" in t && Boolean((t as any).popular) && (
                             <span style={{ fontSize: "10px", fontWeight: 700, background: "#fef3c7", color: "#b45309", padding: "2px 6px", borderRadius: "6px" }}>
                               Popüler
                             </span>

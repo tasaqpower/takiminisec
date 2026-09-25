@@ -277,9 +277,9 @@ export async function excelToPdf(
 
   const theme = options.theme || 'slate';
   let headerBg = rgb(0.09, 0.13, 0.20);
-  let headerText = rgb(1, 1, 1);
+  const headerText = rgb(1, 1, 1);
   let zebraBg = rgb(0.97, 0.98, 0.99);
-  let borderColor = rgb(0.88, 0.91, 0.94);
+  const borderColor = rgb(0.88, 0.91, 0.94);
   let primaryAccent = rgb(0.14, 0.38, 0.92);
 
   if (theme === 'corporate') {

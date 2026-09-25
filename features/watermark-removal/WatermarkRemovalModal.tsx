@@ -19,10 +19,7 @@ import {
   Image as ImageIcon,
   Type,
   Layers,
-  Bot,
   Zap,
-  Key,
-  ExternalLink,
   Target,
   RefreshCw,
   Paintbrush,
@@ -44,13 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { detectWatermarks } from "./watermarkDetector";
-import { removeWatermarks } from "./watermarkRemover";
-import {
-  renderPdfPageToDataUrl,
-  detectWatermarksWithGemini,
-  convertAiDetectionToCandidate,
-  type AiDetectedWatermark
-} from "./aiWatermarkService";
+import { removeWatermarks, buildSafeAutoCleanCandidateIds } from "./watermarkRemover";
 import {
   detectVisualWatermarks,
   renderPdfPageToCanvas,
@@ -118,11 +109,11 @@ export function WatermarkRemovalModal({
   // Before / After live comparison peek
   const [isPeekingOriginal, setIsPeekingOriginal] = useState<boolean>(false);
 
-  // Gemini Vision AI
-  const [showAiConfig, setShowAiConfig] = useState<boolean>(false);
-  const [apiKey, setApiKey] = useState("");
-  const [isAiScanning, setIsAiScanning] = useState(false);
-  const [aiDetectedList, setAiDetectedList] = useState<AiDetectedWatermark[]>([]);
+  // Secondary confirmation when selecting all candidates if image/logo candidates exist
+  const [showImageRiskModal, setShowImageRiskModal] = useState<boolean>(false);
+  const [showManualLogoModal, setShowManualLogoModal] = useState<boolean>(false);
+  const confirmedLogoRemovalRef = useRef<boolean>(false);
+
 
   // Canvas & Preview Viewport
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -131,6 +122,7 @@ export function WatermarkRemovalModal({
   const [previewPageSize, setPreviewPageSize] = useState<{ width: number; height: number; scale: number } | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [canvasDims, setCanvasDims] = useState<{ width: number; height: number }>({ width: 800, height: 1130 });
 
   // Vector Text on active page (for 1-click Target Picker)
   const [pageTextItems, setPageTextItems] = useState<EditableText[]>([]);
@@ -163,52 +155,13 @@ export function WatermarkRemovalModal({
     }
   }, [open, currentPage]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedKey = localStorage.getItem("forma_gemini_api_key") || "";
-      setApiKey(savedKey);
-    }
-  }, []);
 
-  const handleSaveApiKey = (key: string) => {
-    const trimmed = key.trim();
-    setApiKey(trimmed);
-    if (typeof window !== "undefined") {
-      if (trimmed) {
-        localStorage.setItem("forma_gemini_api_key", trimmed);
-        toast.success("Gemini API Anahtarı kaydedildi!");
-      } else {
-        localStorage.removeItem("forma_gemini_api_key");
-        toast.info("Gemini API Anahtarı kaldırıldı.");
-      }
-    }
-  };
-
-  // Keyboard Shortcuts: Ctrl+Z (Undo), 1/2/3 (Tools), Esc
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        handleUndo();
-      } else if (e.key === "1") {
-        setActiveTool("pick");
-      } else if (e.key === "2") {
-        setActiveTool("brush");
-      } else if (e.key === "3") {
-        setActiveTool("box");
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, canUndo, manualBoxes]);
 
   // Run auto-detection when modal opens or activePage changes
   useEffect(() => {
     if (!open || !pdfBytes) {
       setCandidates([]);
       setSelectedIds(new Set());
-      setAiDetectedList([]);
       setManualBoxes([]);
       setHasBrushStrokes(false);
       setSelectedTextElement(null);
@@ -241,12 +194,24 @@ export function WatermarkRemovalModal({
         if (!active) return;
         setCandidates(finalCandidates);
 
-        // Pre-select high confidence candidates
-        const highConf = new Set(finalCandidates.filter((c) => c.confidence >= 55).map((c) => c.id));
+        // Pre-select high confidence candidates:
+        // STRICT SAFETY (V6): type === "image" candidates are NEVER auto-selected by default!
+        // Explicit user action is required to select images/logos for deletion.
+        const highConf = new Set(
+          finalCandidates
+            .filter((c) => c.type !== "image" && !c.isLogoOrHeader && c.confidence >= 55)
+            .map((c) => c.id)
+        );
         if (highConf.size > 0) {
           setSelectedIds(highConf);
-        } else if (finalCandidates.length > 0) {
-          setSelectedIds(new Set([finalCandidates[0].id]));
+        } else {
+          // If only image candidates exist, leave selectedIds empty
+          const firstNonImage = finalCandidates.find((c) => c.type !== "image" && !c.isLogoOrHeader);
+          if (firstNonImage) {
+            setSelectedIds(new Set([firstNonImage.id]));
+          } else {
+            setSelectedIds(new Set());
+          }
         }
       })
       .catch((err) => {
@@ -286,6 +251,7 @@ export function WatermarkRemovalModal({
           if (ctx) {
             ctx.drawImage(canvas, 0, 0);
           }
+          setCanvasDims({ width: canvas.width, height: canvas.height });
         }
 
         // Setup brush overlay canvas with matching dimensions
@@ -388,6 +354,25 @@ export function WatermarkRemovalModal({
       toast.info("Kutu geri alındı.");
     }
   }, [activeTool, manualBoxes]);
+
+  // Keyboard Shortcuts: Ctrl+Z (Undo), 1/2/3 (Tools), Esc
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        handleUndo();
+      } else if (e.key === "1") {
+        setActiveTool("pick");
+      } else if (e.key === "2") {
+        setActiveTool("brush");
+      } else if (e.key === "3") {
+        setActiveTool("box");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, handleUndo]);
 
   // Pointer & Touch Events on Brush Canvas
   const getCanvasCoords = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
@@ -733,24 +718,7 @@ export function WatermarkRemovalModal({
     try {
       let activeCandidates: WatermarkCandidate[] = [...candidates];
 
-      // 1. If Gemini API key is configured, use Gemini Vision first
-      if (apiKey.trim()) {
-        try {
-          toast.loading("Yapay zeka görseli analiz ediyor (Gemini Vision)...", { id: toastId });
-          const { dataUrl, width, height } = await renderPdfPageToDataUrl(pdfBytes, activePage - 1);
-          const aiResults = await detectWatermarksWithGemini(dataUrl, apiKey.trim());
-          if (aiResults && aiResults.length > 0) {
-            const aiCandidates = aiResults.map((item, idx) =>
-              convertAiDetectionToCandidate(item, activePage - 1, width, height, idx)
-            );
-            activeCandidates = [...aiCandidates, ...activeCandidates];
-          }
-        } catch (aiErr: any) {
-          console.warn("Gemini Vision AI error during auto clean:", aiErr);
-        }
-      }
-
-      // 2. If no candidates, run local detector
+      // 1. If no candidates, run local detector
       if (activeCandidates.length === 0) {
         toast.loading("Belge katmanları taranıyor (renk, açı, desen)...", { id: toastId });
         activeCandidates = await detectWatermarks(pdfBytes);
@@ -771,61 +739,32 @@ export function WatermarkRemovalModal({
 
       const eff = getEffectiveFillColor();
 
-      // 4. If candidates found, remove them CERRAHİ olarak (zero daksil)
-      if (activeCandidates.length > 0) {
-        toast.loading(`${activeCandidates.length} filigran cerrahi olarak temizleniyor...`, { id: toastId });
+      // 4. Filter candidates strictly through safe auto-clean rules (V7: zero auto-deletion for logos/images)
+      const safeCandidateIds = buildSafeAutoCleanCandidateIds(activeCandidates);
+      if (safeCandidateIds.length > 0) {
+        const safeSet = new Set(safeCandidateIds);
+        const candidatesToClean = activeCandidates.filter((c) => safeSet.has(c.id));
+        toast.loading(`${safeCandidateIds.length} güvenli filigran cerrahi olarak temizleniyor...`, { id: toastId });
         const options: WatermarkRemovalOptions = {
-          candidateIds: activeCandidates.map((c) => c.id),
+          candidateIds: safeCandidateIds,
           pageScope,
           customPages: pageScope === "custom" ? parseCustomPages(customPagesStr, totalPages) : undefined,
           currentPage: activePage - 1,
           fillColor: { r: eff.r, g: eff.g, b: eff.b }
         };
 
-        const result = await removeWatermarks(pdfBytes, activeCandidates, options);
+        const result = await removeWatermarks(pdfBytes, candidatesToClean, options);
         if (result.totalRemoved > 0) {
           onApplyRemoval(result.pdfBytes, result.totalRemoved);
           onOpenChange(false);
-          toast.success(`Filigran başarıyla kaldırıldı! (${result.totalRemoved} öğe temizlendi, çevre yazılar korundu)`, { id: toastId });
+          toast.success(`Filigran başarıyla kaldırıldı! (${result.totalRemoved} öğe temizlendi, logolar ve çevre yazılar korundu)`, { id: toastId });
           return;
         }
       }
 
-      // 5. If still 0 candidates, try removing known high-frequency watermark keywords
-      toast.loading("Ortak taslak ve filigran kalıpları kontrol ediliyor...", { id: toastId });
-      let removedAny = false;
-      let workingBytes = pdfBytes;
-      let totalRem = 0;
-
-      for (const kw of QUICK_KEYWORDS) {
-        try {
-          const res = await removeWatermarks(workingBytes, [], {
-            candidateIds: [],
-            customText: kw,
-            customCaseSensitive: false,
-            pageScope,
-            customPages: pageScope === "custom" ? parseCustomPages(customPagesStr, totalPages) : undefined,
-            currentPage: activePage - 1,
-            fillColor: { r: eff.r, g: eff.g, b: eff.b }
-          });
-          if (res.totalRemoved > 0) {
-            workingBytes = res.pdfBytes;
-            totalRem += res.totalRemoved;
-            removedAny = true;
-          }
-        } catch {}
-      }
-
-      if (removedAny && totalRem > 0) {
-        onApplyRemoval(workingBytes, totalRem);
-        onOpenChange(false);
-        toast.success(`Filigran başarıyla kaldırıldı! (${totalRem} öğe temizlendi, çevre yazılar korundu)`, { id: toastId });
-        return;
-      }
-
-      // If nothing could be found automatically, notify user
+      // If no safe text candidates found automatically, inform the user honestly without blind deletion
       toast.dismiss(toastId);
-      toast.info("Otomatik bulunamadı. Lütfen sayfada filigrana tıklayın veya sihirli fırça ile boyayın.");
+      toast.info("Otomatik temizlenebilecek güvenli metin filigranı bulunamadı. Görseller, logolar veya özel alanlar için lütfen adayı listeden manuel seçin veya fırça/kutu ile işaretleyin.");
     } catch (err: any) {
       console.error("Auto clean failed:", err);
       toast.error("Otomatik temizleme sırasında bir hata oluştu.", { id: toastId });
@@ -834,53 +773,9 @@ export function WatermarkRemovalModal({
     }
   };
 
-  // Run AI scan specifically on active page
-  const handleRunAiScan = async () => {
-    if (!pdfBytes) return;
-    if (!apiKey.trim()) {
-      toast.error("Lütfen önce bir Google Gemini API anahtarı girin.");
-      return;
-    }
-
-    setIsAiScanning(true);
-    const toastId = toast.loading("Mevcut sayfa Gemini Vision yapay zekasına gönderiliyor...");
-
-    try {
-      const { dataUrl, width, height } = await renderPdfPageToDataUrl(pdfBytes, activePage - 1);
-      const aiResults = await detectWatermarksWithGemini(dataUrl, apiKey.trim());
-      setAiDetectedList(aiResults);
-
-      if (aiResults.length === 0) {
-        toast.info("Yapay zeka bu sayfada belirgin bir filigran tespit edemedi.", { id: toastId });
-        return;
-      }
-
-      const newAiCandidates = aiResults.map((item, idx) =>
-        convertAiDetectionToCandidate(item, activePage - 1, width, height, idx)
-      );
-
-      setCandidates((prev) => {
-        const nonAi = prev.filter((c) => !c.id.startsWith("wm-ai-"));
-        return [...newAiCandidates, ...nonAi];
-      });
-
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        newAiCandidates.forEach((c) => next.add(c.id));
-        return next;
-      });
-
-      toast.success(`${aiResults.length} adet filigran tespit edildi!`, { id: toastId });
-    } catch (err: any) {
-      console.error("AI detection error:", err);
-      toast.error("Gemini Vision analizi başarısız oldu: " + (err.message || ""), { id: toastId });
-    } finally {
-      setIsAiScanning(false);
-    }
-  };
 
   // Comprehensive Main Apply Removal
-  const handleApply = async () => {
+  const executeApply = async (allowLogoRemoval = false) => {
     if (!pdfBytes) return;
 
     const hasCustomText = customText.trim().length > 0;
@@ -928,7 +823,8 @@ export function WatermarkRemovalModal({
         currentPage: activePage - 1,
         fillColor: { r: eff.r, g: eff.g, b: eff.b },
         manualBoxes: pdfBoxes,
-        brushMaskDataUrl: brushMask
+        brushMaskDataUrl: brushMask,
+        allowLogoRemoval
       };
 
       const result = await removeWatermarks(pdfBytes, candidates, options);
@@ -936,9 +832,9 @@ export function WatermarkRemovalModal({
       if (result.totalRemoved > 0) {
         onApplyRemoval(result.pdfBytes, result.totalRemoved);
         onOpenChange(false);
-        toast.success(`Filigran başarıyla kaldırıldı! (${result.totalRemoved} öğe temizlendi, çevre yazılar korundu)`, { id: toastId });
+        toast.success(`Seçtiğiniz filigran adayları kaldırıldı (${result.totalRemoved} öğe). Önemli belgelerde sonucu kontrol ederek dışa aktarın.`, { id: toastId });
       } else {
-        toast.warning("Seçilen filigranlar bulunamadı veya silinemedi.", { id: toastId });
+        toast.warning("Seçilen filigranlar bulunamadı veya silinemedi. Belge baytları değiştirilmedi.", { id: toastId });
       }
     } catch (err: any) {
       console.error("Removal failed:", err);
@@ -946,6 +842,21 @@ export function WatermarkRemovalModal({
     } finally {
       setIsApplying(false);
     }
+  };
+
+  const handleApply = async () => {
+    // V7.1: Check if any selected candidate is image or logo
+    const hasImageOrLogoSelected = Array.from(selectedIds).some((id) => {
+      const c = candidates.find((cand) => cand.id === id);
+      return c && (c.type === "image" || c.isLogoOrHeader === true);
+    });
+
+    if (hasImageOrLogoSelected && !confirmedLogoRemovalRef.current) {
+      setShowManualLogoModal(true);
+      return;
+    }
+
+    await executeApply(confirmedLogoRemovalRef.current);
   };
 
   const toggleCandidate = (id: string) => {
@@ -958,7 +869,24 @@ export function WatermarkRemovalModal({
   };
 
   const selectAll = () => {
+    const hasImageCandidates = candidates.some((c) => c.type === "image");
+    if (hasImageCandidates) {
+      setShowImageRiskModal(true);
+    } else {
+      setSelectedIds(new Set(candidates.map((c) => c.id)));
+    }
+  };
+
+  const confirmSelectAllWithImages = () => {
     setSelectedIds(new Set(candidates.map((c) => c.id)));
+    setShowImageRiskModal(false);
+    toast.warning("Görsel adayları seçildi. Kurumsal logonuzun silinmediğinden emin olmak için önizlemeyi kontrol edin.");
+  };
+
+  const selectOnlyTextCandidates = () => {
+    setSelectedIds(new Set(candidates.filter((c) => c.type !== "image").map((c) => c.id)));
+    setShowImageRiskModal(false);
+    toast.info("Yalnızca metin filigranları seçildi. Kurumsal görseller ve logolar korundu.");
   };
 
   const deselectAll = () => {
@@ -1002,11 +930,11 @@ export function WatermarkRemovalModal({
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-white tracking-tight">Kusursuz Filigran Temizleyici</span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">
-                  Sıfır Hasar · Cerrahi Silme
+                  Yerel Cerrahi Silme
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                Etraftaki sözleşme metinlerine, tablolara veya imzalara asla zarar vermeden yalnızca filigranı temizler.
+                Seçilen filigran adaylarını temizler. Önemli belgelerde sonucu kontrol ederek dışa aktarın.
               </p>
             </div>
           </div>
@@ -1263,11 +1191,11 @@ export function WatermarkRemovalModal({
               {/* Document Outer Scaled Wrapper (matches exact visual bounding box to prevent phantom scrollbars) */}
               <div
                 style={{
-                  width: previewCanvasRef.current && previewCanvasRef.current.width > 0
-                    ? `${previewCanvasRef.current.width * zoomLevel}px`
+                  width: canvasDims.width > 0
+                    ? `${canvasDims.width * zoomLevel}px`
                     : undefined,
-                  height: previewCanvasRef.current && previewCanvasRef.current.height > 0
-                    ? `${previewCanvasRef.current.height * zoomLevel}px`
+                  height: canvasDims.height > 0
+                    ? `${canvasDims.height * zoomLevel}px`
                     : undefined
                 }}
                 className="relative shrink-0 flex items-center justify-center m-auto"
@@ -1275,8 +1203,8 @@ export function WatermarkRemovalModal({
                 {/* Document Inner Canvas Wrapper (scaled from top-left) */}
                 <div
                   style={{
-                    width: previewCanvasRef.current?.width || 800,
-                    height: previewCanvasRef.current?.height || 1130,
+                    width: canvasDims.width || 800,
+                    height: canvasDims.height || 1130,
                     transform: `scale(${zoomLevel})`,
                     transformOrigin: "top left",
                     transition: "transform 0.12s ease-out"
@@ -1289,12 +1217,12 @@ export function WatermarkRemovalModal({
                 {/* 2. Detected Candidate Bounding Overlays */}
                 {!isPeekingOriginal &&
                   candidates.map((cand) => {
-                    if (!cand.imageBounds || !previewPageSize || !previewCanvasRef.current) return null;
-                    const scaleX = previewCanvasRef.current.width / previewPageSize.width;
-                    const scaleY = previewCanvasRef.current.height / previewPageSize.height;
+                    if (!cand.imageBounds || !previewPageSize) return null;
+                    const scaleX = canvasDims.width / previewPageSize.width;
+                    const scaleY = canvasDims.height / previewPageSize.height;
 
                     const bx = cand.imageBounds.x * scaleX;
-                    const by = previewCanvasRef.current.height - (cand.imageBounds.y + cand.imageBounds.h) * scaleY;
+                    const by = canvasDims.height - (cand.imageBounds.y + cand.imageBounds.h) * scaleY;
                     const bw = cand.imageBounds.w * scaleX;
                     const bh = cand.imageBounds.h * scaleY;
                     const isSelected = selectedIds.has(cand.id);
@@ -1343,16 +1271,16 @@ export function WatermarkRemovalModal({
                 />
 
                 {/* 4. Hover text highlight in "Pick" mode */}
-                {activeTool === "pick" && hoveredTextItem && previewPageSize && previewCanvasRef.current && (
+                {activeTool === "pick" && hoveredTextItem && previewPageSize && (
                   <div
                     style={{
                       position: "absolute",
-                      left: hoveredTextItem.x * (previewCanvasRef.current.width / previewPageSize.width),
+                      left: hoveredTextItem.x * (canvasDims.width / previewPageSize.width),
                       top:
-                        previewCanvasRef.current.height -
-                        (hoveredTextItem.y + hoveredTextItem.h) * (previewCanvasRef.current.height / previewPageSize.height),
-                      width: hoveredTextItem.w * (previewCanvasRef.current.width / previewPageSize.width),
-                      height: hoveredTextItem.h * (previewCanvasRef.current.height / previewPageSize.height)
+                        canvasDims.height -
+                        (hoveredTextItem.y + hoveredTextItem.h) * (canvasDims.height / previewPageSize.height),
+                      width: hoveredTextItem.w * (canvasDims.width / previewPageSize.width),
+                      height: hoveredTextItem.h * (canvasDims.height / previewPageSize.height)
                     }}
                     className="border-2 border-indigo-500 bg-indigo-500/30 pointer-events-none rounded-xs z-25 transition-all shadow-md"
                   >
@@ -1551,10 +1479,18 @@ export function WatermarkRemovalModal({
                               className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-800"
                             />
                             <div className="min-w-0">
-                              <div className="font-semibold text-xs text-slate-100 truncate font-mono">
-                                &ldquo;{cand.text}&rdquo;
+                              <div className="font-semibold text-xs text-slate-100 truncate font-mono flex items-center gap-1.5">
+                                {cand.type === "image" && (
+                                  <ImageIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                )}
+                                <span className="truncate">&ldquo;{cand.text}&rdquo;</span>
                               </div>
                               <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap">
+                                {cand.type === "image" && (
+                                  <span className="text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                    {cand.isLogoOrHeader ? "Logo / Antet" : "Görsel"}
+                                  </span>
+                                )}
                                 {cand.angle ? (
                                   <span className="text-indigo-400 font-medium">{cand.angle}° Çapraz</span>
                                 ) : null}
@@ -1707,49 +1643,6 @@ export function WatermarkRemovalModal({
                 )}
               </div>
 
-              {/* Collapsible Gemini Cloud AI Scan (Optional Advanced) */}
-              <div className="pt-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAiConfig(!showAiConfig)}
-                  className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer py-1"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Bot className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Gemini Vision (Bulut AI Taraması)</span>
-                  </span>
-                  <span className="text-slate-500">{showAiConfig ? "▲" : "▼"}</span>
-                </button>
-
-                {showAiConfig && (
-                  <div className="p-3 mt-2 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5 text-xs animate-in fade-in">
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="AIzaSy..."
-                        className="flex-1 text-xs p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveApiKey(apiKey)}
-                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold cursor-pointer border border-slate-700"
-                      >
-                        Kaydet
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRunAiScan}
-                      disabled={isAiScanning || !apiKey.trim()}
-                      className="w-full py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-40"
-                    >
-                      {isAiScanning ? "AI Taranıyor..." : "Mevcut Sayfayı Gemini ile Tara"}
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Panel Sticky Footer: Apply Actions */}
@@ -1793,6 +1686,109 @@ export function WatermarkRemovalModal({
             </div>
           </aside>
         </div>
+
+        {/* Secondary Risk Confirmation Modal when Selecting All with Images */}
+        {showImageRiskModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in-0 duration-150">
+            <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-slate-100">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>Görsel ve Logo Koruma Uyarısı</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Belgede <span className="font-semibold text-amber-400">{candidates.filter((c) => c.type === "image").length} adet görsel/antet</span> adayı bulundu.
+                    Tümünü seçmek kurumsal logonuzun veya antetli başlığın silinmesine yol açabilir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-xl text-[11px] text-amber-300/90 leading-normal flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Öneri: Şirket logolarının korunması için yalnızca metin filigranlarını seçin.</span>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={selectOnlyTextCandidates}
+                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Yalnızca Metinleri Seç (Önerilen & Güvenli)</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowImageRiskModal(false)}
+                    className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmSelectAllWithImages}
+                    className="flex-1 py-2 px-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Görselleri de Seç
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Secondary Confirmation Modal for Manual Image/Logo Removal */}
+        {showManualLogoModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in-0 duration-150">
+            <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-slate-100">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>Görsel ve Logo Koruma Uyarısı</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed font-semibold text-amber-300">
+                    Bu öğe logo, antet veya belge görseli olabilir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-xl text-[11px] text-amber-300/90 leading-normal flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Seçtiğiniz öğeler arasında görsel, antet veya kurumsal logo bulunmaktadır. Silme işlemini onaylıyor musunuz?</span>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowManualLogoModal(false)}
+                  className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer text-center"
+                >
+                  İptal (Değişiklik Yapma)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualLogoModal(false);
+                    confirmedLogoRemovalRef.current = true;
+                    void executeApply(true).finally(() => {
+                      confirmedLogoRemovalRef.current = false;
+                    });
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer text-center shadow-md shadow-rose-600/30"
+                >
+                  Onayla ve Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

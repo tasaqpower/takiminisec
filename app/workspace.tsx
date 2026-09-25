@@ -65,6 +65,8 @@ import {
   stem,
   wordDocx,
   wordPdf,
+  canEncodeWinAnsi,
+  isFontCharacterSupported,
   type Mark,
   type PageItem
 } from "@/lib/documents";
@@ -74,7 +76,8 @@ import { useAutosave } from "@/features/autosave/useAutosave";
 import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
 import type { FormaDraft } from "@/features/autosave/db";
 import { OcrModal } from "@/features/ocr/OcrModal";
-import type { OcrPageResult, OcrLine, OcrWord } from "@/features/ocr/ocrEngine";
+import { fitFontSizeToBox, type OcrPageResult, type OcrLine, type OcrWord } from "@/features/ocr/ocrEngine";
+import { computeResizedBounds } from "@/lib/resize-geometry";
 import { CompressDialog } from "@/features/compression/CompressDialog";
 import { ImageOverlay } from "@/features/image-editor/ImageOverlay";
 import {
@@ -112,21 +115,54 @@ import { StampGeneratorModal } from "@/features/stamp/StampGeneratorModal";
 import { DocumentEnhancerModal } from "@/features/enhancer/DocumentEnhancerModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FormaAiCopilot } from "@/features/ai-copilot/FormaAiCopilot";
+import { WatermarkRemovalModal } from "@/features/watermark-removal/WatermarkRemovalModal";
 
 type Snapshot = { pages: PageItem[]; marks: Mark[]; removals: TextRemoval[]; images?: PdfImageItem[] };
 type Tool = "select" | "text" | "draw" | "highlight" | "signature";
 
-const HANDLE_SIZE = 8;
+const RESIZE_HANDLE_VISUAL_SIZE = 8;
+const RESIZE_HANDLE_HIT_SIZE = 18;
+
+let measureCanvasCtx: CanvasRenderingContext2D | null = null;
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (typeof document === "undefined") return null;
+  if (!measureCanvasCtx) {
+    const canvas = document.createElement("canvas");
+    measureCanvasCtx = canvas.getContext("2d");
+  }
+  return measureCanvasCtx;
+}
 
 function getTextDimensions(m: Mark) {
+  if (m.ocrSourceCropDataUrl && !m.ocrTextDirty && m.w && m.h) {
+    return { w: m.w, h: m.h };
+  }
   const lines = (m.text || "").split("\n");
+  const ctx = getMeasureContext();
+  const lineHeight = m.size * 1.25;
+  const totalH = Math.max(Math.ceil(lines.length * lineHeight) + 4, m.size * 1.2);
+
+  if (ctx) {
+    const fontStyle = m.italic ? "italic " : "";
+    const fontWeight = m.bold ? "bold " : "normal ";
+    const family = m.font === "serif" ? "'Times New Roman', Georgia, serif" : (m.font === "courier" ? "'Courier New', Courier, monospace" : "sans-serif");
+    ctx.font = `${fontStyle}${fontWeight}${m.size}px ${family}`;
+    let maxW = 0;
+    for (const l of lines) {
+      const w = ctx.measureText(l || " ").width;
+      if (w > maxW) maxW = w;
+    }
+    return {
+      w: Math.max(20, Math.ceil(maxW + 8)),
+      h: Math.ceil(totalH)
+    };
+  }
+
   const maxLen = Math.max(...lines.map(l => l.length), 1);
-  const charW = m.font === "serif" ? 0.52 : 0.58;
+  const charW = m.font === "serif" ? 0.52 : (m.font === "courier" ? 0.60 : 0.58);
   const textW = Math.ceil(maxLen * m.size * charW) + 8;
   const w = Math.max(textW, 25);
-  const lineHeight = m.size * 1.25;
-  const h = Math.max(Math.ceil(lines.length * lineHeight) + 4, m.size * 1.2);
-  return { w, h };
+  return { w, h: Math.ceil(totalH) };
 }
 
 function renderResizeHandles(
@@ -143,17 +179,40 @@ function renderResizeHandles(
     { corner: "sw", x: bx, y: by + bh }
   ];
 
-  return corners.map(({ corner, x, y }) => (
-    <rect
-      key={corner}
-      className={`resize-handle ${corner}`}
-      x={x - HANDLE_SIZE / 2}
-      y={y - HANDLE_SIZE / 2}
-      width={HANDLE_SIZE}
-      height={HANDLE_SIZE}
-      onPointerDown={getHandler(corner)}
-    />
-  ));
+  return corners.map(({ corner, x, y }) => {
+    const cursor = (corner === "nw" || corner === "se") ? "nwse-resize" : "nesw-resize";
+    return (
+      <g
+        key={corner}
+        className={`resize-handle-group ${corner}`}
+        style={{ cursor }}
+        onPointerDown={getHandler(corner)}
+      >
+        <rect
+          className={`resize-handle-hit ${corner}`}
+          x={x - RESIZE_HANDLE_HIT_SIZE / 2}
+          y={y - RESIZE_HANDLE_HIT_SIZE / 2}
+          width={RESIZE_HANDLE_HIT_SIZE}
+          height={RESIZE_HANDLE_HIT_SIZE}
+          fill="transparent"
+          style={{ cursor, pointerEvents: "all" }}
+          onPointerDown={getHandler(corner)}
+        />
+        <rect
+          className={`resize-handle ${corner}`}
+          x={x - RESIZE_HANDLE_VISUAL_SIZE / 2}
+          y={y - RESIZE_HANDLE_VISUAL_SIZE / 2}
+          width={RESIZE_HANDLE_VISUAL_SIZE}
+          height={RESIZE_HANDLE_VISUAL_SIZE}
+          rx={RESIZE_HANDLE_VISUAL_SIZE / 2}
+          fill="#8b5cf6"
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          style={{ cursor, pointerEvents: "none" }}
+        />
+      </g>
+    );
+  });
 }
 
 function splitLineIntoSegments(line: OcrLine, scaleX: number) {
@@ -331,6 +390,7 @@ export default function Workspace({
   const [showCompress, setShowCompress] = useState(intent === "compress");
   const [showPageOrganizer, setShowPageOrganizer] = useState(intent === "pages");
   const [isCleaningWatermarks, setIsCleaningWatermarks] = useState(false);
+  const [showWatermarkModal, setShowWatermarkModal] = useState(intent === "watermark" || intent === "remove-watermark");
   const [showSecurity, setShowSecurity] = useState(intent === "kvkk");
   const [showStampModal, setShowStampModal] = useState(intent === "stamp");
   const [showToolHub, setShowToolHub] = useState(false);
@@ -362,9 +422,12 @@ export default function Workspace({
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedOriginal, setSelectedOriginal] = useState<EditableText | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingOriginal, setEditingOriginal] = useState<EditableText | null>(null);
+  const [editingOriginalDraftText, setEditingOriginalDraftText] = useState("");
+  const [editingOriginalDirty, setEditingOriginalDirty] = useState(false);
 
   const [zoom, setZoom] = useState(1);
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
     (window as any).__setZoomForTest = (z: number) => setZoom(z);
   }
   const [color, setColor] = useState("#30294d");
@@ -388,7 +451,7 @@ export default function Workspace({
 
   const [dimensions, setDimensions] = useState({ width: 595, height: 842, baseWidth: 595, baseHeight: 842 });
   const [rendering, setRendering] = useState(false);
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
     (window as any).__isRendering = rendering;
   }
   const [count, setCount] = useState(0);
@@ -399,13 +462,15 @@ export default function Workspace({
     setDraft(m);
   }
 
-  if (typeof window !== "undefined" && (window as any).__isTestingDrag && (window as any).__dragTestCounters) {
-    (window as any).__dragTestCounters.reactRenderCount++;
-    (window as any).__lastRenderReasons = (window as any).__lastRenderReasons || [];
-    (window as any).__lastRenderReasons.push({
-      time: Date.now(),
-      state: { rendering, busy, zoom, active, selectedImageId, imageEditsCount: imageEdits.length }
-    });
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+    if ((window as any).__isTestingDrag && (window as any).__dragTestCounters) {
+      (window as any).__dragTestCounters.reactRenderCount++;
+      (window as any).__lastRenderReasons = (window as any).__lastRenderReasons || [];
+      (window as any).__lastRenderReasons.push({
+        time: Date.now(),
+        state: { rendering, busy, zoom, active, selectedImageId, imageEditsCount: imageEdits.length }
+      });
+    }
   }
 
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -451,14 +516,26 @@ export default function Workspace({
       const pageItems: EditableText[] = [];
 
       res.lines.forEach((line, lineIdx) => {
-        const segments = splitLineIntoSegments(line, scaleX);
+        const segments = (line.segments && line.segments.length > 0)
+          ? line.segments
+          : splitLineIntoSegments(line, scaleX);
         
         segments.forEach((seg, segIdx) => {
           const segX = seg.bbox.x * scaleX;
           const segY = seg.bbox.y * scaleY;
           const segW = seg.bbox.width * scaleX;
           const segH = seg.bbox.height * scaleY;
-          const fontSize = Math.max(8, Math.min(72, Math.round(segH * 0.82)));
+
+          const segStyle = (seg as any).style || line.style;
+          const fontCat = segStyle?.fontCategory || (/^(Name|Date|ID|No|Ref|Sign|Tarih|Adı|Soyadı|Tc|Sicil)[:\s]/i.test(seg.text) ? "courier" : "sans");
+          const isBold = Boolean(segStyle?.bold);
+          const isItalic = Boolean(segStyle?.italic);
+          const textColor = segStyle?.textColor || "#000000";
+          const bgColor = (seg as any).backgroundColor || segStyle?.backgroundColor || line.style?.backgroundColor || "#ffffff";
+          const cropUrl = (seg as any).cropDataUrl || segStyle?.cropDataUrl || line.style?.cropDataUrl || "";
+
+          const fontFam = fontCat === "courier" ? "'Courier New', Courier, monospace" : fontCat === "serif" ? "Lora, Georgia, serif" : "Forma Sans, Helvetica, Arial, sans-serif";
+          const fittedSize = fitFontSizeToBox(seg.text, segW, segH, fontFam, isBold);
 
           const quad = [
             segX, segY,
@@ -476,15 +553,19 @@ export default function Workspace({
             y: segY,
             w: segW,
             h: segH,
-            size: fontSize,
+            size: fittedSize,
             angle: 0,
-            fontName: "sans",
-            fontFamily: "sans",
-            originalFontName: "LiberationSans",
-            bold: false,
-            italic: false,
-            color: "#000000",
-            isOcr: true
+            fontName: fontCat,
+            fontFamily: fontCat,
+            originalFontName: fontCat === "courier" ? "Courier" : fontCat === "serif" ? "Lora" : "LiberationSans",
+            bold: isBold,
+            italic: isItalic,
+            color: textColor,
+            isOcr: true,
+            ocrSourceCropDataUrl: cropUrl,
+            ocrOriginalBounds: { x: segX, y: segY, w: segW, h: segH },
+            ocrTextDirty: false,
+            ocrBackgroundColor: bgColor
           });
         });
       });
@@ -506,9 +587,29 @@ export default function Workspace({
   const [previewError, setPreviewError] = useState("");
   const cleanCache = useRef(new WeakMap<TextRemoval[], { source: Uint8Array; result: Uint8Array }>());
   const stateRef = useRef(state);
+  stateRef.current = state;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const futureRef = useRef(future);
+  futureRef.current = future;
+  const editingIdRef = useRef(editingId);
+  editingIdRef.current = editingId;
+  const editingOriginalRef = useRef(editingOriginal);
+  editingOriginalRef.current = editingOriginal;
+  const selectedOriginalRef = useRef(selectedOriginal);
+  selectedOriginalRef.current = selectedOriginal;
+
   useEffect(() => {
     stateRef.current = state;
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
       (window as any).__formaEditorState = {
         state,
         active,
@@ -573,6 +674,10 @@ export default function Workspace({
         ...prev,
         pages: newPages,
       }));
+      setSelected(null);
+      setSelectedOriginal(null);
+      setImageEdits([]);
+      setSelectedImageId(null);
       setActive(0);
       setDirty(true);
       toast.success("Değişiklikler başarıyla uygulandı.");
@@ -589,63 +694,7 @@ export default function Workspace({
       toast.error("Lütfen önce bir PDF belgesi açın.");
       return;
     }
-
-    setIsCleaningWatermarks(true);
-    const toastId = toast.loading("⚡ Belgedeki tüm filigranlar taranıyor ve kusursuz temizleniyor...");
-
-    try {
-      // 1. Detect candidate watermarks via surgical vector & metadata inspection
-      const { detectWatermarks } = await import("@/features/watermark-removal/watermarkDetector");
-      const candidates = await detectWatermarks(bytes);
-
-      // 2. Only if no vector watermark candidates were found (e.g. scanned document or flat image PDF),
-      // fall back to visual OCR to prevent drawing opaque covers over legitimate vector text!
-      let visualCands: any[] = [];
-      if (candidates.length === 0 && typeof window !== "undefined") {
-        try {
-          const { detectVisualWatermarks } = await import("@/features/watermark-removal/visualWatermarkDetector");
-          visualCands = await detectVisualWatermarks(bytes, 0);
-        } catch {}
-      }
-
-      const allCandidates = [...candidates, ...visualCands];
-
-      // Automatically sample authentic page background tone
-      let fillColor = { r: 1, g: 1, b: 1 };
-      try {
-        const { renderPdfPageToCanvas, detectPageBackgroundColor } = await import("@/features/watermark-removal/visualWatermarkDetector");
-        const { canvas } = await renderPdfPageToCanvas(bytes, 0, 1.0);
-        const bg = detectPageBackgroundColor(canvas);
-        if (bg) fillColor = { r: bg.r, g: bg.g, b: bg.b };
-      } catch {}
-
-      const { removeWatermarks } = await import("@/features/watermark-removal/watermarkRemover");
-      const result = await removeWatermarks(bytes, allCandidates, {
-        candidateIds: allCandidates.map(c => c.id),
-        pageScope: "all",
-        currentPage: active + 1,
-        fillColor
-      });
-
-      if (typeof window !== "undefined") {
-        (window as any).__lastWatermarkResult = { candidates: allCandidates, result };
-      }
-
-      if (result.totalRemoved > 0) {
-        await handleApplyProfessionalPdf(result.pdfBytes);
-        toast.success(
-          `🎉 ${result.totalRemoved} adet filigran çevre yazılara sıfır hasarla tek tıkla kusursuz temizlendi!`,
-          { id: toastId, duration: 4500 }
-        );
-      } else {
-        toast.info("Belgenizde belirgin bir filigran veya taslak damgası tespit edilmedi. Belgeniz zaten tertemiz.", { id: toastId });
-      }
-    } catch (err: any) {
-      console.error("1-click watermark removal error:", err);
-      toast.error("Filigran temizleme sırasında hata oluştu: " + (err.message || ""), { id: toastId });
-    } finally {
-      setIsCleaningWatermarks(false);
-    }
+    setShowWatermarkModal(true);
   };
 
   // Auto-run 1-click watermark cleaner if opened with intent: "watermark"
@@ -750,8 +799,7 @@ export default function Workspace({
     if (editingId && inlineTextareaRef.current) {
       const el = inlineTextareaRef.current;
       el.focus();
-      const len = el.value.length;
-      el.setSelectionRange(len, len);
+      el.select();
     }
   }, [editingId]);
 
@@ -816,8 +864,14 @@ export default function Workspace({
   }, [kind, state, active, dirty, busy, dimensions]);
 
   function change(next: Snapshot) {
-    setHistory(h => [...h.slice(-39), state]);
+    setHistory(h => {
+      const nextH = [...h.slice(-39), stateRef.current];
+      historyRef.current = nextH;
+      return nextH;
+    });
     setFuture([]);
+    futureRef.current = [];
+    stateRef.current = next;
     setState(next);
     setDirty(true);
   }
@@ -825,12 +879,18 @@ export default function Workspace({
   function commitSession(initialSnapshot: Snapshot, nextState: Snapshot) {
     const marksChanged = JSON.stringify(initialSnapshot.marks) !== JSON.stringify(nextState.marks);
     const removalsChanged = JSON.stringify(initialSnapshot.removals) !== JSON.stringify(nextState.removals);
+    stateRef.current = nextState;
     if (!marksChanged && !removalsChanged) {
       setState(nextState);
       return;
     }
-    setHistory(h => [...h.slice(-39), initialSnapshot]);
+    setHistory(h => {
+      const nextH = [...h.slice(-39), initialSnapshot];
+      historyRef.current = nextH;
+      return nextH;
+    });
     setFuture([]);
+    futureRef.current = [];
     setState(nextState);
     setDirty(true);
   }
@@ -841,9 +901,14 @@ export default function Workspace({
     setSelectedOriginal(null);
     setFuture(f => [{ ...state, images: pageImages }, ...f]);
     const next = history[history.length - 1];
+    stateRef.current = next;
     setState(next);
     if (next.images) setPageImages(next.images);
-    setHistory(h => h.slice(0, -1));
+    setHistory(h => {
+      const nextH = h.slice(0, -1);
+      historyRef.current = nextH;
+      return nextH;
+    });
     setActive(a => Math.min(a, next.pages.length - 1));
     setSelected(null);
     setDirty(true);
@@ -853,12 +918,21 @@ export default function Workspace({
     if (!future.length) return;
     finishInlineEdit();
     setSelectedOriginal(null);
-    setHistory(h => [...h, { ...state, images: pageImages }]);
+    setHistory(h => {
+      const nextH = [...h, { ...state, images: pageImages }];
+      historyRef.current = nextH;
+      return nextH;
+    });
     const next = future[0];
+    stateRef.current = next;
     setState(next);
     if (next.images) setPageImages(next.images);
     setActive(a => Math.min(a, next.pages.length - 1));
-    setFuture(f => f.slice(1));
+    setFuture(f => {
+      const nextF = f.slice(1);
+      futureRef.current = nextF;
+      return nextF;
+    });
     setSelected(null);
     setDirty(true);
   }
@@ -1010,8 +1084,10 @@ export default function Workspace({
       } catch {}
     }
     setRendering(true);
-    if (typeof window !== "undefined" && (window as any).__dragTestCounters) {
-      (window as any).__dragTestCounters.canvasRenderCount++;
+    if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+      if ((window as any).__dragTestCounters) {
+        (window as any).__dragTestCounters.canvasRenderCount++;
+      }
     }
     void (async () => {
       try {
@@ -1372,54 +1448,220 @@ export default function Workspace({
     }
   }, [bytes, pdf, kind, state.removals, imageEdits, active, zoom, current]);
 
-  function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
-    const removals = state.removals.some(r => r.id === item.id)
-      ? state.removals
-      : [...state.removals, { id: item.id, page: item.page, quad: item.quad }];
+  function createPaperTexturePatch(
+    width: number,
+    height: number,
+    baseColorHex: string,
+    noiseVariance: number = 4
+  ): string {
+    if (typeof document === "undefined" || !document.createElement) return "";
+    try {
+      const canvas = document.createElement("canvas");
+      const scale = 2;
+      const w = Math.max(8, Math.round(width * scale));
+      const h = Math.max(8, Math.round(height * scale));
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return "";
 
+      const hex = baseColorHex.replace("#", "");
+      const r = parseInt(hex.slice(0, 2), 16) || 248;
+      const g = parseInt(hex.slice(2, 4), 16) || 246;
+      const b = parseInt(hex.slice(4, 6), 16) || 240;
+
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      let seed = (w * 31 + h * 17) & 0xffff;
+      function rnd() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return (seed / 233280) - 0.5;
+      }
+
+      for (let i = 0; i < data.length; i += 4) {
+        const n = rnd() * noiseVariance * 2;
+        data[i] = Math.min(255, Math.max(0, r + n));
+        data[i + 1] = Math.min(255, Math.max(0, g + n));
+        data[i + 2] = Math.min(255, Math.max(0, b + n));
+        // Fully opaque alpha channel to prevent underlying raster ink or scanner artifacts from bleeding through
+        data[i + 3] = 255;
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL("image/png");
+    } catch {
+      return "";
+    }
+  }
+
+  function convertOriginalToMark(item: EditableText, updates: Partial<Mark>, isSession = false): Mark {
     const isOcr = Boolean((item as any).isOcr || item.id.startsWith("ocr-"));
+    const origBounds = item.ocrOriginalBounds || { x: item.x, y: item.y, w: item.w, h: item.h };
+    const fontVal: PdfFont = item.fontFamily === "serif"
+      ? "serif"
+      : item.fontFamily === "courier"
+      ? "courier"
+      : item.fontFamily === "roboto"
+      ? "roboto"
+      : "sans";
+
+    // Whole item is targeted: remove entire original item quad to prevent prefix duplication ("Name: Name:")
+    const removalQuad = item.quad;
+
+    const isUnicodeApprox = updates.text !== undefined && !canEncodeWinAnsi(updates.text);
+    // Taranmış PDF'de gerçek font bilgisi bulunmadığından daima "görsel eşleştirme" olarak adlandır
+    const fontQuality = isOcr ? "görsel eşleştirme" : (isUnicodeApprox ? "yaklaşık eşleşme" : "aynı font korundu");
+    const isItemBold = Boolean(item.bold || item.originalFontName?.toLowerCase().includes("bold") || item.fontName?.toLowerCase().includes("bold"));
+    const isItemItalic = Boolean(item.italic || item.originalFontName?.toLowerCase().includes("italic") || item.originalFontName?.toLowerCase().includes("oblique"));
+
+    const rawTargetText = updates.text !== undefined ? updates.text : item.text;
+
+    // Detect preserved label prefix in OCR items (e.g. "Name: ", "Adı: ", "Tarih: ")
+    let preservedPrefix = "";
+    let effectiveTargetText = rawTargetText;
+    let prefixWidth = 0;
+
+    if (isOcr) {
+      const labelMatch = item.text.match(/^([A-Za-zÇĞİÖŞÜçğıöşü0-9_\-\.]+\s*:\s*)/);
+      if (labelMatch) {
+        const cand = labelMatch[1];
+        if (rawTargetText.startsWith(cand)) {
+          preservedPrefix = cand;
+          effectiveTargetText = rawTargetText.slice(cand.length);
+        } else if (!rawTargetText.includes(":") && rawTargetText !== item.text) {
+          preservedPrefix = cand;
+          effectiveTargetText = rawTargetText;
+        }
+      } else {
+        let cLen = 0;
+        while (cLen < item.text.length && cLen < rawTargetText.length && item.text[cLen] === rawTargetText[cLen]) {
+          cLen++;
+        }
+        if (cLen > 0 && (item.text[cLen - 1] === " " || item.text[cLen] === " ")) {
+          const cand = item.text.slice(0, cLen);
+          if (cand.trim().length > 0 && cand.length < item.text.length) {
+            preservedPrefix = cand;
+            effectiveTargetText = rawTargetText.slice(cLen);
+          }
+        }
+      }
+
+      if (preservedPrefix) {
+        if (typeof document !== "undefined" && typeof document.createElement === "function") {
+          try {
+            const mCanvas = document.createElement("canvas");
+            const mCtx = mCanvas.getContext("2d");
+            if (mCtx) {
+              const fontFam = item.fontFamily === "courier" ? "'Courier New', Courier, monospace" : item.fontFamily === "serif" ? "Lora, Georgia, serif" : "Forma Sans, Helvetica, Arial, sans-serif";
+              mCtx.font = `${isItemBold ? "bold " : ""}${item.size}px ${fontFam}`;
+              prefixWidth = mCtx.measureText(preservedPrefix).width;
+            }
+          } catch {}
+        }
+        if (!prefixWidth && item.text.length > 0) {
+          prefixWidth = (preservedPrefix.length / item.text.length) * item.w;
+        }
+      }
+    }
+
+    const markX = isOcr && preservedPrefix ? (item.x + prefixWidth) : item.x;
+    const markW = isOcr && preservedPrefix ? Math.max(10, item.w - prefixWidth) : Math.max(10, item.w);
+    const markText = isOcr && preservedPrefix ? effectiveTargetText : rawTargetText;
+    const markY = isOcr ? (origBounds.y + origBounds.h - item.size) : item.y;
+
+    const removals = state.removals.some(r => r.id === item.id)
+      ? state.removals.map(r => r.id === item.id ? { ...r, quad: removalQuad } : r)
+      : [...state.removals, { id: item.id, page: item.page, quad: removalQuad }];
+
     const existing = state.marks.find(m => m.sourceId === item.id);
+    const isTextDirty = Boolean(
+      updates.ocrTextDirty ||
+      (updates.text !== undefined && updates.text !== item.text) ||
+      existing?.ocrTextDirty
+    );
+
     const baseMark: Mark = existing
-      ? { ...existing, ...updates }
+      ? {
+          ...existing,
+          ...updates,
+          ocrTextDirty: isTextDirty,
+          x: markX,
+          y: markY,
+          w: markW,
+          text: markText,
+          size: Math.round(item.size * 10) / 10,
+          bold: isItemBold,
+          italic: isItemItalic,
+          originalFontName: item.originalFontName || item.fontName,
+          fontMatchQuality: fontQuality
+        }
       : {
           id: crypto.randomUUID(),
           page: item.page,
           kind: "text",
-          x: item.x,
-          y: item.y,
-          w: item.w,
+          y: markY,
           h: item.h,
           size: Math.round(item.size * 10) / 10,
-          color: item.color || "#222222",
-          text: item.text,
-          font: item.fontFamily === "serif" ? "serif" : item.fontFamily === "roboto" ? "roboto" : "sans",
-          bold: Boolean(item.bold),
-          italic: Boolean(item.italic),
+          color: item.color || "#1e293b",
+          font: fontVal,
+          bold: isItemBold,
+          italic: isItemItalic,
           angle: item.angle,
           sourceId: item.id,
-          bg: item.bg || "#ffffff",
-          ...updates
+          bg: undefined,
+          ocrSourceCropDataUrl: item.ocrSourceCropDataUrl,
+          ocrOriginalBounds: origBounds,
+          ocrTextDirty: isTextDirty,
+          ocrBackgroundColor: item.ocrBackgroundColor || "#f8f6f0",
+          originalFontName: item.originalFontName || item.fontName,
+          fontMatchQuality: fontQuality,
+          ...updates,
+          x: markX,
+          w: markW,
+          text: markText
         };
 
-    let nextMarks = [...state.marks.filter(m => m.id !== baseMark.id && m.sourceId !== item.id), baseMark];
+    let nextMarks = [
+      ...state.marks.filter(m => m.id !== baseMark.id && m.sourceId !== item.id && m.id !== `cover-${item.id}` && m.sourceId !== `cover-${item.id}`),
+      baseMark
+    ];
     if (isOcr) {
       const coverId = `cover-${item.id}`;
-      if (!nextMarks.some(m => m.id === coverId || m.sourceId === coverId)) {
-        const coverMark: Mark = {
-          id: coverId,
-          page: item.page,
-          kind: "highlight",
-          x: item.x - 2,
-          y: item.y - 1,
-          w: item.w + 4,
-          h: Math.max(item.h, item.size * 1.25) + 2,
-          color: "#ffffff",
-          size: 1,
-          opacity: 1,
-          sourceId: coverId
-        };
-        nextMarks = [coverMark, ...nextMarks];
-      }
+      const coverColor = item.ocrBackgroundColor || "#f8f6f0";
+      // Ensure all ascenders, descenders, and scanner anti-aliasing pixels are fully enveloped
+      const padTop = Math.max(4, Math.round(origBounds.h * 0.35));
+      const padBottom = Math.max(5, Math.round(origBounds.h * 0.50));
+      const padX = Math.max(4, Math.round(origBounds.w * 0.02));
+
+      // If preservedPrefix is present, leave label's original pixels untouched!
+      // Only clear the pixels of the old name:
+      const covX = preservedPrefix ? (origBounds.x + prefixWidth) : (origBounds.x - padX);
+      const covW = preservedPrefix
+        ? Math.max(10, (origBounds.w - prefixWidth) + padX)
+        : (origBounds.w + padX * 2);
+      const covY = origBounds.y - padTop;
+      const covH = origBounds.h + padTop + padBottom;
+
+      const patchDataUrl = createPaperTexturePatch(covW, covH, coverColor, 4);
+      const coverMark: Mark = {
+        id: coverId,
+        page: item.page,
+        kind: "highlight",
+        x: covX,
+        y: covY,
+        w: covW,
+        h: covH,
+        color: coverColor,
+        size: 1,
+        opacity: 1,
+        sourceId: item.id,
+        image: patchDataUrl || undefined
+      };
+      nextMarks = [coverMark, ...nextMarks];
     }
     const nextState = { ...state, removals, marks: nextMarks };
 
@@ -1436,10 +1678,57 @@ export default function Workspace({
   }
 
   function startInlineEditOriginal(item: EditableText) {
-    const initial = sessionInitialRef.current || state;
-    sessionInitialRef.current = initial;
-    const mark = convertOriginalToMark(item, {}, true);
-    setEditingId(mark.id);
+    editingOriginalRef.current = item;
+    editingIdRef.current = `inline-orig-${item.id}`;
+    selectedOriginalRef.current = item;
+    setEditingOriginal(item);
+    setEditingOriginalDraftText(item.text);
+    setEditingOriginalDirty(false);
+    setSelectedOriginal(item);
+    setSelected(null);
+    setEditingId(`inline-orig-${item.id}`);
+  }
+
+  function finishInlineEditOriginal() {
+    const orig = editingOriginalRef.current || editingOriginal;
+    const draftText = editingOriginalDraftText;
+    const isDirty = editingOriginalDirty && orig && draftText !== orig.text;
+
+    editingOriginalRef.current = null;
+    editingIdRef.current = null;
+    selectedOriginalRef.current = null;
+    setEditingOriginal(null);
+    setEditingId(null);
+    setEditingOriginalDraftText("");
+    setEditingOriginalDirty(false);
+
+    if (!orig || !isDirty) {
+      return;
+    }
+
+    const isOcr = Boolean((orig as any).isOcr || orig.id.startsWith("ocr-"));
+    const charSupport = isFontCharacterSupported(draftText, orig.originalFontName || orig.fontName, isOcr);
+    if (!charSupport.supported) {
+      toast.error(`Bu karakter mevcut yazı tipiyle yazılamıyor ("${draftText}" içerisindeki '${charSupport.unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor)`);
+      return;
+    }
+
+    const mark = convertOriginalToMark(orig, {
+      text: draftText,
+      ocrTextDirty: true
+    }, false);
+    setSelected(mark.id);
+    setSelectedOriginal(null);
+  }
+
+  function cancelInlineEditOriginal() {
+    editingOriginalRef.current = null;
+    editingIdRef.current = null;
+    selectedOriginalRef.current = null;
+    setEditingOriginal(null);
+    setEditingId(null);
+    setEditingOriginalDraftText("");
+    setEditingOriginalDirty(false);
   }
 
   function startInlineEditMark(m: Mark) {
@@ -1447,12 +1736,19 @@ export default function Workspace({
     if (!sessionInitialRef.current) {
       sessionInitialRef.current = state;
     }
+    editingIdRef.current = m.id;
+    selectedRef.current = m.id;
+    selectedOriginalRef.current = null;
     setSelected(m.id);
     setSelectedOriginal(null);
     setEditingId(m.id);
   }
 
   function finishInlineEdit() {
+    if (editingOriginalRef.current || editingOriginal) {
+      finishInlineEditOriginal();
+      return;
+    }
     if (commitTimerRef.current) {
       clearTimeout(commitTimerRef.current);
       commitTimerRef.current = null;
@@ -1461,24 +1757,104 @@ export default function Workspace({
       commitSession(sessionInitialRef.current, stateRef.current);
       sessionInitialRef.current = null;
     }
+    editingIdRef.current = null;
     setEditingId(null);
   }
 
   function cancelInlineEdit() {
+    if (editingOriginalRef.current || editingOriginal) {
+      cancelInlineEditOriginal();
+      return;
+    }
     if (commitTimerRef.current) {
       clearTimeout(commitTimerRef.current);
       commitTimerRef.current = null;
     }
     if (sessionInitialRef.current) {
       setState(sessionInitialRef.current);
+      stateRef.current = sessionInitialRef.current;
       sessionInitialRef.current = null;
     }
+    editingIdRef.current = null;
     setEditingId(null);
   }
 
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+    (window as any).__formaTestApi = {
+      getState: () => ({
+        marks: stateRef.current.marks,
+        removals: stateRef.current.removals,
+        pages: stateRef.current.pages,
+        selected: selectedRef.current,
+        selectedOriginal: selectedOriginalRef.current,
+        editingId: editingIdRef.current,
+        editingOriginal: editingOriginalRef.current,
+        editingOriginalDirty,
+        historyLen: historyRef.current.length,
+        futureLen: futureRef.current.length,
+        dirty: dirtyRef.current,
+        tool: toolRef.current,
+        zoom,
+        imageEdits,
+        selectedImageId,
+        activePage: active,
+        pageCount: stateRef.current.pages.length,
+        textItems,
+        busy: Boolean(busyRef.current)
+      }),
+      addMark: (m: Mark) => {
+        const cur = stateRef.current;
+        change({ ...cur, marks: [...cur.marks, m] });
+        setSelected(m.id);
+      },
+      setMarks: (newMarks: Mark[]) => {
+        const cur = stateRef.current;
+        change({ ...cur, marks: newMarks });
+      },
+      setState: (s: any) => {
+        const cur = stateRef.current;
+        change({ ...cur, ...s });
+      },
+      setSelected: (id: string | null) => {
+        selectedRef.current = id;
+        setSelected(id);
+      },
+      setSelectedOriginal: (item: EditableText | null) => {
+        selectedOriginalRef.current = item;
+        setSelectedOriginal(item);
+      },
+      setTool,
+      setZoom,
+      undo,
+      redo,
+      startInlineEditOriginal,
+      finishInlineEdit,
+      cancelInlineEdit,
+      updateActiveText,
+      convertOriginalToMark,
+      rotatePage: (deg: number) => {
+        change({
+          ...state,
+          pages: state.pages.map((p, idx) => idx === active ? { ...p, rotation: ((p.rotation || 0) + deg) % 360 } : p)
+        });
+      },
+      exportPdfCurrent: async () => {
+        return await exportPdf(bytes!, state.pages, state.marks, state.removals, pageImages);
+      },
+      applyOcrResults: (res: any) => handleApplyOcr(res)
+    };
+  }
+
   function updateActiveText(newText: string, isSession = true) {
+    if (editingOriginal) {
+      setEditingOriginalDraftText(newText);
+      if (newText !== editingOriginal.text) {
+        setEditingOriginalDirty(true);
+      }
+      return;
+    }
     if (selectedOriginal) {
-      convertOriginalToMark(selectedOriginal, { text: newText }, isSession);
+      convertOriginalToMark(selectedOriginal, { text: newText, ocrTextDirty: true }, isSession);
       return;
     }
     if (selected) {
@@ -1489,7 +1865,7 @@ export default function Workspace({
         }
         setState({
           ...cur,
-          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText } : m))
+          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText, ocrTextDirty: true } : m))
         });
         setDirty(true);
         if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
@@ -1502,22 +1878,33 @@ export default function Workspace({
       } else {
         change({
           ...cur,
-          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText } : m))
+          marks: cur.marks.map(m => (m.id === selected ? { ...m, text: newText, ocrTextDirty: true } : m))
         });
       }
     }
   }
 
   function updateActiveFormat(updates: Partial<Mark>) {
+    if (editingOriginal) {
+      const mark = convertOriginalToMark(editingOriginal, {
+        text: editingOriginalDraftText,
+        ocrTextDirty: true,
+        ...updates
+      }, false);
+      setEditingOriginal(null);
+      setEditingId(null);
+      setSelected(mark.id);
+      return;
+    }
     if (selectedOriginal) {
-      convertOriginalToMark(selectedOriginal, updates, false);
+      convertOriginalToMark(selectedOriginal, { ...updates, ocrTextDirty: true }, false);
       return;
     }
     if (selected) {
       const cur = stateRef.current;
       change({
         ...cur,
-        marks: cur.marks.map(m => (m.id === selected ? { ...m, ...updates } : m))
+        marks: cur.marks.map(m => (m.id === selected ? { ...m, ...updates, ocrTextDirty: true } : m))
       });
     } else {
       if (updates.text !== undefined) setText(updates.text);
@@ -1752,14 +2139,13 @@ export default function Workspace({
     } catch {}
     const initial = sessionInitialRef.current || state;
     sessionInitialRef.current = initial;
-    const mark = convertOriginalToMark(item, {}, true);
+    // DEFER conversion until actual pointer movement occurs
     gesture.current = {
+      pendingOriginal: item,
       move: true,
-      mark,
       start: basePoint(e),
       initialSnapshot: initial
     };
-    applyDraft(mark);
   }
 
   function startResizeOriginal(item: EditableText, corner: "nw" | "ne" | "se" | "sw", e: React.PointerEvent) {
@@ -1770,15 +2156,22 @@ export default function Workspace({
     } catch {}
     const initial = sessionInitialRef.current || state;
     sessionInitialRef.current = initial;
-    const mark = convertOriginalToMark(item, {}, true);
+    const startW = item.w || 24;
+    const startH = item.h || 24;
+    // DEFER conversion until actual pointer movement occurs
     gesture.current = {
+      pendingOriginal: item,
       resize: corner,
-      mark,
       startPoint: basePoint(e),
-      startSize: mark.size,
+      startX: item.x,
+      startY: item.y,
+      startW,
+      startH,
+      startFontSize: item.size || 14,
+      corner,
+      aspectRatio: startW / Math.max(1, startH),
       initialSnapshot: initial
     };
-    applyDraft(mark);
   }
 
   function startResizeMark(m: Mark, corner: "nw" | "ne" | "se" | "sw", e: React.PointerEvent) {
@@ -1787,12 +2180,21 @@ export default function Workspace({
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
+    const box = getTextDimensions(m);
+    const startW = m.kind === "text" ? box.w : (m.w || box.w || 24);
+    const startH = m.kind === "text" ? box.h : (m.h || box.h || 24);
     gesture.current = {
       resize: corner,
       mark: m,
       startPoint: basePoint(e),
-      startSize: m.size,
-      initialSnapshot: sessionInitialRef.current || state
+      startX: m.x,
+      startY: m.y,
+      startW,
+      startH,
+      startFontSize: m.size || 14,
+      corner,
+      aspectRatio: startW / Math.max(1, startH),
+      initialSnapshot: sessionInitialRef.current || stateRef.current
     };
     applyDraft(m);
   }
@@ -1858,12 +2260,56 @@ export default function Workspace({
     if (!g) return;
     const p = basePoint(e);
 
-    if (g.resize) {
-      const dist = Math.hypot(p.x - g.mark.x, p.y - g.mark.y);
-      const origDist = Math.hypot(g.startPoint.x - g.mark.x, g.startPoint.y - g.mark.y);
-      const scale = origDist > 5 ? dist / origDist : 1;
-      const newSize = Math.max(6, Math.min(160, Math.round(g.startSize * scale * 10) / 10));
-      applyDraft({ ...g.mark, size: newSize });
+    // If pending conversion of original text, check if movement threshold exceeded!
+    if (g.pendingOriginal) {
+      const startPt = g.startPoint || g.start;
+      const dist = Math.hypot(p.x - startPt.x, p.y - startPt.y);
+      if (dist < 2) {
+        return;
+      }
+      const mark = convertOriginalToMark(g.pendingOriginal, {}, true);
+      g.mark = mark;
+      delete g.pendingOriginal;
+    }
+
+    if (g.resize && g.corner) {
+      const { startX, startY, startW, startH, startFontSize, corner } = g;
+      const isText = g.mark.kind === "text";
+      const pageW = dimensions.baseWidth || dimensions.width || 600;
+      const pageH = dimensions.baseHeight || dimensions.height || 800;
+
+      const dx = p.x - g.startPoint.x;
+      const dy = p.y - g.startPoint.y;
+
+      const resized = computeResizedBounds({
+        kind: g.mark.kind,
+        corner: g.corner,
+        startRect: { x: startX, y: startY, w: startW, h: startH },
+        dx,
+        dy,
+        pageWidth: pageW,
+        pageHeight: pageH,
+        minSize: 12
+      });
+
+      let newSize = startFontSize;
+      if (isText) {
+        if (g.mark.text) {
+          const fontFam = g.mark.font === "serif" ? "'Times New Roman', Georgia, serif" : g.mark.font === "courier" ? "'Courier New', Courier, monospace" : "sans-serif";
+          newSize = fitFontSizeToBox(g.mark.text, resized.w, resized.h, fontFam, Boolean(g.mark.bold), 6, 160);
+        } else {
+          newSize = Math.max(6, Math.min(160, Math.round(startFontSize * resized.scale * 10) / 10));
+        }
+      }
+
+      applyDraft({
+        ...g.mark,
+        x: Math.round(resized.x),
+        y: Math.round(resized.y),
+        w: Math.round(resized.w),
+        h: Math.round(resized.h),
+        size: newSize
+      });
       return;
     }
 
@@ -1896,11 +2342,22 @@ export default function Workspace({
   function pointerUp() {
     const g = gesture.current;
     if (!g) return;
+    if (g.pendingOriginal) {
+      applyDraft(null);
+      gesture.current = null;
+      return;
+    }
     const m = draftRef.current || g.mark;
     if (m) {
       const cur = stateRef.current;
       if (g.resize) {
-        if (m.size !== g.startSize) {
+        if (
+          m.x !== g.startX ||
+          m.y !== g.startY ||
+          m.w !== g.startW ||
+          m.h !== g.startH ||
+          m.size !== g.startFontSize
+        ) {
           commitSession(g.initialSnapshot, {
             ...cur,
             marks: cur.marks.map(item => (item.id === m.id ? m : item))
@@ -2049,7 +2506,7 @@ export default function Workspace({
           if (formFields.length > 0) {
             finalPdf = await embedFormFieldsInPdf(finalPdf, formFields, flattenForms);
           }
-          if (typeof window !== "undefined") {
+          if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
             (window as any).__lastExportedPdf = finalPdf;
           }
           download(finalPdf, `${name || "belge"}.pdf`);
@@ -2168,7 +2625,7 @@ export default function Workspace({
                   color: m.color,
                   lineHeight: 1.25,
                   caretColor: "#6552df",
-                  backgroundColor: m.bg || (m.sourceId?.startsWith("ocr-") ? "#ffffff" : undefined)
+                  backgroundColor: m.bg || m.ocrBackgroundColor || undefined
                 }}
                 value={m.text || ""}
                 onChange={e => updateActiveText(e.target.value, true)}
@@ -2197,31 +2654,46 @@ export default function Workspace({
                   fill={m.bg}
                 />
               )}
-              <text
-                x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
-                textAnchor={m.align === "center" ? "middle" : m.align === "right" ? "end" : "start"}
-                y={m.y + m.size}
-                fontSize={m.size}
-                fontFamily={pdfFont(m.font).family}
-                fontWeight={m.bold ? 700 : 400}
-                fontStyle={m.italic ? "italic" : "normal"}
-                fill={m.color}
-              >
-                {(m.text || "").split("\n").map((line, i) => (
-                  <tspan
-                    key={i}
-                    x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
-                    dy={i ? m.size * 1.25 : 0}
-                  >
-                    {line || " "}
-                  </tspan>
-                ))}
-              </text>
+              {m.ocrSourceCropDataUrl && !m.ocrTextDirty ? (
+                <image
+                  href={m.ocrSourceCropDataUrl}
+                  x={m.x}
+                  y={m.y}
+                  width={m.w}
+                  height={m.h}
+                  preserveAspectRatio="none"
+                />
+              ) : (
+                <text
+                  x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+                  textAnchor={m.align === "center" ? "middle" : m.align === "right" ? "end" : "start"}
+                  y={m.y + m.size}
+                  fontSize={m.size}
+                  fontFamily={pdfFont(m.font).family}
+                  fontWeight={m.bold ? 700 : 400}
+                  fontStyle={m.italic ? "italic" : "normal"}
+                  fill={m.color}
+                >
+                  {(m.text || "").split("\n").map((line, i) => (
+                    <tspan
+                      key={i}
+                      x={m.align === "center" ? m.x + box.w / 2 : m.align === "right" ? m.x + box.w : m.x}
+                      dy={i ? m.size * 1.25 : 0}
+                    >
+                      {line || " "}
+                    </tspan>
+                  ))}
+                </text>
+              )}
             </>
           )
         ) : m.kind === "highlight" ? (
-          <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity={m.opacity ?? 0.35} />
-        ) : m.kind === "signature" ? (
+          m.image ? (
+            <image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h} opacity={m.opacity ?? 1} preserveAspectRatio="none" />
+          ) : (
+            <rect x={m.x} y={m.y} width={m.w} height={m.h} fill={m.color} opacity={m.opacity ?? 0.35} />
+          )
+        ) : m.kind === "signature" || m.kind === "stamp" ? (
           <image href={m.image} x={m.x} y={m.y} width={m.w} height={m.h} opacity={m.opacity ?? 1} />
         ) : (
           <polyline
@@ -2293,7 +2765,7 @@ export default function Workspace({
         size: Math.round(selectedOriginal.size * 10) / 10,
         color: selectedOriginal.color || "#222222",
         text: selectedOriginal.text,
-        font: selectedOriginal.fontFamily === "serif" ? "serif" : selectedOriginal.fontFamily === "roboto" ? "roboto" : "sans",
+        font: selectedOriginal.fontFamily === "serif" ? "serif" : selectedOriginal.fontFamily === "courier" ? "courier" : selectedOriginal.fontFamily === "roboto" ? "roboto" : "sans",
         bold: Boolean(selectedOriginal.bold),
         italic: Boolean(selectedOriginal.italic),
         angle: selectedOriginal.angle
@@ -2671,55 +3143,104 @@ export default function Workspace({
                             };
                             return (
                               <g key={item.id} transform={`rotate(${item.angle} ${item.x} ${item.y + item.size})`}>
-                                <rect
-                                  className={`original-text-hit ${isSel ? "is-selected" : ""} ${(item as any).isOcr ? "is-ocr" : ""}`}
-                                  x={item.x - 1}
-                                  y={item.y - 1}
-                                  width={Math.max(8, item.w + 2)}
-                                  height={item.size * 1.25}
-                                  tabIndex={0}
-                                  role="button"
-                                  aria-label={`Metni düzenle: ${item.text}`}
-                                  onPointerDown={e => {
-                                    e.stopPropagation();
-                                    finishInlineEdit();
-                                    setSelected(null);
-                                    setSelectedOriginal(item);
-                                  }}
-                                  onDoubleClick={e => {
-                                    e.stopPropagation();
-                                    startInlineEditOriginal(item);
-                                  }}
-                                  onKeyDown={e => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                      e.preventDefault();
-                                      startInlineEditOriginal(item);
-                                    }
-                                  }}
-                                >
-                                  <title>{item.text}</title>
-                                </rect>
-                                {isSel && (
+                                {editingOriginal?.id === item.id ? (
+                                  <foreignObject
+                                    x={item.x - 4}
+                                    y={item.y - 2}
+                                    width={Math.max(box.w + 60, 140)}
+                                    height={Math.max(box.h + 40, 80)}
+                                    style={{ overflow: "visible" }}
+                                  >
+                                    <textarea
+                                      ref={inlineTextareaRef}
+                                      className="inline-text-editor"
+                                      autoFocus
+                                      style={{
+                                        width: `${Math.max(box.w + 30, 120)}px`,
+                                        minHeight: `${box.h + 4}px`,
+                                        fontSize: `${item.size}px`,
+                                        fontFamily: pdfFont(item.fontFamily as any).family,
+                                        fontWeight: item.bold ? 700 : 400,
+                                        fontStyle: item.italic ? "italic" : "normal",
+                                        color: item.color || "#000000",
+                                        lineHeight: 1.25,
+                                        caretColor: "#6552df",
+                                        backgroundColor: item.ocrBackgroundColor || "#ffffff"
+                                      }}
+                                      value={editingOriginalDraftText}
+                                      onChange={e => {
+                                        setEditingOriginalDraftText(e.target.value);
+                                        if (e.target.value !== item.text) {
+                                          setEditingOriginalDirty(true);
+                                        }
+                                      }}
+                                      onBlur={finishInlineEditOriginal}
+                                      onPointerDown={e => e.stopPropagation()}
+                                      onKeyDown={e => {
+                                        e.stopPropagation();
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                          e.preventDefault();
+                                          finishInlineEditOriginal();
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          cancelInlineEditOriginal();
+                                        }
+                                      }}
+                                    />
+                                  </foreignObject>
+                                ) : (
                                   <>
                                     <rect
-                                      className="selection-frame"
-                                      x={item.x - 4}
-                                      y={item.y - 2}
-                                      width={box.w + 8}
-                                      height={box.h + 4}
-                                      rx={2}
-                                      onPointerDown={e => startDragOriginal(item, e)}
+                                      className={`original-text-hit ${isSel ? "is-selected" : ""} ${(item as any).isOcr ? "is-ocr" : ""}`}
+                                      x={item.x - 1}
+                                      y={item.y - 1}
+                                      width={Math.max(8, item.w + 2)}
+                                      height={item.size * 1.25}
+                                      tabIndex={0}
+                                      role="button"
+                                      aria-label={`Metni düzenle: ${item.text}`}
+                                      onPointerDown={e => {
+                                        e.stopPropagation();
+                                        finishInlineEdit();
+                                        setSelected(null);
+                                        setSelectedOriginal(item);
+                                      }}
                                       onDoubleClick={e => {
                                         e.stopPropagation();
                                         startInlineEditOriginal(item);
                                       }}
-                                    />
-                                    {renderResizeHandles(
-                                      item.x - 4,
-                                      item.y - 2,
-                                      box.w + 8,
-                                      box.h + 4,
-                                      corner => e => startResizeOriginal(item, corner, e)
+                                      onKeyDown={e => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault();
+                                          startInlineEditOriginal(item);
+                                        }
+                                      }}
+                                    >
+                                      <title>{item.text}</title>
+                                    </rect>
+                                    {isSel && (
+                                      <>
+                                        <rect
+                                          className="selection-frame"
+                                          x={item.x - 4}
+                                          y={item.y - 2}
+                                          width={box.w + 8}
+                                          height={box.h + 4}
+                                          rx={2}
+                                          onPointerDown={e => startDragOriginal(item, e)}
+                                          onDoubleClick={e => {
+                                            e.stopPropagation();
+                                            startInlineEditOriginal(item);
+                                          }}
+                                        />
+                                        {renderResizeHandles(
+                                          item.x - 4,
+                                          item.y - 2,
+                                          box.w + 8,
+                                          box.h + 4,
+                                          corner => e => startResizeOriginal(item, corner, e)
+                                        )}
+                                      </>
                                     )}
                                   </>
                                 )}
@@ -2765,6 +3286,9 @@ export default function Workspace({
                     onDragStateChange={setIsDraggingImage}
                     pageWidth={dimensions.width}
                     pageHeight={dimensions.height}
+                    baseWidth={dimensions.baseWidth}
+                    baseHeight={dimensions.baseHeight}
+                    rotation={current?.rotation || 0}
                     zoom={zoom}
                   />
                   {formMode === "design" && (
@@ -3056,13 +3580,25 @@ export default function Workspace({
         onApplyStampToDocument={handleApplyStamp}
       />
 
+      <WatermarkRemovalModal
+        open={showWatermarkModal}
+        onOpenChange={setShowWatermarkModal}
+        pdfBytes={bytes}
+        currentPage={active + 1}
+        totalPages={state.pages.length}
+        onApplyRemoval={async (cleanedBytes, count) => {
+          await handleApplyProfessionalPdf(cleanedBytes);
+          toast.success(`Seçtiğiniz filigran adayları kaldırıldı (${count} adet nesne). Önemli belgelerde sonucu kontrol ederek dışa aktarın.`);
+        }}
+      />
+
       <ToolHubModal
         isOpen={showToolHub}
         onClose={() => setShowToolHub(false)}
         onSelectTool={(toolId) => {
           if (toolId === 'watermark-removal') {
             setShowToolHub(false);
-            void handleOneClickWatermarkRemoval();
+            setShowWatermarkModal(true);
           } else if (toolId === 'stamp') {
             setShowToolHub(false);
             setShowStampModal(true);
@@ -3184,14 +3720,69 @@ export default function Workspace({
         }}
       />
 
-      <FormaAiCopilot
-        pdfBytes={bytes}
-        fileName={files[0]?.name}
-        currentPage={active}
-        onApplyPdfBytes={async (newBytes) => {
-          await handleApplyProfessionalPdf(newBytes);
-        }}
-      />
+      {(() => {
+        const rawSelected = selectedImageId
+          ? detectedImages.find((d) => d.id === selectedImageId) ||
+            imageEdits.find((e) => e.id === selectedImageId) || null
+          : null;
+
+        const selectedImgContext = rawSelected
+          ? {
+              id: rawSelected.id,
+              page: rawSelected.page,
+              originalBounds: rawSelected.originalBounds,
+              imageIndex: rawSelected.imageIndex,
+              pixelWidth: rawSelected.pixelWidth,
+              pixelHeight: rawSelected.pixelHeight,
+              matrix: rawSelected.matrix,
+              objectRef: rawSelected.objectRef,
+              dataUrl: (rawSelected as any).dataUrl || (rawSelected as any).previewUrl,
+              previewUrl: (rawSelected as any).previewUrl,
+              format: (rawSelected as any).format,
+              x: (rawSelected as any).x,
+              y: (rawSelected as any).y,
+              w: (rawSelected as any).w,
+              h: (rawSelected as any).h,
+              rotation: (rawSelected as any).rotation,
+              opacity: (rawSelected as any).opacity,
+            }
+          : null;
+
+        return (
+          <FormaAiCopilot
+            pdfBytes={bytes}
+            fileName={files[0]?.name}
+            currentPage={active}
+            selectedImage={selectedImgContext}
+            existingMarks={state.marks}
+            existingRemovals={state.removals}
+            onApplyMarksAndRemovals={(newMarks, newRemovals) => {
+              setState((prev) => ({
+                ...prev,
+                marks: [...prev.marks, ...newMarks],
+                removals: [...prev.removals, ...newRemovals],
+              }));
+              setDirty(true);
+              toast.success("Metin değişikliği çalışma alanına uygulandı.");
+            }}
+            onRollbackMarksAndRemovals={(marksToRemove, removalsToRemove) => {
+              const removeMarkIds = new Set(marksToRemove.map((m) => m.id));
+              const removeRemIds = new Set(removalsToRemove.map((r) => r.id));
+              setState((prev) => ({
+                ...prev,
+                marks: prev.marks.filter((m) => !removeMarkIds.has(m.id)),
+                removals: prev.removals.filter((r) => !removeRemIds.has(r.id)),
+              }));
+              setDirty(true);
+              toast.info("İşlem geri alındı.");
+            }}
+            onApplyPdfBytes={async (newBytes) => {
+              await handleApplyProfessionalPdf(newBytes);
+              setSelectedImageId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -1,10 +1,82 @@
-import { PDFDocument, degrees, rgb } from "pdf-lib";
+import { PDFDocument, degrees, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import DOMPurify from "dompurify";
 import { removePdfText, removePdfImages, type TextRemoval } from "./pdf-text.ts";
 import { fontFile, type PdfFont } from "./pdf-fonts.ts";
 
-export type Mark = {id:string; page:number; kind:"text"|"draw"|"highlight"|"signature"; x:number; y:number; w:number; h:number; color:string; size:number; text?:string; image?:string; points?:{x:number;y:number}[];font?:PdfFont;bold?:boolean;italic?:boolean;angle?:number;sourceId?:string;opacity?:number;align?:"left"|"center"|"right"; bg?:string};
+export type Mark = {
+  id: string;
+  page: number;
+  kind: "text" | "draw" | "highlight" | "signature" | "stamp";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+  size: number;
+  text?: string;
+  image?: string;
+  points?: { x: number; y: number }[];
+  font?: PdfFont;
+  bold?: boolean;
+  italic?: boolean;
+  angle?: number;
+  sourceId?: string;
+  opacity?: number;
+  align?: "left" | "center" | "right";
+  bg?: string;
+  ocrSourceCropDataUrl?: string;
+  ocrOriginalBounds?: { x: number; y: number; w: number; h: number };
+  ocrTextDirty?: boolean;
+  ocrBackgroundColor?: string;
+  originalFontName?: string;
+  fontName?: string;
+  fontMatchQuality?: string;
+};
+
+export function canEncodeWinAnsi(str: string): boolean {
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 32 && code <= 126) continue;
+    if (code >= 160 && code <= 255) continue;
+    if ([0x20AC, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x017D, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x017E, 0x0178].includes(code)) continue;
+    return false;
+  }
+  return true;
+}
+
+export function isFontCharacterSupported(
+  text: string,
+  fontNameOrFamily?: string,
+  isOcr?: boolean
+): { supported: boolean; unsupportedChars: string[] } {
+  if (isOcr) {
+    return { supported: true, unsupportedChars: [] };
+  }
+  const isStandardWinAnsiFont = (
+    !fontNameOrFamily ||
+    fontNameOrFamily.toLowerCase().includes("helvetica") ||
+    fontNameOrFamily.toLowerCase().includes("times") ||
+    fontNameOrFamily.toLowerCase().includes("courier") ||
+    fontNameOrFamily === "sans" ||
+    fontNameOrFamily === "serif" ||
+    fontNameOrFamily === "courier"
+  );
+  if (!isStandardWinAnsiFont) {
+    return { supported: true, unsupportedChars: [] };
+  }
+  const unsupportedChars: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!canEncodeWinAnsi(ch) && !unsupportedChars.includes(ch)) {
+      unsupportedChars.push(ch);
+    }
+  }
+  return {
+    supported: unsupportedChars.length === 0,
+    unsupportedChars
+  };
+}
 export type PageItem = {index:number; rotation:number};
 export async function pdfRenderer() {
   const isNode = typeof window === "undefined" || (typeof process !== "undefined" && Boolean(process?.versions?.node));
@@ -23,7 +95,7 @@ export async function pdfRenderer() {
   }
   return pdfjs;
 }
-export async function loadPdf(bytes:Uint8Array){if (typeof window !== "undefined" && (window as any).__dragTestCounters) (window as any).__dragTestCounters.loadPdfCount++;const p=await pdfRenderer();const task=p.getDocument({data:bytes.slice(),cMapUrl:"/cmaps/",cMapPacked:true,standardFontDataUrl:"/standard_fonts/",wasmUrl:"/wasm/"});try{return await task.promise}catch(error){await task.destroy();throw error}}
+export async function loadPdf(bytes:Uint8Array){if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") { if ((window as any).__dragTestCounters) (window as any).__dragTestCounters.loadPdfCount++; }const p=await pdfRenderer();const task=p.getDocument({data:bytes.slice(),cMapUrl:"/cmaps/",cMapPacked:true,standardFontDataUrl:"/standard_fonts/",wasmUrl:"/wasm/"});try{return await task.promise}catch(error){await task.destroy();throw error}}
 export function safeHtml(html:string){
  DOMPurify.addHook("uponSanitizeAttribute",(_node,data)=>{if(data.attrName==="src"&&!/^data:image\/(png|jpeg|jpg|gif);base64,/i.test(data.attrValue))data.keepAttr=false;if(data.attrName==="style"){const allowed=["font-weight","font-style","text-decoration","text-align","color","background-color"];data.attrValue=data.attrValue.split(";").filter(rule=>{const [key,value]=rule.split(":");return allowed.includes(key?.trim().toLowerCase())&&!!value&&/^[a-z0-9#(),.%\s-]+$/i.test(value)&&! /url|expression|var/i.test(value)}).join(";")}});
  try{return DOMPurify.sanitize(html,{USE_PROFILES:{html:true},FORBID_TAGS:["style","iframe","form","input","button","video","audio","link"],FORBID_ATTR:["srcset","background"]})}finally{DOMPurify.removeHook("uponSanitizeAttribute")}
@@ -52,39 +124,165 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
  }
   const src=await PDFDocument.load(bytes),out=await PDFDocument.create();out.registerFontkit(fontkit);
   const fonts=new Map<string,Awaited<ReturnType<typeof out.embedFont>>>();
-  for(const m of marks.filter(m=>m.kind==="text")){
-    const file=fontFile(m.font,m.bold,m.italic);
-    if(!fonts.has(file)){
-      let fontBuffer: ArrayBuffer | Uint8Array;
-      if (typeof window === "undefined" || (typeof process !== "undefined" && Boolean(process?.versions?.node))) {
-        const fs = await import("node:fs");
-        const path = await import("node:path");
-        fontBuffer = fs.readFileSync(path.resolve("public/fonts", file));
-      } else {
-        const response=await fetch('/fonts/'+file);
-        if(!response.ok)throw Error('Yazı tipi yüklenemedi: ' + file);
-        fontBuffer = await response.arrayBuffer();
+   for(const m of marks.filter(m=>m.kind==="text")){
+     if (m.ocrSourceCropDataUrl && !m.ocrTextDirty) {
+       continue; // Rendered via PNG crop image
+     }
+     const isBold = Boolean(m.bold || m.originalFontName?.toLowerCase().includes("bold") || m.fontName?.toLowerCase().includes("bold"));
+     const isItalic = Boolean(m.italic || m.originalFontName?.toLowerCase().includes("italic") || m.originalFontName?.toLowerCase().includes("oblique"));
+
+     const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
+     if (isCourier && canEncodeWinAnsi(m.text || "")) {
+       const stdName = isBold
+         ? (isItalic ? StandardFonts.CourierBoldOblique : StandardFonts.CourierBold)
+         : (isItalic ? StandardFonts.CourierOblique : StandardFonts.Courier);
+       if (!fonts.has("Courier_" + stdName)) {
+         const embedded = await out.embedStandardFont(stdName);
+         fonts.set("Courier_" + stdName, embedded);
+       }
+       continue;
+     }
+
+     const isTimes = Boolean(m.originalFontName?.toLowerCase().includes("times") || m.fontName?.toLowerCase().includes("times"));
+     if (isTimes && canEncodeWinAnsi(m.text || "")) {
+       const stdName = isBold
+         ? (isItalic ? StandardFonts.TimesRomanBoldItalic : StandardFonts.TimesRomanBold)
+         : (isItalic ? StandardFonts.TimesRomanItalic : StandardFonts.TimesRoman);
+       if (!fonts.has("Times_" + stdName)) {
+         const embedded = await out.embedStandardFont(stdName);
+         fonts.set("Times_" + stdName, embedded);
+       }
+       continue;
+     }
+     const isHelvetica = Boolean(
+       m.originalFontName?.toLowerCase().includes("helvetica") ||
+       m.fontName?.toLowerCase().includes("helvetica") ||
+       (!isTimes && !isCourier && (m.font === "sans" || !m.font))
+     );
+     if (isHelvetica && canEncodeWinAnsi(m.text || "")) {
+       const stdName = isBold
+         ? (isItalic ? StandardFonts.HelveticaBoldOblique : StandardFonts.HelveticaBold)
+         : (isItalic ? StandardFonts.HelveticaOblique : StandardFonts.Helvetica);
+       if (!fonts.has("Helvetica_" + stdName)) {
+         const embedded = await out.embedStandardFont(stdName);
+         fonts.set("Helvetica_" + stdName, embedded);
+       }
+       continue;
+     }
+     const file = fontFile(m.font, isBold, isItalic);
+     if(!fonts.has(file)){
+       let fontBuffer: ArrayBuffer | Uint8Array;
+       if (typeof window === "undefined" || (typeof process !== "undefined" && Boolean(process?.versions?.node))) {
+         const fs = await import("node:fs");
+         const path = await import("node:path");
+         fontBuffer = fs.readFileSync(path.resolve("public/fonts", file));
+       } else {
+         const response=await fetch('/fonts/'+file);
+         if(!response.ok)throw Error('Yazı tipi yüklenemedi: ' + file);
+         fontBuffer = await response.arrayBuffer();
+       }
+       const embedded = await out.embedFont(fontBuffer, { subset: false });
+       fonts.set(file, embedded);
+     }
+   }
+   const renderer=marks.length||images.length?await loadPdf(bytes):null;
+   try{for(const item of pages){const [page]=await out.copyPages(src,[item.index]);out.addPage(page);const originalRotation=page.getRotation().angle;
+    const annotations=marks.filter(m=>m.page===item.index);
+    const pageImgs=images.filter(img=>img.page===item.index&&!img.deleted&&(!img.isOriginal||img.isModified));
+    if((annotations.length||pageImgs.length)&&renderer){const original=await renderer.getPage(item.index+1);const unit=original.userUnit||1;const viewport=original.getViewport({scale:1});const point=(x:number,y:number)=>viewport.convertToPdfPoint(x,y);
+     for(const m of annotations){
+      if(m.kind==="text"){
+       if(m.ocrSourceCropDataUrl && !m.ocrTextDirty){
+         try {
+           const b64 = m.ocrSourceCropDataUrl.split(",")[1];
+           if (b64) {
+             const cropBuf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+             const embeddedCrop = await out.embedPng(cropBuf);
+             const [x, y] = point(m.x, m.y + m.h);
+             page.drawImage(embeddedCrop, {
+               x,
+               y,
+               width: m.w / unit,
+               height: m.h / unit,
+               rotate: degrees(originalRotation - (m.angle || 0))
+             });
+             continue;
+           }
+         } catch (cropErr) {
+           console.warn("Could not embed OCR crop, falling back to text:", cropErr);
+         }
+       }
+       if(m.bg){
+         const a=point(m.x - 2, m.y - 1), b=point(m.x + m.w + 2, m.y + m.h + 1);
+         page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.bg),opacity:1});
+       }
+       const isBold = Boolean(m.bold || m.originalFontName?.toLowerCase().includes("bold") || m.fontName?.toLowerCase().includes("bold"));
+       const isItalic = Boolean(m.italic || m.originalFontName?.toLowerCase().includes("italic") || m.originalFontName?.toLowerCase().includes("oblique"));
+
+       const stdHelvName = isBold
+         ? (isItalic ? StandardFonts.HelveticaBoldOblique : StandardFonts.HelveticaBold)
+         : (isItalic ? StandardFonts.HelveticaOblique : StandardFonts.Helvetica);
+       const stdTimesName = isBold
+         ? (isItalic ? StandardFonts.TimesRomanBoldItalic : StandardFonts.TimesRomanBold)
+         : (isItalic ? StandardFonts.TimesRomanItalic : StandardFonts.TimesRoman);
+       const stdCourierName = isBold
+         ? (isItalic ? StandardFonts.CourierBoldOblique : StandardFonts.CourierBold)
+         : (isItalic ? StandardFonts.CourierOblique : StandardFonts.Courier);
+
+       const isTimes = Boolean(m.originalFontName?.toLowerCase().includes("times") || m.fontName?.toLowerCase().includes("times"));
+       const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
+       const isHelv = Boolean(
+         m.originalFontName?.toLowerCase().includes("helvetica") ||
+         m.fontName?.toLowerCase().includes("helvetica") ||
+         (!isTimes && !isCourier && (m.font === "sans" || !m.font))
+       );
+
+       const isTimesAllowed = isTimes && canEncodeWinAnsi(m.text || "");
+       const isCourierAllowed = isCourier && canEncodeWinAnsi(m.text || "");
+       const isHelvAllowed = isHelv && canEncodeWinAnsi(m.text || "");
+
+       const fontObj = isCourierAllowed && fonts.has("Courier_" + stdCourierName)
+         ? fonts.get("Courier_" + stdCourierName)!
+         : (isTimesAllowed && fonts.has("Times_" + stdTimesName)
+           ? fonts.get("Times_" + stdTimesName)!
+           : (isHelvAllowed && fonts.has("Helvetica_" + stdHelvName)
+             ? fonts.get("Helvetica_" + stdHelvName)!
+             : fonts.get(fontFile(m.font, isBold, isItalic))!));
+       const [x,y]=point(m.x,m.y+m.size);page.drawText(m.text||"",{x,y,size:m.size/unit,font:fontObj,color:col(m.color),rotate:degrees(originalRotation-(m.angle||0)),lineHeight:m.size*1.25/unit})}
+      if(m.kind==="highlight"){
+        const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);
+        page.drawRectangle({
+          x:Math.min(a[0],b[0]),
+          y:Math.min(a[1],b[1]),
+          width:Math.abs(a[0]-b[0]),
+          height:Math.abs(a[1]-b[1]),
+          color:col(m.color),
+          opacity:m.opacity??1
+        });
+        if(m.image){
+          try {
+            const b64 = m.image.split(",")[1];
+            if (b64) {
+              const patchBuf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+              const embeddedPatch = await out.embedPng(patchBuf);
+              const [x, y] = point(m.x, m.y + m.h);
+              page.drawImage(embeddedPatch, {
+                x,
+                y,
+                width: m.w / unit,
+                height: m.h / unit,
+                opacity: m.opacity ?? 1,
+                rotate: degrees(originalRotation - (m.angle || 0))
+              });
+            }
+          } catch (patchErr) {
+            console.warn("Could not embed textured cover patch:", patchErr);
+          }
+        }
       }
-      const embedded = await out.embedFont(fontBuffer, { subset: false });
-      fonts.set(file, embedded);
-    }
-  }
-  const renderer=marks.length||images.length?await loadPdf(bytes):null;
-  try{for(const item of pages){const [page]=await out.copyPages(src,[item.index]);out.addPage(page);const originalRotation=page.getRotation().angle;
-   const annotations=marks.filter(m=>m.page===item.index);
-   const pageImgs=images.filter(img=>img.page===item.index&&!img.deleted&&(!img.isOriginal||img.isModified));
-   if((annotations.length||pageImgs.length)&&renderer){const original=await renderer.getPage(item.index+1);const unit=original.userUnit||1;const viewport=original.getViewport({scale:1});const point=(x:number,y:number)=>viewport.convertToPdfPoint(x,y);
-    for(const m of annotations){
-     if(m.kind==="text"){
-      if(m.bg){
-        const a=point(m.x - 2, m.y - 1), b=point(m.x + m.w + 2, m.y + m.h + 1);
-        page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.bg),opacity:1});
-      }
-      const [x,y]=point(m.x,m.y+m.size);page.drawText(m.text||"",{x,y,size:m.size/unit,font:fonts.get(fontFile(m.font,m.bold,m.italic))!,color:col(m.color),rotate:degrees(originalRotation-(m.angle||0)),lineHeight:m.size*1.25/unit})}
-      if(m.kind==="highlight"){const a=point(m.x,m.y),b=point(m.x+m.w,m.y+m.h);page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.color),opacity:m.opacity??.3})}
       if(m.kind==="draw"){const pts=m.points||[];for(let i=1;i<pts.length;i++){const a=point(pts[i-1].x,pts[i-1].y),b=point(pts[i].x,pts[i].y);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:m.size/unit,color:col(m.color),opacity:m.opacity??1})}}
-      if(m.kind==="signature"&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,opacity:m.opacity??1,rotate:degrees(originalRotation)})}
-    }
+      if((m.kind==="signature"||m.kind==="stamp")&&m.image){const image=await out.embedPng(m.image);const [x,y]=point(m.x,m.y+m.h);page.drawImage(image,{x,y,width:m.w/unit,height:m.h/unit,opacity:m.opacity??1,rotate:degrees(originalRotation)})}
+     }
     for(const img of pageImgs){
      const url = img.dataUrl || img.previewUrl || "";
      if(url&&!url.startsWith("data:image/svg")){

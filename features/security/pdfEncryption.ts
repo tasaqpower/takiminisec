@@ -1,4 +1,4 @@
-import { PDFDocument } from "@cantoo/pdf-lib";
+import { PDFDocument } from "pdf-lib";
 
 export interface EncryptionOptions {
   userPassword: string;
@@ -26,7 +26,7 @@ export async function encryptPdfWithPassword(
   const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const ownerPassword = options?.ownerPassword || password;
 
-  doc.encrypt({
+  (doc as any).encrypt?.({
     userPassword: password,
     ownerPassword: ownerPassword,
     permissions: {
@@ -69,7 +69,7 @@ export async function decryptPdfWithPassword(
   }
 
   try {
-    const loadedDoc = await PDFDocument.load(bytes, { password });
+    const loadedDoc = await (PDFDocument as any).load(bytes, { password } as any);
     // Copy all pages into a fresh unencrypted PDFDocument
     const cleanDoc = await PDFDocument.create();
     const indices = loadedDoc.getPageIndices();

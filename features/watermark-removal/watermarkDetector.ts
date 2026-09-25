@@ -2,6 +2,8 @@ import { loadPdf } from "../../lib/documents.ts";
 import { editablePageText, type EditableText, type ImageRemoval } from "../../lib/pdf-text.ts";
 import { detectImagesOnPage } from "../image-editor/imageDetector.ts";
 import type { WatermarkCandidate } from "./watermarkTypes.ts";
+import { PDFDocument } from "pdf-lib";
+export { buildSafeAutoCleanCandidateIds } from "./watermarkRemover.ts";
 
 export function normalizeTurkish(text: string): string {
   if (!text) return "";
@@ -26,39 +28,38 @@ export const WATERMARK_KEYWORDS = [
   "belge simulasyonudur", "simulasyonudur", "simulasyon", "simulasyondur",
   "hukumsuz", "hukumsuzdur", "hukuksuz", "gecersiz kilinmistir", "hukuken gecersizdir",
   // Turkish sample & preview
-  "ornek", "ornektir", "ornek belge", "ornek belgedir", "belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
+  "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
   // Turkish draft
   "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
-  // Turkish confidentiality & restricted
-  "gizli", "gizlidir", "cok gizli", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
-  // Turkish copy & reproduction
-  "kopya", "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
+  // Turkish confidentiality & restricted (standalone 'gizli' removed to protect normal sentences)
+  "gizlidir", "cok gizli", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
+  // Turkish copy & reproduction (standalone 'kopya' kept only with copy indicators)
+  "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
   // Turkish cancellation & terminated
   "iptal", "iptal edilmistir", "feshedilmistir", "fesih", "ilga", "yururlukten kalkmistir",
-  // Turkish trial & demo
-  "deneme", "denemedir", "numune", "onizleme", "test", "demo", "deneme surumu", "on izleme",
-  // Turkish non-official & informational indicators
-  "ogrenci", "ogrenci belgesi", "stajyer",
+  // Turkish trial & demo (standalone 'test' removed)
+  "deneme", "denemedir", "numune", "onizleme", "demo", "deneme surumu", "on izleme",
+  // Turkish non-official & informational indicators ('ogrenci', 'ogrenci belgesi', 'belgedir' removed)
   "resmi degildir", "bilgi icindir", "bilgilendirme amacli", "bilgilendirmedir",
   "hukuki baglayiciligi yoktur", "gecerliligi yoktur", "baglayiciligi yoktur",
-  "kontrolsuz", "kontrolsuz kopya",
+  "kontrolsuz kopya",
   "onaylanmamis", "onaylanmamistir", "onay bekliyor", "onaysiz", "taslak halindedir",
   "asli gibidir", "aslinin aynisidir",
   "filigran", "filigrandir", "korumali", "telif hakki", "izinsiz kullanilamaz", "izinsiz cogaltilamaz",
-  // Mobile scanner watermarks
+  // Mobile scanner watermarks (standalone 'scanner' removed)
   "camscanner", "camscanner ile tarandi", "scanned with camscanner", "scanned by camscanner",
-  "adobe scan", "tapscanner", "fast scanner", "simple scanner", "scanner",
-  // English & international indicators
+  "adobe scan", "tapscanner", "fast scanner", "simple scanner",
+  // English & international indicators (standalone 'secret', 'private', 'copy', 'test' removed)
   "draft", "preliminary draft", "working draft",
-  "confidential", "strictly confidential", "secret", "top secret", "restricted", "private", "privileged",
-  "copy", "do not copy", "duplicate", "replica", "reproduction",
+  "confidential", "strictly confidential", "top secret", "restricted", "private and confidential", "privileged",
+  "do not copy", "duplicate", "replica", "reproduction",
   "void", "invalid", "cancelled", "canceled", "null and void", "expired",
-  "sample", "specimen", "test", "evaluation", "evaluation copy", "trial", "trial version", "preview", "demo",
+  "sample", "specimen", "evaluation copy", "trial version", "preview", "demo",
   "unofficial", "not for official use", "for review only", "for review", "for internal use only", "internal use only",
   "watermark", "watermarked", "copyright", "all rights reserved",
   "wondershare", "pdfelement", "smallpdf", "ilovepdf", "foxit", "nitro",
-  // Template & stock watermarks
-  "se9nse", "sense", "template", "shutterstock", "getty", "istock", "envato", "freepik", "stock"
+  // Template & stock watermarks (standalone 'stock' removed)
+  "se9nse", "sense", "template", "shutterstock", "getty", "istock", "envato", "freepik"
 ];
 
 export function analyzeWatermarkColor(colorHex?: string): {
@@ -443,18 +444,26 @@ export async function detectWatermarks(
         }
       }
 
-      // If color alone is the trigger, require at least one other watermark signal
-      // (keyword, diagonal angle, large font, repeat pattern, or short stamp <= 3 words)
-      const isShortStamp = wordCount <= 3 && (isLargeFont || group.rawText === group.rawText.toUpperCase());
-      const hasSecondarySignal = keywordMatched || hasDiagonal || isLargeFont || isTilePattern || repeatsOnMultiplePages || isShortStamp;
+      // SAFETY REQUIREMENT: At least TWO independent signals required for watermark candidate
+      // 1. Repetition across multiple pages or tile pattern on same page
+      // 2. Significant diagonal angle (>= 10 deg)
+      // 3. Large font size (>= 22pt)
+      // 4. Faint/light watermark tone or distinctive stamp color
+      // 5. Strong multi-word watermark phrase or strong unambiguous watermark indicator
+      let signalCount = 0;
+      if (repeatsOnMultiplePages || isTilePattern) signalCount++;
+      if (hasDiagonal) signalCount++;
+      if (isLargeFont) signalCount++;
+      if (bestColor.isWatermarkColor) signalCount++;
+      const isStrongMultiWordPhrase = matchedKw.some(kw => kw.includes(" ") || ["gecersizdir", "hukumsuzdur", "taslaktir", "ornektir", "confidential", "filigran", "watermark"].includes(kw));
+      if (isStrongMultiWordPhrase) signalCount++;
 
-      if (!hasSecondarySignal && !keywordMatched && !hasDiagonal) {
-        // Color alone without any watermark characteristics cannot condemn text!
+      // A single keyword alone without other physical watermark attributes CANNOT condemn text!
+      if (signalCount < 2) {
         continue;
       }
 
-      // Accept candidate if confidence >= 35, or if keyword matched, or if diagonal, or if watermark color
-      if (confidence >= 35 || keywordMatched || hasDiagonal || isTilePattern) {
+      // Candidate accepted: collect all constituent text removals from lines
         // Collect all constituent text removals from lines
         const removals: { id: string; page: number; quad: number[] }[] = [];
         const seenRemoval = new Set<string>();
@@ -489,7 +498,6 @@ export async function detectWatermarks(
           // PDFium removePdfText removes glyphs at the byte level with ZERO opaque rectangles.
           imageBounds: undefined
         });
-      }
     }
 
     // 4. Image / Logo Watermark Analysis
@@ -528,25 +536,92 @@ export async function detectWatermarks(
 
     for (const [, group] of imageSignatures.entries()) {
       const pageCount = group.pages.size;
-      // If image repeats across 2+ pages in the same position, or is non-fullpage recurring watermark
       const img = group.firstImg;
       const isFullPageScan = (img.w >= 500 && img.h >= 700); // Exclude full document page scans
       
       if (!isFullPageScan && (pageCount >= 2 || (pageCount === 1 && img.isWatermark))) {
+        const nameLower = (img.name || "").toLowerCase();
+        const hasWatermarkKeyword = /watermark|filigran|taslak|draft|sample|kopya|void|canc|geçersiz/i.test(nameLower);
+        const isFaintOpacity = typeof img.opacity === "number" && img.opacity > 0 && img.opacity < 0.45;
+        const isLargeCentered = img.w > 260 && img.h > 260 && img.x > 80 && img.y > 150;
+        const isDefiniteWatermark = img.isWatermark || hasWatermarkKeyword || isFaintOpacity || isLargeCentered;
+
+        // Position & size check for corporate logos, school crests, letterheads, or signatures
+        const isHeaderOrFooter = (img.y <= 135 || (img.y + img.h) >= 680) && img.w <= 300 && img.h <= 150;
+        const isLogoOrHeader = !isDefiniteWatermark && (isHeaderOrFooter || /logo|antet|crest|imza|sign|amblem|brand/i.test(nameLower) || pageCount >= 2);
+
+        // Confidence must NOT be high purely based on page repetition!
+        let confidence = 25;
+        let candidateText = img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Tekrarlayan Görsel");
+        let candidateReason = `${pageCount} sayfada aynı konumda tekrarlanan görsel`;
+
+        if (isDefiniteWatermark) {
+          confidence = hasWatermarkKeyword ? 90 : isFaintOpacity ? 80 : 70;
+          candidateText = img.name || "Görsel Filigran / Damga";
+          candidateReason = hasWatermarkKeyword
+            ? `Filigran anahtar kelimesi tespit edilen görsel (${img.name})`
+            : isFaintOpacity
+            ? `Saydam/soluk arka plan filigran görseli`
+            : `Büyük boyutlu merkezi filigran görseli`;
+        } else if (isLogoOrHeader) {
+          confidence = 25; // Strict low confidence: Repetition alone must NOT generate high confidence!
+          candidateReason = `${pageCount} sayfada tekrarlanan kurumsal logo/antet (Silinmesi önerilmez)`;
+        }
+
         candidates.push({
           id: `wm-img-${candidateIndex++}`,
           type: "image",
-          text: img.name || "Tekrarlayan Logo / Damga",
+          text: candidateText,
           count: group.removals.length,
           pages: Array.from(group.pages).sort((a, b) => a - b),
           imageBounds: { x: img.x, y: img.y, w: img.w, h: img.h },
           imagePreviewUrl: img.previewUrl || img.dataUrl,
-          reason: `${pageCount} sayfada aynı konumda tekrarlanan görsel`,
-          confidence: Math.min(90, 40 + pageCount * 15),
+          reason: candidateReason,
+          confidence,
+          isLogoOrHeader,
+          strategy: isDefiniteWatermark && (isFaintOpacity || hasWatermarkKeyword) ? "pixel_clean" : "object_remove",
           imageRemovals: group.removals
         });
       }
     }
+
+    // 4b. PDF /Watermark and exact watermark /Stamp annotation detection
+    try {
+      const pdfLibDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+      const pages = pdfLibDoc.getPages();
+      for (let pIdx = 0; pIdx < pages.length; pIdx++) {
+        const page = pages[pIdx];
+        const annots = page.node.Annots();
+        if (!annots) continue;
+        const count = annots.size();
+        for (let j = 0; j < count; j++) {
+          const annotRef = annots.get(j);
+          const annotObj = pdfLibDoc.context.lookup(annotRef) as any;
+          if (!annotObj) continue;
+          const subtype = annotObj.get?.("Subtype")?.toString();
+          const contents = annotObj.get?.("Contents")?.toString() || "";
+          const name = annotObj.get?.("NM")?.toString() || "";
+          const normContents = normalizeTurkish(contents).trim().toLowerCase();
+          const normName = normalizeTurkish(name).trim().toLowerCase();
+
+          const isWatermarkSubtype = subtype === "/Watermark";
+          const isExactWatermarkWord = ["draft", "taslak", "void", "watermark", "sample", "kopya"].includes(normContents) ||
+            ["draft", "taslak", "void", "watermark", "sample", "kopya"].includes(normName);
+
+          if (isWatermarkSubtype || (subtype === "/Stamp" && isExactWatermarkWord)) {
+            candidates.push({
+              id: `wm-annot-${candidateIndex++}`,
+              type: "annotation",
+              text: contents || name || "Filigran Ek Açıklaması",
+              count: 1,
+              pages: [pIdx],
+              reason: isWatermarkSubtype ? "PDF /Watermark ek açıklaması" : "Filigran damgası (/Stamp)",
+              confidence: 90
+            });
+          }
+        }
+      }
+    } catch {}
 
     // 4. If no vector text or image watermark candidates found, run local Visual OCR detector
     if (candidates.length === 0 && typeof window !== "undefined") {

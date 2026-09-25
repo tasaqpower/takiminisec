@@ -268,10 +268,15 @@ export async function detectImagesOnPage(
             console.warn("Could not extract image object:", err);
           }
 
+          let isPlaceholder = false;
+          let pixelExtractionFailed = false;
+
           if (!dataUrl) {
             // Render a clean placeholder only if real data couldn't be extracted
             dataUrl =
               "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='%236366f1' opacity='0.15'/><text x='50' y='55' text-anchor='middle' fill='%234338ca' font-size='12' font-family='sans-serif'>Görsel</text></svg>";
+            isPlaceholder = true;
+            pixelExtractionFailed = true;
           }
 
           const objStr = typeof imgArg === "string" ? imgArg : typeof imgArg === "number" ? String(imgArg) : "img";
@@ -305,7 +310,9 @@ export async function detectImagesOnPage(
             imageIndex: images.filter(im => im.page === pageIndex).length,
             pixelWidth: pixelW,
             pixelHeight: pixelH,
-            matrix: [...currentTransform]
+            matrix: [...currentTransform],
+            isPlaceholder,
+            pixelExtractionFailed,
           });
         }
       }

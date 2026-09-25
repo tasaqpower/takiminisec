@@ -243,26 +243,34 @@ async function testDispatcherExecution() {
   const sampleWithImageBytes = await imgDoc.save();
   const ctxWithImg = { pdfBytes: sampleWithImageBytes, fileName: 'ornek_aslanli_belge.pdf' };
 
-  // 15. Vision QA ("görselde ne var")
+  // 15. Vision QA ("görselde ne var") - Honest structural summary
   const visionRes = await dispatchAiAction(parseUserIntent('gorselde ne var'), ctxWithImg);
   assert.strictEqual(visionRes.action, 'vision_qa');
   assert.strictEqual(visionRes.success, true);
-  assert.ok(visionRes.message.includes('Görsel ve Belge İçerik Analizi'));
+  assert.ok(visionRes.message.includes('Yerel Belge Yapısı ve Metin Özeti'));
   console.log(`[PASS] Action: vision_qa executed successfully:\n${visionRes.message.split('\n').slice(0, 4).join('\n')}`);
 
-  // 16. Selective Object Deletion ("aslanı sil")
-  const delRes = await dispatchAiAction(parseUserIntent('aslani sil'), ctxWithImg);
-  assert.strictEqual(delRes.action, 'delete_object');
-  assert.strictEqual(delRes.success, true);
-  assert.ok(delRes.newPdfBytes && delRes.newPdfBytes.byteLength > 0);
-  console.log(`[PASS] Action: delete_object executed successfully: ${delRes.message}`);
+  // 16. Selective Object Deletion ("aslanı sil" requires explicit selection)
+  const delResNoSelect = await dispatchAiAction(parseUserIntent('aslani sil'), ctxWithImg);
+  assert.strictEqual(delResNoSelect.success, false);
+  const delResWithSelect = await dispatchAiAction(parseUserIntent('aslani sil'), {
+    ...ctxWithImg,
+    selectedImage: { page: 0, imageIndex: 0, pixelWidth: 2, pixelHeight: 2, originalBounds: { left: 50, bottom: 50, right: 90, top: 90 } },
+  });
+  assert.strictEqual(delResWithSelect.success, true);
+  assert.ok(delResWithSelect.newPdfBytes && delResWithSelect.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: delete_object executed safely: ${delResWithSelect.message}`);
 
-  // 17. Selective Enhancement ("aslanı netleştir")
-  const enhSelRes = await dispatchAiAction(parseUserIntent('aslani netlestir'), ctxWithImg);
-  assert.strictEqual(enhSelRes.action, 'enhance_selective');
-  assert.strictEqual(enhSelRes.success, true);
-  assert.ok(enhSelRes.newPdfBytes && enhSelRes.newPdfBytes.byteLength > 0);
-  console.log(`[PASS] Action: enhance_selective executed successfully: ${enhSelRes.message}`);
+  // 17. Selective Enhancement ("aslanı netleştir" requires explicit selection)
+  const enhNoSelect = await dispatchAiAction(parseUserIntent('aslani netlestir'), ctxWithImg);
+  assert.strictEqual(enhNoSelect.success, false);
+  const enhWithSelect = await dispatchAiAction(parseUserIntent('aslani netlestir'), {
+    ...ctxWithImg,
+    selectedImage: { page: 0, imageIndex: 0, pixelWidth: 2, pixelHeight: 2, originalBounds: { left: 50, bottom: 50, right: 90, top: 90 }, dataUrl: `data:image/png;base64,${imgBytes.toString('base64')}` },
+  });
+  assert.strictEqual(enhWithSelect.success, true);
+  assert.ok(enhWithSelect.newPdfBytes && enhWithSelect.newPdfBytes.byteLength > 0);
+  console.log(`[PASS] Action: enhance_selective executed safely: ${enhWithSelect.message}`);
 
   // 18. Voice Control Toggle ("sesli yanıtı aç")
   const voiceRes = await dispatchAiAction(parseUserIntent('sesli yaniti ac'), ctx);

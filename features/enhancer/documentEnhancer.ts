@@ -177,7 +177,7 @@ export function enhanceImageData(
 
       // Luminance unsharp mask
       const highPass = originalLum - blur;
-      let newLum = originalLum + highPass * sharpWeight;
+      const newLum = originalLum + highPass * sharpWeight;
 
       // Gentle S-curve contrast boost
       const normLum = Math.max(0, Math.min(1, newLum / 255));

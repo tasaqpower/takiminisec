@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   signPdf,
   verifyPdfSignatures,
+  generateSecurePassword,
 } from './signatureEngine';
+import { Copy, Check, Key, RefreshCw } from 'lucide-react';
 import type {
   SignPdfOptions,
   SignatureVerificationResult,
@@ -36,6 +38,23 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
   const [p12Bytes, setP12Bytes] = useState<Uint8Array | null>(null);
   const [p12Password, setP12Password] = useState('');
   const [p12FileName, setP12FileName] = useState('');
+
+  // Self-signed random password
+  const [selfSignedPassword, setSelfSignedPassword] = useState<string>(() => generateSecurePassword(16));
+  const [copiedPassword, setCopiedPassword] = useState(false);
+
+  const handleCopyPassword = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(selfSignedPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2000);
+    }
+  };
+
+  const handleRegeneratePassword = () => {
+    setSelfSignedPassword(generateSecurePassword(16));
+    setCopiedPassword(false);
+  };
 
   // Visual widget state
   const [showVisual, setShowVisual] = useState(true);
@@ -113,6 +132,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
           commonName: signerName,
           organization,
           country: 'TR',
+          password: selfSignedPassword,
         };
       } else {
         if (!p12Bytes) {
@@ -259,6 +279,57 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                       onChange={(e) => setOrganization(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
                     />
+                  </div>
+
+                  {/* Secure Random Password Display & Copy */}
+                  <div className="col-span-2 p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Sertifika Parolası (16 Karakter Güçlü Rastgele)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleRegeneratePassword}
+                        className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                        title="Yeni rastgele parola üret"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Yenile</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={selfSignedPassword}
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs font-mono text-emerald-400 tracking-wider select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCopyPassword}
+                        className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                          copiedPassword
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                      >
+                        {copiedPassword ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Kopyalandı!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Kopyala</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      Cihazınızda kriptografik rastgelelik (crypto.getRandomValues) ile üretilmiştir. Sabit veya güvensiz parola kullanılmaz.
+                    </p>
                   </div>
                 </div>
               )}

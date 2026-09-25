@@ -20,6 +20,8 @@ export interface PdfDetectedImage {
   matrix: number[];
   isMovable: boolean;
   parentFormRef?: string | number;
+  isPlaceholder?: boolean;
+  pixelExtractionFailed?: boolean;
 }
 
 export interface PdfImageItem {
@@ -48,6 +50,8 @@ export interface PdfImageItem {
   matrix?: number[];
   isMovable?: boolean;
   parentFormRef?: string | number;
+  isPlaceholder?: boolean;
+  pixelExtractionFailed?: boolean;
 }
 
 export type PdfImageEdit = PdfImageItem;

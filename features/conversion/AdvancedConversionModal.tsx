@@ -387,7 +387,7 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
             <div className="space-y-4">
               <div className="p-4 bg-indigo-950/30 border border-indigo-800/40 rounded-xl space-y-2 text-xs text-indigo-300">
                 <p className="font-semibold text-sm text-indigo-200 flex items-center gap-2">
-                  <span>PDF'i Düzenlenebilir Microsoft Word (.docx) Dosyasına Dönüştürün</span>
+                  <span>PDF&apos;i Düzenlenebilir Microsoft Word (.docx) Dosyasına Dönüştürün</span>
                 </p>
                 <p className="text-slate-300">
                   Belgedeki tüm sayfaları, başlık hiyerarşisini (H1/H2), paragrafları, madde işaretlerini ve tabloları tarayıp standart OpenXML (.docx) belgesine dönüştürür.
@@ -419,7 +419,7 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
             <div className="space-y-4">
               <div className="p-4 bg-indigo-950/30 border border-indigo-800/40 rounded-xl space-y-2 text-xs text-indigo-300">
                 <p className="font-semibold text-sm text-indigo-200 flex items-center gap-2">
-                  <span>Word (.docx) Belgelerini Vektörel PDF'e Dönüştürün</span>
+                  <span>Word (.docx) Belgelerini Vektörel PDF&apos;e Dönüştürün</span>
                 </p>
                 <p className="text-slate-300">
                   .docx dosyanızı doğrudan tarayıcınızda okuyarak standart kenar boşluklu, A4 boyutlu ve profesyonel vektörel PDF üretir.
@@ -469,7 +469,7 @@ export const AdvancedConversionModal: React.FC<AdvancedConversionModalProps> = (
             <div className="space-y-4">
               <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-2 text-xs text-emerald-300">
                 <p className="font-semibold text-sm text-emerald-200 flex items-center gap-2">
-                  <span>Excel ve CSV Tablolarını Kusursuz PDF'e Dönüştürün</span>
+                  <span>Excel ve CSV Tablolarını Kusursuz PDF&apos;e Dönüştürün</span>
                 </p>
                 <p className="text-slate-300">
                   .xlsx, .xls ve .csv elektronik tablolarınızı okuyarak otomatik sütun genişlikleri, sayfa numaraları, zebra satırları ve tekrarlanan başlıklarla sayfalanmış A4 PDF üretir.

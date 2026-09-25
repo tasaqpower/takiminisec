@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFDict } from "@cantoo/pdf-lib";
+import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 
 export interface PdfMetadata {
   title?: string;

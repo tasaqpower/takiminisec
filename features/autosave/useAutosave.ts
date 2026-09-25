@@ -75,10 +75,13 @@ export function useAutosave({
   const performSave = useCallback(async () => {
     const fileName = file?.name || "belge.pdf";
     if (!enabled || !cachedBuffer.current) return;
-    if (typeof window !== "undefined" && (window as any).__isTestingDrag) return;
+    if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+      if ((window as any).__isTestingDrag) return;
+    }
 
     // Check dragging state: do NOT autosave while dragging
-    const dragging = isDragging || (typeof window !== "undefined" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging));
+    const isDevTestDragging = typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging);
+    const dragging = isDragging || isDevTestDragging;
     if (dragging) return;
 
     // Filter genuine image edits (do NOT count unmodified detected images as edits)
@@ -131,7 +134,7 @@ export function useAutosave({
       const success = await saveDraft(draft);
       if (success) {
         autosaveStore.setStatus("saved", new Date());
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
           (window as any).__lastAutosaveTimestamp = Date.now();
           (window as any).__autosaveWriteCount = ((window as any).__autosaveWriteCount || 0) + 1;
         }
@@ -156,7 +159,8 @@ export function useAutosave({
 
     if (!enabled || (!file && !bytes)) return;
 
-    const dragging = isDragging || (typeof window !== "undefined" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging));
+    const isDevTestDragging = typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true" && Boolean((window as any).__isDraggingImage || (window as any).__isDragging);
+    const dragging = isDragging || isDevTestDragging;
     if (dragging) {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);

@@ -16,6 +16,7 @@ import {
   type SearchMatch,
   type SearchOptions
 } from "./searchEngine";
+import { isFontCharacterSupported, canEncodeWinAnsi } from "@/lib/documents";
 import { toast } from "sonner";
 
 interface FindReplaceBarProps {
@@ -47,6 +48,7 @@ export function FindReplaceBar({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scope, setScope] = useState<"all" | "current" | "custom">("all");
   const [pageRange, setPageRange] = useState("");
+  const [allowApproximateFont, setAllowApproximateFont] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -152,32 +154,94 @@ export function FindReplaceBar({
     // Case B: Original PDF text item match
     if (currentMatch.editableText) {
       const et = currentMatch.editableText;
+      const isOcr = Boolean((et as any).isOcr || et.id.startsWith("ocr-"));
+      if (!allowApproximateFont) {
+        const support = isFontCharacterSupported(replacement, et.originalFontName || et.fontName, isOcr);
+        if (!support.supported) {
+          toast.error(`Bu karakter mevcut yazı tipiyle yazılamıyor ("${replacement}" içerisindeki '${support.unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor). Yaklaşık font kullanmak isterseniz "Kaynak font desteklemiyorsa yaklaşık fonta izin ver" seçeneğini aktif ediniz.`);
+          return;
+        }
+      }
       const newText = replaceMatchInText(
         et.text,
         currentMatch.matchStart,
         currentMatch.matchLength,
         replacement
       );
+      const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
+      const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
+      const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
+      const isUnicodeApprox = !canEncodeWinAnsi(newText);
+      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+
       const newRemoval = { id: et.id, page: et.page, quad: et.quad };
+      let markX = et.x;
+      let markW = Math.max(10, et.w);
+      let markText = newText;
+      let covX = (et as any).ocrOriginalBounds?.x || et.x;
+      let covW = (et as any).ocrOriginalBounds?.w || et.w;
+      const additionalMarks: any[] = [];
+
+      if (isOcr) {
+        const origBounds = (et as any).ocrOriginalBounds || { x: et.x, y: et.y, w: et.w, h: et.h };
+        const labelMatch = et.text.match(/^([A-Za-zÇĞİÖŞÜçğıöşü0-9_\-\.]+\s*:\s*)/);
+        let prefixWidth = 0;
+        if (labelMatch && newText.startsWith(labelMatch[1])) {
+          const prefix = labelMatch[1];
+          prefixWidth = (prefix.length / et.text.length) * origBounds.w;
+          markX = origBounds.x + prefixWidth;
+          markW = Math.max(10, origBounds.w - prefixWidth);
+          markText = newText.slice(prefix.length);
+          covX = origBounds.x + prefixWidth;
+          covW = Math.max(10, (origBounds.w - prefixWidth) + Math.max(4, Math.round(origBounds.w * 0.02)));
+        } else {
+          const padX = Math.max(4, Math.round(origBounds.w * 0.02));
+          covX = origBounds.x - padX;
+          covW = origBounds.w + padX * 2;
+        }
+        const padTop = Math.max(4, Math.round(origBounds.h * 0.35));
+        const padBottom = Math.max(5, Math.round(origBounds.h * 0.50));
+        const covY = origBounds.y - padTop;
+        const covH = origBounds.h + padTop + padBottom;
+        const coverColor = (et as any).ocrBackgroundColor || "#f8f6f0";
+        additionalMarks.push({
+          id: `cover-${et.id}`,
+          page: et.page,
+          kind: "highlight",
+          x: covX,
+          y: covY,
+          w: covW,
+          h: covH,
+          color: coverColor,
+          size: 1,
+          opacity: 1,
+          sourceId: et.id
+        });
+      }
+
       const newMark = {
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         kind: "text",
         page: et.page,
-        x: et.x,
-        y: et.y,
-        text: newText,
-        size: et.size || 12,
-        font: et.fontName || "Liberation Sans",
-        color: "#000000",
-        bold: false,
-        italic: false,
-        angle: et.angle || 0
+        x: markX,
+        y: isOcr ? (((et as any).ocrOriginalBounds?.y || et.y) + ((et as any).ocrOriginalBounds?.h || et.h) - (et.size || 12)) : et.y,
+        text: markText,
+        size: Math.round((et.size || 12) * 10) / 10,
+        font: fontVal,
+        color: et.color || "#1e293b",
+        bold: isItemBold,
+        italic: isItemItalic,
+        angle: et.angle || 0,
+        originalFontName: et.originalFontName || et.fontName,
+        fontMatchQuality,
+        sourceId: et.id
       };
+      additionalMarks.push(newMark);
 
       if (onReplace) {
-        onReplace({ updatedMarks: marks, newMarks: [newMark], newRemovals: [newRemoval] });
+        onReplace({ updatedMarks: marks, newMarks: additionalMarks, newRemovals: [newRemoval] });
       } else if (onUpdateMarks) {
-        onUpdateMarks([...marks, newMark]);
+        onUpdateMarks([...marks, ...additionalMarks]);
       }
       toast.success("Orijinal PDF metni değiştirildi.");
       return;
@@ -186,8 +250,22 @@ export function FindReplaceBar({
     // Case C: Split text across multiple items
     if (currentMatch.splitEditableTexts && currentMatch.splitEditableTexts.length > 0) {
       const items = currentMatch.splitEditableTexts;
-      const removals = items.map((et: any) => ({ id: et.id, page: et.page, quad: et.quad }));
       const first = items[0];
+      const isOcr = Boolean((first as any).isOcr || first.id.startsWith("ocr-"));
+      if (!allowApproximateFont) {
+        const support = isFontCharacterSupported(replacement, first.originalFontName || first.fontName, isOcr);
+        if (!support.supported) {
+          toast.error(`Bu karakter mevcut yazı tipiyle yazılamıyor ("${replacement}" içerisindeki '${support.unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor). Yaklaşık font kullanmak isterseniz "Kaynak font desteklemiyorsa yaklaşık fonta izin ver" seçeneğini aktif ediniz.`);
+          return;
+        }
+      }
+      const removals = items.map((et: any) => ({ id: et.id, page: et.page, quad: et.quad }));
+      const isItemBold = Boolean(first.bold || first.originalFontName?.toLowerCase().includes("bold") || first.fontName?.toLowerCase().includes("bold"));
+      const isItemItalic = Boolean(first.italic || first.originalFontName?.toLowerCase().includes("italic") || first.originalFontName?.toLowerCase().includes("oblique"));
+      const fontVal = first.fontFamily === 'serif' ? 'serif' : first.fontFamily === 'courier' ? 'courier' : first.fontFamily === 'roboto' ? 'roboto' : 'sans';
+      const isUnicodeApprox = !canEncodeWinAnsi(replacement);
+      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+
       const newMark = {
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         kind: "text",
@@ -195,12 +273,15 @@ export function FindReplaceBar({
         x: currentMatch.bounds?.x ?? first.x,
         y: currentMatch.bounds?.y ?? first.y,
         text: replacement,
-        size: first.size || 12,
-        font: first.fontName || "Liberation Sans",
-        color: "#000000",
-        bold: false,
-        italic: false,
-        angle: first.angle || 0
+        size: Math.round((first.size || 12) * 10) / 10,
+        font: fontVal,
+        color: first.color || "#1e293b",
+        bold: isItemBold,
+        italic: isItemItalic,
+        angle: first.angle || 0,
+        originalFontName: first.originalFontName || first.fontName,
+        fontMatchQuality,
+        sourceId: first.id
       };
 
       if (onReplace) {
@@ -239,6 +320,28 @@ export function FindReplaceBar({
       }
     }
 
+    if (!allowApproximateFont) {
+      for (const [, hitList] of byOrig.entries()) {
+        const et = hitList[0].editableText;
+        const isOcr = Boolean((et as any).isOcr || et.id.startsWith("ocr-"));
+        const support = isFontCharacterSupported(replacement, et.originalFontName || et.fontName, isOcr);
+        if (!support.supported) {
+          toast.error(`Bu karakter mevcut yazı tipiyle yazılamıyor ("${replacement}" içerisindeki '${support.unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor). Yaklaşık font kullanmak isterseniz "Kaynak font desteklemiyorsa yaklaşık fonta izin ver" seçeneğini aktif ediniz.`);
+          return;
+        }
+      }
+      for (const sm of splitMatches) {
+        if (!sm.splitEditableTexts || sm.splitEditableTexts.length === 0) continue;
+        const first = sm.splitEditableTexts[0];
+        const isOcr = Boolean((first as any).isOcr || first.id.startsWith("ocr-"));
+        const support = isFontCharacterSupported(replacement, first.originalFontName || first.fontName, isOcr);
+        if (!support.supported) {
+          toast.error(`Bu karakter mevcut yazı tipiyle yazılamıyor ("${replacement}" içerisindeki '${support.unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor). Yaklaşık font kullanmak isterseniz "Kaynak font desteklemiyorsa yaklaşık fonta izin ver" seçeneğini aktif ediniz.`);
+          return;
+        }
+      }
+    }
+
     // 1. Process marks
     for (const [mId, hitList] of byMark.entries()) {
       const idx = updatedMarks.findIndex((m) => m.id === mId);
@@ -262,20 +365,73 @@ export function FindReplaceBar({
         text = replaceMatchInText(text, h.matchStart, h.matchLength, replacement);
         count++;
       }
+      const isOcr = Boolean((et as any).isOcr || et.id.startsWith("ocr-"));
+      const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
+      const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
+      const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
+      const isUnicodeApprox = !canEncodeWinAnsi(text);
+      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+
       newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
+      let markX = et.x;
+      let markW = Math.max(10, et.w);
+      let markText = text;
+
+      if (isOcr) {
+        const origBounds = (et as any).ocrOriginalBounds || { x: et.x, y: et.y, w: et.w, h: et.h };
+        const labelMatch = et.text.match(/^([A-Za-zÇĞİÖŞÜçğıöşü0-9_\-\.]+\s*:\s*)/);
+        let prefixWidth = 0;
+        let covX = origBounds.x;
+        let covW = origBounds.w;
+        if (labelMatch && text.startsWith(labelMatch[1])) {
+          const prefix = labelMatch[1];
+          prefixWidth = (prefix.length / et.text.length) * origBounds.w;
+          markX = origBounds.x + prefixWidth;
+          markW = Math.max(10, origBounds.w - prefixWidth);
+          markText = text.slice(prefix.length);
+          covX = origBounds.x + prefixWidth;
+          covW = Math.max(10, (origBounds.w - prefixWidth) + Math.max(4, Math.round(origBounds.w * 0.02)));
+        } else {
+          const padX = Math.max(4, Math.round(origBounds.w * 0.02));
+          covX = origBounds.x - padX;
+          covW = origBounds.w + padX * 2;
+        }
+        const padTop = Math.max(4, Math.round(origBounds.h * 0.35));
+        const padBottom = Math.max(5, Math.round(origBounds.h * 0.50));
+        const covY = origBounds.y - padTop;
+        const covH = origBounds.h + padTop + padBottom;
+        const coverColor = (et as any).ocrBackgroundColor || "#f8f6f0";
+        newMarks.push({
+          id: `cover-${et.id}`,
+          page: et.page,
+          kind: "highlight",
+          x: covX,
+          y: covY,
+          w: covW,
+          h: covH,
+          color: coverColor,
+          size: 1,
+          opacity: 1,
+          sourceId: et.id
+        });
+      }
+
       newMarks.push({
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         kind: "text",
         page: et.page,
-        x: et.x,
-        y: et.y,
-        text,
-        size: et.size || 12,
-        font: et.fontName || "Liberation Sans",
-        color: "#000000",
-        bold: false,
-        italic: false,
-        angle: et.angle || 0
+        x: markX,
+        y: isOcr ? (((et as any).ocrOriginalBounds?.y || et.y) + ((et as any).ocrOriginalBounds?.h || et.h) - (et.size || 12)) : et.y,
+        text: markText,
+        size: Math.round((et.size || 12) * 10) / 10,
+        font: fontVal,
+        color: et.color || "#1e293b",
+        bold: isItemBold,
+        italic: isItemItalic,
+        angle: et.angle || 0,
+        originalFontName: et.originalFontName || et.fontName,
+        fontMatchQuality,
+        sourceId: et.id
       });
     }
 
@@ -286,6 +442,13 @@ export function FindReplaceBar({
         newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
       }
       const first = sm.splitEditableTexts[0];
+      const isOcr = Boolean((first as any).isOcr || first.id.startsWith("ocr-"));
+      const isItemBold = Boolean(first.bold || first.originalFontName?.toLowerCase().includes("bold") || first.fontName?.toLowerCase().includes("bold"));
+      const isItemItalic = Boolean(first.italic || first.originalFontName?.toLowerCase().includes("italic") || first.originalFontName?.toLowerCase().includes("oblique"));
+      const fontVal = first.fontFamily === 'serif' ? 'serif' : first.fontFamily === 'courier' ? 'courier' : first.fontFamily === 'roboto' ? 'roboto' : 'sans';
+      const isUnicodeApprox = !canEncodeWinAnsi(replacement);
+      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+
       newMarks.push({
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         kind: "text",
@@ -293,12 +456,15 @@ export function FindReplaceBar({
         x: sm.bounds?.x ?? first.x,
         y: sm.bounds?.y ?? first.y,
         text: replacement,
-        size: first.size || 12,
-        font: first.fontName || "Liberation Sans",
-        color: "#000000",
-        bold: false,
-        italic: false,
-        angle: first.angle || 0
+        size: Math.round((first.size || 12) * 10) / 10,
+        font: fontVal,
+        color: first.color || "#1e293b",
+        bold: isItemBold,
+        italic: isItemItalic,
+        angle: first.angle || 0,
+        originalFontName: first.originalFontName || first.fontName,
+        fontMatchQuality,
+        sourceId: first.id
       });
       count++;
     }
@@ -482,6 +648,20 @@ export function FindReplaceBar({
           >
             Tümünü
           </button>
+        </div>
+      )}
+
+      {showReplace && (
+        <div className="flex items-center gap-1.5 mt-2 pl-6 text-[10.5px] text-slate-500">
+          <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-700 select-none">
+            <input
+              type="checkbox"
+              checked={allowApproximateFont}
+              onChange={(e) => setAllowApproximateFont(e.target.checked)}
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3 h-3"
+            />
+            <span>Kaynak font desteklemiyorsa yaklaşık fonta izin ver</span>
+          </label>
         </div>
       )}
     </div>

@@ -51,6 +51,7 @@ export interface AiIntentResult {
     targetPage?: 'first' | 'last' | number;
     targetObject?: string;
     voiceState?: 'on' | 'off';
+    allowApproximateFont?: boolean;
   };
   explanation: string;
   suggestedReply: string;
@@ -175,8 +176,13 @@ export function parseUserIntent(prompt: string): AiIntentResult {
     };
   }
 
-  // 0b. Vision & Semantic Document QA ("görselde ne var", "resimde ne var", "belgede ne var", "ne görüyorsun")
+  // 0b. Vision & Structural Document QA ("belgenin yapısını ve metnini özetle", "görselde ne var", "belgede ne var")
   if (
+    n.includes('belgenin yapisini') ||
+    n.includes('yapisini ozetle') ||
+    n.includes('belgeyi ozetle') ||
+    n.includes('metnini ozetle') ||
+    n.includes('belge ozeti') ||
     n.includes('gorselde ne var') ||
     n.includes('resimde ne var') ||
     n.includes('belgede ne var') ||
@@ -202,12 +208,12 @@ export function parseUserIntent(prompt: string): AiIntentResult {
     return {
       action: 'vision_qa',
       confidence: 0.96,
-      explanation: 'Görsel ve belge içeriği, nesneler, görseller ve metinler analiz edilip açıklanacak.',
-      suggestedReply: 'Görseli ve belgeyi inceliyorum; içerisindeki nesneleri, görselleri, metinleri ve yapıyı analiz ediyorum... 👁️🔍',
+      explanation: 'Belge yapısı, gömülü görsel bilgileri ve çıkarılabilir metin dürüstçe özetlenecek.',
+      suggestedReply: 'Belgenin yapısını, sayfa boyutlarını, gömülü görselleri ve metin içeriğini özetliyorum... 📄🔍',
     };
   }
 
-  // 0c. Selective Object / Image Deletion ("aslanı sil", "resmi sil", "logoyu kaldır", "görseli sil")
+  // 0c. Selective Object / Image Deletion ("seçili görseli sil", "bu görseli kaldır", "resmi sil", "aslanı sil")
   const isDeleteIntent =
     (n.includes('sil') || n.includes('kaldir') || n.includes('yok et') || n.includes('temizle') || n.includes('cikar')) &&
     !n.includes('filigran') &&
@@ -218,7 +224,8 @@ export function parseUserIntent(prompt: string): AiIntentResult {
 
   if (isDeleteIntent) {
     let target = '';
-    if (n.includes('aslan')) target = 'aslan';
+    if (n.includes('secili') || n.includes('bu gorsel') || n.includes('bu resim')) target = 'seçili görsel';
+    else if (n.includes('aslan')) target = 'aslan';
     else if (n.includes('logo')) target = 'logo';
     else if (n.includes('foto')) target = 'fotoğraf';
     else if (n.includes('imza')) target = 'imza';
@@ -237,30 +244,31 @@ export function parseUserIntent(prompt: string): AiIntentResult {
         action: 'delete_object',
         confidence: 0.95,
         parameters: { targetObject: target },
-        explanation: `Belgedeki '${target}' görseli/nesnesi tespit edilip silinecek.`,
-        suggestedReply: `Belgedeki '${target}' görselini/nesnesini tespit edip temizliyorum... 🗑️✨`,
+        explanation: `Seçili görsel/nesne doğrulanıp silinecek.`,
+        suggestedReply: `Seçili görseli kontrol edip belgeden temizliyorum... 🗑️✨`,
       };
     }
   }
 
-  // 0d. Selective Object Enhancement ("aslanı netleştir", "sadece görseli netleştir", "sadece fotoğrafı netleştir")
+  // 0d. Selective Object Enhancement ("seçili görseli netleştir", "bu görseli netleştir", "aslanı netleştir")
   const isSelectiveEnhance =
     (n.includes('netlestir') || n.includes('keskinlestir') || n.includes('iyilestir')) &&
-    (n.includes('sadece') || n.includes('aslan') || n.includes('logo') || n.includes('bu gorseli') || n.includes('bu resmi')) &&
+    (n.includes('secili') || n.includes('sadece') || n.includes('aslan') || n.includes('logo') || n.includes('bu gorseli') || n.includes('bu resmi')) &&
     !n.includes('ve resim');
 
   if (isSelectiveEnhance) {
-    let target = 'görsel';
+    let target = 'seçili görsel';
     if (n.includes('aslan')) target = 'aslan';
     else if (n.includes('foto')) target = 'fotoğraf';
     else if (n.includes('resim') || n.includes('resmi')) target = 'resim';
+    else if (n.includes('gorsel') && !n.includes('secili')) target = 'görsel';
 
     return {
       action: 'enhance_selective',
       confidence: 0.96,
-      parameters: { targetObject: target, enhanceMode: 'photo' },
-      explanation: `Belgedeki '${target}' görsel nesnesi hedeflenerek sadece bu alan yüksek çözünürlükte netleştirilecek.`,
-      suggestedReply: `Vektörel metinleri bozmadan sadece '${target}' görselini kristal netliğe kavuşturuyorum... 🖼️🔍✨`,
+      parameters: { targetObject: target },
+      explanation: `Seçili görsel izole edilerek filtrelenecek ve netleştirilecek.`,
+      suggestedReply: `Seçili görseli izole ederek netleştiriyorum... 🖼️🔍✨`,
     };
   }
 
@@ -576,18 +584,57 @@ export function parseUserIntent(prompt: string): AiIntentResult {
     };
   }
 
-  // 18. Find & Replace Text
-  const replaceRegex = /(?:['"]?)([^'"\n\r]+)(?:['"]?)\s+(?:kelimesini|yazisini|ifadesini|metnini)\s+(?:['"]?)([^'"\n\r]+)(?:['"]?)\s+(?:ile|olarak|diye)?\s*(?:degistir|yap|degistirelim|guncelle)/i;
-  const match = raw.match(replaceRegex);
-  if (match) {
-    const searchTerm = match[1].trim();
-    const replaceTerm = match[2].trim();
+  // 18. Find & Replace Text ("Name: Sukru Yildiz satırındaki Sukru Yildiz ismini Ahmet Yılmaz ile değiştir" or "A -> B")
+  const arrowReplaceRegex = /^\s*['"„“]?([^'"\n\r]+?)['"„”]?\s*(?:->|→|=>)\s*['"„“]?([^'"\n\r]+?)['"„”]?\s*$/i;
+  const contextualReplaceRegex = /(?:(?:içindeki|icindeki|sayfasındaki|sayfasindaki|satırındaki|satirindaki|yer alan|üzerindeki|uzerindeki)\s+)?['"„“]?([^'"\n\r]+?)['"„”]?\s+(?:satırındaki|satirindaki|yerindeki|kısmındaki|kismindaki)\s+['"„“]?([^'"\n\r]+?)['"„”]?\s+(?:ismini|adini|adını|kelimesini|yazısını|yazisini|ifadesini|metnini|değerini|degerini)\s+['"„“]?([^'"\n\r]+?)['"„”]?\s+(?:ile|olarak|diye)\s*(?:değiştir|degistir|yap|değiştirelim|degistirelim|güncelle|guncelle)/i;
+  const standardReplaceRegex = /(?:(?:belgedeki|metindeki|sayfadaki)\s+)?(?:['"„“]?)([^'"\n\r]+?)(?:['"„”]?)\s+(?:ismini|adini|adını|kelimesini|yazısını|yazisini|ifadesini|metnini|değerini|degerini)\s+(?:['"„“]?)([^'"\n\r]+?)(?:['"„”]?)\s+(?:ile|olarak|diye)?\s*(?:değiştir|degistir|yap|değiştirelim|degistirelim|güncelle|guncelle)/i;
+  const insteadReplaceRegex = /['"„“]?([^'"\n\r]+?)['"„”]?\s+yerine\s+['"„“]?([^'"\n\r]+?)['"„”]?\s+(?:yaz|koy|ekle|değiştir|degistir)/i;
+
+  const userRequestedApprox = Boolean(
+    n.includes('yaklasik') ||
+    raw.toLowerCase().includes('yaklaşık') ||
+    raw.toLowerCase().includes('yaklasik font') ||
+    raw.toLowerCase().includes('yaklaşık font') ||
+    raw.toLowerCase().includes('benzer font')
+  );
+
+  const matchArrow = raw.match(arrowReplaceRegex);
+  if (matchArrow) {
+    const searchTerm = matchArrow[1].trim();
+    const replaceTerm = matchArrow[2].trim();
+    return {
+      action: 'find_replace',
+      confidence: 0.99,
+      parameters: { searchTerm, replaceTerm, allowApproximateFont: userRequestedApprox },
+      explanation: `'${searchTerm}' ifadesi '${replaceTerm}' ile değiştirilecek.`,
+      suggestedReply: `Belgede '${searchTerm}' ifadesini bulup '${replaceTerm}' ile değiştirmek için işlem planı hazırladım. Aşağıdaki önizlemeyi onaylayabilirsiniz:`,
+    };
+  }
+
+  const matchCtx = raw.match(contextualReplaceRegex);
+  if (matchCtx) {
+    const contextLine = matchCtx[1].trim();
+    const searchTerm = matchCtx[2].trim();
+    const replaceTerm = matchCtx[3].trim();
+    return {
+      action: 'find_replace',
+      confidence: 0.98,
+      parameters: { searchTerm, replaceTerm, allowApproximateFont: userRequestedApprox },
+      explanation: `'${contextLine}' satırındaki '${searchTerm}' ismi '${replaceTerm}' ile değiştirilecek. Orijinal etiketler ve punto korunacak.`,
+      suggestedReply: `'${contextLine}' satırındaki '${searchTerm}' ismini '${replaceTerm}' ile değiştirmek için işlem planı hazırladım. Aşağıdaki önizlemeyi onaylayabilirsiniz:`,
+    };
+  }
+
+  const matchStd = raw.match(standardReplaceRegex) || raw.match(insteadReplaceRegex);
+  if (matchStd) {
+    const searchTerm = matchStd[1].trim().replace(/^(?:belgedeki|metindeki|sayfadaki|dokumandaki|bu)\s+/i, '');
+    const replaceTerm = matchStd[2].trim();
     return {
       action: 'find_replace',
       confidence: 0.96,
-      parameters: { searchTerm, replaceTerm },
+      parameters: { searchTerm, replaceTerm, allowApproximateFont: userRequestedApprox },
       explanation: `'${searchTerm}' ifadesi '${replaceTerm}' ile değiştirilecek.`,
-      suggestedReply: `Belgede geçen '${searchTerm}' ifadelerini bulup '${replaceTerm}' ile değiştiriyorum... 🔍`,
+      suggestedReply: `Belgede geçen '${searchTerm}' ifadelerini bulup '${replaceTerm}' ile değiştirmek için işlem planı hazırladım. Aşağıdaki önizlemeyi onaylayabilirsiniz:`,
     };
   }
 

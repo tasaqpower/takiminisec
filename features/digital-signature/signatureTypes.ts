@@ -25,6 +25,7 @@ export interface SignPdfOptions {
     commonName: string;
     organization?: string;
     country?: string;
+    password?: string;
   };
   reason?: string;
   location?: string;

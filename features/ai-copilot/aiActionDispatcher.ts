@@ -1,20 +1,49 @@
-import { PDFDocument, rgb, degrees, StandardFonts, PDFName, PDFDict, PDFStream } from 'pdf-lib';
+import { PDFDocument, rgb, degrees, StandardFonts, PDFName, PDFDict, PDFStream, PDFRawStream } from 'pdf-lib';
+import pako from 'pako';
 import { type AiActionType, type AiIntentResult } from './aiIntentEngine.ts';
 import { detectWatermarks } from '../watermark-removal/watermarkDetector.ts';
 import { removeWatermarks } from '../watermark-removal/watermarkRemover.ts';
-import { enhancePdfBytes } from '../enhancer/documentEnhancer.ts';
+import { enhancePdfBytes, enhanceImageData } from '../enhancer/documentEnhancer.ts';
 import { compressPdf } from '../compression/compressPdf.ts';
 import { scanPdfForSensitiveEntities, redactDetectedEntities } from '../security/autoRedact.ts';
 import { pdfToDocx } from '../conversion/docxConverter.ts';
 import { pdfToExcel, pdfToImagesZip } from '../conversion/conversionEngine.ts';
 import { convertToPdfA2b } from '../compliance/complianceEngine.ts';
 import { encryptPdfWithPassword } from '../security/pdfEncryption.ts';
-import { extractPdfText } from '../../lib/documents.ts';
+import { extractPdfText, loadPdf, exportPdf, canEncodeWinAnsi, type Mark } from '../../lib/documents.ts';
+import { editablePageText, type TextRemoval } from '../../lib/pdf-text.ts';
+
+export interface SelectedImageContext {
+  id?: string;
+  page: number;
+  originalBounds?: { left: number; bottom: number; right: number; top: number };
+  imageIndex?: number;
+  pixelWidth?: number;
+  pixelHeight?: number;
+  matrix?: number[];
+  objectRef?: string | number;
+  dataUrl?: string;
+  previewUrl?: string;
+  format?: 'png' | 'jpeg';
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  rotation?: number;
+  opacity?: number;
+  isPlaceholder?: boolean;
+  pixelExtractionFailed?: boolean;
+}
 
 export interface AiActionContext {
   pdfBytes?: Uint8Array | null;
   fileName?: string;
   currentPage?: number;
+  selectedImage?: SelectedImageContext | null;
+  confirmedCandidateIds?: string[];
+  existingMarks?: Mark[];
+  existingRemovals?: TextRemoval[];
+  allowApproximateFont?: boolean;
 }
 
 export interface AiActionResult {
@@ -23,11 +52,15 @@ export interface AiActionResult {
   message: string;
   newPdfBytes?: Uint8Array;
   newFileName?: string;
+  newMarks?: Mark[];
+  newRemovals?: TextRemoval[];
   downloadData?: {
     bytes: Uint8Array;
     fileName: string;
     mimeType: string;
   };
+  stoppedDueToUnsupportedChars?: boolean;
+  unsupportedChars?: string[];
   metadata?: Record<string, any>;
 }
 
@@ -228,7 +261,7 @@ async function analyzeDocumentVision(
 ): Promise<string> {
   const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pageCount = doc.getPageCount();
-  const imageDetails: Array<{ page: number; width: number; height: number; format?: string }> = [];
+  const imageDetails: Array<{ page: number; width: number; height: number }> = [];
 
   // Scan PDF objects for embedded raster images
   const pages = doc.getPages();
@@ -251,7 +284,6 @@ async function analyzeDocumentVision(
                 page: i + 1,
                 width: Number(w) || 0,
                 height: Number(h) || 0,
-                format: 'Görsel/Fotoğraf'
               });
             }
           }
@@ -281,30 +313,31 @@ async function analyzeDocumentVision(
   const isInvoice = cleanLines.some(l => /\b(fatura|e-fatura|e-arsiv|irsaliye|vergi)\b/i.test(l));
   const isContract = cleanLines.some(l => /\b(sozlesme|taraflar|madde\s*\d|taahhut|protokol)\b/i.test(l));
 
-  let detectedType = 'Genel Doküman / Belge';
-  if (isInvoice) detectedType = 'Elektronik Fatura / Mali Belge';
-  else if (isIdOrLicense) detectedType = 'Resmi Kimlik / Ehliyet / Nüfus Cüzdanı Belgesi';
-  else if (isContract) detectedType = 'Resmi Hukuki Sözleşme / Protokol';
-  else if (imageDetails.length > 0 && cleanLines.length < 5) detectedType = 'Fotoğrafik / Görsel Ağırlıklı Belge';
-  else if (imageDetails.length > 0) detectedType = 'Resimli / Görsel İçeren Rapor & Belge';
+  let detectedType = 'Genel Doküman / Belge (Tahmini)';
+  if (isInvoice) detectedType = 'Elektronik Fatura / Mali Belge (Tahmini)';
+  else if (isIdOrLicense) detectedType = 'Resmi Kimlik / Ehliyet / Nüfus Cüzdanı Belgesi (Tahmini)';
+  else if (isContract) detectedType = 'Resmi Hukuki Sözleşme / Protokol (Tahmini)';
+  else if (imageDetails.length > 0 && cleanLines.length === 0) detectedType = 'Taranmış / Görsel Ağırlıklı Belge (Tahmini)';
+  else if (imageDetails.length > 0) detectedType = 'Görsel ve Metin İçeren Rapor & Belge (Tahmini)';
 
-  // Build markdown response
-  let report = `👁️ **Görsel ve Belge İçerik Analizi**:\n\n`;
-  report += `📌 **Belge Kimliği**: ${detectedType}\n`;
+  // Build honest markdown response (no hallucinated object names)
+  let report = `📄 **Yerel Belge Yapısı ve Metin Özeti**\n\n`;
+  report += `*(Not: Yerel sürüm görsel nesnelerini semantik olarak isimleriyle tanımaz. Piksel içeriği analiz edilmemiştir.)*\n\n`;
+  report += `📌 **Belge Kimliği (Tahmini)**: ${detectedType}\n`;
   report += `📄 **Sayfa & Boyut**: ${pageCount} sayfa (${Math.round(pdfBytes.byteLength / 1024)} KB)\n\n`;
 
   if (imageDetails.length > 0) {
-    report += `🖼️ **Görsel / Fotoğraf Unsurları**:\n`;
-    report += `• Toplam **${imageDetails.length} adet** gömülü görsel/fotoğraf nesnesi tespit edildi.\n`;
-    imageDetails.slice(0, 4).forEach((img, idx) => {
+    report += `🖼️ **Gömülü Görseller**:\n`;
+    report += `• Toplam **${imageDetails.length} adet** gömülü görsel nesnesi tespit edildi.\n`;
+    imageDetails.slice(0, 5).forEach((img, idx) => {
       report += `  - Görsel #${idx + 1}: Sayfa ${img.page}, Çözünürlük: ${img.width > 0 ? `${img.width}×${img.height} px` : 'Vektör/Raster uyumlu'}\n`;
     });
-    if (imageDetails.length > 4) {
-      report += `  - *(ve ${imageDetails.length - 4} adet ek görsel)*\n`;
+    if (imageDetails.length > 5) {
+      report += `  - *(ve ${imageDetails.length - 5} adet ek görsel)*\n`;
     }
     report += `\n`;
   } else {
-    report += `🖼️ **Görsel Unsurları**: Belgede harici fotoğraf bulunmuyor, içerik tamamen vektörel metin ve grafiklerden oluşuyor.\n\n`;
+    report += `🖼️ **Gömülü Görseller**: Belgede harici raster görsel bulunmuyor, içerik tamamen vektörel metin ve grafiklerden oluşuyor.\n\n`;
   }
 
   if (cleanLines.length > 0) {
@@ -317,75 +350,594 @@ async function analyzeDocumentVision(
       report += `• *(ve ${cleanLines.length - 5} satır daha içerik)*\n`;
     }
     report += `\n`;
+  } else {
+    report += `📝 **Metin İçeriği**: Bu sayfada seçilebilir metin bulunamadı. Metni okumak için yerel OCR aracını çalıştırabilirsiniz.\n\n`;
   }
 
   report += `📊 **Yapısal Özellikler**:\n`;
-  report += `• Tablo / Mali Tablo Yapısı: ${hasTables ? '✅ Tespit edildi' : '❌ Bulunmuyor'}\n`;
-  report += `• Kaşe / Mühür / İmza Alanı: ${hasStampsOrSeals ? '✅ Tespit edildi' : '❌ Bulunmuyor'}\n`;
-  report += `\n💡 **Özet**: ${
-    imageDetails.length > 0
-      ? `Bu belgede görsel/fotoğraf öğeleri ve ${cleanLines.length} satırlık metin yer alıyor. İsterseniz görseli tek komutla silebilir (*"resmi sil"*), netleştirebilir (*"görseli netleştir"*) veya metinleri düzenleyebilirsiniz!`
-      : `Bu belge metin ve grafiklerden oluşan düzenli bir belgedir. İstediğiniz işlemi yapmaya hazırım!`
-  }`;
+  report += `• Tablo / Mali Tablo Yapısı: ${hasTables ? '✅ Metin içi belirteçler mevcut' : '❌ Bulunmuyor'}\n`;
+  report += `• Kaşe / Mühür / İmza Alanı: ${hasStampsOrSeals ? '✅ Metin içi belirteçler mevcut' : '❌ Bulunmuyor'}\n`;
 
   return report;
 }
 
-/**
- * Removes embedded images or targeted objects from PDF
- */
-async function deleteObjectFromPdf(
-  pdfBytes: Uint8Array,
-  targetObject = 'görsel'
-): Promise<{ newBytes: Uint8Array; removedCount: number }> {
-  let workingBytes = pdfBytes;
-  let removedCount = 0;
+function safeInflate(data: Uint8Array): Uint8Array {
+  try { return pako.inflate(data); } catch {}
+  try { return pako.inflateRaw(data); } catch {}
+  if (data.length > 2) {
+    try { return pako.inflateRaw(data.slice(2)); } catch {}
+    try { return pako.inflateRaw(data.slice(2, -4)); } catch {}
+  }
+  throw new Error('Decompression failed');
+}
 
-  // 1. Try PDFium native removal if available
-  try {
-    const { removePdfImages } = await import('../../lib/pdf-text.ts');
-    const tempDoc = await PDFDocument.load(workingBytes, { ignoreEncryption: true });
-    const count = tempDoc.getPageCount();
-    const removals = [];
-    for (let p = 0; p < count; p++) {
-      removals.push({ page: p, imageIndex: 0 });
-      removals.push({ page: p, imageIndex: 1 });
-      removals.push({ page: p, imageIndex: 2 });
+function crc32(buf: Uint8Array): number {
+  const table: number[] = [];
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    table[n] = c >>> 0;
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ table[(c ^ buf[i]) & 0xff];
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function encodePng(width: number, height: number, rgba: Uint8ClampedArray | Uint8Array): Uint8Array {
+  const rawScanlines = new Uint8Array(height * (width * 4 + 1));
+  let offset = 0;
+  for (let y = 0; y < height; y++) {
+    rawScanlines[offset++] = 0;
+    const rowStart = y * width * 4;
+    for (let x = 0; x < width * 4; x++) rawScanlines[offset++] = rgba[rowStart + x];
+  }
+  const compressed = pako.deflate(rawScanlines);
+  function makeChunk(typeStr: string, data: Uint8Array) {
+    const typeBuf = new Uint8Array([
+      typeStr.charCodeAt(0),
+      typeStr.charCodeAt(1),
+      typeStr.charCodeAt(2),
+      typeStr.charCodeAt(3),
+    ]);
+    const len = data.length;
+    const chunk = new Uint8Array(12 + len);
+    const view = new DataView(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+    view.setUint32(0, len, false);
+    chunk.set(typeBuf, 4);
+    if (len > 0) chunk.set(data, 8);
+    const toCrc = new Uint8Array(4 + len);
+    toCrc.set(typeBuf, 0);
+    if (len > 0) toCrc.set(data, 4);
+    view.setUint32(8 + len, crc32(toCrc), false);
+    return chunk;
+  }
+  const ihdr = new Uint8Array(13);
+  const ihdrView = new DataView(ihdr.buffer, ihdr.byteOffset, ihdr.byteLength);
+  ihdrView.setUint32(0, width, false);
+  ihdrView.setUint32(4, height, false);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const cIhdr = makeChunk('IHDR', ihdr);
+  const cIdat = makeChunk('IDAT', compressed);
+  const cIend = makeChunk('IEND', new Uint8Array(0));
+
+  const total = new Uint8Array(sig.length + cIhdr.length + cIdat.length + cIend.length);
+  let pos = 0;
+  total.set(sig, pos); pos += sig.length;
+  total.set(cIhdr, pos); pos += cIhdr.length;
+  total.set(cIdat, pos); pos += cIdat.length;
+  total.set(cIend, pos); pos += cIend.length;
+  return total;
+}
+
+function decodePngToRgba(pngBytes: Uint8Array): { width: number; height: number; data: Uint8ClampedArray } {
+  let offset = 8;
+  let width = 0, height = 0, colorType = 6;
+  const idatChunks: Uint8Array[] = [];
+  while (offset < pngBytes.length) {
+    const view = new DataView(pngBytes.buffer, pngBytes.byteOffset + offset, 4);
+    const len = view.getUint32(0, false);
+    const type = String.fromCharCode(...pngBytes.slice(offset + 4, offset + 8));
+    const data = pngBytes.slice(offset + 8, offset + 8 + len);
+    offset += 12 + len;
+    if (type === 'IHDR') {
+      const ihdrView = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      width = ihdrView.getUint32(0, false);
+      height = ihdrView.getUint32(4, false);
+      colorType = data[9];
+    } else if (type === 'IDAT') idatChunks.push(data);
+    else if (type === 'IEND') break;
+  }
+  const totalIdatLen = idatChunks.reduce((acc, c) => acc + c.length, 0);
+  const allIdat = new Uint8Array(totalIdatLen);
+  let idatPos = 0;
+  for (const c of idatChunks) {
+    allIdat.set(c, idatPos);
+    idatPos += c.length;
+  }
+  const raw = safeInflate(allIdat);
+  const bpp = colorType === 6 ? 4 : colorType === 2 ? 3 : 1;
+  const rowBytes = width * bpp;
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  let rawOff = 0;
+  let prevRow = new Uint8Array(rowBytes);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[rawOff++];
+    const currentRow = new Uint8Array(rowBytes);
+    for (let x = 0; x < rowBytes; x++) {
+      const byte = raw[rawOff++];
+      const left = x >= bpp ? currentRow[x - bpp] : 0;
+      const up = prevRow[x];
+      const upLeft = x >= bpp ? prevRow[x - bpp] : 0;
+      let val = byte;
+      if (filter === 1) val = (byte + left) & 0xff;
+      else if (filter === 2) val = (byte + up) & 0xff;
+      else if (filter === 3) val = (byte + Math.floor((left + up) / 2)) & 0xff;
+      else if (filter === 4) {
+        const p = left + up - upLeft;
+        const pa = Math.abs(p - left), pb = Math.abs(p - up), pc = Math.abs(p - upLeft);
+        const pr = (pa <= pb && pa <= pc) ? left : (pb <= pc ? up : upLeft);
+        val = (byte + pr) & 0xff;
+      }
+      currentRow[x] = val;
     }
-    const cleanBytes = await removePdfImages(workingBytes, removals);
-    if (cleanBytes && cleanBytes.byteLength > 0) {
-      workingBytes = cleanBytes;
-      removedCount++;
+    const outRowStart = y * width * 4;
+    for (let p = 0; p < width; p++) {
+      const pxIdx = p * bpp;
+      const outIdx = outRowStart + p * 4;
+      if (bpp === 4) {
+        rgba[outIdx] = currentRow[pxIdx];
+        rgba[outIdx + 1] = currentRow[pxIdx + 1];
+        rgba[outIdx + 2] = currentRow[pxIdx + 2];
+        rgba[outIdx + 3] = currentRow[pxIdx + 3];
+      } else if (bpp === 3) {
+        rgba[outIdx] = currentRow[pxIdx];
+        rgba[outIdx + 1] = currentRow[pxIdx + 1];
+        rgba[outIdx + 2] = currentRow[pxIdx + 2];
+        rgba[outIdx + 3] = 255;
+      } else {
+        rgba[outIdx] = rgba[outIdx + 1] = rgba[outIdx + 2] = currentRow[pxIdx];
+        rgba[outIdx + 3] = 255;
+      }
     }
-  } catch {
-    // Continue to pdf-lib removal
+    prevRow = currentRow;
+  }
+  return { width, height, data: rgba };
+}
+
+async function extractRgbaPixels(
+  pdfBytes: Uint8Array,
+  selectedImage: SelectedImageContext
+): Promise<{ width: number; height: number; data: Uint8ClampedArray } | null> {
+  // If image is a placeholder or pixel extraction failed, NEVER treat as real pixel data
+  if (selectedImage.isPlaceholder || selectedImage.pixelExtractionFailed) {
+    return null;
   }
 
-  // 2. Also remove XObjects from page Resources dictionary
-  const doc = await PDFDocument.load(workingBytes, { ignoreEncryption: true });
-  const pages = doc.getPages();
-
-  for (const page of pages) {
-    const resources = page.node.Resources();
-    if (!resources) continue;
-    const xObject = resources.lookup(PDFName.of('XObject'));
-    if (xObject instanceof PDFDict) {
-      const keys = xObject.keys();
-      for (const key of keys) {
-        const obj = xObject.lookup(key);
-        if (obj instanceof PDFStream) {
-          const subtype = obj.dict.lookup(PDFName.of('Subtype'));
-          if (subtype && subtype.toString() === '/Image') {
-            xObject.delete(key);
-            removedCount++;
-          }
+  // 1. From valid dataUrl / previewUrl if present and NOT an SVG placeholder
+  const dUrl = selectedImage.dataUrl || selectedImage.previewUrl;
+  if (dUrl && typeof dUrl === 'string') {
+    if (dUrl.includes('data:image/svg+xml') || dUrl.includes('G%C3%B6rsel') || dUrl.includes('Görsel')) {
+      return null;
+    }
+    if (typeof window !== 'undefined' && typeof Image !== 'undefined' && typeof document !== 'undefined') {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((res, rej) => {
+          img.onload = res;
+          img.onerror = rej;
+          img.src = dUrl;
+        });
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          return ctx.getImageData(0, 0, w, h);
         }
+      } catch {}
+    }
+    const match = dUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (match) {
+      const mime = match[1];
+      const b64 = match[2];
+      const buf = typeof Buffer !== 'undefined'
+        ? Buffer.from(b64, 'base64')
+        : Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      if (mime === 'png') {
+        try {
+          return decodePngToRgba(buf);
+        } catch {}
       }
     }
   }
 
-  const newBytes = await doc.save();
-  return { newBytes, removedCount: Math.max(removedCount, 1) };
+  // 2. Strictly matched PDFium rendered bitmap extraction (supports JPEG, PNG, CCITT, JBIG2, etc.)
+  try {
+    const { extractPdfImageBitmap } = await import('../../lib/pdf-text.ts');
+    const bmp = await extractPdfImageBitmap(pdfBytes, {
+      page: selectedImage.page,
+      bounds: selectedImage.originalBounds,
+      imageIndex: selectedImage.imageIndex,
+    });
+    if (bmp && bmp.width > 0 && bmp.height > 0) {
+      return bmp;
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
+ * Removes ONLY the explicitly selected image from PDF.
+ * Never performs bulk loops, semantic guesswork, or artificial counter increment.
+ * Fails safely with 0 byte changes if no verified single image can be targeted.
+ */
+async function deleteSelectedImageFromPdf(
+  pdfBytes: Uint8Array,
+  selectedImage: SelectedImageContext
+): Promise<{ success: boolean; newBytes?: Uint8Array; message: string; removedCount: number }> {
+  try {
+    const { canRemovePdfImage, removePdfImages } = await import('../../lib/pdf-text.ts');
+    const removal = {
+      page: selectedImage.page,
+      bounds: selectedImage.originalBounds,
+      imageIndex: selectedImage.imageIndex,
+      pixelWidth: selectedImage.pixelWidth,
+      pixelHeight: selectedImage.pixelHeight,
+      matrix: selectedImage.matrix,
+      objectRef: selectedImage.objectRef,
+      imageId: selectedImage.id,
+    };
+
+    const canRemove = await canRemovePdfImage(pdfBytes, removal).catch(() => false);
+    if (canRemove) {
+      const cleanResult = await removePdfImages(pdfBytes, [removal]);
+      const cleanBytes = (cleanResult as any)?.pdfBytes || cleanResult;
+      const count = typeof (cleanResult as any)?.removedCount === 'number'
+        ? (cleanResult as any).removedCount
+        : (cleanBytes.byteLength !== pdfBytes.byteLength ? 1 : 0);
+
+      if (cleanBytes && cleanBytes.byteLength > 0 && count === 1) {
+        return {
+          success: true,
+          newBytes: cleanBytes,
+          message: 'Seçili görsel başarıyla silindi ve belgeden temizlendi! 🗑️✨',
+          removedCount: 1,
+        };
+      }
+    }
+  } catch {}
+
+  return {
+    success: false,
+    message: 'Seçili görsel korumalı PDF yapısı nedeniyle kaldırılamadı.',
+    removedCount: 0,
+  };
+}
+
+/**
+ * Enhances ONLY the explicitly selected image stream, preserving all other images and vector text.
+ * Performs true in-place bitmap replacement via PDFium FPDFImageObj_SetBitmap.
+ * Preserves:
+ *  - exact coordinates & dimensions
+ *  - exact 6-element transformation matrix
+ *  - display list z-order (text above it stays above it!)
+ *  - clipping path and blend modes
+ *  - opacity
+ *  - duplicate placements of other XObjects
+ * Fails safely with 0 byte changes if no unambiguous single image match exists.
+ */
+async function enhanceSelectedImageInPdf(
+  pdfBytes: Uint8Array,
+  selectedImage: SelectedImageContext
+): Promise<{ success: boolean; newBytes?: Uint8Array; message: string }> {
+  try {
+    if (selectedImage.isPlaceholder || selectedImage.pixelExtractionFailed) {
+      return {
+        success: false,
+        message: 'Görsel pikselleri güvenli biçimde çıkarılamadığı için işlem uygulanmadı.',
+      };
+    }
+
+    const rawRgba = await extractRgbaPixels(pdfBytes, selectedImage);
+    if (!rawRgba || rawRgba.width <= 0 || rawRgba.height <= 0) {
+      return {
+        success: false,
+        message: 'Görsel pikselleri güvenli biçimde çıkarılamadığı için işlem uygulanmadı.',
+      };
+    }
+
+    // Enhance pixels in memory without corrupting compressed stream format
+    const enhanced = enhanceImageData(
+      rawRgba as any,
+      { mode: 'photo', intensity: 'balanced' },
+      (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) } as any)
+    );
+
+    // Surgical in-place replacement via PDFium FPDFImageObj_SetBitmap
+    const { updatePdfImageBitmap } = await import('../../lib/pdf-text.ts');
+    const updateResult = await updatePdfImageBitmap(
+      pdfBytes,
+      {
+        page: selectedImage.page,
+        bounds: selectedImage.originalBounds,
+        imageIndex: selectedImage.imageIndex,
+        pixelWidth: selectedImage.pixelWidth,
+        pixelHeight: selectedImage.pixelHeight,
+        matrix: selectedImage.matrix,
+        objectRef: selectedImage.objectRef,
+        imageId: selectedImage.id,
+      },
+      enhanced
+    );
+
+    if (updateResult.success && updateResult.newBytes && updateResult.newBytes.length > 0) {
+      return {
+        success: true,
+        newBytes: updateResult.newBytes,
+        message: 'Seçili görsel başarıyla netleştirildi! Diğer görseller ve belgenin vektörel metinleri korundu. 🖼️🔍✨',
+      };
+    }
+
+    return {
+      success: false,
+      message: updateResult.message || 'Seçili görsel kesin olarak doğrulanamadı. 0 bayt değiştirildi.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Görsel netleştirilirken hata oluştu.',
+    };
+  }
+}
+
+/**
+ * Executes surgical find and replace directly in PDF content streams.
+ * Preserves surrounding context, line layout, original label ("Name:"), font size, baseline, and color.
+ */
+async function executeFindReplaceInPdf(
+  pdfBytes: Uint8Array,
+  searchTerm: string,
+  replaceTerm: string,
+  existingMarks: Mark[] = [],
+  existingRemovals: TextRemoval[] = [],
+  allowApproximateFont: boolean = false,
+  onProgress?: (message: string) => void
+): Promise<{
+  success: boolean;
+  message: string;
+  newPdfBytes?: Uint8Array;
+  newMarks: Mark[];
+  newRemovals: TextRemoval[];
+  stoppedDueToUnsupportedChars?: boolean;
+  unsupportedChars?: string[];
+  metadata?: Record<string, any>;
+}> {
+  onProgress?.(`"${searchTerm}" belgede aranıyor...`);
+  const doc = await loadPdf(pdfBytes);
+  const totalPages = doc.numPages;
+
+  const removals: TextRemoval[] = [];
+  const marks: Mark[] = [];
+  let matchCount = 0;
+
+  // Check character support in source standard fonts
+  const unsupportedChars: string[] = [];
+  for (const ch of replaceTerm) {
+    if (!canEncodeWinAnsi(ch) && !unsupportedChars.includes(ch)) {
+      unsupportedChars.push(ch);
+    }
+  }
+  const hasUnsupportedChars = unsupportedChars.length > 0;
+
+  // Rule: If source font cannot encode character and user didn't explicitly choose approximate font -> STOP
+  if (hasUnsupportedChars && !allowApproximateFont) {
+    return {
+      success: false,
+      stoppedDueToUnsupportedChars: true,
+      unsupportedChars,
+      message: `Bu karakter mevcut yazı tipiyle yazılamıyor ("${replaceTerm}" içerisindeki '${unsupportedChars.join(", ")}' karakteri kaynak yazı tipi tarafından desteklenmiyor). Yazı tipi kalitesini ve özgünlüğünü korumak için işlem durduruldu. Yaklaşık yazı tipi ile uygulamak isterseniz bu seçeneği ayrıca onaylayabilirsiniz.`,
+      newMarks: [],
+      newRemovals: [],
+      metadata: {
+        searchTerm,
+        replaceTerm,
+        unsupportedChars,
+        allowApproximateFontAvailable: true
+      }
+    };
+  }
+
+  let helvFont: any = null;
+  try {
+    const dummyDoc = await PDFDocument.create();
+    helvFont = await dummyDoc.embedFont(StandardFonts.Helvetica);
+  } catch {}
+
+  let fkFont: any = null;
+  try {
+    const fontkit = await import('@pdf-lib/fontkit');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const fontPath = path.resolve('public/fonts/LiberationSans-Regular.ttf');
+    if (fs.existsSync(fontPath)) {
+      const fontBuf = fs.readFileSync(fontPath);
+      fkFont = (fontkit.default || fontkit).create(fontBuf);
+    }
+  } catch {}
+
+  function measureStr(str: string): number {
+    if (fkFont) {
+      try {
+        const run = fkFont.layout(str);
+        return run.glyphs.reduce((acc: number, g: any) => acc + g.advanceWidth, 0);
+      } catch {}
+    }
+    if (typeof document !== 'undefined' && document.createElement) {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.font = '14px Arial, Helvetica, sans-serif';
+          return ctx.measureText(str).width;
+        }
+      } catch {}
+    }
+    if (helvFont && canEncodeWinAnsi(str)) {
+      try {
+        return helvFont.widthOfTextAtSize(str, 14);
+      } catch {}
+    }
+    return str.length * 8;
+  }
+
+  function normalizeTr(s: string): string {
+    return s
+      .toLowerCase()
+      .replace(/[iİıI]/g, 'i')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[üÜ]/g, 'u')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[çÇ]/g, 'c');
+  }
+
+  const isUnicodeApprox = hasUnsupportedChars && allowApproximateFont;
+  const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : 'aynı font korundu';
+
+  for (let p = 0; p < totalPages; p++) {
+    const page = await doc.getPage(p + 1);
+    const textItems = await editablePageText(page);
+
+    for (const item of textItems) {
+      if (!item.text || !item.quad || item.quad.length !== 8) continue;
+
+      let searchFrom = 0;
+      while (searchFrom < item.text.length) {
+        let idx = item.text.indexOf(searchTerm, searchFrom);
+        let matchLen = searchTerm.length;
+
+        if (idx === -1) {
+          const remainingText = item.text.slice(searchFrom);
+          const normRemaining = normalizeTr(remainingText);
+          const normSearch = normalizeTr(searchTerm);
+          const subIdx = normRemaining.indexOf(normSearch);
+          if (subIdx !== -1) {
+            idx = searchFrom + subIdx;
+          }
+        }
+
+        if (idx === -1) break;
+
+        matchCount++;
+
+        const prefixStr = item.text.slice(0, idx);
+        const matchStr = item.text.slice(idx, idx + matchLen);
+        const fullStr = item.text;
+
+        const prefixAdv = measureStr(prefixStr);
+        const matchAdv = measureStr(matchStr);
+        const fullAdv = measureStr(fullStr);
+        const repAdv = measureStr(replaceTerm);
+
+        let rStart = idx / Math.max(1, item.text.length);
+        let rEnd = Math.min(1, (idx + matchLen) / Math.max(1, item.text.length));
+        if (fullAdv > 0) {
+          rStart = Math.max(0, Math.min(1, prefixAdv / fullAdv));
+          rEnd = Math.max(0, Math.min(1, (prefixAdv + matchAdv) / fullAdv));
+        }
+
+        const [x0, y0, x1, y1, x2, y2, x3, y3] = item.quad;
+        const topStartX = x0 + (x1 - x0) * rStart;
+        const topStartY = y0 + (y1 - y0) * rStart;
+        const topEndX = x0 + (x1 - x0) * rEnd;
+        const topEndY = y0 + (y1 - y0) * rEnd;
+        const botStartX = x2 + (x3 - x2) * rStart;
+        const botStartY = y2 + (y3 - y2) * rStart;
+        const botEndX = x2 + (x3 - x2) * rEnd;
+        const botEndY = y2 + (y3 - y2) * rEnd;
+        const subQuad = [topStartX, topStartY, topEndX, topEndY, botStartX, botStartY, botEndX, botEndY];
+
+        const removalId = crypto.randomUUID();
+        removals.push({
+          id: removalId,
+          page: p,
+          quad: subQuad
+        });
+
+        const fontVal = item.fontFamily === 'serif' ? 'serif' : item.fontFamily === 'courier' ? 'courier' : item.fontFamily === 'roboto' ? 'roboto' : 'sans';
+        const repWidth = fullAdv > 0 ? (repAdv / fullAdv) * item.w : item.w * (rEnd - rStart);
+        const markW = Math.max(10, Math.round(repWidth * 10) / 10);
+
+        const isItemBold = Boolean(item.bold || item.originalFontName?.toLowerCase().includes("bold") || item.fontName?.toLowerCase().includes("bold"));
+        const isItemItalic = Boolean(item.italic || item.originalFontName?.toLowerCase().includes("italic") || item.originalFontName?.toLowerCase().includes("oblique"));
+
+        marks.push({
+          id: crypto.randomUUID(),
+          page: p,
+          kind: 'text',
+          x: item.x + item.w * rStart,
+          y: item.y,
+          w: markW,
+          h: item.h,
+          size: Math.round(item.size * 10) / 10,
+          color: item.color || '#1e293b',
+          text: replaceTerm,
+          font: fontVal,
+          bold: isItemBold,
+          italic: isItemItalic,
+          sourceId: removalId,
+          originalFontName: item.originalFontName || item.fontName,
+          fontMatchQuality
+        });
+
+        searchFrom = idx + matchLen;
+      }
+    }
+  }
+
+  if (matchCount === 0) {
+    return {
+      success: false,
+      message: `Belgede "${searchTerm}" ifadesi bulunamadı. Lütfen aranan kelimenin yazılışını kontrol edin.`,
+      newMarks: [],
+      newRemovals: []
+    };
+  }
+
+  onProgress?.(`${matchCount} adet eşleşme bulundu, vektörel olarak değiştiriliyor...`);
+  const pagesConfig = Array.from({ length: totalPages }, (_, i) => ({ index: i, rotation: 0 }));
+  const allMarks = [...existingMarks, ...marks];
+  const allRemovals = [...existingRemovals, ...removals];
+  const exportedBytes = await exportPdf(pdfBytes, pagesConfig, allMarks, allRemovals, []);
+
+  const resultMsg = isUnicodeApprox
+    ? `Belgedeki "${searchTerm}" ifadesi kullanıcı onayıyla yaklaşık yazı tipi eşleştirmesi kullanılarak "${replaceTerm}" olarak güncellendi (${matchCount} eşleşme güncellendi).`
+    : `Belgedeki "${searchTerm}" ifadesi kaynak yazı tipi ('${marks[0]?.originalFontName || "kaynak font"}') ve stili (${marks[0]?.bold ? "kalın" : "normal"}) birebir korunarak "${replaceTerm}" ile başarıyla değiştirildi (${matchCount} eşleşme güncellendi).`;
+
+  return {
+    success: true,
+    message: resultMsg,
+    newPdfBytes: exportedBytes,
+    newMarks: marks,
+    newRemovals: removals,
+    metadata: {
+      searchTerm,
+      replaceTerm,
+      matchCount,
+      fontMatchQuality
+    }
+  };
 }
 
 /**
@@ -466,26 +1018,49 @@ export async function dispatchAiAction(
 
       if (candidates.length === 0) {
         return {
-          success: true,
+          success: false,
           action: 'watermark_remove',
-          message: 'Belgede belirgin bir filigran veya taslak damgası bulunamadı. Belgeniz zaten temiz görünüyor! ✨',
+          message: 'Belgede bağımsız işaretlerle doğrulanmış bir filigran veya taslak damgası bulunamadı. Belgeniz zaten temiz görünüyor! ✨',
         };
       }
 
-      onProgress?.(`${candidates.length} adet filigran nesnesi temizleniyor...`);
+      // Strict confirmation flow: never auto-delete unconfirmed candidates
+      if (!context.confirmedCandidateIds || context.confirmedCandidateIds.length === 0) {
+        return {
+          success: true,
+          action: 'watermark_remove',
+          message: `Belgede ${candidates.length} adet filigran adayı tespit edildi. Temizlemek istediğiniz adayları aşağıdan seçip onaylayın.`,
+          metadata: {
+            candidates,
+            pendingConfirmation: true,
+          },
+        };
+      }
+
+      const idsToRemove = context.confirmedCandidateIds;
+
+      onProgress?.(`${idsToRemove.length} adet filigran nesnesi temizleniyor...`);
       const removalResult = await removeWatermarks(context.pdfBytes, candidates, {
-        candidateIds: candidates.map((c) => c.id),
+        candidateIds: idsToRemove,
         pageScope: 'all',
         currentPage: 0,
       });
 
+      if (removalResult.totalRemoved === 0) {
+        return {
+          success: false,
+          action: 'watermark_remove',
+          message: 'Filigran kaldırılamadı; PDF baytlarında değişiklik yapılmadı.',
+        };
+      }
+
       return {
         success: true,
         action: 'watermark_remove',
-        message: `Başarıyla ${removalResult.totalRemoved} adet filigran ve taslak nesnesi temizlendi! Belge saf haline getirildi.`,
+        message: `Seçtiğiniz filigran adayları kaldırıldı (${removalResult.totalRemoved} adet nesne). Önemli belgelerde sonucu kontrol ederek dışa aktarın.`,
         newPdfBytes: removalResult.pdfBytes,
         newFileName: `${baseName}_filigransiz.pdf`,
-        metadata: { removedCount: removalResult.totalRemoved },
+        metadata: { removedCount: removalResult.totalRemoved, candidates },
       };
     }
 
@@ -783,8 +1358,9 @@ export async function dispatchAiAction(
       }
 
       onProgress?.('Sayfadaki metinler taranıyor ve okunuyor...');
-      const lines = await extractPdfText(context.pdfBytes);
-      const joined = lines.filter(Boolean).join('\n');
+      const fullText = await extractPdfText(context.pdfBytes);
+      const lines = fullText.split('\n').map(s => s.trim()).filter(Boolean);
+      const joined = lines.join('\n');
       const textPreview = joined.slice(0, 300) || 'Metin ayrıştırılamadı.';
 
       return {
@@ -887,31 +1463,46 @@ export async function dispatchAiAction(
       };
     }
 
-    // 22. Delete Object / Image ("aslanı sil", "resmi sil", "logoyu kaldır")
+    // 22. Delete Object / Image ("seçili görseli sil", "bu görseli kaldır")
     case 'delete_object': {
       if (!context.pdfBytes) {
         return {
           success: false,
           action: 'delete_object',
-          message: 'Nesne veya görsel silmek için lütfen bir PDF belgesi açın.',
+          message: 'Görsel silmek için lütfen bir PDF belgesi açın.',
         };
       }
 
-      const target = intent.parameters?.targetObject || 'görsel';
-      onProgress?.(`Belgedeki '${target}' görseli/nesnesi tespit ediliyor ve kaldırılıyor...`);
+      if (!context.selectedImage) {
+        return {
+          success: false,
+          action: 'delete_object',
+          message: 'Yerel sürüm görseldeki nesneleri isimlerine göre tanıyamıyor. Önce kaldırmak istediğin görseli seç, ardından ‘seçili görseli sil’ komutunu kullan.',
+        };
+      }
 
-      const { newBytes, removedCount } = await deleteObjectFromPdf(context.pdfBytes, target);
+      onProgress?.('Seçili görsel doğrulanıyor ve kaldırılıyor...');
+      const delResult = await deleteSelectedImageFromPdf(context.pdfBytes, context.selectedImage);
+
+      if (!delResult.success || !delResult.newBytes) {
+        return {
+          success: false,
+          action: 'delete_object',
+          message: delResult.message || 'Seçili görsel kaldırılamadı.',
+        };
+      }
 
       return {
         success: true,
         action: 'delete_object',
-        message: `Belgedeki **${target}** görseli/nesnesi başarıyla silindi ve temizlendi! 🗑️✨`,
-        newPdfBytes: newBytes,
-        newFileName: `${baseName}_${target}_silindi.pdf`,
+        message: 'Seçili görsel başarıyla silindi ve belgeden temizlendi! 🗑️✨',
+        newPdfBytes: delResult.newBytes,
+        newFileName: `${baseName}_gorsel_silindi.pdf`,
+        metadata: { removedCount: delResult.removedCount },
       };
     }
 
-    // 23. Selective Enhancement ("aslanı netleştir", "sadece görseli netleştir")
+    // 23. Selective Enhancement ("seçili görseli netleştir")
     case 'enhance_selective': {
       if (!context.pdfBytes) {
         return {
@@ -921,21 +1512,31 @@ export async function dispatchAiAction(
         };
       }
 
-      const target = intent.parameters?.targetObject || 'görsel';
-      onProgress?.(`Vektör metinler korunarak sadece '${target}' görseli netleştiriliyor...`);
+      if (!context.selectedImage) {
+        return {
+          success: false,
+          action: 'enhance_selective',
+          message: 'Netleştirmek istediğiniz görsel seçili değil. Lütfen önce çalışma alanından bir görsel seçin, ardından "seçili görseli netleştir" komutunu kullanın.',
+        };
+      }
 
-      const enhancedBytes = await enhancePdfBytes(context.pdfBytes, {
-        mode: 'photo',
-        intensity: 'balanced',
-        despeckle: true,
-      });
+      onProgress?.('Seçili görsel izole ediliyor ve netleştiriliyor...');
+      const enhResult = await enhanceSelectedImageInPdf(context.pdfBytes, context.selectedImage);
+
+      if (!enhResult.success || !enhResult.newBytes) {
+        return {
+          success: false,
+          action: 'enhance_selective',
+          message: enhResult.message || 'Seçili görsel netleştirilemedi.',
+        };
+      }
 
       return {
         success: true,
         action: 'enhance_selective',
-        message: `Belgedeki **${target}** görseli başarıyla netleştirildi! Vektörel metin keskinliği korunarak görsel kristal netliğe kavuşturuldu. 🖼️🔍✨`,
-        newPdfBytes: enhancedBytes,
-        newFileName: `${baseName}_${target}_netlestirildi.pdf`,
+        message: enhResult.message,
+        newPdfBytes: enhResult.newBytes,
+        newFileName: `${baseName}_secili_gorsel_netlestirildi.pdf`,
       };
     }
 
@@ -947,6 +1548,63 @@ export async function dispatchAiAction(
         action: 'voice_toggle',
         message: intent.suggestedReply,
         metadata: { voiceState },
+      };
+    }
+
+    // 25. Find & Replace Text
+    case 'find_replace': {
+      if (!context.pdfBytes) {
+        return {
+          success: false,
+          action: 'find_replace',
+          message: 'Değişiklik yapabilmek için önce bir PDF belgesi yüklemelisiniz.',
+        };
+      }
+      const searchTerm = intent.parameters?.searchTerm;
+      const replaceTerm = intent.parameters?.replaceTerm;
+      if (!searchTerm || !replaceTerm) {
+        return {
+          success: false,
+          action: 'find_replace',
+          message: 'Değiştirilecek metin veya yeni metin anlaşılamadı. Lütfen örneğin "Sukru Yildiz ismini Ahmet Yılmaz ile değiştir" şeklinde belirtin.',
+        };
+      }
+
+      const allowApprox = Boolean(
+        intent.parameters?.allowApproximateFont ||
+        context.allowApproximateFont ||
+        context.confirmedCandidateIds?.includes('allow_approximate')
+      );
+      const repResult = await executeFindReplaceInPdf(
+        context.pdfBytes,
+        searchTerm,
+        replaceTerm,
+        context.existingMarks || [],
+        context.existingRemovals || [],
+        allowApprox,
+        onProgress
+      );
+
+      if (!repResult.success || !repResult.newPdfBytes) {
+        return {
+          success: false,
+          action: 'find_replace',
+          stoppedDueToUnsupportedChars: repResult.stoppedDueToUnsupportedChars,
+          unsupportedChars: repResult.unsupportedChars,
+          message: repResult.message,
+          metadata: repResult.metadata
+        };
+      }
+
+      return {
+        success: true,
+        action: 'find_replace',
+        message: repResult.message,
+        newPdfBytes: repResult.newPdfBytes,
+        newMarks: repResult.newMarks,
+        newRemovals: repResult.newRemovals,
+        newFileName: `${baseName}_duzenlendi.pdf`,
+        metadata: repResult.metadata,
       };
     }
 

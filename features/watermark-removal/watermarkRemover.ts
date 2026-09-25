@@ -1,9 +1,13 @@
 import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "../../lib/pdf-text.ts";
 import { loadPdf } from "../../lib/documents.ts";
 import { PDFDocument, rgb } from "pdf-lib";
-import { normalizeTurkish, reconstructPageLines, WATERMARK_KEYWORDS } from "./watermarkDetector.ts";
+import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector.ts";
 import { findVisualTextBounds } from "./visualWatermarkDetector.ts";
-import type { WatermarkCandidate, WatermarkRemovalOptions } from "./watermarkTypes.ts";
+import type {
+  WatermarkCandidate,
+  WatermarkRemovalOptions,
+  CandidateRemovalResult
+} from "./watermarkTypes.ts";
 
 export interface WatermarkRemovalResult {
   pdfBytes: Uint8Array;
@@ -12,6 +16,31 @@ export interface WatermarkRemovalResult {
   removedAnnotationCount: number;
   removedCoverCount?: number;
   totalRemoved: number;
+  strategyUsed?: string;
+  candidateResults?: CandidateRemovalResult[];
+}
+
+/**
+ * Safely filters watermark candidates for 1-click automatic clean.
+ * STRICT SAFETY RULES (V7):
+ *  1. ONLY processes type === "text" or safe type === "annotation".
+ *  2. NEVER processes type === "image" automatically.
+ *  3. NEVER processes isLogoOrHeader === true candidates.
+ *  4. Only selects candidates meeting or exceeding confidence threshold (>= 45%).
+ *  5. Any image, logo, header, crest, signature, or repeating corporate graphic
+ *     strictly requires explicit manual user selection.
+ */
+export function buildSafeAutoCleanCandidateIds(candidates: WatermarkCandidate[]): string[] {
+  if (!Array.isArray(candidates) || candidates.length === 0) return [];
+  return candidates
+    .filter((c) => {
+      if (c.type === "image") return false;
+      if (c.isLogoOrHeader) return false;
+      if (c.type !== "text" && c.type !== "annotation") return false;
+      const conf = typeof c.confidence === "number" ? c.confidence : 0;
+      return conf >= 45;
+    })
+    .map((c) => c.id);
 }
 
 export async function removeWatermarks(
@@ -37,52 +66,115 @@ export async function removeWatermarks(
   }
 
   const selectedSet = new Set(options.candidateIds);
+  const candidateResults: CandidateRemovalResult[] = [];
 
   // 1a. Surgical Object-Level Watermark Removal via PDFium
   // Removes entire watermark text objects directly from the PDF stream without altering
   // or redacting any adjacent or overlapping legitimate contract text!
-  const candidateTexts = allCandidates
+  // ONLY targets selected candidate texts. WATERMARK_KEYWORDS is strictly NOT used during removal!
+  const candidateItems = allCandidates
     .filter(c => selectedSet.has(c.id) && c.type === "text" && c.text)
-    .map(c => c.text as string);
+    .map(c => ({ id: c.id, text: c.text as string }));
+  const candidateTexts = candidateItems.map(c => c.text);
 
   if (options.customText?.trim()) {
     candidateTexts.push(options.customText.trim());
   }
 
   let objectRemovalCount = 0;
-  try {
-    const objResult = await removePdfTextObjects(currentBytes, {
-      candidateTexts,
-      targetPages: Array.from(targetPages),
-      keywords: WATERMARK_KEYWORDS
-    });
-    if (objResult.removedCount > 0) {
-      currentBytes = objResult.bytes;
-      objectRemovalCount = objResult.removedCount;
-      removedTextCount += objResult.removedCount;
+  if (candidateTexts.length > 0) {
+    try {
+      const objResult = await removePdfTextObjects(currentBytes, {
+        candidateTexts,
+        candidateItems,
+        targetPages: Array.from(targetPages)
+      });
+      if (objResult.removedCount > 0) {
+        currentBytes = objResult.bytes;
+        objectRemovalCount = objResult.removedCount;
+        removedTextCount += objResult.removedCount;
+        if (objResult.removedCandidateIds) {
+          for (const remId of objResult.removedCandidateIds) {
+            candidateResults.push({
+              candidateId: remId,
+              status: "removed",
+              strategy: "text_object_stream"
+            });
+          }
+        }
+      }
+    } catch (objErr) {
+      console.warn("Object-level watermark removal warning:", objErr);
     }
-  } catch (objErr) {
-    console.warn("Object-level watermark removal warning:", objErr);
   }
 
   // 1a2. Surgical Raster / Scanned Image Watermark Eradication via PDFium
-  // Removes red/coral/blue/purple stamps, diagonal watermarks, and simulation banners directly
-  // from image objects without damaging dark document text or brand logos!
-  let rasterRemovalCount = 0;
-  try {
-    const rasterResult = await removePdfRasterWatermarks(currentBytes, {
-      targetPages: Array.from(targetPages),
-      keywords: WATERMARK_KEYWORDS,
-      customText: options.customText,
-      fillColor: options.fillColor
+  // STRICT SINGLE-STRATEGY ENFORCEMENT:
+  // An image watermark candidate is processed with EXACTLY ONE cleaning strategy.
+  // 1) If candidate specifies "object_remove" or options.imageStrategy === "object_remove",
+  //    pixel cleaning is SKIPPED and it is queued for removePdfImages.
+  // 2) Otherwise, pixel inpainting (removePdfRasterWatermarks) is executed.
+  //    If pixel inpainting succeeds, the candidate is marked as CLEANED and will NEVER be passed
+  //    to removePdfImages, and will NEVER receive an opaque rectangle cover.
+  const pixelCleanCandidates = allCandidates
+    .filter(c => {
+      if (!selectedSet.has(c.id) || c.type !== "image") return false;
+      const isObjectRemove = options.imageStrategy === "object_remove" || c.strategy === "object_remove";
+      const isManualCover = c.strategy === "manual_cover";
+      return !isObjectRemove && !isManualCover;
+    })
+    .flatMap(c => {
+      if (c.imageRemovals && c.imageRemovals.length > 0) {
+        return c.imageRemovals.map(rem => ({
+          id: c.id,
+          page: rem.page,
+          imageIndex: rem.imageIndex,
+          bounds: c.imageBounds,
+          pixelWidth: rem.pixelWidth,
+          pixelHeight: rem.pixelHeight,
+          matrix: rem.matrix
+        }));
+      }
+      return c.pages.map(p => ({
+        id: c.id,
+        page: p,
+        bounds: c.imageBounds
+      }));
     });
-    if (rasterResult.removedCount > 0) {
-      currentBytes = rasterResult.bytes;
-      rasterRemovalCount = rasterResult.removedCount;
-      removedImageCount += rasterResult.removedCount;
+
+  const cleanedImageCandidateIds = new Set<string>();
+  let rasterRemovalCount = 0;
+  if (pixelCleanCandidates.length > 0) {
+    try {
+      const rasterResult = await removePdfRasterWatermarks(currentBytes, {
+        targetPages: Array.from(targetPages),
+        fillColor: options.fillColor,
+        candidates: pixelCleanCandidates
+      });
+      if (rasterResult.removedCount > 0) {
+        currentBytes = rasterResult.bytes;
+        rasterRemovalCount = rasterResult.removedCount;
+        removedImageCount += rasterResult.removedCount;
+      }
+      if (rasterResult.successfulCandidateIds) {
+        rasterResult.successfulCandidateIds.forEach((id) => cleanedImageCandidateIds.add(id));
+      }
+      if (rasterResult.candidateResults) {
+        rasterResult.candidateResults.forEach((cr) => {
+          if (cr.id) {
+            candidateResults.push({
+              candidateId: cr.id,
+              status: cr.status,
+              strategy: cr.status === "removed" ? "pixel_inpainting" : "none",
+              modifiedPixels: cr.modifiedPixels,
+              reason: cr.reason
+            });
+          }
+        });
+      }
+    } catch (rasterErr) {
+      console.warn("Raster watermark removal warning:", rasterErr);
     }
-  } catch (rasterErr) {
-    console.warn("Raster watermark removal warning:", rasterErr);
   }
 
   // 1b. Collect candidate removals
@@ -99,6 +191,12 @@ export async function removeWatermarks(
         }
       }
     } else if (cand.type === "image" && cand.imageRemovals) {
+      // CRITICAL SINGLE-STRATEGY:
+      // If this image candidate was ALREADY cleaned via pixel inpainting, NEVER add it to imageRemovals!
+      // Doing so would delete the entire image object that was just cleaned.
+      if (cleanedImageCandidateIds.has(cand.id)) {
+        continue;
+      }
       for (const rem of cand.imageRemovals) {
         if (targetPages.has(rem.page)) {
           imageRemovals.push(rem);
@@ -120,15 +218,15 @@ export async function removeWatermarks(
         const pageTexts = await editablePageText(page);
         const matchedItemIds = new Set<string>();
 
-        // 2a. Line-level matching (catches multi-word watermarks assembled into lines)
+        // 2a. Line-level matching (only for multi-word phrases or exact full-line matches)
         const lines = reconstructPageLines(pageTexts);
         for (const line of lines) {
-          const lineRaw = line.text;
-          const lineNorm = normalizeTurkish(lineRaw);
+          const lineRaw = line.text.trim();
+          const lineNorm = normalizeTurkish(lineRaw).trim();
 
-          const isMatch = options.customCaseSensitive
-            ? lineRaw.includes(searchRaw)
-            : (lineRaw.toLowerCase().includes(searchRaw.toLowerCase()) || lineNorm.includes(searchNorm));
+          const isMatch = searchWords.length === 1
+            ? (options.customCaseSensitive ? lineRaw === searchRaw.trim() : lineNorm === searchNorm)
+            : (options.customCaseSensitive ? lineRaw.includes(searchRaw) : (lineRaw.toLowerCase().includes(searchRaw.toLowerCase()) || lineNorm.includes(searchNorm)));
 
           if (isMatch) {
             for (const it of line.items) {
@@ -142,15 +240,15 @@ export async function removeWatermarks(
           }
         }
 
-        // 2b. Individual item matching
+        // 2b. Individual item matching (single words require exact isolated token match to protect sentences)
         for (const item of pageTexts) {
           if (matchedItemIds.has(item.id)) continue;
-          const itemRaw = item.text || "";
-          const itemNorm = normalizeTurkish(itemRaw);
+          const itemRaw = (item.text || "").trim();
+          const itemNorm = normalizeTurkish(itemRaw).trim();
 
-          const isMatch = options.customCaseSensitive
-            ? itemRaw.includes(searchRaw)
-            : (itemRaw.toLowerCase().includes(searchRaw.toLowerCase()) || itemNorm.includes(searchNorm));
+          const isMatch = searchWords.length === 1
+            ? (options.customCaseSensitive ? itemRaw === searchRaw.trim() : (itemNorm === searchNorm || itemRaw.toLowerCase() === searchRaw.toLowerCase().trim()))
+            : (options.customCaseSensitive ? itemRaw.includes(searchRaw) : (itemRaw.toLowerCase().includes(searchRaw.toLowerCase()) || itemNorm.includes(searchNorm)));
 
           if (isMatch) {
             matchedItemIds.add(item.id);
@@ -269,16 +367,62 @@ export async function removeWatermarks(
     try {
       currentBytes = await removePdfText(currentBytes, uniqueRemovals);
       removedTextCount = uniqueRemovals.length;
+      for (const cand of allCandidates) {
+        if (selectedSet.has(cand.id) && cand.type === "text" && cand.textRemovals && cand.textRemovals.length > 0) {
+          const hadMatch = cand.textRemovals.some(r => targetPages.has(r.page));
+          if (hadMatch) {
+            candidateResults.push({
+              candidateId: cand.id,
+              status: "removed",
+              strategy: "text_object_stream"
+            });
+          }
+        }
+      }
     } catch (err) {
       console.warn("Failed to remove some text watermarks via PDFium:", err);
     }
   }
 
-  // 4. Apply Image Removals via PDFium WASM
+  // 4. Apply Image Removals via PDFium WASM (ONLY for candidates designated for object_remove)
   if (imageRemovals.length > 0) {
     try {
-      currentBytes = await removePdfImages(currentBytes, imageRemovals);
-      removedImageCount = imageRemovals.length;
+      const res = await removePdfImages(currentBytes, imageRemovals);
+      const actualCount = (res as any).removedCount !== undefined ? (res as any).removedCount : (res.length ? imageRemovals.length : 0);
+      if (actualCount > 0) {
+        currentBytes = (res as any).pdfBytes || (res as Uint8Array);
+        removedImageCount += actualCount;
+        for (const cand of allCandidates) {
+          if (
+            selectedSet.has(cand.id) &&
+            cand.type === "image" &&
+            !cleanedImageCandidateIds.has(cand.id) &&
+            (cand.strategy === "object_remove" || options.imageStrategy === "object_remove")
+          ) {
+            candidateResults.push({
+              candidateId: cand.id,
+              status: "removed",
+              strategy: "object_removal"
+            });
+          }
+        }
+      } else {
+        for (const cand of allCandidates) {
+          if (
+            selectedSet.has(cand.id) &&
+            cand.type === "image" &&
+            !cleanedImageCandidateIds.has(cand.id) &&
+            (cand.strategy === "object_remove" || options.imageStrategy === "object_remove")
+          ) {
+            candidateResults.push({
+              candidateId: cand.id,
+              status: "failed",
+              strategy: "none",
+              reason: "Görsel nesnesi PDFium tarafından silinemedi."
+            });
+          }
+        }
+      }
     } catch (err) {
       console.warn("Failed to remove some image watermarks via PDFium:", err);
     }
@@ -306,31 +450,37 @@ export async function removeWatermarks(
         const subtype = annotObj.get?.("Subtype")?.toString();
         const contents = annotObj.get?.("Contents")?.toString() || "";
         const name = annotObj.get?.("NM")?.toString() || "";
-        const normContents = normalizeTurkish(contents);
-        const normName = normalizeTurkish(name);
-        const searchNorm = options.customText ? normalizeTurkish(options.customText) : "";
+        const normContents = normalizeTurkish(contents).trim().toLowerCase();
+        const normName = normalizeTurkish(name).trim().toLowerCase();
+        const searchNorm = options.customText ? normalizeTurkish(options.customText).trim().toLowerCase() : "";
 
-        const isWatermarkAnnot =
-          subtype === "/Watermark" ||
-          (subtype === "/Stamp" && (
-            normContents.includes("watermark") ||
-            normContents.includes("draft") ||
-            normContents.includes("taslak") ||
-            normContents.includes("kopya") ||
-            normContents.includes("gecersiz") ||
-            normContents.includes("ornek") ||
-            normContents.includes("belge") ||
-            normContents.includes("iptal") ||
-            normContents.includes("void") ||
-            normContents.includes("sample") ||
-            (searchNorm.length > 0 && normContents.includes(searchNorm))
-          )) ||
-          normName.includes("watermark") ||
-          (searchNorm.length > 0 && normName.includes(searchNorm));
+        // STRICT: Only remove annotations tied to a confirmed, selected candidate ID or exact customText match!
+        // NEVER use substring checks like includes("kopya") or includes("iptal") which wipe legitimate stamps!
+        const selectedAnnotMatch = allCandidates.some(c => {
+          if (!selectedSet.has(c.id) || c.type !== "annotation") return false;
+          const cNorm = normalizeTurkish(c.text || "").trim().toLowerCase();
+          return Boolean(cNorm && (normContents === cNorm || normName === cNorm));
+        });
+
+        const isExactCustomMatch = Boolean(searchNorm.length > 0 && (normContents === searchNorm || normName === searchNorm));
+
+        const isWatermarkAnnot = selectedAnnotMatch || isExactCustomMatch;
 
         if (isWatermarkAnnot) {
           removedAnnotationCount++;
           annotsChanged = true;
+          for (const c of allCandidates) {
+            if (selectedSet.has(c.id) && c.type === "annotation") {
+              const cNorm = normalizeTurkish(c.text || "").trim().toLowerCase();
+              if (cNorm && (normContents === cNorm || normName === cNorm)) {
+                candidateResults.push({
+                  candidateId: c.id,
+                  status: "removed",
+                  strategy: "object_removal"
+                });
+              }
+            }
+          }
         } else {
           kept.push(annotRef);
         }
@@ -358,52 +508,48 @@ export async function removeWatermarks(
       ? rgb(options.fillColor.r, options.fillColor.g, options.fillColor.b)
       : rgb(1, 1, 1);
 
-    // 6a. Detected candidate bounds - ONLY FOR RASTER CANDIDATES!
-    // CRITICAL: If raster watermarks were already surgically removed via PDFium at the pixel level,
-    // do NOT draw any opaque rectangles on top of the document!
-    if (rasterRemovalCount === 0) {
-      for (const cand of allCandidates) {
-        if (!selectedSet.has(cand.id)) continue;
+    // 6a. Detected candidate bounds - ONLY for candidates explicitly marked with manual_cover!
+    // Never draw fallback covers for pixel_inpainting or object_removal candidates.
+    for (const cand of allCandidates) {
+      if (!selectedSet.has(cand.id)) continue;
+      if (cand.strategy !== "manual_cover") continue;
+      if (cand.imageBounds) {
+        for (const pIdx of cand.pages) {
+          if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
+            const page = pages[pIdx];
+            const pH = page.getHeight();
 
-        if (cand.type === "text" || (cand.textRemovals && cand.textRemovals.length > 0)) {
-          continue;
-        }
+            const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
+            const overlapsProtected = protectedBoxes.some(b => {
+              const bBottom = pH - (b.y + b.h);
+              const bTop = pH - b.y;
+              const boxX1 = cand.imageBounds!.x;
+              const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
+              const boxY1 = cand.imageBounds!.y;
+              const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
 
-        if (cand.imageBounds) {
-          for (const pIdx of cand.pages) {
-            if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
-              const page = pages[pIdx];
-              const pH = page.getHeight();
+              return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
+            });
 
-              // CRITICAL: Check overlap with protected legitimate contract text on this page!
-              // Never allow an opaque rectangle to cover real document clauses!
-              const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
-              const overlapsProtected = protectedBoxes.some(b => {
-                const bBottom = pH - (b.y + b.h);
-                const bTop = pH - b.y;
-                const boxX1 = cand.imageBounds!.x;
-                const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
-                const boxY1 = cand.imageBounds!.y;
-                const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
-
-                return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
-              });
-
-              if (overlapsProtected) {
-                continue;
-              }
-
-              page.drawRectangle({
-                x: Math.max(0, cand.imageBounds.x - 2),
-                y: Math.max(0, cand.imageBounds.y - 2),
-                width: cand.imageBounds.w + 4,
-                height: cand.imageBounds.h + 4,
-                color: fillColor,
-                opacity: 1
-              });
-              coverDrawn = true;
-              removedCoverCount++;
+            if (overlapsProtected) {
+              continue;
             }
+
+            page.drawRectangle({
+              x: Math.max(0, cand.imageBounds.x - 2),
+              y: Math.max(0, cand.imageBounds.y - 2),
+              width: cand.imageBounds.w + 4,
+              height: cand.imageBounds.h + 4,
+              color: fillColor,
+              opacity: 1
+            });
+            coverDrawn = true;
+            removedCoverCount++;
+            candidateResults.push({
+              candidateId: cand.id,
+              status: "removed",
+              strategy: "manual_cover"
+            });
           }
         }
       }
@@ -488,12 +634,120 @@ export async function removeWatermarks(
     console.warn("Cover application error:", err);
   }
 
+  // 1. Candidate IDs requested in options that do not exist in allCandidates -> not-found
+  const allCandidateIdSet = new Set(allCandidates.map(c => c.id));
+  for (const id of options.candidateIds) {
+    if (!allCandidateIdSet.has(id)) {
+      candidateResults.push({
+        candidateId: id,
+        status: "not-found",
+        strategy: "none",
+        reason: "Aday belgede bulunamadı."
+      });
+    }
+  }
+
+  // 2. Protected logo/letterhead candidates without explicit user confirmation -> blocked
+  for (const cand of allCandidates) {
+    if (selectedSet.has(cand.id) && cand.isLogoOrHeader && !options.allowLogoRemoval) {
+      candidateResults.push({
+        candidateId: cand.id,
+        status: "blocked",
+        strategy: "none",
+        reason: "Bu öğe logo, antet veya belge görseli olabilir. Onay verilmediği için işlem engellendi."
+      });
+    }
+  }
+
+  // 3. Fill missing results for any selected candidates that were evaluated but not removed
+  const existingHandledIds = new Set(candidateResults.map(r => r.candidateId));
+  for (const cand of allCandidates) {
+    if (selectedSet.has(cand.id) && !existingHandledIds.has(cand.id)) {
+      if (cand.type === "text") {
+        candidateResults.push({
+          candidateId: cand.id,
+          status: "unchanged",
+          strategy: "none",
+          reason: "Belgede eşleşen metin nesnesi bulunamadı veya değiştirilmedi."
+        });
+      } else if (cand.type === "annotation") {
+        candidateResults.push({
+          candidateId: cand.id,
+          status: "unchanged",
+          strategy: "none",
+          reason: "Anotasyon eşleşmesi bulunamadı veya değiştirilmedi."
+        });
+      } else if (cand.type === "image") {
+        candidateResults.push({
+          candidateId: cand.id,
+          status: "unchanged",
+          strategy: "none",
+          reason: "Görsel nesnesi bulunamadı veya değiştirilmedi."
+        });
+      }
+    }
+  }
+
+  // Deduplicate candidate results: keep the most definitive status per candidate
+  // Rank: removed (6) > blocked (5) > failed (4) > not-found (3) > unchanged (2) > skipped (1)
+  const statusRank: Record<string, number> = {
+    removed: 6,
+    blocked: 5,
+    failed: 4,
+    "not-found": 3,
+    unchanged: 2,
+    skipped: 1
+  };
+
+  const candidateResultMap = new Map<string, CandidateRemovalResult>();
+  for (const cr of candidateResults) {
+    const existing = candidateResultMap.get(cr.candidateId);
+    if (!existing) {
+      candidateResultMap.set(cr.candidateId, cr);
+    } else {
+      const existingRank = statusRank[existing.status] || 0;
+      const currentRank = statusRank[cr.status] || 0;
+      if (currentRank > existingRank) {
+        candidateResultMap.set(cr.candidateId, cr);
+      }
+    }
+  }
+  const finalCandidateResults = Array.from(candidateResultMap.values());
+
+  const removedCandidates = finalCandidateResults.filter(r => r.status === "removed");
+  // Total removed: genuine removed candidates, plus manual box covers / custom text if applicable
+  const totalRemoved = selectedSet.size > 0
+    ? (removedCandidates.length + (options.manualBoxes?.length || 0))
+    : (removedTextCount + removedImageCount + removedAnnotationCount + (removedCoverCount || 0));
+
+  if (totalRemoved === 0) {
+    return {
+      pdfBytes, // Return original input untouched (0 byte changes)
+      removedTextCount: 0,
+      removedImageCount: 0,
+      removedAnnotationCount: 0,
+      removedCoverCount: 0,
+      totalRemoved: 0,
+      strategyUsed: "none",
+      candidateResults: finalCandidateResults
+    };
+  }
+
+  const strategies: string[] = [];
+  if (removedTextCount > 0) strategies.push("text_object_stream");
+  if (rasterRemovalCount > 0) strategies.push("pixel_inpainting");
+  if (removedImageCount > rasterRemovalCount) strategies.push("object_removal");
+  if (removedAnnotationCount > 0) strategies.push("annotation_removal");
+  if ((removedCoverCount || 0) > 0) strategies.push("smart_cover");
+
   return {
     pdfBytes: currentBytes,
     removedTextCount,
     removedImageCount,
     removedAnnotationCount,
     removedCoverCount,
-    totalRemoved: removedTextCount + removedImageCount + removedAnnotationCount + removedCoverCount
+    totalRemoved,
+    strategyUsed: strategies.join(" + ") || "none",
+    candidateResults: finalCandidateResults
   };
 }
