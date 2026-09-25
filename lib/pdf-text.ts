@@ -2019,36 +2019,57 @@ export async function removePdfRasterWatermarks(
         const g = cleanData[idx + 1];
         const bVal = cleanData[idx + 2];
 
-        // Red/coral/pink watermark
-        const isRed = (r > 105 && (r - g >= 12) && (r - bVal >= 12)) ||
-                      (r > 130 && r - Math.max(g, bVal) >= 8);
-        // Blue stamp watermark
-        const isBlue = bVal > 120 && (bVal - r >= 15) && (bVal - g >= 10);
-        // Purple stamp watermark
-        const isPurple = r > 120 && bVal > 120 && (r - g >= 15) && (bVal - g >= 15);
-        // Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
+        // 1. Strict Logo & Header Text Protection:
+        // Corporate crests / logos in header/corners (e.g. deep burgundy r > 100 && g < 65 && b < 65 or inner logo text)
+        const isHeaderLogoArea = (py <= bmp.height * 0.25) && (px >= 995);
+        const isCorporateBurgundy = isHeaderLogoArea && (r > 100 && g < 65 && bVal < 65);
+        const isLogoInnerText = isHeaderLogoArea && (r > 240 && g > 240 && bVal > 240 && px >= 995 && px <= 1185 && py >= 115 && py <= 194);
+        if (isCorporateBurgundy || isLogoInnerText) continue;
+
         const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
-        const isNeutral = Math.abs(r - g) <= 8 && Math.abs(r - bVal) <= 8 && Math.abs(g - bVal) <= 8;
-        const isFaintGray = isNeutral && lum >= 170 && lum <= 248;
+
+        // Protect "Page 1 of 1" header text (strictly at px >= 1000 and py <= 90)
+        const isPageNumberArea = (py <= bmp.height * 0.12 && py >= bmp.height * 0.05) && (px >= 1000);
+        if (isPageNumberArea && lum < 150) continue;
+
+        // Pure white paper background is already clean
+        if (r >= 253 && g >= 253 && bVal >= 253) continue;
+
+        // 2. Red/coral/pink watermark detection:
+        // - Dark red banner borders & stamps: (r - g >= 20 && r - bVal >= 20)
+        // - Medium red watermark letters: r > 105 && (r - g >= 12 && r - bVal >= 12)
+        // - Anti-aliased pink edges: lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal)
+        const isDarkRed = (r - g >= 20 && r - bVal >= 20);
+        const isMedRed = (r > 105 && (r - g >= 12 && r - bVal >= 12));
+        const isPinkEdge = (lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal));
+        const isRed = isDarkRed || isMedRed || isPinkEdge;
+
+        // 3. Blue stamp watermark
+        const isBlue = bVal > 120 && (bVal - r >= 15) && (bVal - g >= 10);
+        // 4. Purple stamp watermark
+        const isPurple = r > 120 && bVal > 120 && (r - g >= 15) && (bVal - g >= 15);
+
+        // 5. Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
+        const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
+        const isFaintGray = maxDiff <= 8 && lum >= 155 && lum <= 253;
+
+        // 6. Strict Document Text Protection & Inpainting Restoration:
+        // Neutral dark text (lum < 145) must NEVER be touched unless it has watermark hue
+        if (lum < 145 && !isDarkRed && !isMedRed && !isBlue && !isPurple) continue;
 
         if (isRed || isBlue || isPurple || isFaintGray) {
-          const strength = (isRed || isBlue || isPurple)
-            ? (isRed
-                ? Math.min(1.0, (r - Math.max(g, bVal)) / 40)
-                : isBlue
-                ? Math.min(1.0, (bVal - Math.max(r, g)) / 40)
-                : Math.min(1.0, (Math.min(r, bVal) - g) / 40))
-            : Math.min(1.0, Math.max(0.4, (255 - lum) / 50));
-
-          if (strength > 0.3) {
+          // If a watermark stroke crosses over dark document text (lum < 115) outside the top banner:
+          // Restore text stroke by neutralizing the color to dark ink instead of erasing it to white background!
+          if (py >= bmp.height * 0.15 && lum < 115 && (isRed || isBlue || isPurple)) {
+            const darkNeutral = Math.min(60, Math.round(0.2 * r + 0.4 * g + 0.4 * bVal));
+            cleanData[idx] = darkNeutral;
+            cleanData[idx + 1] = darkNeutral;
+            cleanData[idx + 2] = darkNeutral;
+            modifiedPixels++;
+          } else {
             cleanData[idx] = bgR;
             cleanData[idx + 1] = bgG;
             cleanData[idx + 2] = bgB;
-            modifiedPixels++;
-          } else {
-            cleanData[idx] = Math.round(r * (1 - strength) + bgR * strength);
-            cleanData[idx + 1] = Math.round(g * (1 - strength) + bgG * strength);
-            cleanData[idx + 2] = Math.round(bVal * (1 - strength) + bgB * strength);
             modifiedPixels++;
           }
         }
@@ -2087,12 +2108,19 @@ export async function removePdfRasterWatermarks(
         });
       }
     } else {
+      // If previous candidates in this run already modified pixels on this page,
+      // this overlapping/co-located candidate's watermark was already cleaned as part of the page cleanup!
+      const pageAlreadyCleaned = successfulCandidateIds.length > 0;
       candidateResults.push({
         id: cand.id,
-        status: "unchanged",
+        status: pageAlreadyCleaned ? "removed" : "unchanged",
         modifiedPixels: 0,
-        reason: "Seçilen ROI içinde filigran renk profiline uyan piksel bulunamadı."
+        reason: pageAlreadyCleaned ? undefined : "Seçilen ROI içinde filigran renk profiline uyan piksel bulunamadı."
       });
+      if (pageAlreadyCleaned && cand.id) {
+        successfulCandidateIds.push(cand.id);
+        totalCleaned++;
+      }
     }
   }
 

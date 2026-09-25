@@ -16,13 +16,27 @@ function convertImgDataToPng(imgData: any): string {
   ) {
     try {
       const source = imgData.bitmap || imgData;
-      const canvas = document.createElement("canvas");
-      canvas.width = source.width || imgData.width;
-      canvas.height = source.height || imgData.height;
+      const cW = source.width || imgData.width;
+      const cH = source.height || imgData.height;
+      let canvas: any;
+      if (typeof document !== "undefined" && typeof document.createElement === "function") {
+        canvas = document.createElement("canvas");
+      } else {
+        try {
+          const pkg = "@napi-rs/canvas";
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { createCanvas } = (0, eval)("require")(pkg);
+          canvas = createCanvas(cW, cH);
+        } catch {
+          return "";
+        }
+      }
+      canvas.width = cW;
+      canvas.height = cH;
       const ctx = canvas.getContext("2d");
       if (ctx && canvas.width > 0 && canvas.height > 0) {
         ctx.drawImage(source, 0, 0);
-        return canvas.toDataURL("image/png");
+        return canvas.toDataURL ? canvas.toDataURL("image/png") : "";
       }
     } catch (err) {
       console.warn("Could not draw ImageBitmap to canvas:", err);
@@ -34,7 +48,19 @@ function convertImgDataToPng(imgData: any): string {
   if (!width || !height || !imgData.data) return "";
 
   try {
-    const canvas = document.createElement("canvas");
+    let canvas: any;
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+      canvas = document.createElement("canvas");
+    } else {
+      try {
+        const pkg = "@napi-rs/canvas";
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { createCanvas } = (0, eval)("require")(pkg);
+        canvas = createCanvas(width, height);
+      } catch {
+        return "";
+      }
+    }
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
