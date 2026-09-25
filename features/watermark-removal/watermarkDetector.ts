@@ -37,8 +37,8 @@ export const WATERMARK_KEYWORDS = [
   "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
   // Turkish cancellation & terminated
   "iptal", "iptal edilmistir", "feshedilmistir", "fesih", "ilga", "yururlukten kalkmistir",
-  // Turkish trial & demo (standalone 'test' removed)
-  "deneme", "denemedir", "numune", "onizleme", "demo", "deneme surumu", "on izleme",
+  // Turkish trial & demo
+  "test", "testtir", "test belgesi", "test filigrani", "deneme", "denemedir", "numune", "onizleme", "demo", "deneme surumu", "on izleme",
   // Turkish non-official & informational indicators ('ogrenci', 'ogrenci belgesi', 'belgedir' removed)
   "resmi degildir", "bilgi icindir", "bilgilendirme amacli", "bilgilendirmedir",
   "hukuki baglayiciligi yoktur", "gecerliligi yoktur", "baglayiciligi yoktur",
@@ -283,6 +283,16 @@ export async function detectWatermarks(
     for (const { page, items } of allPageTexts) {
       const lines = reconstructPageLines(items);
 
+      // Track item IDs that belong to multi-item reconstructed lines to prevent duplicate single-word candidates
+      const itemsInMultiItemLines = new Set<string>();
+      for (const line of lines) {
+        if (line.items && line.items.length > 1) {
+          for (const it of line.items) {
+            itemsInMultiItemLines.add(it.id);
+          }
+        }
+      }
+
       // 1. Process reconstructed lines
       for (const line of lines) {
         const str = line.text?.trim();
@@ -315,6 +325,7 @@ export async function detectWatermarks(
 
       // 2. Also check individual items directly to ensure isolated words are never missed
       for (const item of items) {
+        if (itemsInMultiItemLines.has(item.id)) continue;
         const str = item.text?.trim();
         if (!str || str.length < 3) continue;
         const norm = normalizeTurkish(str);
@@ -624,7 +635,7 @@ export async function detectWatermarks(
     } catch {}
 
     // 4. If no vector text or image watermark candidates found, run local Visual OCR detector
-    if (candidates.length === 0 && typeof window !== "undefined") {
+    if (candidates.length === 0 && (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1")) {
       try {
         const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
         const scanPages = pagesToScan.slice(0, 3);

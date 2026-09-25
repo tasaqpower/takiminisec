@@ -1243,6 +1243,17 @@ function parseGrayArg(args: any): string {
   return "#222222";
 }
 
+function extractOpText(arg: any): string {
+  if (typeof arg === "string") return arg;
+  if (!Array.isArray(arg)) return "";
+  return arg.map((chunk: any) => {
+    if (typeof chunk === "string") return chunk;
+    if (Array.isArray(chunk)) return extractOpText(chunk);
+    if (chunk && typeof chunk === "object") return chunk.unicode || chunk.fontChar || "";
+    return "";
+  }).join("");
+}
+
 /** Use the renderer's own transforms, including CropBox, UserUnit, rotation, and extracts rich font/color styles. */
 export async function editablePageText(page: any): Promise<EditableText[]> {
   const viewport = page.getViewport({ scale: 1 });
@@ -1318,32 +1329,45 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
     });
   }
 
-  // Extract text colors from opList if available
-  const textColors: string[] = [];
+  // Extract text operations and colors from opList with proper graphics state stack
+  interface OpTextEntry {
+    text: string;
+    color: string;
+  }
+  const opTextEntries: OpTextEntry[] = [];
   if (opList && opList.fnArray) {
     try {
       const pdfjsLib = await import("pdfjs-dist");
       const OPS = pdfjsLib.OPS;
+      const colorStack: string[] = ["#222222"];
       let currentColor = "#222222";
 
       for (let i = 0; i < opList.fnArray.length; i++) {
         const fn = opList.fnArray[i];
         const args = opList.argsArray[i];
 
-        if (fn === OPS.setFillRGBColor) {
-          currentColor = parseColorArgs(args);
-        } else if (fn === OPS.setFillColorN) {
+        if (fn === OPS.save) {
+          colorStack.push(currentColor);
+        } else if (fn === OPS.restore) {
+          if (colorStack.length > 1) {
+            currentColor = colorStack.pop()!;
+          } else {
+            currentColor = colorStack[0] || "#222222";
+          }
+        } else if (fn === OPS.setFillRGBColor || fn === OPS.setFillColorN) {
           currentColor = parseColorArgs(args);
         } else if (fn === OPS.setFillGray) {
           currentColor = parseGrayArg(args);
         } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
-          textColors.push(currentColor);
+          const text = extractOpText(args?.[0]);
+          opTextEntries.push({ text: text.trim(), color: currentColor });
         }
       }
     } catch {}
   }
 
   const v = viewport.transform;
+  let opIdx = 0;
   return content.items.flatMap((rawItem: any, index: number) => {
     const item = rawItem as unknown as PdfTextItem;
     if (!item.str?.trim() || !item.width || content.styles[item.fontName]?.vertical) return [];
@@ -1371,7 +1395,23 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
       fontWeight: 400
     };
 
-    const itemColor = textColors[index] || "#222222";
+    const str = item.str.trim();
+    let itemColor = "#222222";
+    if (opTextEntries.length > 0) {
+      let found = false;
+      for (let k = opIdx; k < opTextEntries.length; k++) {
+        const entry = opTextEntries[k];
+        if (entry.text.includes(str) || str.includes(entry.text)) {
+          itemColor = entry.color;
+          opIdx = k + 1;
+          found = true;
+          break;
+        }
+      }
+      if (!found && opIdx < opTextEntries.length) {
+        itemColor = opTextEntries[opIdx++].color;
+      }
+    }
 
     return [{
       id: `original-${page.pageNumber-1}-${index}`,
@@ -1979,29 +2019,36 @@ export async function removePdfRasterWatermarks(
         const g = cleanData[idx + 1];
         const bVal = cleanData[idx + 2];
 
-        // Red/coral stamp watermark
-        const isRed = r > 115 && (r - g >= 14) && (r - bVal >= 14);
+        // Red/coral/pink watermark
+        const isRed = (r > 105 && (r - g >= 12) && (r - bVal >= 12)) ||
+                      (r > 130 && r - Math.max(g, bVal) >= 8);
         // Blue stamp watermark
-        const isBlue = bVal > 120 && (bVal - r >= 20) && (bVal - g >= 15);
+        const isBlue = bVal > 120 && (bVal - r >= 15) && (bVal - g >= 10);
         // Purple stamp watermark
-        const isPurple = r > 120 && bVal > 120 && (r - g >= 20) && (bVal - g >= 20);
+        const isPurple = r > 120 && bVal > 120 && (r - g >= 15) && (bVal - g >= 15);
+        // Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
+        const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
+        const isNeutral = Math.abs(r - g) <= 8 && Math.abs(r - bVal) <= 8 && Math.abs(g - bVal) <= 8;
+        const isFaintGray = isNeutral && lum >= 170 && lum <= 248;
 
-        if (isRed || isBlue || isPurple) {
-          const stampStrength = isRed
-            ? Math.min(1.0, (r - Math.max(g, bVal)) / 50)
-            : isBlue
-            ? Math.min(1.0, (bVal - Math.max(r, g)) / 50)
-            : Math.min(1.0, (Math.min(r, bVal) - g) / 50);
+        if (isRed || isBlue || isPurple || isFaintGray) {
+          const strength = (isRed || isBlue || isPurple)
+            ? (isRed
+                ? Math.min(1.0, (r - Math.max(g, bVal)) / 40)
+                : isBlue
+                ? Math.min(1.0, (bVal - Math.max(r, g)) / 40)
+                : Math.min(1.0, (Math.min(r, bVal) - g) / 40))
+            : Math.min(1.0, Math.max(0.4, (255 - lum) / 50));
 
-          if (stampStrength > 0.3) {
+          if (strength > 0.3) {
             cleanData[idx] = bgR;
             cleanData[idx + 1] = bgG;
             cleanData[idx + 2] = bgB;
             modifiedPixels++;
           } else {
-            cleanData[idx] = Math.round(r * (1 - stampStrength) + bgR * stampStrength);
-            cleanData[idx + 1] = Math.round(g * (1 - stampStrength) + bgG * stampStrength);
-            cleanData[idx + 2] = Math.round(bVal * (1 - stampStrength) + bgB * stampStrength);
+            cleanData[idx] = Math.round(r * (1 - strength) + bgR * strength);
+            cleanData[idx + 1] = Math.round(g * (1 - strength) + bgG * strength);
+            cleanData[idx + 2] = Math.round(bVal * (1 - strength) + bgB * strength);
             modifiedPixels++;
           }
         }

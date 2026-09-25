@@ -123,6 +123,53 @@ function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number):
   return rotCanvas;
 }
 
+function mapRotatedBBoxToSource(
+  bbox: { x: number; y: number; width: number; height: number },
+  rotW: number,
+  rotH: number,
+  srcW: number,
+  srcH: number,
+  angleDeg: number,
+  padding = 25
+): { x: number; y: number; w: number; h: number } {
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const corners = [
+    { x: bbox.x, y: bbox.y },
+    { x: bbox.x + bbox.width, y: bbox.y },
+    { x: bbox.x, y: bbox.y + bbox.height },
+    { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+  ];
+
+  const mapped = corners.map((pt) => {
+    const xPrimeC = pt.x - rotW / 2;
+    const yPrimeC = pt.y - rotH / 2;
+    const xC = xPrimeC * cos + yPrimeC * sin;
+    const yC = -xPrimeC * sin + yPrimeC * cos;
+    return {
+      x: xC + srcW / 2,
+      y: yC + srcH / 2
+    };
+  });
+
+  const xs = mapped.map((p) => p.x);
+  const ys = mapped.map((p) => p.y);
+
+  const minX = Math.max(0, Math.min(...xs) - padding);
+  const maxX = Math.min(srcW, Math.max(...xs) + padding);
+  const minY = Math.max(0, Math.min(...ys) - padding);
+  const maxY = Math.min(srcH, Math.max(...ys) + padding);
+
+  return {
+    x: minX,
+    y: minY,
+    w: Math.max(10, maxX - minX),
+    h: Math.max(10, maxY - minY)
+  };
+}
+
 /**
  * Detect watermarks visually using local OCR engine (Tesseract) on the page image/canvas.
  * Works seamlessly on scanned documents, image-based PDFs, and rasterized watermarks without requiring an API key.
@@ -185,24 +232,25 @@ export async function detectVisualWatermarks(
           for (const line of rotResult.lines) {
             const normLine = normalizeTurkish(line.text);
             const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
-            if (matchedKw.length > 0) {
-              // Diagonal watermark found across the page - use tight bounding box around detected text
-              const lineW = line.bbox?.width || 120;
-              const lineH = line.bbox?.height || 30;
-              const padW = Math.min(canvas.width, Math.max(80, lineW + 20));
-              const padH = Math.min(canvas.height, Math.max(30, lineH + 15));
-              const boxX = Math.max(0, Math.min(canvas.width - padW, (canvas.width - padW) / 2));
-              const boxY = Math.max(0, Math.min(canvas.height - padH, (canvas.height - padH) / 2));
+            if (matchedKw.length > 0 && line.bbox) {
+              const srcBox = mapRotatedBBoxToSource(
+                line.bbox,
+                rotCanvas.width,
+                rotCanvas.height,
+                canvas.width,
+                canvas.height,
+                angle,
+                30
+              );
               matchedBoxes.push({
                 text: line.text,
-                x: boxX,
-                y: boxY,
-                w: padW,
-                h: padH,
+                x: srcBox.x,
+                y: srcBox.y,
+                w: srcBox.w,
+                h: srcBox.h,
                 reason: `Çapraz (${angle}°) filigran tespit edildi: ${matchedKw.join(", ")}`,
-                confidence: 94
+                confidence: 96
               });
-              break;
             }
           }
           if (matchedBoxes.some(b => b.reason.includes("Çapraz"))) break;

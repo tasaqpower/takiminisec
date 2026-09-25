@@ -1057,7 +1057,7 @@ export function FormaAiCopilot({
                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                         {(() => {
                           const defaultSafeIds = msg.actionResult!.metadata!.candidates
-                            .filter((c: any) => c.type === "text" && !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
+                            .filter((c: any) => !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
                             .map((c: any) => c.id);
                           const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? defaultSafeIds;
                           return msg.actionResult.metadata.candidates.map((cand: any) => {
@@ -1097,7 +1097,7 @@ export function FormaAiCopilot({
                         <button
                           onClick={() => {
                             const defaultSafeIds = msg.actionResult!.metadata!.candidates
-                              .filter((c: any) => c.type === "text" && !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
+                              .filter((c: any) => !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
                               .map((c: any) => c.id);
                             const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? defaultSafeIds;
                             if (currentSelected.length === 0) {
