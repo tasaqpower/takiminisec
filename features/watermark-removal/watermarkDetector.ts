@@ -32,7 +32,7 @@ export const WATERMARK_KEYWORDS = [
   // Turkish draft
   "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
   // Turkish confidentiality & restricted (standalone 'gizli' removed to protect normal sentences)
-  "gizlidir", "cok gizli", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
+  "gizlidir", "cok gizli", "ozeldir", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
   // Turkish copy & reproduction (standalone 'kopya' kept only with copy indicators)
   "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
   // Turkish cancellation & terminated
