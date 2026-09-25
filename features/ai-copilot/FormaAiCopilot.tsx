@@ -23,7 +23,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { parseUserIntent } from "./aiIntentEngine";
-import type { AiActionResult, SelectedImageContext } from "./aiActionDispatcher";
+import { dispatchAiAction, type AiActionResult, type SelectedImageContext } from "./aiActionDispatcher";
 import type { Mark } from "../../lib/documents.ts";
 import type { TextRemoval } from "../../lib/pdf-text.ts";
 import { toast } from "sonner";
@@ -448,7 +448,6 @@ export function FormaAiCopilot({
     const assistantMsgId = crypto.randomUUID();
 
     try {
-      const { dispatchAiAction } = await import("./aiActionDispatcher.ts");
       const result = await dispatchAiAction(
         intentToRun,
         {
@@ -506,12 +505,16 @@ export function FormaAiCopilot({
         speakText(result.message);
       }
     } catch (err: any) {
+      const isChunkError = err?.message?.includes("Failed to fetch dynamically imported module") || err?.message?.includes("Loading chunk") || err?.name === "ChunkLoadError";
+      const errorText = isChunkError
+        ? "🔄 Sitede yeni bir güncelleme yayınlandı. Güncel sürümü yüklemek için lütfen sayfayı yenileyiniz (Ctrl + F5)."
+        : `İşlem gerçekleştirilirken bir hata oluştu: ${err?.message || "Bilinmeyen hata"}`;
       setMessages((prev) => [
         ...prev,
         {
           id: assistantMsgId,
           sender: "assistant",
-          text: `İşlem gerçekleştirilirken bir hata oluştu: ${err?.message || "Bilinmeyen hata"}`,
+          text: errorText,
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
