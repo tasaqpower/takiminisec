@@ -515,32 +515,52 @@ export async function removeWatermarks(
       ? rgb(options.fillColor.r, options.fillColor.g, options.fillColor.b)
       : rgb(1, 1, 1);
 
-    // 6a. Detected candidate bounds - for candidates explicitly marked with manual_cover or uncleaned image/visual candidates
+    // 6a. Detected candidate bounds - Strictly reject opaque covers for automated candidates or pages with vector text
     for (const cand of allCandidates) {
       if (!selectedSet.has(cand.id)) continue;
       const isAlreadyCleaned = cleanedImageCandidateIds.has(cand.id) || candidateResults.some(r => r.candidateId === cand.id && r.status === "removed");
       if (isAlreadyCleaned) continue;
-      const eligibleForCover = cand.strategy === "manual_cover" || cand.id.startsWith("wm-vis-");
-      if (!eligibleForCover) continue;
+
+      // Strict safety: Automated candidates (e.g. wm-vis-*) and non-manual candidates must NEVER receive opaque rectangle covers.
+      // Opaque covers over document text cause catastrophic data loss.
+      if (cand.id.startsWith("wm-vis-") || cand.strategy !== "manual_cover") {
+        candidateResults.push({
+          candidateId: cand.id,
+          status: "failed",
+          strategy: "none",
+          reason: "Belge metinlerini ve düzenini korumak için otomatik örtüleme engellendi."
+        });
+        continue;
+      }
+
+      // Even for candidates explicitly marked manual_cover, strictly verify vector text absence and bounding box limits
       if (cand.imageBounds) {
         for (const pIdx of cand.pages) {
           if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
             const page = pages[pIdx];
+            const pW = page.getWidth();
             const pH = page.getHeight();
 
+            // Absolute ban if vector text exists on the page
             const protectedBoxes = pageProtectedTextBounds.get(pIdx) || [];
-            const overlapsProtected = protectedBoxes.some(b => {
-              const bBottom = pH - (b.y + b.h);
-              const bTop = pH - b.y;
-              const boxX1 = cand.imageBounds!.x;
-              const boxX2 = cand.imageBounds!.x + cand.imageBounds!.w;
-              const boxY1 = cand.imageBounds!.y;
-              const boxY2 = cand.imageBounds!.y + cand.imageBounds!.h;
+            if (protectedBoxes.length > 0) {
+              candidateResults.push({
+                candidateId: cand.id,
+                status: "failed",
+                strategy: "none",
+                reason: "Sayfadaki vektörel metinleri korumak için örtüleme engellendi."
+              });
+              continue;
+            }
 
-              return boxX1 < b.x + b.w && boxX2 > b.x && boxY1 < bTop && boxY2 > bBottom;
-            });
-
-            if (overlapsProtected) {
+            // Size safeguard: never cover more than 35% width or 25% height
+            if (cand.imageBounds.w > pW * 0.35 || cand.imageBounds.h > pH * 0.25) {
+              candidateResults.push({
+                candidateId: cand.id,
+                status: "failed",
+                strategy: "none",
+                reason: "Örtüleme alanı çok geniş olduğu için güvenlik gereği iptal edildi."
+              });
               continue;
             }
 

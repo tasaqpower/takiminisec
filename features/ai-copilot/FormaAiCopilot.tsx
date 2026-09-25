@@ -1055,43 +1055,51 @@ export function FormaAiCopilot({
                         <span>Filigran Adayları (Kaldırmak İstediklerinizi Seçin)</span>
                       </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {msg.actionResult.metadata.candidates.map((cand: any) => {
-                          const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? msg.actionResult!.metadata!.candidates.map((c: any) => c.id);
-                          const isChecked = currentSelected.includes(cand.id);
-                          return (
-                            <label
-                              key={cand.id}
-                              className="flex items-start gap-2 p-2 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-violet-300 transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  const next = e.target.checked
-                                    ? [...currentSelected, cand.id]
-                                    : currentSelected.filter((id: string) => id !== cand.id);
-                                  setSelectedWatermarkCandidateIds((prev) => ({ ...prev, [msg.id]: next }));
-                                }}
-                                className="mt-0.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                                  {cand.text || "Görsel / Damga Nesnesi"}
+                        {(() => {
+                          const defaultSafeIds = msg.actionResult!.metadata!.candidates
+                            .filter((c: any) => c.type === "text" && !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
+                            .map((c: any) => c.id);
+                          const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? defaultSafeIds;
+                          return msg.actionResult.metadata.candidates.map((cand: any) => {
+                            const isChecked = currentSelected.includes(cand.id);
+                            return (
+                              <label
+                                key={cand.id}
+                                className="flex items-start gap-2 p-2 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-violet-300 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...currentSelected, cand.id]
+                                      : currentSelected.filter((id: string) => id !== cand.id);
+                                    setSelectedWatermarkCandidateIds((prev) => ({ ...prev, [msg.id]: next }));
+                                  }}
+                                  className="mt-0.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                    {cand.text || "Görsel / Damga Nesnesi"}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span>Sayfa: {cand.pages ? cand.pages.map((p: number) => p + 1).join(", ") : "1"}</span>
+                                    <span>Güven: %{cand.confidence}</span>
+                                    {cand.reason && <span className="truncate">({cand.reason})</span>}
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                                  <span>Sayfa: {cand.pages ? cand.pages.map((p: number) => p + 1).join(", ") : "1"}</span>
-                                  <span>Güven: %{cand.confidence}</span>
-                                  {cand.reason && <span className="truncate">({cand.reason})</span>}
-                                </div>
-                              </div>
-                            </label>
-                          );
-                        })}
+                              </label>
+                            );
+                          });
+                        })()}
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <button
                           onClick={() => {
-                            const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? msg.actionResult!.metadata!.candidates.map((c: any) => c.id);
+                            const defaultSafeIds = msg.actionResult!.metadata!.candidates
+                              .filter((c: any) => c.type === "text" && !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
+                              .map((c: any) => c.id);
+                            const currentSelected = selectedWatermarkCandidateIds[msg.id] ?? defaultSafeIds;
                             if (currentSelected.length === 0) {
                               toast.error("Lütfen temizlemek için en az bir filigran adayı seçin.");
                               return;

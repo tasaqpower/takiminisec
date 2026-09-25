@@ -174,49 +174,8 @@ export async function detectVisualWatermarks(
       }
     }
 
-    // 1b. Check for colored watermark stamps (Red, Coral, Blue, Purple) directly on the canvas
-    try {
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (ctx) {
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const d = imgData.data;
-        let redCount = 0;
-        let minX = width, maxX = 0, minY = height, maxY = 0;
-
-        for (let y = 0; y < height; y += 3) {
-          for (let x = 0; x < width; x += 3) {
-            // Exclude top-right logo if solid
-            if (x > width * 0.76 && y < height * 0.28) continue;
-            const idx = (y * width + x) * 4;
-            const r = d[idx];
-            const g = d[idx + 1];
-            const b = d[idx + 2];
-            if (r > 120 && (r - g >= 16) && (r - b >= 16)) {
-              redCount++;
-              if (x < minX) minX = x;
-              if (x > maxX) maxX = x;
-              if (y < minY) minY = y;
-              if (y > maxY) maxY = y;
-            }
-          }
-        }
-
-        if (redCount > 100) {
-          matchedBoxes.push({
-            text: "GEÇERSİZ / ÖRNEK BELGEDİR (Kırmızı Damga & Filigran)",
-            x: minX,
-            y: minY,
-            w: Math.max(120, maxX - minX),
-            h: Math.max(60, maxY - minY),
-            reason: "Kırmızı / mercan renkli filigran damgası tespit edildi",
-            confidence: 99
-          });
-        }
-      }
-    } catch {}
-
     // 2. Check diagonal angles if no diagonal candidate exists yet
-    const hasDiagonalCand = matchedBoxes.some(b => b.reason.includes("Çapraz") || b.reason.includes("Kırmızı"));
+    const hasDiagonalCand = matchedBoxes.some(b => b.reason.includes("Çapraz"));
     if (!hasDiagonalCand) {
       for (const angle of [-45, -35, 35, 45]) {
         try {
@@ -227,9 +186,11 @@ export async function detectVisualWatermarks(
             const normLine = normalizeTurkish(line.text);
             const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
             if (matchedKw.length > 0) {
-              // Diagonal watermark found across the page - use tight bounding box
-              const padW = Math.min(canvas.width, Math.max(160, (line.bbox?.width || 200) + 40));
-              const padH = Math.min(canvas.height, Math.max(50, (line.bbox?.height || 50) + 30));
+              // Diagonal watermark found across the page - use tight bounding box around detected text
+              const lineW = line.bbox?.width || 120;
+              const lineH = line.bbox?.height || 30;
+              const padW = Math.min(canvas.width, Math.max(80, lineW + 20));
+              const padH = Math.min(canvas.height, Math.max(30, lineH + 15));
               const boxX = Math.max(0, Math.min(canvas.width - padW, (canvas.width - padW) / 2));
               const boxY = Math.max(0, Math.min(canvas.height - padH, (canvas.height - padH) / 2));
               matchedBoxes.push({
@@ -276,7 +237,7 @@ export async function detectVisualWatermarks(
           w: pdfW,
           h: pdfH
         },
-        strategy: "manual_cover"
+        strategy: "pixel_clean"
       });
     }
 
