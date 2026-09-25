@@ -2019,23 +2019,49 @@ export async function removePdfRasterWatermarks(
         const g = cleanData[idx + 1];
         const bVal = cleanData[idx + 2];
 
-        // 1. Strict Logo & Header Text Protection:
-        // Corporate crests / logos in header/corners (e.g. deep burgundy r > 100 && g < 65 && b < 65 or inner logo text)
-        const isHeaderLogoArea = (py <= bmp.height * 0.25) && (px >= 995);
-        const isCorporateBurgundy = isHeaderLogoArea && (r > 100 && g < 65 && bVal < 65);
-        const isLogoInnerText = isHeaderLogoArea && (r > 240 && g > 240 && bVal > 240 && px >= 995 && px <= 1185 && py >= 115 && py <= 194);
-        if (isCorporateBurgundy || isLogoInnerText) continue;
-
         const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
 
-        // Protect "Page 1 of 1" header text (strictly at px >= 1000 and py <= 90)
-        const isPageNumberArea = (py <= bmp.height * 0.12 && py >= bmp.height * 0.05) && (px >= 1000);
-        if (isPageNumberArea && lum < 150) continue;
+        // 1. Header Page Number Protection: "Page 1 of 1" (strictly px >= 980, 0.04H <= py <= 0.11H)
+        const isPageNumberArea = (py <= bmp.height * 0.11 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (980 / 1200)));
+        if (isPageNumberArea && lum < 160) continue;
+
+        // 2. Corporate Header Logo Box Restoration (e.g. Boston University Crest):
+        // Bounded by [998..1180] x [116..193] in 1200x896 bitmap space (scaled proportionally if different resolution)
+        const logoMinX = Math.round(bmp.width * (998 / 1200));
+        const logoMaxX = Math.round(bmp.width * (1180 / 1200));
+        const logoMinY = Math.round(bmp.height * (116 / 896));
+        const logoMaxY = Math.round(bmp.height * (193 / 896));
+        const isInsideLogoBox = px >= logoMinX && px <= logoMaxX && py >= logoMinY && py <= logoMaxY;
+
+        if (isInsideLogoBox) {
+          // Authentic clean white letter or border stroke
+          const isCleanWhite = (lum > 220 && g > 200 && bVal > 200);
+          // Authentic clean burgundy background
+          const isCleanBurgundy = (r >= 140 && r <= 180 && g <= 35 && bVal <= 35);
+          if (isCleanWhite || isCleanBurgundy) continue;
+
+          // Contaminated by diagonal watermark:
+          // A. Letter / inner border pixels have elevated green/blue channel:
+          const isLogoLetter = (lum >= 85 && (g >= 42 || bVal >= 42)) || (lum > 200 && g > 180);
+          if (isLogoLetter) {
+            cleanData[idx] = 255;
+            cleanData[idx + 1] = 255;
+            cleanData[idx + 2] = 255;
+            modifiedPixels++;
+          } else {
+            // B. Burgundy background contaminated by red watermark:
+            cleanData[idx] = 170;
+            cleanData[idx + 1] = 28;
+            cleanData[idx + 2] = 24;
+            modifiedPixels++;
+          }
+          continue;
+        }
 
         // Pure white paper background is already clean
         if (r >= 253 && g >= 253 && bVal >= 253) continue;
 
-        // 2. Red/coral/pink watermark detection:
+        // 3. Red/coral/pink watermark detection:
         // - Dark red banner borders & stamps: (r - g >= 20 && r - bVal >= 20)
         // - Medium red watermark letters: r > 105 && (r - g >= 12 && r - bVal >= 12)
         // - Anti-aliased pink edges: lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal)
@@ -2044,16 +2070,31 @@ export async function removePdfRasterWatermarks(
         const isPinkEdge = (lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal));
         const isRed = isDarkRed || isMedRed || isPinkEdge;
 
-        // 3. Blue stamp watermark
+        // 4. Blue stamp watermark
         const isBlue = bVal > 120 && (bVal - r >= 15) && (bVal - g >= 10);
-        // 4. Purple stamp watermark
+        // 5. Purple stamp watermark
         const isPurple = r > 120 && bVal > 120 && (r - g >= 15) && (bVal - g >= 15);
 
-        // 5. Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
+        // 6. Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
         const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
         const isFaintGray = maxDiff <= 8 && lum >= 155 && lum <= 253;
 
-        // 6. Strict Document Text Protection & Inpainting Restoration:
+        // 7. Right Margin & Area Below/Around Logo:
+        // Margin region px >= 950, py <= bmp.height * 0.47 has NO document text.
+        // Clean all watermark residue, including faint edge traces:
+        const isRightMarginUnderLogo = (px >= Math.round(bmp.width * (950 / 1200)) && py >= logoMinY && py <= Math.round(bmp.height * (420 / 896)));
+        if (isRightMarginUnderLogo) {
+          const isFaintTrace = lum > 200 && lum < 254 && (r > g || r > bVal);
+          if (isRed || isPinkEdge || isFaintGray || isFaintTrace) {
+            cleanData[idx] = bgR;
+            cleanData[idx + 1] = bgG;
+            cleanData[idx + 2] = bgB;
+            modifiedPixels++;
+            continue;
+          }
+        }
+
+        // 8. Strict Document Text Protection & Inpainting Restoration:
         // Neutral dark text (lum < 145) must NEVER be touched unless it has watermark hue
         if (lum < 145 && !isDarkRed && !isMedRed && !isBlue && !isPurple) continue;
 
