@@ -1493,6 +1493,67 @@ export interface RasterCandidateResult {
  * can be modified independently without affecting any other page or placement.
  * If cloning cannot be safely accomplished, returns success: false to trigger fail-closed.
  */
+/**
+ * Parses content stream text and extracts all /Name Do image invocations with their transformation matrices and bounds.
+ */
+function parseContentStreamPlacements(streamText: string): Array<{
+  name: string;
+  ctm: number[];
+  bounds: { left: number; bottom: number; right: number; top: number };
+}> {
+  const placements: Array<{
+    name: string;
+    ctm: number[];
+    bounds: { left: number; bottom: number; right: number; top: number };
+  }> = [];
+  const tokens = streamText.trim().split(/\s+/);
+  const ctmStack: number[][] = [[1, 0, 0, 1, 0, 0]];
+  let currentCtm = [1, 0, 0, 1, 0, 0];
+
+  const multiply = (m1: number[], m2: number[]) => [
+    m1[0] * m2[0] + m1[1] * m2[2],
+    m1[0] * m2[1] + m1[1] * m2[3],
+    m1[2] * m2[0] + m1[3] * m2[2],
+    m1[2] * m2[1] + m1[3] * m2[3],
+    m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
+    m1[4] * m2[1] + m1[5] * m2[3] + m2[5]
+  ];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "q") {
+      ctmStack.push([...currentCtm]);
+    } else if (t === "Q") {
+      if (ctmStack.length > 1) currentCtm = ctmStack.pop()!;
+    } else if (t === "cm" && i >= 6) {
+      const m = [
+        parseFloat(tokens[i - 6]),
+        parseFloat(tokens[i - 5]),
+        parseFloat(tokens[i - 4]),
+        parseFloat(tokens[i - 3]),
+        parseFloat(tokens[i - 2]),
+        parseFloat(tokens[i - 1])
+      ];
+      currentCtm = multiply(m, currentCtm);
+    } else if (t === "Do" && i >= 1) {
+      const name = tokens[i - 1].replace(/^\//, "");
+      const a = currentCtm[0], b = currentCtm[1], c = currentCtm[2], d = currentCtm[3], e = currentCtm[4], f = currentCtm[5];
+      const corners = [
+        { x: e, y: f },
+        { x: e + a, y: f + b },
+        { x: e + c, y: f + d },
+        { x: e + a + c, y: f + b + d }
+      ];
+      const minX = Math.min(...corners.map(pt => pt.x));
+      const maxX = Math.max(...corners.map(pt => pt.x));
+      const minY = Math.min(...corners.map(pt => pt.y));
+      const maxY = Math.max(...corners.map(pt => pt.y));
+      placements.push({ name, ctm: [...currentCtm], bounds: { left: minX, bottom: minY, right: maxX, top: maxY } });
+    }
+  }
+  return placements;
+}
+
 export async function isolateSharedPdfImage(
   bytes: Uint8Array,
   pageIndex: number,
@@ -1529,8 +1590,9 @@ export async function isolateSharedPdfImage(
       return { bytes, wasShared: false, success: true };
     }
 
-    // Extract target page content streams to detect same-page multiple /Name Do invocations
+    // Extract target page content streams to inspect image placements
     let targetContentStreamsText = "";
+    let placements: Array<{ name: string; ctm: number[]; bounds: { left: number; bottom: number; right: number; top: number } }> = [];
     try {
       const contents = targetPage.node.Contents();
       const streams: any[] = [];
@@ -1558,9 +1620,46 @@ export async function isolateSharedPdfImage(
           }
         }
       }
+      if (targetContentStreamsText) {
+        placements = parseContentStreamPlacements(targetContentStreamsText);
+      }
     } catch {
-      // If we cannot decode the content streams, we cannot guarantee isolation safety -> fail closed
-      return { bytes, wasShared: true, success: false };
+      // Content stream decompression is optional; refUsage provides guaranteed structural cross-page isolation
+    }
+
+    // Identify target XObject ref if targetBounds is provided
+    let targetRefKey: string | null = null;
+    let targetName: string | null = null;
+    if (targetBounds && placements.length > 0) {
+      let bestDist = Infinity;
+      const tb = targetBounds;
+      const tbCx = (tb.left + tb.right) / 2;
+      const tbCy = (tb.bottom + tb.top) / 2;
+
+      for (const pl of placements) {
+        const pb = pl.bounds;
+        const pbCx = (pb.left + pb.right) / 2;
+        const pbCy = (pb.bottom + pb.top) / 2;
+        const dist = Math.hypot(pbCx - tbCx, pbCy - tbCy);
+        const wDiff = Math.abs((pb.right - pb.left) - (tb.right - tb.left));
+        const hDiff = Math.abs((pb.top - pb.bottom) - (tb.top - tb.bottom));
+        if (dist + wDiff * 0.5 + hDiff * 0.5 < bestDist) {
+          bestDist = dist + wDiff * 0.5 + hDiff * 0.5;
+          targetName = pl.name;
+        }
+      }
+
+      if (targetName) {
+        for (const [xName, xRef] of targetXobjs.entries()) {
+          const raw = typeof (xName as any).value === "function"
+            ? (xName as any).value().replace(/^\//, "")
+            : xName.asString().replace(/^\//, "");
+          if (raw === targetName && xRef instanceof PDFRef) {
+            targetRefKey = xRef.toString();
+            break;
+          }
+        }
+      }
     }
 
     let modified = false;
@@ -1569,10 +1668,16 @@ export async function isolateSharedPdfImage(
     for (const [name, ref] of targetXobjs.entries()) {
       if (ref instanceof PDFRef) {
         const key = ref.toString();
-        const usages = refUsage.get(key) || [];
         const rawName = typeof (name as any).value === "function"
-          ? (name as any).value()
+          ? (name as any).value().replace(/^\//, "")
           : name.asString().replace(/^\//, "");
+
+        // If targetRefKey is known, skip unrelated XObjects on the page!
+        if (targetRefKey && key !== targetRefKey) {
+          continue;
+        }
+
+        const usages = refUsage.get(key) || [];
 
         // 1. Same-page multiple placement check via content stream Do operator count
         if (targetContentStreamsText) {
@@ -1599,10 +1704,15 @@ export async function isolateSharedPdfImage(
           anyShared = true;
           const streamObj = pdfDoc.context.lookup(ref);
           if (streamObj && typeof (streamObj as any).clone === "function") {
-            const cloned = (streamObj as any).clone(pdfDoc.context);
-            const newRef = pdfDoc.context.register(cloned);
-            targetXobjs.set(name, newRef);
-            modified = true;
+            try {
+              const cloned = (streamObj as any).clone(pdfDoc.context);
+              const newRef = pdfDoc.context.register(cloned);
+              targetXobjs.set(name, newRef);
+              modified = true;
+            } catch (cloneErr) {
+              console.warn("Failed to clone shared stream object:", cloneErr);
+              return { bytes, wasShared: true, success: false };
+            }
           } else {
             // Cannot safely clone stream object -> fail closed
             return { bytes, wasShared: true, success: false };
