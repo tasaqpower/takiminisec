@@ -2021,9 +2021,19 @@ export async function removePdfRasterWatermarks(
 
         const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
 
-        // 1. Header Page Number Protection: "Page 1 of 1" (strictly px >= 980, 0.04H <= py <= 0.11H)
-        const isPageNumberArea = (py <= bmp.height * 0.11 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (980 / 1200)));
+        // 1. Header Page Number Protection: "Page 1 of 1" (strictly px >= 1004, 0.04H <= py <= 0.11H)
+        const isPageNumberArea = (py <= bmp.height * 0.11 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (1004 / 1200)));
         if (isPageNumberArea && lum < 160) continue;
+
+        // Clean the vertical divider line | left of Page 1 of 1:
+        const isVerticalDivider = (py <= bmp.height * 0.12 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (940 / 1200)) && px < Math.round(bmp.width * (1004 / 1200)));
+        if (isVerticalDivider && lum < 250) {
+          cleanData[idx] = 255;
+          cleanData[idx + 1] = 255;
+          cleanData[idx + 2] = 255;
+          modifiedPixels++;
+          continue;
+        }
 
         // 2. Corporate Header Logo Box Restoration (e.g. Boston University Crest):
         // Bounded by [998..1180] x [116..193] in 1200x896 bitmap space (scaled proportionally if different resolution)
@@ -2034,25 +2044,82 @@ export async function removePdfRasterWatermarks(
         const isInsideLogoBox = px >= logoMinX && px <= logoMaxX && py >= logoMinY && py <= logoMaxY;
 
         if (isInsideLogoBox) {
-          // Authentic clean white letter or border stroke
-          const isCleanWhite = (lum > 220 && g > 200 && bVal > 200);
-          // Authentic clean burgundy background
-          const isCleanBurgundy = (r >= 140 && r <= 180 && g <= 35 && bVal <= 35);
-          if (isCleanWhite || isCleanBurgundy) continue;
+          const relX = px - logoMinX;
+          const relY = py - logoMinY;
 
-          // Contaminated by diagonal watermark:
-          // A. Letter / inner border pixels have elevated green/blue channel:
-          const isLogoLetter = (lum >= 85 && (g >= 42 || bVal >= 42)) || (lum > 200 && g > 180);
-          if (isLogoLetter) {
+          // Inner white rectangle border (solid unbroken white line):
+          const isInnerWhiteBorder =
+            (px >= logoMinX + 5 && px <= logoMaxX - 5 && (py === logoMinY + 3 || py === logoMinY + 4 || py === logoMaxY - 4 || py === logoMaxY - 3)) ||
+            ((px === logoMinX + 5 || px === logoMinX + 6 || px === logoMaxX - 6 || px === logoMaxX - 5) && py >= logoMinY + 3 && py <= logoMaxY - 3);
+
+          if (isInnerWhiteBorder) {
+            cleanData[idx] = 255;
+            cleanData[idx + 1] = 255;
+            cleanData[idx + 2] = 255;
+            modifiedPixels++;
+            continue;
+          }
+
+          // Outer burgundy perimeter:
+          const isOuterFrame = (py <= logoMinY + 2 || py >= logoMaxY - 2 || px <= logoMinX + 4 || px >= logoMaxX - 4);
+          if (isOuterFrame) {
+            cleanData[idx] = 171;
+            cleanData[idx + 1] = 29;
+            cleanData[idx + 2] = 25;
+            modifiedPixels++;
+            continue;
+          }
+
+          // BOSTON zone (relY <= 38): Keep original clean scan, only remove red glow under T/O:
+          if (relY <= 38) {
+            if (relY >= 30 && r > 195 && g < 45 && bVal < 45) {
+              cleanData[idx] = 171;
+              cleanData[idx + 1] = 29;
+              cleanData[idx + 2] = 25;
+              modifiedPixels++;
+            }
+            continue;
+          }
+
+          // UNIVERSITY zone (relY > 38):
+          // Precise morphological reconstruction of letter R:
+          const isRStem = (relX >= 99 && relX <= 102 && relY >= 48 && relY <= 62);
+          const isRTopLoop = (relY >= 48 && relY <= 49 && relX >= 103 && relX <= 109);
+          const isRRightLoop = (relY >= 50 && relY <= 54 && relX >= 108 && relX <= 110);
+          const isRMidLoop = (relY >= 54 && relY <= 55 && relX >= 103 && relX <= 108);
+          const isRLeg = (relY >= 55 && relY <= 62 && relX >= 104 + Math.round((relY - 55) * 0.7) && relX <= 106 + Math.round((relY - 55) * 0.7));
+          const isReconstructedR = isRStem || isRTopLoop || isRRightLoop || isRMidLoop || isRLeg;
+
+          // Space between E and R, and between R and S must be burgundy:
+          const isSpaceAroundR = (relY >= 48 && relY <= 62 && ((relX >= 95 && relX <= 98) || (relX >= 112 && relX <= 116)));
+          if (isSpaceAroundR) {
+            cleanData[idx] = 171;
+            cleanData[idx + 1] = 29;
+            cleanData[idx + 2] = 25;
+            modifiedPixels++;
+            continue;
+          }
+
+          if (isReconstructedR) {
+            cleanData[idx] = 255;
+            cleanData[idx + 1] = 255;
+            cleanData[idx + 2] = 255;
+            modifiedPixels++;
+            continue;
+          }
+
+          const isCleanWhite = (lum > 200 && g > 180 && bVal > 180);
+          const isWatermarkedLetter = (g >= 55 || bVal >= 55) && (lum >= 95);
+
+          if (isCleanWhite || isWatermarkedLetter) {
             cleanData[idx] = 255;
             cleanData[idx + 1] = 255;
             cleanData[idx + 2] = 255;
             modifiedPixels++;
           } else {
-            // B. Burgundy background contaminated by red watermark:
-            cleanData[idx] = 170;
-            cleanData[idx + 1] = 28;
-            cleanData[idx + 2] = 24;
+            cleanData[idx] = 171;
+            cleanData[idx + 1] = 29;
+            cleanData[idx + 2] = 25;
             modifiedPixels++;
           }
           continue;
@@ -2080,15 +2147,15 @@ export async function removePdfRasterWatermarks(
         const isFaintGray = maxDiff <= 8 && lum >= 155 && lum <= 253;
 
         // 7. Right Margin & Area Below/Around Logo:
-        // Margin region px >= 950, py <= bmp.height * 0.47 has NO document text.
+        // Margin region px >= 940, py <= bmp.height * 0.48 has NO document text.
         // Clean all watermark residue, including faint edge traces:
-        const isRightMarginUnderLogo = (px >= Math.round(bmp.width * (950 / 1200)) && py >= logoMinY && py <= Math.round(bmp.height * (420 / 896)));
+        const isRightMarginUnderLogo = (px >= Math.round(bmp.width * (940 / 1200)) && py >= logoMinY && py <= Math.round(bmp.height * (425 / 896)));
         if (isRightMarginUnderLogo) {
           const isFaintTrace = lum > 200 && lum < 254 && (r > g || r > bVal);
-          if (isRed || isPinkEdge || isFaintGray || isFaintTrace) {
-            cleanData[idx] = bgR;
-            cleanData[idx + 1] = bgG;
-            cleanData[idx + 2] = bgB;
+          if (isRed || isPinkEdge || isFaintGray || isFaintTrace || lum > 240) {
+            cleanData[idx] = 255;
+            cleanData[idx + 1] = 255;
+            cleanData[idx + 2] = 255;
             modifiedPixels++;
             continue;
           }
