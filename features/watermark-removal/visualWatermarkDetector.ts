@@ -275,7 +275,8 @@ export async function detectVisualWatermarks(
           y: pdfY,
           w: pdfW,
           h: pdfH
-        }
+        },
+        strategy: "manual_cover"
       });
     }
 

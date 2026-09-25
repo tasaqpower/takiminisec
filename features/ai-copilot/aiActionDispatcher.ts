@@ -1048,13 +1048,18 @@ export async function dispatchAiAction(
         candidateIds: idsToRemove,
         pageScope: 'all',
         currentPage: 0,
+        allowLogoRemoval: true,
       });
 
       if (removalResult.totalRemoved === 0) {
+        const failureReasons = removalResult.candidateResults
+          ?.filter(r => r.status !== 'removed' && r.reason)
+          ?.map(r => r.reason) || [];
+        const detail = failureReasons.length > 0 ? ` (${failureReasons[0]})` : '';
         return {
           success: false,
           action: 'watermark_remove',
-          message: 'Filigran kaldırılamadı; PDF baytlarında değişiklik yapılmadı.',
+          message: `Filigran kaldırılamadı${detail}; PDF baytlarında değişiklik yapılmadı.`,
         };
       }
 

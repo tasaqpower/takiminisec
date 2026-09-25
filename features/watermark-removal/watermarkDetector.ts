@@ -627,9 +627,12 @@ export async function detectWatermarks(
     if (candidates.length === 0 && typeof window !== "undefined") {
       try {
         const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
-        const visualCands = await detectVisualWatermarks(pdfBytes, 0);
-        if (visualCands && visualCands.length > 0) {
-          candidates.push(...visualCands);
+        const scanPages = pagesToScan.slice(0, 3);
+        for (const pageIdx of scanPages) {
+          const visualCands = await detectVisualWatermarks(pdfBytes, pageIdx);
+          if (visualCands && visualCands.length > 0) {
+            candidates.push(...visualCands);
+          }
         }
       } catch (visErr) {
         console.warn("Visual watermark detection fallback error:", visErr);

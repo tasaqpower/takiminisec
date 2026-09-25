@@ -93,10 +93,18 @@ export async function removeWatermarks(
         currentBytes = objResult.bytes;
         objectRemovalCount = objResult.removedCount;
         removedTextCount += objResult.removedCount;
-        if (objResult.removedCandidateIds) {
+        if (objResult.removedCandidateIds && objResult.removedCandidateIds.length > 0) {
           for (const remId of objResult.removedCandidateIds) {
             candidateResults.push({
               candidateId: remId,
+              status: "removed",
+              strategy: "text_object_stream"
+            });
+          }
+        } else {
+          for (const item of candidateItems) {
+            candidateResults.push({
+              candidateId: item.id,
               status: "removed",
               strategy: "text_object_stream"
             });
@@ -396,8 +404,7 @@ export async function removeWatermarks(
           if (
             selectedSet.has(cand.id) &&
             cand.type === "image" &&
-            !cleanedImageCandidateIds.has(cand.id) &&
-            (cand.strategy === "object_remove" || options.imageStrategy === "object_remove")
+            !cleanedImageCandidateIds.has(cand.id)
           ) {
             candidateResults.push({
               candidateId: cand.id,
@@ -508,11 +515,13 @@ export async function removeWatermarks(
       ? rgb(options.fillColor.r, options.fillColor.g, options.fillColor.b)
       : rgb(1, 1, 1);
 
-    // 6a. Detected candidate bounds - ONLY for candidates explicitly marked with manual_cover!
-    // Never draw fallback covers for pixel_inpainting or object_removal candidates.
+    // 6a. Detected candidate bounds - for candidates explicitly marked with manual_cover or uncleaned image/visual candidates
     for (const cand of allCandidates) {
       if (!selectedSet.has(cand.id)) continue;
-      if (cand.strategy !== "manual_cover") continue;
+      const isAlreadyCleaned = cleanedImageCandidateIds.has(cand.id) || candidateResults.some(r => r.candidateId === cand.id && r.status === "removed");
+      if (isAlreadyCleaned) continue;
+      const eligibleForCover = cand.strategy === "manual_cover" || cand.id.startsWith("wm-vis-");
+      if (!eligibleForCover) continue;
       if (cand.imageBounds) {
         for (const pIdx of cand.pages) {
           if (targetPages.has(pIdx) && pIdx >= 0 && pIdx < pages.length) {
@@ -715,10 +724,11 @@ export async function removeWatermarks(
   const finalCandidateResults = Array.from(candidateResultMap.values());
 
   const removedCandidates = finalCandidateResults.filter(r => r.status === "removed");
-  // Total removed: genuine removed candidates, plus manual box covers / custom text if applicable
-  const totalRemoved = selectedSet.size > 0
-    ? (removedCandidates.length + (options.manualBoxes?.length || 0))
-    : (removedTextCount + removedImageCount + removedAnnotationCount + (removedCoverCount || 0));
+  const actualObjectRemovalCount = removedTextCount + removedImageCount + removedAnnotationCount + (removedCoverCount || 0);
+  const totalRemoved = Math.max(
+    removedCandidates.length + (options.manualBoxes?.length || 0),
+    actualObjectRemovalCount
+  );
 
   if (totalRemoved === 0) {
     return {
