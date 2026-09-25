@@ -99,6 +99,67 @@ async function main() {
   // Assertion 3: Verify the output PDF is 100% bit-identical and no text is erased or covered
   assert.strictEqual(Buffer.from(removalResult.pdfBytes).equals(Buffer.from(pdfBytes)), true, "PASS: Output PDF is 100% bit-identical!");
 
+  // Assertion 4: TAM SAYFA BOUNDS + PIXEL_CLEAN ADAYI TESTİ
+  // Full-page bounds (w: 612, h: 792, %100 sayfa boyutu) + strategy: "pixel_clean"
+  console.log("\n[Test 4] Tam sayfa bounds + pixel_clean adayı engelleme testi çalıştırılıyor...");
+  const fullPagePixelCleanCand = {
+    id: "wm-fullscreen-pixelclean-1",
+    type: "image",
+    text: "Tam Sayfa Kırmızı Leke / Filigran",
+    count: 1,
+    pages: [0],
+    confidence: 99,
+    reason: "Tam sayfa görsel filigran adayı",
+    imageBounds: { x: 0, y: 0, w: 612, h: 792 },
+    strategy: "pixel_clean"
+  };
+
+  const fullPageResult = await removeWatermarks(pdfBytes, [fullPagePixelCleanCand], {
+    candidateIds: ["wm-fullscreen-pixelclean-1"],
+    pageScope: "all",
+    currentPage: 0
+  });
+
+  assert.strictEqual(fullPageResult.totalRemoved, 0, "PASS: Tam sayfa pixel_clean adayı başarısız olduğunda totalRemoved kesinlikle 0 olmalı!");
+  assert.strictEqual(fullPageResult.removedCoverCount || 0, 0, "PASS: Tam sayfa adaya kesinlikle beyaz örtü vurulmamalı (removedCoverCount === 0)!");
+  assert.strictEqual(fullPageResult.strategyUsed, "none", "PASS: strategyUsed 'none' olarak raporlanmalı!");
+  
+  const candStatus = fullPageResult.candidateResults?.[0];
+  assert.ok(candStatus, "Aday sonuç kaydı bulunmalı");
+  assert.strictEqual(candStatus.status, "failed", "PASS: Aday durumu 'failed' (blocked) olarak raporlanmalı!");
+  assert.ok(candStatus.reason, `PASS: Engelleme sebebi açıkça raporlandı: ${candStatus.reason}`);
+
+  // PDF baytlarının bit seviyesinde 0 mutasyonla korunduğunu doğrula
+  const isBitIdentical = Buffer.from(fullPageResult.pdfBytes).equals(Buffer.from(pdfBytes));
+  assert.strictEqual(isBitIdentical, true, "PASS: Tam sayfa adayı sonrasında PDF baytları 1 bayt bile değişmeden (%100 bit-identical) korundu!");
+  console.log(`✓ Tam sayfa bounds + pixel_clean adayı PDF'yi değiştirmeden blocked döndü (Sebep: ${candStatus.reason}).`);
+
+  // Ek Test: Tam sayfa manual_cover adayı da sayfadaki metin ve boyut sınırları yüzünden engellenmeli
+  const fullPageManualCand = {
+    id: "wm-fullscreen-manual-1",
+    type: "image",
+    text: "Tam Sayfa Örtü Adayı",
+    count: 1,
+    pages: [0],
+    confidence: 90,
+    reason: "Tam sayfa örtü adayı",
+    imageBounds: { x: 0, y: 0, w: 612, h: 792 },
+    strategy: "manual_cover"
+  };
+
+  const manualResult = await removeWatermarks(pdfBytes, [fullPageManualCand], {
+    candidateIds: ["wm-fullscreen-manual-1"],
+    pageScope: "all",
+    currentPage: 0
+  });
+
+  assert.strictEqual(manualResult.totalRemoved, 0, "PASS: Tam sayfa manual_cover adayı engellenmeli (totalRemoved === 0)!");
+  assert.strictEqual(manualResult.removedCoverCount || 0, 0, "PASS: Sıfır beyaz örtü çizilmeli!");
+  assert.strictEqual(Buffer.from(manualResult.pdfBytes).equals(Buffer.from(pdfBytes)), true, "PASS: PDF 100% bit-identical!");
+  const manualCandStatus = manualResult.candidateResults?.[0];
+  assert.strictEqual(manualCandStatus?.status, "failed");
+  console.log(`✓ Tam sayfa manual_cover adayı da engellendi (Sebep: ${manualCandStatus?.reason}).`);
+
   console.log("\n🎉 ALL BOSTON UNIVERSITY SAFEGUARD ASSERTIONS PASSED (100%)");
 }
 
