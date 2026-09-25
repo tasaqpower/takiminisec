@@ -1,6 +1,5 @@
-import { createWorker, type Worker } from "tesseract.js";
+import type { Worker } from "tesseract.js";
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { Document, Packer, Paragraph, TextRun } from "docx";
 import { applyImageFilters, type FilterOptions } from "./imageFilters.ts";
 
 export interface OcrWord {
@@ -96,6 +95,7 @@ export async function getOcrWorker(
     workerOptions.langPath = path.resolve("public/tesseract/lang-data");
   }
 
+  const { createWorker } = await import("tesseract.js");
   const workerPromise = createWorker(languages.split("+"), 1, workerOptions);
   let timer: any;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -737,7 +737,8 @@ export async function exportSearchablePdf(
  * Exports OCR results to a Word document (.docx)
  */
 export async function exportDocxFromOcr(ocrResults: OcrPageResult[]): Promise<Blob> {
-  const paragraphs: Paragraph[] = [];
+  const { Document, Packer, Paragraph, TextRun } = await import("docx");
+  const paragraphs: any[] = [];
 
   for (const res of ocrResults) {
     paragraphs.push(

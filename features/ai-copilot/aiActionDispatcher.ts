@@ -6,8 +6,6 @@ import { removeWatermarks } from '../watermark-removal/watermarkRemover.ts';
 import { enhancePdfBytes, enhanceImageData } from '../enhancer/documentEnhancer.ts';
 import { compressPdf } from '../compression/compressPdf.ts';
 import { scanPdfForSensitiveEntities, redactDetectedEntities } from '../security/autoRedact.ts';
-import { pdfToDocx } from '../conversion/docxConverter.ts';
-import { pdfToExcel, pdfToImagesZip } from '../conversion/conversionEngine.ts';
 import { convertToPdfA2b } from '../compliance/complianceEngine.ts';
 import { encryptPdfWithPassword } from '../security/pdfEncryption.ts';
 import { extractPdfText, loadPdf, exportPdf, canEncodeWinAnsi, type Mark } from '../../lib/documents.ts';
@@ -1197,6 +1195,7 @@ export async function dispatchAiAction(
       }
 
       onProgress?.("PDF yapısı inceleniyor ve Microsoft Word (.docx) oluşturuluyor...");
+      const { pdfToDocx } = await import('../conversion/docxConverter.ts');
       const docxBytes = await pdfToDocx(context.pdfBytes);
 
       return {
@@ -1222,6 +1221,7 @@ export async function dispatchAiAction(
       }
 
       onProgress?.("Tablo ve hücre verileri taranıyor, Excel (.xlsx) oluşturuluyor...");
+      const { pdfToExcel } = await import('../conversion/conversionEngine.ts');
       const xlsxBytes = await pdfToExcel(context.pdfBytes);
 
       return {
@@ -1247,6 +1247,7 @@ export async function dispatchAiAction(
       }
 
       onProgress?.('PDF sayfaları yüksek çözünürlüklü görsellere dönüştürülüyor...');
+      const { pdfToImagesZip } = await import('../conversion/conversionEngine.ts');
       const zipBytes = await pdfToImagesZip(context.pdfBytes, { format: 'png', dpi: 150 });
 
       return {
