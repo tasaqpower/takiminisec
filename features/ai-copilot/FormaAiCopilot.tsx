@@ -685,7 +685,7 @@ export function FormaAiCopilot({
           timestamp: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
         }
       ]);
-      toast.success(`${file.name} başarıyla açıldı!`);
+      toast.success(`${file.name} başarıyla açıldı!`, { duration: 1000 });
     } catch (err: any) {
       toast.error(`Dosya yüklenemedi: ${err?.message || "Bilinmeyen hata"}`);
     } finally {

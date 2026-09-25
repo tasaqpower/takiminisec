@@ -605,7 +605,7 @@ export default function Home() {
         />
       )}
 
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="bottom-right" richColors closeButton duration={1000} />
     </SidebarProvider>
   );
 }

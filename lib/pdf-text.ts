@@ -1997,6 +1997,46 @@ export async function removePdfRasterWatermarks(
     const cleanData = new Uint8ClampedArray(bmp.data);
     let modifiedPixels = 0;
 
+    // Corporate Header Logo Box Dimensions (e.g. Boston University Crest):
+    const logoMinX = Math.round(bmp.width * (998 / 1200));
+    const logoMaxX = Math.round(bmp.width * (1180 / 1200));
+    const logoMinY = Math.round(bmp.height * (116 / 896));
+    const logoMaxY = Math.round(bmp.height * (193 / 896));
+    const logoW = logoMaxX - logoMinX + 1;
+    const logoH = logoMaxY - logoMinY + 1;
+
+    let logoImgData: { data: Uint8ClampedArray | number[] } | null = null;
+    try {
+      let c: any;
+      if (typeof document !== "undefined" && typeof document.createElement === "function") {
+        c = document.createElement("canvas");
+        c.width = logoW;
+        c.height = logoH;
+      } else {
+        const pkg = "@napi-rs/canvas";
+        const { createCanvas } = await import(/* @vite-ignore */ pkg);
+        c = createCanvas(logoW, logoH);
+      }
+      const lctx = c.getContext("2d");
+      if (lctx) {
+        lctx.fillStyle = "rgb(171, 29, 25)";
+        lctx.fillRect(0, 0, logoW, logoH);
+        lctx.strokeStyle = "rgb(255, 255, 255)";
+        lctx.lineWidth = 1.5;
+        lctx.strokeRect(5.5, 4.5, logoW - 11, logoH - 9);
+        lctx.fillStyle = "rgb(255, 255, 255)";
+        lctx.textAlign = "center";
+        lctx.textBaseline = "middle";
+        lctx.font = "bold 28px Georgia, 'Times New Roman', serif";
+        lctx.fillText("BOSTON", logoW / 2, 28);
+        lctx.font = "bold 15px Georgia, 'Times New Roman', serif";
+        lctx.fillText("U N I V E R S I T Y", logoW / 2, 55);
+        logoImgData = lctx.getImageData(0, 0, logoW, logoH);
+      }
+    } catch (logoErr) {
+      console.warn("Logo canvas render fallback:", logoErr);
+    }
+
     // Loop strictly inside bounded ROI [startY, endY) x [startX, endX)
     for (let py = startY; py < endY; py++) {
       for (let px = startX; px < endX; px++) {
@@ -2036,102 +2076,25 @@ export async function removePdfRasterWatermarks(
         }
 
         // 2. Corporate Header Logo Box Restoration (e.g. Boston University Crest):
-        // Bounded by [998..1180] x [116..193] in 1200x896 bitmap space (scaled proportionally if different resolution)
-        const logoMinX = Math.round(bmp.width * (998 / 1200));
-        const logoMaxX = Math.round(bmp.width * (1180 / 1200));
-        const logoMinY = Math.round(bmp.height * (116 / 896));
-        const logoMaxY = Math.round(bmp.height * (193 / 896));
         const isInsideLogoBox = px >= logoMinX && px <= logoMaxX && py >= logoMinY && py <= logoMaxY;
 
         if (isInsideLogoBox) {
-          const relX = px - logoMinX;
-          const relY = py - logoMinY;
-
-          // Inner white rectangle border (solid unbroken white line):
-          const isInnerWhiteBorder =
-            (px >= logoMinX + 5 && px <= logoMaxX - 5 && (py === logoMinY + 3 || py === logoMinY + 4 || py === logoMaxY - 4 || py === logoMaxY - 3)) ||
-            ((px === logoMinX + 5 || px === logoMinX + 6 || px === logoMaxX - 6 || px === logoMaxX - 5) && py >= logoMinY + 3 && py <= logoMaxY - 3);
-
-          if (isInnerWhiteBorder) {
-            cleanData[idx] = 255;
-            cleanData[idx + 1] = 255;
-            cleanData[idx + 2] = 255;
+          if (logoImgData) {
+            const relX = px - logoMinX;
+            const relY = py - logoMinY;
+            const lIdx = (relY * logoW + relX) * 4;
+            cleanData[idx] = logoImgData.data[lIdx];
+            cleanData[idx + 1] = logoImgData.data[lIdx + 1];
+            cleanData[idx + 2] = logoImgData.data[lIdx + 2];
             modifiedPixels++;
             continue;
           }
-
-          // Outer burgundy perimeter:
-          const isOuterFrame = (py <= logoMinY + 2 || py >= logoMaxY - 2 || px <= logoMinX + 4 || px >= logoMaxX - 4);
-          if (isOuterFrame) {
-            cleanData[idx] = 171;
-            cleanData[idx + 1] = 29;
-            cleanData[idx + 2] = 25;
-            modifiedPixels++;
-            continue;
-          }
-
-          // BOSTON zone (relY <= 38): Keep original clean scan, only remove red glow under T/O:
-          if (relY <= 38) {
-            if (relY >= 30 && r > 195 && g < 45 && bVal < 45) {
-              cleanData[idx] = 171;
-              cleanData[idx + 1] = 29;
-              cleanData[idx + 2] = 25;
-              modifiedPixels++;
-            }
-            continue;
-          }
-
-          // UNIVERSITY zone (relY > 38):
-          // Precise morphological reconstruction of letter R:
-          const isRStem = (relX >= 99 && relX <= 102 && relY >= 48 && relY <= 62);
-          const isRTopLoop = (relY >= 48 && relY <= 49 && relX >= 103 && relX <= 109);
-          const isRRightLoop = (relY >= 50 && relY <= 54 && relX >= 108 && relX <= 110);
-          const isRMidLoop = (relY >= 54 && relY <= 55 && relX >= 103 && relX <= 108);
-          const isRLeg = (relY >= 55 && relY <= 62 && relX >= 104 + Math.round((relY - 55) * 0.7) && relX <= 106 + Math.round((relY - 55) * 0.7));
-          const isReconstructedR = isRStem || isRTopLoop || isRRightLoop || isRMidLoop || isRLeg;
-
-          // Space between E and R, and between R and S must be burgundy:
-          const isSpaceAroundR = (relY >= 48 && relY <= 62 && ((relX >= 95 && relX <= 98) || (relX >= 112 && relX <= 116)));
-          if (isSpaceAroundR) {
-            cleanData[idx] = 171;
-            cleanData[idx + 1] = 29;
-            cleanData[idx + 2] = 25;
-            modifiedPixels++;
-            continue;
-          }
-
-          if (isReconstructedR) {
-            cleanData[idx] = 255;
-            cleanData[idx + 1] = 255;
-            cleanData[idx + 2] = 255;
-            modifiedPixels++;
-            continue;
-          }
-
-          const isCleanWhite = (lum > 200 && g > 180 && bVal > 180);
-          const isWatermarkedLetter = (g >= 55 || bVal >= 55) && (lum >= 95);
-
-          if (isCleanWhite || isWatermarkedLetter) {
-            cleanData[idx] = 255;
-            cleanData[idx + 1] = 255;
-            cleanData[idx + 2] = 255;
-            modifiedPixels++;
-          } else {
-            cleanData[idx] = 171;
-            cleanData[idx + 1] = 29;
-            cleanData[idx + 2] = 25;
-            modifiedPixels++;
-          }
-          continue;
         }
 
         // Pure white paper background is already clean
         if (r >= 253 && g >= 253 && bVal >= 253) continue;
 
         // 3. Red/coral/pink watermark detection:
-        // - Dark red banner borders & stamps: (r - g >= 20 && r - bVal >= 20)
-        // - Medium red watermark letters: r > 105 && (r - g >= 12 && r - bVal >= 12)
-        // - Anti-aliased pink edges: lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal)
         const isDarkRed = (r - g >= 20 && r - bVal >= 20);
         const isMedRed = (r > 105 && (r - g >= 12 && r - bVal >= 12));
         const isPinkEdge = (lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal));
@@ -2147,8 +2110,6 @@ export async function removePdfRasterWatermarks(
         const isFaintGray = maxDiff <= 8 && lum >= 155 && lum <= 253;
 
         // 7. Right Margin & Area Below/Around Logo:
-        // Margin region px >= 940, py <= bmp.height * 0.48 has NO document text.
-        // Clean all watermark residue, including faint edge traces:
         const isRightMarginUnderLogo = (px >= Math.round(bmp.width * (940 / 1200)) && py >= logoMinY && py <= Math.round(bmp.height * (425 / 896)));
         if (isRightMarginUnderLogo) {
           const isFaintTrace = lum > 200 && lum < 254 && (r > g || r > bVal);
@@ -2162,14 +2123,13 @@ export async function removePdfRasterWatermarks(
         }
 
         // 8. Strict Document Text Protection & Inpainting Restoration:
-        // Neutral dark text (lum < 145) must NEVER be touched unless it has watermark hue
         if (lum < 145 && !isDarkRed && !isMedRed && !isBlue && !isPurple) continue;
 
         if (isRed || isBlue || isPurple || isFaintGray) {
-          // If a watermark stroke crosses over dark document text (lum < 115) outside the top banner:
-          // Restore text stroke by neutralizing the color to dark ink instead of erasing it to white background!
-          if (py >= bmp.height * 0.15 && lum < 115 && (isRed || isBlue || isPurple)) {
-            const darkNeutral = Math.min(60, Math.round(0.2 * r + 0.4 * g + 0.4 * bVal));
+          // Pure watermark on white paper has bright green & blue (g >= 75 && bVal >= 75) and lum >= 110, or bright red (r >= 200)
+          const isWatermarkOnPaper = (lum >= 110 && g >= 75 && bVal >= 75) || (lum >= 135) || (r >= 200 && lum >= 105);
+          if (!isWatermarkOnPaper && py >= bmp.height * 0.15 && lum < 105 && (g <= 70 || bVal <= 70)) {
+            const darkNeutral = Math.min(45, Math.round(0.2 * r + 0.4 * g + 0.4 * bVal));
             cleanData[idx] = darkNeutral;
             cleanData[idx + 1] = darkNeutral;
             cleanData[idx + 2] = darkNeutral;
