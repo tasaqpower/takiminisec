@@ -270,18 +270,32 @@ export async function detectImagesOnPage(
         const imgArg = args[0];
         const pixelW = typeof args[1] === "number" ? args[1] : undefined;
         const pixelH = typeof args[2] === "number" ? args[2] : undefined;
-        const [scaleX, skewY, skewX, scaleY, transX, transY] = currentTransform;
+        const [a, b, c, d, e, f] = currentTransform;
 
-        // In PDF coordinates, an image is drawn in a unit square [0,0,1,1] transformed by the matrix
-        const pdfX = transX;
-        const pdfY = transY;
-        const pdfW = Math.abs(scaleX);
-        const pdfH = Math.abs(scaleY);
+        // In PDF coordinates, an image is drawn in a unit square [0,0] to [1,1] transformed by the matrix.
+        // We calculate all 4 transformed corners to obtain the exact axis-aligned bounding box (matching PDFium bounds).
+        const x0 = e, y0 = f;
+        const x1 = a + e, y1 = b + f;
+        const x2 = a + c + e, y2 = b + d + f;
+        const x3 = c + e, y3 = d + f;
+
+        const pdfLeft = Math.min(x0, x1, x2, x3);
+        const pdfRight = Math.max(x0, x1, x2, x3);
+        const pdfBottom = Math.min(y0, y1, y2, y3);
+        const pdfTop = Math.max(y0, y1, y2, y3);
+
+        const pdfX = pdfLeft;
+        const pdfY = pdfBottom;
+        const pdfW = pdfRight - pdfLeft;
+        const pdfH = pdfTop - pdfBottom;
 
         // Convert PDF coordinates to viewport coordinates (top-left)
-        const [vx, vy] = viewport.convertToViewportPoint(pdfX, pdfY + pdfH);
-        const vw = pdfW;
-        const vh = pdfH;
+        const [vx1, vy1] = viewport.convertToViewportPoint(pdfLeft, pdfTop);
+        const [vx2, vy2] = viewport.convertToViewportPoint(pdfRight, pdfBottom);
+        const vx = Math.min(vx1, vx2);
+        const vy = Math.min(vy1, vy2);
+        const vw = Math.abs(vx2 - vx1);
+        const vh = Math.abs(vy2 - vy1);
 
         if (vw > 5 && vh > 5) {
           let dataUrl = "";

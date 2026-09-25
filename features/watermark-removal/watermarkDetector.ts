@@ -446,9 +446,13 @@ export async function detectWatermarks(
       // 2. Regular horizontal sentences with 4+ words that are not explicitly a multi-word watermark phrase
       // (e.g. "BU BELGE GECERSIZDIR", "ORNEK BELGE SIMULASYONUDUR", "SCANNED WITH CAMSCANNER")
       if (wordCount >= 4 && isNormalHorizontalText) {
+        // Any horizontal text with > 6 words is guaranteed to be real document content
+        if (wordCount > 6) {
+          continue;
+        }
         const isExplicitWatermarkPhrase = WATERMARK_KEYWORDS.some(kw => {
           const kwWords = kw.split(/\s+/).length;
-          return (kwWords >= 2 && normKey.includes(kw)) || normKey === kw;
+          return normKey === kw || ((normKey.startsWith(kw) || normKey.endsWith(kw)) && wordCount <= kwWords + 2);
         });
         if (!isExplicitWatermarkPhrase && !isRepeatedHeaderFooter) {
           continue;
@@ -550,27 +554,30 @@ export async function detectWatermarks(
       const img = group.firstImg;
       const isFullPageScan = (img.w >= 500 && img.h >= 700); // Exclude full document page scans
       
-      if (!isFullPageScan && (pageCount >= 2 || (pageCount === 1 && img.isWatermark))) {
-        const nameLower = (img.name || "").toLowerCase();
-        const hasWatermarkKeyword = /watermark|filigran|taslak|draft|sample|kopya|void|canc|geçersiz/i.test(nameLower);
-        const isFaintOpacity = typeof img.opacity === "number" && img.opacity > 0 && img.opacity < 0.45;
-        const isLargeCentered = img.w > 260 && img.h > 260 && img.x > 80 && img.y > 150;
-        const isDefiniteWatermark = img.isWatermark || hasWatermarkKeyword || isFaintOpacity || isLargeCentered;
+      const nameLower = (img.name || "").toLowerCase();
+      const hasWatermarkKeyword = /watermark|filigran|taslak|draft|sample|kopya|void|canc|geçersiz|gecersiz|gizli|ozel|ornek/i.test(nameLower);
+      const isFaintOpacity = typeof img.opacity === "number" && img.opacity > 0 && img.opacity < 0.65;
+      const isLargeCentered = img.w > 220 && img.h > 220 && img.x > 60 && img.y > 100;
+      const hasRotation = Boolean(img.matrix && (Math.abs(img.matrix[1]) > 5 || Math.abs(img.matrix[2]) > 5));
+      const isDefiniteWatermark = Boolean(img.isWatermark || hasWatermarkKeyword || isFaintOpacity || isLargeCentered || hasRotation);
 
+      if (!isFullPageScan && (pageCount >= 2 || isDefiniteWatermark)) {
         // Position & size check for corporate logos, school crests, letterheads, or signatures
-        const isHeaderOrFooter = (img.y <= 135 || (img.y + img.h) >= 680) && img.w <= 300 && img.h <= 150;
-        const isLogoOrHeader = !isDefiniteWatermark && (isHeaderOrFooter || /logo|antet|crest|imza|sign|amblem|brand/i.test(nameLower) || pageCount >= 2);
+        const isHeaderOrFooter = !hasRotation && (img.y <= 135 || (img.y + img.h) >= 680) && img.w <= 300 && img.h <= 150;
+        const isLogoOrHeader = !isDefiniteWatermark && (isHeaderOrFooter || /logo|antet|crest|imza|sign|amblem|brand/i.test(nameLower));
 
-        // Confidence must NOT be high purely based on page repetition!
+        // Confidence scoring
         let confidence = 25;
-        let candidateText = img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Tekrarlayan Görsel");
+        let candidateText = img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Görsel Filigran / Damga");
         let candidateReason = `${pageCount} sayfada aynı konumda tekrarlanan görsel`;
 
         if (isDefiniteWatermark) {
-          confidence = hasWatermarkKeyword ? 90 : isFaintOpacity ? 80 : 70;
-          candidateText = img.name || "Görsel Filigran / Damga";
+          confidence = hasWatermarkKeyword ? 95 : (hasRotation || isFaintOpacity) ? 90 : 80;
+          candidateText = img.name || (hasRotation ? "Açılı Filigran Görseli" : "Görsel Filigran / Damga");
           candidateReason = hasWatermarkKeyword
             ? `Filigran anahtar kelimesi tespit edilen görsel (${img.name})`
+            : hasRotation
+            ? `Çapraz/açılı yerleştirilmiş filigran görseli`
             : isFaintOpacity
             ? `Saydam/soluk arka plan filigran görseli`
             : `Büyük boyutlu merkezi filigran görseli`;
@@ -590,7 +597,8 @@ export async function detectWatermarks(
           reason: candidateReason,
           confidence,
           isLogoOrHeader,
-          strategy: isDefiniteWatermark && (isFaintOpacity || hasWatermarkKeyword) ? "pixel_clean" : "object_remove",
+          // STRICT: All standalone image watermarks are surgically removed as objects!
+          strategy: "object_remove",
           imageRemovals: group.removals
         });
       }

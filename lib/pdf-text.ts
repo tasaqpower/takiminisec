@@ -477,8 +477,19 @@ export async function removePdfImages(
               Math.abs(cb.right - tb.right) +
               Math.abs(cb.top - tb.top);
 
-            // Location must match within tolerance! A different placement on the page will have large centerDist / edgeDiff
-            if (edgeDiff > 35 && centerDist > 30) {
+            const matrixMatches = Boolean(
+              rem.matrix &&
+              cand.matrix &&
+              Math.abs(rem.matrix[0] - cand.matrix[0]) < 2 &&
+              Math.abs(rem.matrix[1] - cand.matrix[1]) < 2 &&
+              Math.abs(rem.matrix[2] - cand.matrix[2]) < 2 &&
+              Math.abs(rem.matrix[3] - cand.matrix[3]) < 2 &&
+              Math.abs(rem.matrix[4] - cand.matrix[4]) < 2 &&
+              Math.abs(rem.matrix[5] - cand.matrix[5]) < 2
+            );
+
+            // Location must match within tolerance unless exact transformation matrix is confirmed
+            if (!matrixMatches && edgeDiff > 35 && centerDist > 30) {
               continue; // Reject wrong location immediately
             }
 

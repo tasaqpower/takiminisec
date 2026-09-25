@@ -34,11 +34,17 @@ export function buildSafeAutoCleanCandidateIds(candidates: WatermarkCandidate[])
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
   return candidates
     .filter((c) => {
-      if (c.type === "image") return false;
       if (c.isLogoOrHeader) return false;
-      if (c.type !== "text" && c.type !== "annotation") return false;
       const conf = typeof c.confidence === "number" ? c.confidence : 0;
-      return conf >= 45;
+      // 1. Text & Annotation watermarks with confidence >= 45%
+      if (c.type === "text" || c.type === "annotation") {
+        return conf >= 45;
+      }
+      // 2. High-confidence standalone image watermarks (stamps/overlays)
+      if (c.type === "image" && c.strategy === "object_remove" && conf >= 80) {
+        return true;
+      }
+      return false;
     })
     .map((c) => c.id);
 }
