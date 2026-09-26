@@ -30,7 +30,8 @@ import {
   Stamp,
   Camera,
   GitCompare,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Film
 } from "lucide-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -45,6 +46,8 @@ import { PdfCompareModal } from "@/features/compare/PdfCompareModal";
 import { BatchProcessingModal } from "@/features/batch/BatchProcessingModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FormaAiCopilot } from "@/features/ai-copilot/FormaAiCopilot";
+import { ModeSelectionScreen } from "@/features/video-editor/components/ModeSelectionScreen";
+import { VideoEditorWorkspace } from "@/features/video-editor/components/VideoEditorWorkspace";
 
 export const essentialTools = [
   { id: "edit", title: "PDF düzenle", desc: "Metin, not, canlı fatura & fiyat düzeltici.", icon: FileText, color: "violet", type: "PDF", popular: true },
@@ -77,6 +80,7 @@ export const specializedTools = [
 export const allTools = [...essentialTools, ...conversionTools, ...specializedTools];
 
 export default function Home() {
+  const [activeMode, setActiveMode] = useState<"selection" | "document" | "video">("selection");
   const input = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("essential"), [intent, setIntent] = useState("edit"), [dragging, setDragging] = useState(false), [help, setHelp] = useState(false), [loading, setLoading] = useState(false);
   const intentRef = useRef("edit");
@@ -111,6 +115,10 @@ export default function Home() {
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("forma_gemini_api_key");
+        const params = new URLSearchParams(window.location.search);
+        const m = params.get("mode");
+        if (m === "video") setActiveMode("video");
+        else if (m === "document") setActiveMode("document");
       }
     } catch {}
 
@@ -275,11 +283,28 @@ export default function Home() {
     await open([new globalThis.File([""], "Adsız belge.txt", { type: "text/plain" })], "word");
   }
 
+  if (activeMode === "selection") {
+    return (
+      <ModeSelectionScreen
+        onSelectDocument={() => setActiveMode("document")}
+        onSelectVideo={() => setActiveMode("video")}
+      />
+    );
+  }
+
+  if (activeMode === "video") {
+    return (
+      <VideoEditorWorkspace
+        onNavigateHome={() => setActiveMode("selection")}
+      />
+    );
+  }
+
   return (
     <SidebarProvider style={{ "--sidebar-width": "264px" } as React.CSSProperties}>
       <Sidebar className="forma-sidebar">
         <SidebarHeader className="brand">
-          <a href="/" aria-label="Forma ana sayfa">
+          <a href="/" aria-label="Forma ana sayfa" onClick={(e) => { e.preventDefault(); guard(() => setActiveMode("selection")); }}>
             <span className="brand-symbol"><Files size={23} /></span>
             <span>forma<span className="brand-dot">.</span></span>
           </a>
@@ -291,8 +316,19 @@ export default function Home() {
           <span className="nav-caption">ÇALIŞMA ALANIN</span>
           <SidebarMenu>
             <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => guard(() => setActiveMode("selection"))}>
+                <LayoutGrid /><span>Mod Değiştir (Ana Ekran)</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="nav-item" onClick={() => guard(() => setActiveMode("video"))}>
+                <Film className="text-violet-500" /><span>Video Düzenle</span>
+                <span className="nav-new" style={{ background: "#ede9fe", color: "#6d28d9" }}>Yeni</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton className="nav-item" isActive={!workspace} onClick={() => guard(() => setWorkspace(null))}>
-                <LayoutGrid /><span>Genel bakış</span>
+                <LayoutGrid /><span>Belge Genel bakış</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -365,7 +401,14 @@ export default function Home() {
         <header className="topbar">
           <div className="breadcrumb">
             <SidebarTrigger className="mobile-trigger" />
-            <span>Çalışma alanı</span>
+            <button
+              onClick={() => guard(() => setActiveMode("selection"))}
+              className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer"
+            >
+              Ana Sayfa
+            </button>
+            <ChevronRight size={14} />
+            <span>Belge Alanı</span>
             <ChevronRight size={14} />
             <strong>{workspace ? "Belge düzenleyici" : "Genel bakış"}</strong>
           </div>
