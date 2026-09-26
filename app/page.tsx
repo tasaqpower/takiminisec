@@ -438,10 +438,86 @@ export default function Home() {
                 <p>Düzenle, dönüştür, imzala. Hepsi aynı çalışma alanında.</p>
               </div>
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  className="secondary create-doc"
+                  style={{
+                    marginTop: 0,
+                    background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15))",
+                    borderColor: "rgba(99, 102, 241, 0.5)",
+                    color: "#6366f1",
+                    fontWeight: 700
+                  }}
+                  onClick={() => guard(() => setActiveMode("video"))}
+                >
+                  <Film size={17} /> Video Düzenle
+                </button>
                 <button className="secondary create-doc" style={{ marginTop: 0 }} onClick={newDoc}>
                   <FilePlus2 size={17} /> Yeni belge
                 </button>
               </div>
+            </div>
+
+            {/* Featured Video Editor Banner */}
+            <div
+              onClick={() => guard(() => setActiveMode("video"))}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #18181b 0%, #1e1b4b 100%)",
+                border: "1px solid rgba(129, 140, 248, 0.3)",
+                color: "#ffffff",
+                cursor: "pointer",
+                marginBottom: "24px",
+                boxShadow: "0 10px 25px -5px rgba(79, 70, 229, 0.15)",
+                transition: "all 0.2s ease"
+              }}
+              className="hover:scale-[1.01] hover:border-indigo-400 group"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                <div style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  boxShadow: "0 4px 12px rgba(99, 102, 241, 0.35)"
+                }}>
+                  <Film size={22} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <strong style={{ fontSize: "14px", fontWeight: 700 }}>FORMA Video Düzenleme Çalışma Alanı</strong>
+                    <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "6px", background: "#4f46e5", color: "#fff" }}>YENİ</span>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#cbd5e1", margin: "2px 0 0 0" }}>
+                    Çok kanallı zaman çizelgesi, hassas kesme/bölme, efektler, ses mikseri ve 4K/Reels dışa aktarma.
+                  </p>
+                </div>
+              </div>
+              <button
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  background: "#4f46e5",
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                <span>Video Editörünü Aç</span>
+                <ArrowRight size={14} />
+              </button>
             </div>
             <section
               className={`upload-zone ${dragging ? "dragging" : ""}`}
