@@ -66,14 +66,14 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     }
 
     let isMounted = true;
-    renderFrameToCanvas(canvas, project, currentTime, selectedClip?.id).catch((err) => {
+    renderFrameToCanvas(canvas, project, currentTime, selectedClip?.id, isPlaying).catch((err) => {
       if (isMounted) console.warn('Preview render frame error:', err);
     });
 
     return () => {
       isMounted = false;
     };
-  }, [project, currentTime, selectedClip]);
+  }, [project, currentTime, selectedClip, isPlaying]);
 
   // Handle PNG Snapshot
   const handleCaptureSnapshot = async () => {
