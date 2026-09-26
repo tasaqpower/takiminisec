@@ -1138,14 +1138,14 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               type="button"
               onClick={() => setActiveTextTab(tab.id as any)}
               title={tab.label}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
                 activeTextTab === tab.id
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
               }`}
             >
-              <span className="shrink-0">{tab.icon}</span>
-              <span className="truncate">{tab.label}</span>
+              <span className="text-xs leading-none shrink-0">{tab.icon}</span>
+              <span className="leading-tight">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -1165,14 +1165,14 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
               title={tab.label}
-              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
                 activeTab === tab.id
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
               }`}
             >
-              <span className="shrink-0">{tab.icon}</span>
-              <span className="truncate">{tab.label}</span>
+              <span className="text-xs leading-none shrink-0">{tab.icon}</span>
+              <span className="leading-tight">{tab.label}</span>
             </button>
           ))}
         </div>

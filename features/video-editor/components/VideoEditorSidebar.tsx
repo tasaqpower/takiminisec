@@ -1210,14 +1210,14 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={() => setActiveTab(tab.id as TabType)}
             title={tab.label}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-md text-[11px] font-semibold transition-all ${
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-md text-[10px] font-semibold transition-all ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
             }`}
           >
-            <span className="shrink-0">{tab.icon}</span>
-            <span className="truncate">{tab.label}</span>
+            <span className="text-xs leading-none shrink-0">{tab.icon}</span>
+            <span className="leading-tight">{tab.label}</span>
           </button>
         ))}
       </div>
