@@ -722,6 +722,23 @@ export function FormaAiCopilot({
         await executeConfirmedAction(pendingPlan.intent);
         return;
       }
+      // Check if there is a pending watermark candidate confirmation card in recent messages
+      const lastWatermarkMsg = [...messages].reverse().find(
+        (m) => m.actionResult?.metadata?.pendingConfirmation && m.actionResult?.metadata?.candidates
+      );
+      if (lastWatermarkMsg && lastWatermarkMsg.actionResult?.metadata?.candidates) {
+        const defaultSafeIds = lastWatermarkMsg.actionResult.metadata.candidates
+          .filter((c: any) => !c.isLogoOrHeader && (c.confidence ?? 0) >= 50)
+          .map((c: any) => c.id);
+        const currentSelected = selectedWatermarkCandidateIds[lastWatermarkMsg.id] ?? defaultSafeIds;
+        if (currentSelected.length > 0) {
+          await executeConfirmedAction({
+            action: "watermark_remove",
+            confirmedCandidateIds: currentSelected,
+          });
+          return;
+        }
+      }
       setMessages((prev) => [
         ...prev,
         {

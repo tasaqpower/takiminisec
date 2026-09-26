@@ -195,20 +195,20 @@ export function WatermarkRemovalModal({
         setCandidates(finalCandidates);
 
         // Pre-select high confidence candidates:
-        // STRICT SAFETY (V6): type === "image" candidates are NEVER auto-selected by default!
-        // Explicit user action is required to select images/logos for deletion.
+        // STANDALONE WATERMARK OBJECTS (Text or Image Stamps) with confidence >= 55%
+        // are pre-selected by default. Logos and headers (isLogoOrHeader === true) are strictly protected and excluded.
         const highConf = new Set(
           finalCandidates
-            .filter((c) => c.type !== "image" && !c.isLogoOrHeader && c.confidence >= 55)
+            .filter((c) => !c.isLogoOrHeader && c.confidence >= 55)
             .map((c) => c.id)
         );
         if (highConf.size > 0) {
           setSelectedIds(highConf);
         } else {
-          // If only image candidates exist, leave selectedIds empty
-          const firstNonImage = finalCandidates.find((c) => c.type !== "image" && !c.isLogoOrHeader);
-          if (firstNonImage) {
-            setSelectedIds(new Set([firstNonImage.id]));
+          // If only lower confidence non-logo candidates exist:
+          const firstNonLogo = finalCandidates.find((c) => !c.isLogoOrHeader);
+          if (firstNonLogo) {
+            setSelectedIds(new Set([firstNonLogo.id]));
           } else {
             setSelectedIds(new Set());
           }
@@ -845,13 +845,13 @@ export function WatermarkRemovalModal({
   };
 
   const handleApply = async () => {
-    // V7.1: Check if any selected candidate is image or logo
-    const hasImageOrLogoSelected = Array.from(selectedIds).some((id) => {
+    // V7.1: Check if any selected candidate is explicitly flagged as a logo or header
+    const hasLogoSelected = Array.from(selectedIds).some((id) => {
       const c = candidates.find((cand) => cand.id === id);
-      return c && (c.type === "image" || c.isLogoOrHeader === true);
+      return c && c.isLogoOrHeader === true;
     });
 
-    if (hasImageOrLogoSelected && !confirmedLogoRemovalRef.current) {
+    if (hasLogoSelected && !confirmedLogoRemovalRef.current) {
       setShowManualLogoModal(true);
       return;
     }
@@ -869,8 +869,8 @@ export function WatermarkRemovalModal({
   };
 
   const selectAll = () => {
-    const hasImageCandidates = candidates.some((c) => c.type === "image");
-    if (hasImageCandidates) {
+    const hasLogoCandidates = candidates.some((c) => c.isLogoOrHeader === true);
+    if (hasLogoCandidates) {
       setShowImageRiskModal(true);
     } else {
       setSelectedIds(new Set(candidates.map((c) => c.id)));
@@ -880,13 +880,13 @@ export function WatermarkRemovalModal({
   const confirmSelectAllWithImages = () => {
     setSelectedIds(new Set(candidates.map((c) => c.id)));
     setShowImageRiskModal(false);
-    toast.warning("Görsel adayları seçildi. Kurumsal logonuzun silinmediğinden emin olmak için önizlemeyi kontrol edin.");
+    toast.warning("Tüm adaylar seçildi. Kurumsal logonuzun silinmediğinden emin olmak için önizlemeyi kontrol edin.");
   };
 
   const selectOnlyTextCandidates = () => {
-    setSelectedIds(new Set(candidates.filter((c) => c.type !== "image").map((c) => c.id)));
+    setSelectedIds(new Set(candidates.filter((c) => !c.isLogoOrHeader).map((c) => c.id)));
     setShowImageRiskModal(false);
-    toast.info("Yalnızca metin filigranları seçildi. Kurumsal görseller ve logolar korundu.");
+    toast.info("Filigran adayları seçildi. Kurumsal görseller ve logolar korundu.");
   };
 
   const deselectAll = () => {

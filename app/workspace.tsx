@@ -673,6 +673,8 @@ export default function Workspace({
       setState((prev) => ({
         ...prev,
         pages: newPages,
+        marks: [],
+        removals: [],
       }));
       setSelected(null);
       setSelectedOriginal(null);
@@ -684,6 +686,11 @@ export default function Workspace({
     } catch (err) {
       console.error("Failed to reload PDF after applying professional tool:", err);
       setBytes(newPdfBytes);
+      setState((prev) => ({
+        ...prev,
+        marks: [],
+        removals: [],
+      }));
       setDirty(true);
       toast.success("Değişiklikler uygulandı.");
     }
