@@ -92,13 +92,20 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
 
   // Live animation preview playback
   const handlePreviewAnimation = useCallback(
-    (clipStartTime: number, durationSec = 2.0) => {
+    (target: string | number, durationSec = 2.0) => {
+      let startTime = typeof target === 'number' ? target : 0;
+      if (typeof target === 'string') {
+        const found = project.tracks.flatMap((t) => t.clips).find((c) => c.id === target);
+        if (found) {
+          startTime = found.startTime ?? (found as any).start ?? 0;
+        }
+      }
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
         previewTimerRef.current = null;
       }
       pause();
-      seek(clipStartTime);
+      seek(startTime);
       setTimeout(() => {
         play();
         previewTimerRef.current = setTimeout(() => {
@@ -107,7 +114,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         }, Math.max(1.2, durationSec) * 1000);
       }, 50);
     },
-    [seek, play, pause]
+    [project.tracks, seek, play, pause]
   );
 
   // Keyboard shortcuts

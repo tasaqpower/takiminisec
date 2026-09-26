@@ -29,7 +29,7 @@ interface PropertiesPanelProps {
   onSetBackgroundColor: (color: string) => void;
   onSetDuration: (duration: number) => void;
   onDetachAudio?: (clipId: string) => void;
-  onPreviewAnimation?: (clipStartTime: number, durationSec?: number) => void;
+  onPreviewAnimation?: (target: string | number, durationSec?: number) => void;
   onSeek?: (time: number) => void;
 }
 
@@ -108,6 +108,20 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const [fontSearch, setFontSearch] = useState('');
   const [fontCategory, setFontCategory] = useState<FontCategory>('all');
   const [activeTransitionTab, setActiveTransitionTab] = useState<'in' | 'out'>('in');
+  const [activeTab, setActiveTab] = useState<'basic' | 'animation' | 'mask' | 'color' | 'audio'>('basic');
+  const [activeTextTab, setActiveTextTab] = useState<'text' | 'animation' | 'transform'>('text');
+
+  useEffect(() => {
+    if (selectedClip?.type === 'text') {
+      setActiveTextTab('text');
+    } else if (selectedClip?.type === 'audio') {
+      setActiveTab('audio');
+    } else {
+      if (activeTab === 'audio' && selectedClip?.type === 'image') {
+        setActiveTab('basic');
+      }
+    }
+  }, [selectedClip?.id, selectedClip?.type]);
 
   useEffect(() => {
     if (isFontPickerOpen) {
@@ -234,10 +248,853 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const effects = selectedClip.effects || {};
   const textData = selectedClip.textData;
 
+  const isTextLike = selectedClip.type === 'text' || selectedClip.type === 'subtitle';
+  const isVisualMedia = selectedClip.type === 'video' || selectedClip.type === 'image';
+  const isAudioOnly = selectedClip.type === 'audio';
+
+  const renderTransform = () => (
+    <div className="space-y-3">
+      <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
+        Konum & Dönüşüm (Transform)
+      </h4>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">Konum X (px)</label>
+          <input
+            type="number"
+            value={transform.x}
+            onChange={(e) => updateTransform({ x: parseFloat(e.target.value) || 0 })}
+            className="w-full px-2 py-1 rounded bg-[#161b22] border border-[#30363d] text-white font-mono"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">Konum Y (px)</label>
+          <input
+            type="number"
+            value={transform.y}
+            onChange={(e) => updateTransform({ y: parseFloat(e.target.value) || 0 })}
+            className="w-full px-2 py-1 rounded bg-[#161b22] border border-[#30363d] text-white font-mono"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">
+            Ölçek ({Math.round(transform.scaleX * 100)}%)
+          </label>
+          <input
+            type="range"
+            min="0.1"
+            max="3.0"
+            step="0.05"
+            value={transform.scaleX}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              updateTransform({ scaleX: val, scaleY: val });
+            }}
+            className="w-full accent-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">
+            Opaklık ({Math.round(transform.opacity * 100)}%)
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={transform.opacity}
+            onChange={(e) => updateTransform({ opacity: parseFloat(e.target.value) })}
+            className="w-full accent-indigo-500"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-gray-400 text-[10px] block mb-1">
+          Döndürme ({Math.round(transform.rotation)}°)
+        </label>
+        <input
+          type="range"
+          min="-180"
+          max="180"
+          step="1"
+          value={transform.rotation}
+          onChange={(e) => updateTransform({ rotation: parseInt(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+    </div>
+  );
+
+  const renderKeyframeStudio = () => {
+    const relTime = Number(
+      Math.max(0, Math.min(selectedClip.duration, (currentTime - selectedClip.startTime) * (selectedClip.speed || 1))).toFixed(2)
+    );
+    const keyframes = selectedClip.keyframes || [];
+    const existingKfIndex = keyframes.findIndex((kf) => Math.abs(kf.time - relTime) < 0.08);
+    const hasKfAtPlayhead = existingKfIndex !== -1;
+
+    return (
+      <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+            <span className="text-amber-400">◆</span>
+            <span>Anahtar Kareler (Keyframe)</span>
+          </h4>
+          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-amber-500/30">
+            {keyframes.length} Kare
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] bg-[#0d1117] p-2 rounded-lg border border-white/5">
+          <span className="text-gray-400">Şu Anki Konum:</span>
+          <span className="font-mono text-indigo-400 font-bold">
+            {relTime.toFixed(2)} sn / {selectedClip.duration.toFixed(2)} sn
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const newKf = {
+              id: 'kf-' + Date.now(),
+              time: relTime,
+              x: transform.x,
+              y: transform.y,
+              scaleX: transform.scaleX,
+              scaleY: transform.scaleY,
+              rotation: transform.rotation,
+              opacity: transform.opacity,
+            };
+            let updated: typeof keyframes;
+            if (hasKfAtPlayhead) {
+              updated = keyframes.map((kf, i) => (i === existingKfIndex ? { ...kf, ...newKf } : kf));
+            } else {
+              updated = [...keyframes, newKf].sort((a, b) => a.time - b.time);
+            }
+            onUpdateClip(selectedClip.id, { keyframes: updated });
+          }}
+          className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow ${
+            hasKfAtPlayhead
+              ? 'bg-amber-600 hover:bg-amber-500 text-white'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+          }`}
+        >
+          <span>◆</span>
+          <span>{hasKfAtPlayhead ? "Bu Karedeki Keyframe'i Güncelle" : '+ Mevcut Konuma Keyframe Ekle'}</span>
+        </button>
+
+        {keyframes.length > 0 && (
+          <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+            <div className="flex items-center justify-between text-[10px] text-gray-400 px-1">
+              <span>Zaman Damgası</span>
+              <button
+                type="button"
+                onClick={() => onUpdateClip(selectedClip.id, { keyframes: [] })}
+                className="text-rose-400 hover:text-rose-300 font-semibold"
+              >
+                Tümünü Sil
+              </button>
+            </div>
+            {keyframes.map((kf) => (
+              <div
+                key={kf.id}
+                className="flex items-center justify-between p-1.5 rounded bg-[#0d1117] border border-white/5 text-[11px]"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetTime = selectedClip.startTime + kf.time / (selectedClip.speed || 1);
+                    onSeek?.(targetTime);
+                  }}
+                  className="font-mono text-amber-300 hover:underline flex items-center gap-1"
+                  title="Bu keyframe anına git"
+                >
+                  <span>◆</span>
+                  <span>{kf.time.toFixed(2)} sn</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    X:{Math.round(kf.x ?? 0)} Y:{Math.round(kf.y ?? 0)} Ö:{((kf.scaleX ?? 1) * 100).toFixed(0)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = keyframes.filter((k) => k.id !== kf.id);
+                      onUpdateClip(selectedClip.id, { keyframes: updated });
+                    }}
+                    className="text-gray-500 hover:text-rose-400 text-xs px-1"
+                    title="Sil"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSpeed = () => (
+    <div className="space-y-2 pt-2 border-t border-[#21262d]">
+      <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
+        Oynatma Hızı ({selectedClip.speed || 1}x)
+      </h4>
+      <div className="flex items-center gap-2">
+        {[0.5, 1.0, 1.5, 2.0].map((s) => (
+          <button
+            key={s}
+            onClick={() => onUpdateClip(selectedClip.id, { speed: s })}
+            className={`flex-1 py-1 rounded text-[11px] font-mono border ${
+              (selectedClip.speed || 1) === s
+                ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50'
+                : 'bg-[#161b22] text-gray-400 border-[#30363d] hover:text-white'
+            }`}
+          >
+            {s}x
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderCropAndMask = () => {
+    const crop = effects.crop || { top: 0, right: 0, bottom: 0, left: 0 };
+    const mask = effects.mask || { type: 'none' };
+
+    return (
+      <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+            <span>✂️</span>
+            <span>Kırpma & Maskeleme (Crop & Mask)</span>
+          </h4>
+        </div>
+
+        {/* Mask Presets */}
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
+            Şekil Maskesi
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { id: 'none', label: 'Normal', icon: '⏹️' },
+              { id: 'circle', label: 'Daire (Webcam)', icon: '🔘' },
+              { id: 'rounded-rect', label: 'Yuvarlak Kutu', icon: '🔲' },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => updateEffects({ mask: { type: m.id as any } })}
+                className={`p-1.5 rounded-lg border text-center transition-all ${
+                  mask.type === m.id
+                    ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300 font-semibold'
+                    : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d] text-gray-400'
+                }`}
+              >
+                <span className="block text-sm">{m.icon}</span>
+                <span className="text-[10px] block truncate mt-0.5">{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 4-Edge Crop Sliders */}
+        <div>
+          <div className="flex items-center justify-between mb-1 text-[10px]">
+            <span className="text-gray-400 font-bold uppercase tracking-wider">Kenar Kırpma (%)</span>
+            {(crop.top > 0 || crop.bottom > 0 || crop.left > 0 || crop.right > 0) && (
+              <button
+                type="button"
+                onClick={() => updateEffects({ crop: { top: 0, right: 0, bottom: 0, left: 0 } })}
+                className="text-rose-400 hover:text-rose-300 font-semibold"
+              >
+                Sıfırla
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div>
+              <div className="flex justify-between text-gray-400 mb-0.5">
+                <span>Üst: {crop.top}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="45"
+                step="1"
+                value={crop.top || 0}
+                onChange={(e) => updateEffects({ crop: { ...crop, top: parseInt(e.target.value) || 0 } })}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-gray-400 mb-0.5">
+                <span>Alt: {crop.bottom}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="45"
+                step="1"
+                value={crop.bottom || 0}
+                onChange={(e) => updateEffects({ crop: { ...crop, bottom: parseInt(e.target.value) || 0 } })}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-gray-400 mb-0.5">
+                <span>Sol: {crop.left}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="45"
+                step="1"
+                value={crop.left || 0}
+                onChange={(e) => updateEffects({ crop: { ...crop, left: parseInt(e.target.value) || 0 } })}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-gray-400 mb-0.5">
+                <span>Sağ: {crop.right}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="45"
+                step="1"
+                value={crop.right || 0}
+                onChange={(e) => updateEffects({ crop: { ...crop, right: parseInt(e.target.value) || 0 } })}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderChromaKey = () => (
+    <div className="p-2.5 rounded-lg bg-[#0d1117] border border-[#30363d] space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-emerald-400 text-sm">🟩</span>
+          <span className="text-xs font-semibold text-gray-200">Chroma Key (Yeşil Ekran)</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const current = effects.chromaKey;
+            const nextEnabled = !current?.enabled;
+            updateEffects({
+              chromaKey: {
+                enabled: nextEnabled,
+                color: current?.color || '#00FF00',
+                similarity: current?.similarity ?? 0.35,
+                smoothness: current?.smoothness ?? 0.1,
+              },
+            });
+          }}
+          className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+            effects.chromaKey?.enabled
+              ? 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-[#161b22] text-gray-400 border-[#30363d] hover:text-white'
+          }`}
+        >
+          {effects.chromaKey?.enabled ? 'Açık' : 'Kapalı'}
+        </button>
+      </div>
+
+      {effects.chromaKey?.enabled && (
+        <div className="space-y-2 pt-1 border-t border-white/5">
+          {/* Preset Colors */}
+          <div>
+            <label className="text-gray-400 text-[10px] block mb-1">Hedef Rengi Seç</label>
+            <div className="flex items-center gap-1.5">
+              {[
+                { color: '#00FF00', label: 'Yeşil' },
+                { color: '#0000FF', label: 'Mavi' },
+                { color: '#000000', label: 'Siyah' },
+                { color: '#FFFFFF', label: 'Beyaz' },
+              ].map((c) => (
+                <button
+                  key={c.color}
+                  type="button"
+                  onClick={() =>
+                    updateEffects({
+                      chromaKey: {
+                        ...effects.chromaKey!,
+                        color: c.color,
+                      },
+                    })
+                  }
+                  className={`flex-1 py-1 rounded text-[10px] flex items-center justify-center gap-1 border ${
+                    effects.chromaKey?.color?.toUpperCase() === c.color.toUpperCase()
+                      ? 'border-indigo-500 bg-indigo-600/20 text-white'
+                      : 'border-[#30363d] bg-[#161b22] text-gray-400'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: c.color }} />
+                  <span>{c.label}</span>
+                </button>
+              ))}
+              <input
+                type="color"
+                value={effects.chromaKey.color || '#00FF00'}
+                onChange={(e) =>
+                  updateEffects({
+                    chromaKey: {
+                      ...effects.chromaKey!,
+                      color: e.target.value,
+                    },
+                  })
+                }
+                className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer shrink-0"
+                title="Özel Renk Seç"
+              />
+            </div>
+          </div>
+
+          {/* Similarity Slider */}
+          <div>
+            <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
+              <span>Tolerans / Benzerlik</span>
+              <span className="font-mono text-emerald-400">
+                {Math.round((effects.chromaKey.similarity ?? 0.35) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.05"
+              max="0.80"
+              step="0.02"
+              value={effects.chromaKey.similarity ?? 0.35}
+              onChange={(e) =>
+                updateEffects({
+                  chromaKey: {
+                    ...effects.chromaKey!,
+                    similarity: parseFloat(e.target.value),
+                  },
+                })
+              }
+              className="w-full accent-emerald-500"
+            />
+          </div>
+
+          {/* Smoothness Slider */}
+          <div>
+            <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
+              <span>Kenar Yumuşatma</span>
+              <span className="font-mono text-emerald-400">
+                {Math.round((effects.chromaKey.smoothness ?? 0.1) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.00"
+              max="0.40"
+              step="0.02"
+              value={effects.chromaKey.smoothness ?? 0.1}
+              onChange={(e) =>
+                updateEffects({
+                  chromaKey: {
+                    ...effects.chromaKey!,
+                    smoothness: parseFloat(e.target.value),
+                  },
+                })
+              }
+              className="w-full accent-emerald-500"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderColorFilters = () => (
+    <div className="space-y-3">
+      <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
+        Renk & Filtre Ayarları
+      </h4>
+
+      {/* Presets */}
+      <div>
+        <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
+          Hazır Renk Şablonları (Presets)
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {COLOR_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => updateEffects(preset.effects)}
+              className="p-1.5 rounded-lg bg-[#0d1117] border border-[#30363d] hover:border-indigo-500/60 text-left transition-all group flex items-center gap-2"
+              title={preset.description}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: preset.thumbnailColor }}
+              />
+              <span className="text-[10px] font-medium text-gray-300 group-hover:text-white truncate">
+                {preset.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Parlaklık</span>
+          <span className="font-mono">{effects.brightness ?? 0}</span>
+        </div>
+        <input
+          type="range"
+          min="-1"
+          max="1"
+          step="0.05"
+          value={effects.brightness ?? 0}
+          onChange={(e) => updateEffects({ brightness: parseFloat(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Kontrast</span>
+          <span className="font-mono">{effects.contrast ?? 1}</span>
+        </div>
+        <input
+          type="range"
+          min="0.2"
+          max="2.5"
+          step="0.05"
+          value={effects.contrast ?? 1}
+          onChange={(e) => updateEffects({ contrast: parseFloat(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Doygunluk (Saturation)</span>
+          <span className="font-mono">{effects.saturation ?? 1}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="2.5"
+          step="0.05"
+          value={effects.saturation ?? 1}
+          onChange={(e) => updateEffects({ saturation: parseFloat(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Renk Sıcaklığı (Temperature)</span>
+          <span className="font-mono">{effects.temperature ?? 0}</span>
+        </div>
+        <input
+          type="range"
+          min="-50"
+          max="50"
+          step="2"
+          value={effects.temperature ?? 0}
+          onChange={(e) => updateEffects({ temperature: parseInt(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Vinyet (Kenar Karartması)</span>
+          <span className="font-mono">{Math.round((effects.vignette ?? 0) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={effects.vignette ?? 0}
+          onChange={(e) => updateEffects({ vignette: parseFloat(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+    </div>
+  );
+
+  const renderAudioSettings = () => (
+    <div className="space-y-3">
+      <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
+        Ses Ayarları
+      </h4>
+
+      <div>
+        <div className="flex justify-between text-gray-400 text-[10px] mb-1">
+          <span>Ses Seviyesi</span>
+          <span className="font-mono">{Math.round((selectedClip.volume ?? 1) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="2"
+          step="0.05"
+          value={selectedClip.volume ?? 1}
+          onChange={(e) => onUpdateClip(selectedClip.id, { volume: parseFloat(e.target.value) })}
+          className="w-full accent-indigo-500"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">Giriş Fade ({selectedClip.fadeIn || 0}s)</label>
+          <input
+            type="range"
+            min="0"
+            max="3"
+            step="0.2"
+            value={selectedClip.fadeIn || 0}
+            onChange={(e) => onUpdateClip(selectedClip.id, { fadeIn: parseFloat(e.target.value) })}
+            className="w-full accent-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 text-[10px] block mb-1">Çıkış Fade ({selectedClip.fadeOut || 0}s)</label>
+          <input
+            type="range"
+            min="0"
+            max="3"
+            step="0.2"
+            value={selectedClip.fadeOut || 0}
+            onChange={(e) => onUpdateClip(selectedClip.id, { fadeOut: parseFloat(e.target.value) })}
+            className="w-full accent-indigo-500"
+          />
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer text-gray-300 text-xs">
+        <input
+          type="checkbox"
+          checked={selectedClip.muted || false}
+          onChange={(e) => onUpdateClip(selectedClip.id, { muted: e.target.checked })}
+          className="rounded border-[#30363d] accent-indigo-500"
+        />
+        <span>Klibi Sessize Al (Mute)</span>
+      </label>
+
+      {selectedClip.type === 'video' && onDetachAudio && (
+        <button
+          type="button"
+          onClick={() => onDetachAudio(selectedClip.id)}
+          className="w-full mt-2 py-2 px-3 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/30 flex items-center justify-center gap-2 text-xs font-semibold transition-colors"
+          title="Videonun sesini ayrı bir ses kanalına taşır ve videoyu sessize alır"
+        >
+          <span>🎵</span>
+          <span>Sesi Videodan Ayır (Detach Audio)</span>
+        </button>
+      )}
+    </div>
+  );
+
+  const renderTransitions = () => {
+    const currentTrans = activeTransitionTab === 'in' ? selectedClip.transitionIn : selectedClip.transitionOut;
+    const activeType = currentTrans?.type || 'cut';
+    const activeDuration = currentTrans?.duration ?? 0.8;
+    const def = TRANSITION_DEFINITIONS.find((t) => t.id === activeType) || TRANSITION_DEFINITIONS[0];
+
+    return (
+      <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+            <span className="text-base">🔀</span>
+            <span>Geçiş Efektleri Stüdyosu</span>
+          </h4>
+          <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-indigo-500/30">
+            13 Çeşit
+          </span>
+        </div>
+
+        {/* In / Out Direction Tabs */}
+        <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#0d1117] border border-[#30363d]/80">
+          <button
+            type="button"
+            onClick={() => setActiveTransitionTab('in')}
+            className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              activeTransitionTab === 'in'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>➡️</span>
+            <span>Giriş Geçişi</span>
+            {selectedClip.transitionIn?.type && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTransitionTab('out')}
+            className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              activeTransitionTab === 'out'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>⬅️</span>
+            <span>Çıkış Geçişi</span>
+            {selectedClip.transitionOut?.type && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            )}
+          </button>
+        </div>
+
+        {/* Active Transition Info & Controls */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between text-xs bg-[#0d1117] p-2 rounded-lg border border-white/5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base">{def.icon}</span>
+              <div className="min-w-0">
+                <p className="font-semibold text-white truncate text-[11px]">{def.name}</p>
+                <p className="text-[10px] text-gray-400 truncate">{def.description}</p>
+              </div>
+            </div>
+            {activeType !== 'cut' && activeType !== 'none' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTransitionTab === 'in') {
+                    onUpdateClip(selectedClip.id, { transitionIn: undefined });
+                  } else {
+                    onUpdateClip(selectedClip.id, { transitionOut: undefined });
+                  }
+                }}
+                className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 shrink-0"
+              >
+                Kaldır
+              </button>
+            )}
+          </div>
+
+          {/* Duration Slider (only if transition is not cut/none) */}
+          {activeType !== 'cut' && activeType !== 'none' && (
+            <div className="p-2 rounded-lg bg-[#0d1117]/80 border border-white/5 space-y-1">
+              <div className="flex justify-between text-[11px] text-gray-400">
+                <span>Geçiş Süresi</span>
+                <span className="font-mono text-indigo-400 font-semibold">{activeDuration.toFixed(1)} sn</span>
+              </div>
+              <input
+                type="range"
+                min="0.2"
+                max="2.5"
+                step="0.1"
+                value={activeDuration}
+                onChange={(e) => {
+                  const dur = parseFloat(e.target.value);
+                  if (activeTransitionTab === 'in') {
+                    onUpdateClip(selectedClip.id, {
+                      transitionIn: { type: activeType, duration: dur },
+                    });
+                  } else {
+                    onUpdateClip(selectedClip.id, {
+                      transitionOut: { type: activeType, duration: dur },
+                    });
+                  }
+                }}
+                className="w-full accent-indigo-500"
+              />
+            </div>
+          )}
+
+          {/* Live Canvas Preview Button */}
+          {activeType !== 'cut' && activeType !== 'none' && onPreviewAnimation && (
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTransitionTab === 'in') {
+                  onSeek?.(selectedClip.startTime);
+                  onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
+                } else {
+                  onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
+                  onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
+                }
+              }}
+              className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <span>▶</span>
+              <span>Geçişi Tuvalde Canlı Oynat</span>
+            </button>
+          )}
+
+          {/* Visual Grid of All 13 Transitions */}
+          <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+            {TRANSITION_DEFINITIONS.map((tr) => {
+              const isSelected = activeType === tr.id;
+              return (
+                <button
+                  key={tr.id}
+                  type="button"
+                  onClick={() => {
+                    if (tr.id === 'cut' || tr.id === 'none') {
+                      if (activeTransitionTab === 'in') {
+                        onUpdateClip(selectedClip.id, { transitionIn: undefined });
+                      } else {
+                        onUpdateClip(selectedClip.id, { transitionOut: undefined });
+                      }
+                    } else {
+                      if (activeTransitionTab === 'in') {
+                        onUpdateClip(selectedClip.id, {
+                          transitionIn: { type: tr.id, duration: activeDuration },
+                        });
+                        onSeek?.(selectedClip.startTime);
+                        onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
+                      } else {
+                        onUpdateClip(selectedClip.id, {
+                          transitionOut: { type: tr.id, duration: activeDuration },
+                        });
+                        onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
+                        onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
+                      }
+                    }
+                  }}
+                  className={`p-2 rounded-lg text-left transition-all border flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50'
+                      : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d]/70 text-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span className="text-base">{tr.icon}</span>
+                    {isSelected && (
+                      <span className="text-indigo-400 font-bold text-xs">✓</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold truncate leading-tight">{tr.name}</p>
+                    <p className="text-[9px] text-gray-400 truncate mt-0.5">{tr.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <aside className="w-80 bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto text-xs">
+    <aside className="w-80 bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 h-full overflow-hidden text-xs">
       {/* Header */}
-      <div className="p-3 border-b border-[#21262d] bg-[#161b22]/40 flex items-center justify-between">
+      <div className="p-3 border-b border-[#21262d] bg-[#161b22]/40 flex items-center justify-between shrink-0">
         <div className="min-w-0 flex-1 mr-2">
           <input
             type="text"
@@ -260,12 +1117,65 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
         </button>
       </div>
 
-      <div className="p-4 space-y-5">
+      {/* Tab Navigation Bar */}
+      {isTextLike && (
+        <div className="flex border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 overflow-x-auto no-scrollbar shrink-0">
+          {[
+            { id: 'text', label: 'Metin', icon: '🔤' },
+            { id: 'animation', label: 'Animasyon', icon: '✨' },
+            { id: 'transform', label: 'Konum', icon: '📐' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTextTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                activeTextTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isVisualMedia && (
+        <div className="flex border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 overflow-x-auto no-scrollbar shrink-0">
+          {[
+            { id: 'basic', label: 'Temel', icon: '⚙️' },
+            { id: 'animation', label: 'Animasyon', icon: '⚡' },
+            { id: 'mask', label: 'Kırp & Maske', icon: '✂️' },
+            { id: 'color', label: 'Renk', icon: '🎨' },
+            ...(selectedClip.type === 'video' ? [{ id: 'audio', label: 'Ses', icon: '🔊' }] : []),
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* ============================================================== */}
         {/* ADVANCED TEXT LAYER SECTION                                    */}
         {/* ============================================================== */}
-        {selectedClip.type === 'text' && textData && (
-          <div className="space-y-4">
+        {isTextLike && textData && (
+          <>
+            {activeTextTab === 'text' && (
+              <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-indigo-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                 <span>🔤</span>
@@ -719,9 +1629,12 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 )}
               </div>
             </div>
+            </div>
+          )}
 
             {/* Visual Text Animation Gallery */}
-            <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-3">
+            {activeTextTab === 'animation' && (
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider block">
                   Metin Animasyonları
@@ -891,886 +1804,81 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 </select>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ============================================================== */}
-        {/* TRANSFORM SECTION (VIDEO, IMAGE, TEXT, ETC.)                    */}
-        {/* ============================================================== */}
-        <div className="space-y-3">
-          <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
-            Konum & Dönüşüm (Transform)
-          </h4>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Konum X (px)</label>
-              <input
-                type="number"
-                value={transform.x}
-                onChange={(e) => updateTransform({ x: parseFloat(e.target.value) || 0 })}
-                className="w-full px-2 py-1 rounded bg-[#161b22] border border-[#30363d] text-white font-mono"
-              />
-            </div>
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Konum Y (px)</label>
-              <input
-                type="number"
-                value={transform.y}
-                onChange={(e) => updateTransform({ y: parseFloat(e.target.value) || 0 })}
-                className="w-full px-2 py-1 rounded bg-[#161b22] border border-[#30363d] text-white font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">
-                Ölçek ({Math.round(transform.scaleX * 100)}%)
-              </label>
-              <input
-                type="range"
-                min="0.1"
-                max="3.0"
-                step="0.05"
-                value={transform.scaleX}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  updateTransform({ scaleX: val, scaleY: val });
-                }}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">
-                Opaklık ({Math.round(transform.opacity * 100)}%)
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={transform.opacity}
-                onChange={(e) => updateTransform({ opacity: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-gray-400 text-[10px] block mb-1">
-              Döndürme ({Math.round(transform.rotation)}°)
-            </label>
-            <input
-              type="range"
-              min="-180"
-              max="180"
-              step="1"
-              value={transform.rotation}
-              onChange={(e) => updateTransform({ rotation: parseInt(e.target.value) })}
-              className="w-full accent-indigo-500"
-            />
-          </div>
-        </div>
-
-        {/* ============================================================== */}
-        {/* KEYFRAME ANIMATION STUDIO                                       */}
-        {/* ============================================================== */}
-        {(() => {
-          const relTime = Number(
-            Math.max(0, Math.min(selectedClip.duration, (currentTime - selectedClip.startTime) * (selectedClip.speed || 1))).toFixed(2)
-          );
-          const keyframes = selectedClip.keyframes || [];
-          const existingKfIndex = keyframes.findIndex((kf) => Math.abs(kf.time - relTime) < 0.08);
-          const hasKfAtPlayhead = existingKfIndex !== -1;
-
-          return (
-            <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
-                  <span className="text-amber-400">◆</span>
-                  <span>Anahtar Kareler (Keyframe)</span>
-                </h4>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-amber-500/30">
-                  {keyframes.length} Kare
-                </span>
+            {activeTextTab === 'transform' && (
+              <div className="space-y-4">
+                {renderTransform()}
+                {renderKeyframeStudio()}
               </div>
-
-              <div className="flex items-center justify-between text-[11px] bg-[#0d1117] p-2 rounded-lg border border-white/5">
-                <span className="text-gray-400">Şu Anki Konum:</span>
-                <span className="font-mono text-indigo-400 font-bold">
-                  {relTime.toFixed(2)} sn / {selectedClip.duration.toFixed(2)} sn
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const newKf = {
-                    id: 'kf-' + Date.now(),
-                    time: relTime,
-                    x: transform.x,
-                    y: transform.y,
-                    scaleX: transform.scaleX,
-                    scaleY: transform.scaleY,
-                    rotation: transform.rotation,
-                    opacity: transform.opacity,
-                  };
-                  let updated: typeof keyframes;
-                  if (hasKfAtPlayhead) {
-                    updated = keyframes.map((kf, i) => (i === existingKfIndex ? { ...kf, ...newKf } : kf));
-                  } else {
-                    updated = [...keyframes, newKf].sort((a, b) => a.time - b.time);
-                  }
-                  onUpdateClip(selectedClip.id, { keyframes: updated });
-                }}
-                className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow ${
-                  hasKfAtPlayhead
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                }`}
-              >
-                <span>◆</span>
-                <span>{hasKfAtPlayhead ? 'Bu Karedeki Keyframe\'i Güncelle' : '+ Mevcut Konuma Keyframe Ekle'}</span>
-              </button>
-
-              {/* Keyframe List */}
-              {keyframes.length > 0 && (
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
-                  <div className="flex items-center justify-between text-[10px] text-gray-400 px-1">
-                    <span>Zaman Damgası</span>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateClip(selectedClip.id, { keyframes: [] })}
-                      className="text-rose-400 hover:text-rose-300 font-semibold"
-                    >
-                      Tümünü Sil
-                    </button>
-                  </div>
-                  {keyframes.map((kf) => (
-                    <div
-                      key={kf.id}
-                      className="flex items-center justify-between p-1.5 rounded bg-[#0d1117] border border-white/5 text-[11px]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const targetTime = selectedClip.startTime + kf.time / (selectedClip.speed || 1);
-                          onSeek?.(targetTime);
-                        }}
-                        className="font-mono text-amber-300 hover:underline flex items-center gap-1"
-                        title="Bu keyframe anına git"
-                      >
-                        <span>◆</span>
-                        <span>{kf.time.toFixed(2)} sn</span>
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400 font-mono">
-                          X:{Math.round(kf.x ?? 0)} Y:{Math.round(kf.y ?? 0)} Ö:{((kf.scaleX ?? 1) * 100).toFixed(0)}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = keyframes.filter((k) => k.id !== kf.id);
-                            onUpdateClip(selectedClip.id, { keyframes: updated });
-                          }}
-                          className="text-gray-500 hover:text-rose-400 text-xs px-1"
-                          title="Sil"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ============================================================== */}
-        {/* CROP & MASK STUDIO (VIDEO / IMAGE)                             */}
-        {/* ============================================================== */}
-        {(selectedClip.type === 'video' || selectedClip.type === 'image') && (() => {
-          const crop = effects.crop || { top: 0, right: 0, bottom: 0, left: 0 };
-          const mask = effects.mask || { type: 'none' };
-
-          return (
-            <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
-                  <span>✂️</span>
-                  <span>Kırpma & Maskeleme (Crop & Mask)</span>
-                </h4>
-              </div>
-
-              {/* Mask Presets */}
-              <div>
-                <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
-                  Şekil Maskesi
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    { id: 'none', label: 'Normal', icon: '⏹️' },
-                    { id: 'circle', label: 'Daire (Webcam)', icon: '🔘' },
-                    { id: 'rounded-rect', label: 'Yuvarlak Kutu', icon: '🔲' },
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => updateEffects({ mask: { type: m.id as any } })}
-                      className={`p-1.5 rounded-lg border text-center transition-all ${
-                        mask.type === m.id
-                          ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300 font-semibold'
-                          : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d] text-gray-400'
-                      }`}
-                    >
-                      <span className="block text-sm">{m.icon}</span>
-                      <span className="text-[10px] block truncate mt-0.5">{m.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 4-Edge Crop Sliders */}
-              <div>
-                <div className="flex items-center justify-between mb-1 text-[10px]">
-                  <span className="text-gray-400 font-bold uppercase tracking-wider">Kenar Kırpma (%)</span>
-                  {(crop.top > 0 || crop.bottom > 0 || crop.left > 0 || crop.right > 0) && (
-                    <button
-                      type="button"
-                      onClick={() => updateEffects({ crop: { top: 0, right: 0, bottom: 0, left: 0 } })}
-                      className="text-rose-400 hover:text-rose-300 font-semibold"
-                    >
-                      Sıfırla
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px]">
-                  <div>
-                    <div className="flex justify-between text-gray-400 mb-0.5">
-                      <span>Üst: {crop.top}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="45"
-                      step="1"
-                      value={crop.top || 0}
-                      onChange={(e) => updateEffects({ crop: { ...crop, top: parseInt(e.target.value) || 0 } })}
-                      className="w-full accent-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-gray-400 mb-0.5">
-                      <span>Alt: {crop.bottom}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="45"
-                      step="1"
-                      value={crop.bottom || 0}
-                      onChange={(e) => updateEffects({ crop: { ...crop, bottom: parseInt(e.target.value) || 0 } })}
-                      className="w-full accent-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-gray-400 mb-0.5">
-                      <span>Sol: {crop.left}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="45"
-                      step="1"
-                      value={crop.left || 0}
-                      onChange={(e) => updateEffects({ crop: { ...crop, left: parseInt(e.target.value) || 0 } })}
-                      className="w-full accent-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-gray-400 mb-0.5">
-                      <span>Sağ: {crop.right}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="45"
-                      step="1"
-                      value={crop.right || 0}
-                      onChange={(e) => updateEffects({ crop: { ...crop, right: parseInt(e.target.value) || 0 } })}
-                      className="w-full accent-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* SPEED SECTION */}
-        {selectedClip.type === 'video' && (
-          <div className="space-y-2">
-            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
-              Oynatma Hızı ({selectedClip.speed || 1}x)
-            </h4>
-            <div className="flex items-center gap-2">
-              {[0.5, 1.0, 1.5, 2.0].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onUpdateClip(selectedClip.id, { speed: s })}
-                  className={`flex-1 py-1 rounded text-[11px] font-mono border ${
-                    (selectedClip.speed || 1) === s
-                      ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50'
-                      : 'bg-[#161b22] text-gray-400 border-[#30363d] hover:text-white'
-                  }`}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* AUDIO SECTION */}
-        {(selectedClip.type === 'video' || selectedClip.type === 'audio') && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
-              Ses Ayarları
-            </h4>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Ses Seviyesi</span>
-                <span className="font-mono">{Math.round((selectedClip.volume ?? 1) * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.05"
-                value={selectedClip.volume ?? 1}
-                onChange={(e) => onUpdateClip(selectedClip.id, { volume: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-gray-400 text-[10px] block mb-1">Giriş Fade ({selectedClip.fadeIn || 0}s)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="3"
-                  step="0.2"
-                  value={selectedClip.fadeIn || 0}
-                  onChange={(e) => onUpdateClip(selectedClip.id, { fadeIn: parseFloat(e.target.value) })}
-                  className="w-full accent-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="text-gray-400 text-[10px] block mb-1">Çıkış Fade ({selectedClip.fadeOut || 0}s)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="3"
-                  step="0.2"
-                  value={selectedClip.fadeOut || 0}
-                  onChange={(e) => onUpdateClip(selectedClip.id, { fadeOut: parseFloat(e.target.value) })}
-                  className="w-full accent-indigo-500"
-                />
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer text-gray-300 text-xs">
-              <input
-                type="checkbox"
-                checked={selectedClip.muted || false}
-                onChange={(e) => onUpdateClip(selectedClip.id, { muted: e.target.checked })}
-                className="rounded border-[#30363d] accent-indigo-500"
-              />
-              <span>Klibi Sessize Al (Mute)</span>
-            </label>
-
-            {selectedClip.type === 'video' && onDetachAudio && (
-              <button
-                type="button"
-                onClick={() => onDetachAudio(selectedClip.id)}
-                className="w-full mt-2 py-2 px-3 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/30 flex items-center justify-center gap-2 text-xs font-semibold transition-colors"
-                title="Videonun sesini ayrı bir ses kanalına taşır ve videoyu sessize alır"
-              >
-                <span>🎵</span>
-                <span>Sesi Videodan Ayır (Detach Audio)</span>
-              </button>
             )}
-          </div>
+          </>
         )}
 
-        {/* ============================================================== */}
-        {/* TRANSITIONS STUDIO (13 HIGH-FIDELITY TRANSITIONS)              */}
-        {/* ============================================================== */}
-        {(selectedClip.type === 'video' || selectedClip.type === 'image') && (
-          <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
-                <span className="text-base">🔀</span>
-                <span>Geçiş Efektleri Stüdyosu</span>
-              </h4>
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-indigo-500/30">
-                13 Çeşit
-              </span>
-            </div>
-
-            {/* In / Out Direction Tabs */}
-            <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#0d1117] border border-[#30363d]/80">
-              <button
-                type="button"
-                onClick={() => setActiveTransitionTab('in')}
-                className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                  activeTransitionTab === 'in'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <span>➡️</span>
-                <span>Giriş Geçişi</span>
-                {selectedClip.transitionIn?.type && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTransitionTab('out')}
-                className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                  activeTransitionTab === 'out'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <span>⬅️</span>
-                <span>Çıkış Geçişi</span>
-                {selectedClip.transitionOut?.type && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                )}
-              </button>
-            </div>
-
-            {/* Active Transition Info & Controls */}
-            {(() => {
-              const currentTrans = activeTransitionTab === 'in' ? selectedClip.transitionIn : selectedClip.transitionOut;
-              const activeType = currentTrans?.type || 'cut';
-              const activeDuration = currentTrans?.duration ?? 0.8;
-              const def = TRANSITION_DEFINITIONS.find((t) => t.id === activeType) || TRANSITION_DEFINITIONS[0];
-
-              return (
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs bg-[#0d1117] p-2 rounded-lg border border-white/5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base">{def.icon}</span>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-white truncate text-[11px]">{def.name}</p>
-                        <p className="text-[10px] text-gray-400 truncate">{def.description}</p>
-                      </div>
-                    </div>
-                    {activeType !== 'cut' && activeType !== 'none' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (activeTransitionTab === 'in') {
-                            onUpdateClip(selectedClip.id, { transitionIn: undefined });
-                          } else {
-                            onUpdateClip(selectedClip.id, { transitionOut: undefined });
-                          }
-                        }}
-                        className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 shrink-0"
-                      >
-                        Kaldır
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Duration Slider (only if transition is not cut/none) */}
-                  {activeType !== 'cut' && activeType !== 'none' && (
-                    <div className="p-2 rounded-lg bg-[#0d1117]/80 border border-white/5 space-y-1">
-                      <div className="flex justify-between text-[11px] text-gray-400">
-                        <span>Geçiş Süresi</span>
-                        <span className="font-mono text-indigo-400 font-semibold">{activeDuration.toFixed(1)} sn</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.2"
-                        max="2.5"
-                        step="0.1"
-                        value={activeDuration}
-                        onChange={(e) => {
-                          const dur = parseFloat(e.target.value);
-                          if (activeTransitionTab === 'in') {
-                            onUpdateClip(selectedClip.id, {
-                              transitionIn: { type: activeType, duration: dur },
-                            });
-                          } else {
-                            onUpdateClip(selectedClip.id, {
-                              transitionOut: { type: activeType, duration: dur },
-                            });
-                          }
-                        }}
-                        className="w-full accent-indigo-500"
-                      />
-                    </div>
-                  )}
-
-                  {/* Live Canvas Preview Button */}
-                  {activeType !== 'cut' && activeType !== 'none' && onPreviewAnimation && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeTransitionTab === 'in') {
-                          onSeek?.(selectedClip.startTime);
-                          onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
-                        } else {
-                          onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
-                          onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
-                        }
-                      }}
-                      className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md"
-                    >
-                      <span>▶</span>
-                      <span>Geçişi Tuvalde Canlı Oynat</span>
-                    </button>
-                  )}
-
-                  {/* Visual Grid of All 13 Transitions */}
-                  <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
-                    {TRANSITION_DEFINITIONS.map((tr) => {
-                      const isSelected = activeType === tr.id;
-                      return (
-                        <button
-                          key={tr.id}
-                          type="button"
-                          onClick={() => {
-                            if (tr.id === 'cut' || tr.id === 'none') {
-                              if (activeTransitionTab === 'in') {
-                                onUpdateClip(selectedClip.id, { transitionIn: undefined });
-                              } else {
-                                onUpdateClip(selectedClip.id, { transitionOut: undefined });
-                              }
-                            } else {
-                              if (activeTransitionTab === 'in') {
-                                onUpdateClip(selectedClip.id, {
-                                  transitionIn: { type: tr.id, duration: activeDuration },
-                                });
-                                onSeek?.(selectedClip.startTime);
-                                onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
-                              } else {
-                                onUpdateClip(selectedClip.id, {
-                                  transitionOut: { type: tr.id, duration: activeDuration },
-                                });
-                                onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
-                                onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
-                              }
-                            }
-                          }}
-                          className={`p-2 rounded-lg text-left transition-all border flex flex-col justify-between ${
-                            isSelected
-                              ? 'bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50'
-                              : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d]/70 text-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full mb-1">
-                            <span className="text-base">{tr.icon}</span>
-                            {isSelected && (
-                              <span className="text-indigo-400 font-bold text-xs">✓</span>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold truncate leading-tight">{tr.name}</p>
-                            <p className="text-[9px] text-gray-400 truncate mt-0.5">{tr.description}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+        {/* VISUAL MEDIA CLIPS (VIDEO / IMAGE) */}
+        {isVisualMedia && (
+          <>
+            {activeTab === 'basic' && (
+              <div className="space-y-4">
+                {renderTransform()}
+                {selectedClip.type === 'video' && renderSpeed()}
+              </div>
+            )}
+            {activeTab === 'animation' && (
+              <div className="space-y-4">
+                {renderKeyframeStudio()}
+                {renderTransitions()}
+              </div>
+            )}
+            {activeTab === 'mask' && (
+              <div className="space-y-4">
+                {renderCropAndMask()}
+                {renderChromaKey()}
+              </div>
+            )}
+            {activeTab === 'color' && (
+              <div className="space-y-4">
+                {renderColorFilters()}
+              </div>
+            )}
+            {activeTab === 'audio' && (
+              <div className="space-y-4">
+                {renderAudioSettings()}
+              </div>
+            )}
+          </>
         )}
 
-        {/* COLOR & FILTERS SECTION */}
-        {(selectedClip.type === 'video' || selectedClip.type === 'image') && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
-              Renk & Filtre Ayarları
-            </h4>
-
-            {/* CHROMA KEY (GREEN SCREEN) STUDIO */}
-            <div className="p-2.5 rounded-lg bg-[#0d1117] border border-[#30363d] space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400 text-sm">🟩</span>
-                  <span className="text-xs font-semibold text-gray-200">Chroma Key (Yeşil Ekran)</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = effects.chromaKey;
-                    const nextEnabled = !current?.enabled;
-                    updateEffects({
-                      chromaKey: {
-                        enabled: nextEnabled,
-                        color: current?.color || '#00FF00',
-                        similarity: current?.similarity ?? 0.35,
-                        smoothness: current?.smoothness ?? 0.1,
-                      },
-                    });
-                  }}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
-                    effects.chromaKey?.enabled
-                      ? 'bg-emerald-600 text-white border-emerald-500'
-                      : 'bg-[#161b22] text-gray-400 border-[#30363d] hover:text-white'
-                  }`}
-                >
-                  {effects.chromaKey?.enabled ? 'Açık' : 'Kapalı'}
-                </button>
-              </div>
-
-              {effects.chromaKey?.enabled && (
-                <div className="space-y-2 pt-1 border-t border-white/5">
-                  {/* Preset Colors */}
-                  <div>
-                    <label className="text-gray-400 text-[10px] block mb-1">Hedef Rengi Seç</label>
-                    <div className="flex items-center gap-1.5">
-                      {[
-                        { color: '#00FF00', label: 'Yeşil' },
-                        { color: '#0000FF', label: 'Mavi' },
-                        { color: '#000000', label: 'Siyah' },
-                        { color: '#FFFFFF', label: 'Beyaz' },
-                      ].map((c) => (
-                        <button
-                          key={c.color}
-                          type="button"
-                          onClick={() =>
-                            updateEffects({
-                              chromaKey: {
-                                ...effects.chromaKey!,
-                                color: c.color,
-                              },
-                            })
-                          }
-                          className={`flex-1 py-1 rounded text-[10px] flex items-center justify-center gap-1 border ${
-                            effects.chromaKey?.color?.toUpperCase() === c.color.toUpperCase()
-                              ? 'border-indigo-500 bg-indigo-600/20 text-white'
-                              : 'border-[#30363d] bg-[#161b22] text-gray-400'
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: c.color }} />
-                          <span>{c.label}</span>
-                        </button>
-                      ))}
-                      <input
-                        type="color"
-                        value={effects.chromaKey.color || '#00FF00'}
-                        onChange={(e) =>
-                          updateEffects({
-                            chromaKey: {
-                              ...effects.chromaKey!,
-                              color: e.target.value,
-                            },
-                          })
-                        }
-                        className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer shrink-0"
-                        title="Özel Renk Seç"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Similarity Slider */}
-                  <div>
-                    <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
-                      <span>Tolerans / Benzerlik</span>
-                      <span className="font-mono text-emerald-400">
-                        {Math.round((effects.chromaKey.similarity ?? 0.35) * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.05"
-                      max="0.80"
-                      step="0.02"
-                      value={effects.chromaKey.similarity ?? 0.35}
-                      onChange={(e) =>
-                        updateEffects({
-                          chromaKey: {
-                            ...effects.chromaKey!,
-                            similarity: parseFloat(e.target.value),
-                          },
-                        })
-                      }
-                      className="w-full accent-emerald-500"
-                    />
-                  </div>
-
-                  {/* Smoothness Slider */}
-                  <div>
-                    <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
-                      <span>Kenar Yumuşatma</span>
-                      <span className="font-mono text-emerald-400">
-                        {Math.round((effects.chromaKey.smoothness ?? 0.1) * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.00"
-                      max="0.40"
-                      step="0.02"
-                      value={effects.chromaKey.smoothness ?? 0.1}
-                      onChange={(e) =>
-                        updateEffects({
-                          chromaKey: {
-                            ...effects.chromaKey!,
-                            smoothness: parseFloat(e.target.value),
-                          },
-                        })
-                      }
-                      className="w-full accent-emerald-500"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Presets */}
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
-                Hazır Renk Şablonları (Presets)
-              </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => updateEffects(preset.effects)}
-                    className="p-1.5 rounded-lg bg-[#0d1117] border border-[#30363d] hover:border-indigo-500/60 text-left transition-all group flex items-center gap-2"
-                    title={preset.description}
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: preset.thumbnailColor }}
-                    />
-                    <span className="text-[10px] font-medium text-gray-300 group-hover:text-white truncate">
-                      {preset.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Parlaklık</span>
-                <span className="font-mono">{effects.brightness ?? 0}</span>
-              </div>
-              <input
-                type="range"
-                min="-1"
-                max="1"
-                step="0.05"
-                value={effects.brightness ?? 0}
-                onChange={(e) => updateEffects({ brightness: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Kontrast</span>
-                <span className="font-mono">{effects.contrast ?? 1}</span>
-              </div>
-              <input
-                type="range"
-                min="0.2"
-                max="2.5"
-                step="0.05"
-                value={effects.contrast ?? 1}
-                onChange={(e) => updateEffects({ contrast: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Doygunluk (Saturation)</span>
-                <span className="font-mono">{effects.saturation ?? 1}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="2.5"
-                step="0.05"
-                value={effects.saturation ?? 1}
-                onChange={(e) => updateEffects({ saturation: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Renk Sıcaklığı (Temperature)</span>
-                <span className="font-mono">{effects.temperature ?? 0}</span>
-              </div>
-              <input
-                type="range"
-                min="-50"
-                max="50"
-                step="2"
-                value={effects.temperature ?? 0}
-                onChange={(e) => updateEffects({ temperature: parseInt(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-gray-400 text-[10px] mb-1">
-                <span>Vinyet (Kenar Karartması)</span>
-                <span className="font-mono">{Math.round((effects.vignette ?? 0) * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={effects.vignette ?? 0}
-                onChange={(e) => updateEffects({ vignette: parseFloat(e.target.value) })}
-                className="w-full accent-indigo-500"
-              />
-            </div>
+        {/* AUDIO ONLY CLIPS */}
+        {isAudioOnly && (
+          <div className="space-y-4">
+            {renderAudioSettings()}
           </div>
         )}
+      </div>
 
-        {/* DELETE & RIPPLE DELETE BUTTONS */}
-        <div className="pt-2 border-t border-[#21262d] space-y-2">
-          <button
-            onClick={() => onRippleDeleteClip(selectedClip.id)}
-            className="w-full py-1.5 px-3 rounded bg-amber-950/30 text-amber-300 border border-amber-800/40 hover:bg-amber-950/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-            title="Klibi sil ve arkasındaki klipleri öne kaydırarak boşluğu kapat"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            <span>Boşluksuz Sil (Ripple Delete)</span>
-          </button>
+      {/* Pinned Delete Actions Footer */}
+      <div className="p-3 border-t border-[#21262d] bg-[#0d1117] shrink-0 space-y-2">
+        <button
+          onClick={() => onRippleDeleteClip(selectedClip.id)}
+          className="w-full py-1.5 px-3 rounded bg-amber-950/30 text-amber-300 border border-amber-800/40 hover:bg-amber-950/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+          title="Klibi sil ve arkasındaki klipleri öne kaydırarak boşluğu kapat"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          <span>Boşluksuz Sil (Ripple Delete)</span>
+        </button>
 
-          <button
-            onClick={() => onDeleteClip(selectedClip.id)}
-            className="w-full py-1.5 px-3 rounded bg-red-950/30 text-red-300 border border-red-800/40 hover:bg-red-950/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span>Klibi Sil (Delete)</span>
-          </button>
-        </div>
+        <button
+          onClick={() => onDeleteClip(selectedClip.id)}
+          className="w-full py-1.5 px-3 rounded bg-red-950/30 text-red-300 border border-red-800/40 hover:bg-red-950/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Klibi Sil (Delete)</span>
+        </button>
       </div>
     </aside>
   );

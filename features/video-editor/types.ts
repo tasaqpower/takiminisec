@@ -93,6 +93,8 @@ export interface TextLayerData {
   underline?: boolean;
   color?: string;
   fillColor?: string;
+  fill?: string;
+  position?: { x: number; y: number };
   strokeColor?: string;
   strokeWidth?: number;
   boxColor?: string;
@@ -200,6 +202,7 @@ export interface Transform2D {
   y: number;
   scaleX: number;
   scaleY: number;
+  scale?: number;
   rotation: number;
   opacity: number;
 }
