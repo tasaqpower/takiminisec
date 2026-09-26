@@ -699,11 +699,11 @@ export function useVideoProject() {
         shadowOffsetX: 2,
         shadowOffsetY: 2,
         inAnimation: 'none',
-        inDuration: 0,
+        inDuration: 0.8,
         inEasing: 'ease-out',
         animation: {
           type: 'none',
-          duration: 0,
+          duration: 0.8,
         },
         ...initialData,
       };

@@ -4,6 +4,8 @@
  * Categorized into Modern Sans, Cinematic Serif, Bold Display, Script/Handwritten, Monospace, and Futuristic.
  */
 
+import { notifyCanvasNeedsRedraw } from './previewRenderer';
+
 export type FontCategory = 'all' | 'sans-serif' | 'serif' | 'display' | 'handwriting' | 'monospace' | 'futuristic';
 
 export interface FontItem {
@@ -256,6 +258,7 @@ export const FONT_CATALOG: FontItem[] = [
 ];
 
 const loadedFonts = new Set<string>();
+const loadingPromises = new Map<string, Promise<boolean>>();
 
 /**
  * Loads a Google Font dynamically into the browser document head
@@ -266,24 +269,43 @@ export function loadGoogleFont(fontFamilyString: string): Promise<boolean> {
 
   // Extract primary family name (e.g. "Montserrat" from "Montserrat, sans-serif")
   const primaryName = fontFamilyString.split(',')[0].replace(/['"]/g, '').trim();
-  if (!primaryName || loadedFonts.has(primaryName)) return Promise.resolve(true);
+  if (!primaryName) return Promise.resolve(true);
+
+  if (loadedFonts.has(primaryName)) {
+    return Promise.resolve(true);
+  }
+
+  if (loadingPromises.has(primaryName)) {
+    return loadingPromises.get(primaryName)!;
+  }
 
   const matched = FONT_CATALOG.find(
     (f) => f.id.toLowerCase() === primaryName.toLowerCase() || f.name.toLowerCase() === primaryName.toLowerCase()
   );
 
   const googleName = matched?.googleFontName || primaryName.replace(/\s+/g, '+');
-  if (!googleName) {
-    loadedFonts.add(primaryName);
-    return Promise.resolve(true);
-  }
+  const linkId = `gfont-${googleName.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
-  loadedFonts.add(primaryName);
-
-  return new Promise((resolve) => {
-    const linkId = `gfont-${googleName.replace(/[^a-zA-Z0-9]/g, '-')}`;
-    if (document.getElementById(linkId)) {
+  const promise = new Promise<boolean>((resolve) => {
+    const onFontReady = async () => {
+      try {
+        if (document.fonts) {
+          await Promise.allSettled([
+            document.fonts.load(`54px "${primaryName}"`),
+            document.fonts.load(`bold 54px "${primaryName}"`),
+            document.fonts.load(`italic 54px "${primaryName}"`),
+            document.fonts.ready,
+          ]);
+        }
+      } catch {}
+      loadedFonts.add(primaryName);
+      loadingPromises.delete(primaryName);
+      notifyCanvasNeedsRedraw();
       resolve(true);
+    };
+
+    if (document.getElementById(linkId)) {
+      onFontReady();
       return;
     }
 
@@ -293,23 +315,51 @@ export function loadGoogleFont(fontFamilyString: string): Promise<boolean> {
     link.href = `https://fonts.googleapis.com/css2?family=${googleName}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&display=swap`;
 
     link.onload = () => {
-      if (document.fonts) {
-        document.fonts.load(`16px "${primaryName}"`).then(() => resolve(true)).catch(() => resolve(true));
-      } else {
-        resolve(true);
-      }
+      onFontReady();
     };
-    link.onerror = () => resolve(false);
+
+    link.onerror = () => {
+      // Fallback: try loading with standard normal/bold only
+      const fallbackLink = document.createElement('link');
+      fallbackLink.rel = 'stylesheet';
+      fallbackLink.href = `https://fonts.googleapis.com/css2?family=${googleName}&display=swap`;
+      fallbackLink.onload = onFontReady;
+      fallbackLink.onerror = () => {
+        loadedFonts.add(primaryName);
+        loadingPromises.delete(primaryName);
+        resolve(false);
+      };
+      document.head.appendChild(fallbackLink);
+    };
 
     document.head.appendChild(link);
 
-    // Timeout fallback so app never hangs
-    setTimeout(() => resolve(true), 1200);
+    // Safety timeout so app never hangs
+    setTimeout(() => {
+      onFontReady();
+    }, 1500);
   });
+
+  loadingPromises.set(primaryName, promise);
+  return promise;
 }
 
 /**
- * Preload the most popular top fonts on editor initialization
+ * Prefetches all fonts in a given category for instant selection
+ */
+export function prefetchCategoryFonts(category: FontCategory): void {
+  if (typeof document === 'undefined') return;
+  const fonts = category === 'all'
+    ? FONT_CATALOG.slice(0, 30)
+    : FONT_CATALOG.filter((f) => f.category === category);
+
+  for (const f of fonts) {
+    loadGoogleFont(f.id).catch(() => {});
+  }
+}
+
+/**
+ * Preload the most popular top fonts across all categories on editor initialization
  */
 export function preloadPopularFonts(): void {
   if (typeof document === 'undefined') return;
@@ -321,16 +371,26 @@ export function preloadPopularFonts(): void {
     'Roboto',
     'Playfair Display',
     'Cinzel',
+    'Lora',
+    'Merriweather',
     'Oswald',
     'Bebas Neue',
     'Anton',
+    'Black Han Sans',
     'Pacifico',
     'Caveat',
     'Dancing Script',
+    'Great Vibes',
     'Permanent Marker',
+    'Fira Code',
+    'JetBrains Mono',
+    'Space Mono',
     'Orbitron',
+    'Audiowide',
+    'Press Start 2P',
+    'Syne',
   ];
   for (const name of popular) {
-    loadGoogleFont(name);
+    loadGoogleFont(name).catch(() => {});
   }
 }

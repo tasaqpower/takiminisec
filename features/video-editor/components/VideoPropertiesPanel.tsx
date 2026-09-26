@@ -15,7 +15,8 @@ import {
 import { COLOR_PRESETS } from '../engine/filterEngine';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
-import { FONT_CATALOG, FONT_CATEGORIES, loadGoogleFont, FontCategory } from '../engine/fontCatalog';
+import { FONT_CATALOG, FONT_CATEGORIES, loadGoogleFont, prefetchCategoryFonts, FontCategory } from '../engine/fontCatalog';
+import { notifyCanvasNeedsRedraw } from '../engine/previewRenderer';
 
 interface PropertiesPanelProps {
   project: VideoProject;
@@ -355,7 +356,10 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => setFontCategory(cat.id)}
+                        onClick={() => {
+                          setFontCategory(cat.id);
+                          prefetchCategoryFonts(cat.id);
+                        }}
                         className={`px-2 py-1 rounded text-[10px] whitespace-nowrap transition-colors flex items-center gap-1 ${
                           fontCategory === cat.id
                             ? 'bg-indigo-600 text-white font-semibold'
@@ -380,15 +384,17 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         return (
                           <div
                             key={f.id}
-                            onClick={() => {
-                              loadGoogleFont(f.id);
+                            onClick={async () => {
+                              const familyStr = `"${f.id}", ${f.fallback || 'sans-serif'}`;
                               updateTextData({
-                                fontFamily: `"${f.id}", ${f.fallback}`,
+                                fontFamily: familyStr,
                               });
                               setIsFontPickerOpen(false);
+                              await loadGoogleFont(f.id);
+                              notifyCanvasNeedsRedraw();
                             }}
                             onMouseEnter={() => {
-                              loadGoogleFont(f.id);
+                              loadGoogleFont(f.id).catch(() => {});
                             }}
                             className={`p-2 rounded flex items-center justify-between cursor-pointer transition-all ${
                               isSelected
@@ -693,8 +699,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  const duration = (textData.inDuration && textData.inDuration > 0) ? textData.inDuration : 0.8;
                   const startTime = selectedClip.startTime ?? selectedClip.start ?? 0;
-                  onPreviewAnimation?.(startTime, (textData.inDuration || 0.6) + 1.2);
+                  onPreviewAnimation?.(startTime, duration + 1.2);
                 }}
                 className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/40 transition-all active:scale-95"
               >
@@ -720,16 +727,18 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         key={anim.id}
                         type="button"
                         onClick={() => {
+                          const duration = (textData.inDuration && textData.inDuration > 0) ? textData.inDuration : 0.8;
                           updateTextData({
                             inAnimation: anim.id,
+                            inDuration: duration,
                             animation: {
                               type: anim.id,
-                              duration: textData.inDuration || 0.6,
+                              duration: duration,
                             },
                           });
                           // Automatically trigger live preview on canvas so user sees the animation immediately!
                           const startTime = selectedClip.startTime ?? selectedClip.start ?? 0;
-                          onPreviewAnimation?.(startTime, (textData.inDuration || 0.6) + 1.2);
+                          onPreviewAnimation?.(startTime, duration + 1.2);
                         }}
                         className={`p-2 rounded-lg text-left transition-all relative border flex flex-col justify-between ${
                           isActive
@@ -829,10 +838,14 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <select
                   value={textData.outAnimation || 'none'}
                   onChange={(e) => {
-                    updateTextData({ outAnimation: e.target.value as TextOutAnimationType });
+                    const duration = (textData.outDuration && textData.outDuration > 0) ? textData.outDuration : 0.6;
+                    updateTextData({
+                      outAnimation: e.target.value as TextOutAnimationType,
+                      outDuration: duration,
+                    });
                     const startTime =
-                      (selectedClip.startTime ?? selectedClip.start ?? 0) + Math.max(0, selectedClip.duration - 1.5);
-                    onPreviewAnimation?.(startTime, 1.5);
+                      (selectedClip.startTime ?? selectedClip.start ?? 0) + Math.max(0, selectedClip.duration - duration - 0.2);
+                    onPreviewAnimation?.(startTime, duration + 0.6);
                   }}
                   className="w-full px-2 py-1.5 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none text-xs"
                 >

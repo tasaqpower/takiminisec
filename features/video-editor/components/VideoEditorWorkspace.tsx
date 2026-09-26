@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useVideoProject } from '../hooks/useVideoProject';
 import { useVideoPlayback } from '../hooks/useVideoPlayback';
 import { useShortcuts } from '../hooks/useShortcuts';
@@ -88,14 +88,24 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     }
   }, [isDirty, onNavigateHome]);
 
+  const previewTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Live animation preview playback
   const handlePreviewAnimation = useCallback(
-    (clipStartTime: number, durationSec = 1.8) => {
+    (clipStartTime: number, durationSec = 2.0) => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      pause();
       seek(clipStartTime);
-      play();
       setTimeout(() => {
-        pause();
-      }, durationSec * 1000);
+        play();
+        previewTimerRef.current = setTimeout(() => {
+          pause();
+          previewTimerRef.current = null;
+        }, Math.max(1.2, durationSec) * 1000);
+      }, 50);
     },
     [seek, play, pause]
   );

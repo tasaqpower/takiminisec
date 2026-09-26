@@ -397,14 +397,19 @@ export function renderTextLayer(
     (typeof layer.animation === 'string' ? (layer.animation as TextInAnimationType) : 'none');
 
   const inDuration =
-    layer.inDuration ??
-    (typeof layer.animation === 'object' ? layer.animation.duration : undefined) ??
-    Math.min(0.6, clipDuration / 3);
+    (layer.inDuration !== undefined && layer.inDuration > 0)
+      ? layer.inDuration
+      : (typeof layer.animation === 'object' && layer.animation.duration && layer.animation.duration > 0)
+        ? layer.animation.duration
+        : Math.min(0.8, clipDuration / 2);
 
   const inEasing: TextEasingType = layer.inEasing ?? 'ease-out';
 
   const outType: TextOutAnimationType = layer.outAnimation || 'none';
-  const outDuration = layer.outDuration ?? Math.min(0.5, clipDuration / 4);
+  const outDuration =
+    (layer.outDuration !== undefined && layer.outDuration > 0)
+      ? layer.outDuration
+      : Math.min(0.6, clipDuration / 3);
   const outEasing: TextEasingType = layer.outEasing ?? 'ease-in';
 
   const loopType: TextLoopAnimationType = layer.loopAnimation || 'none';
@@ -556,7 +561,13 @@ export function renderTextLayer(
   const fontStyle = layer.fontStyle === 'italic' ? 'italic ' : '';
   const fontWeight = layer.fontWeight || 'bold';
   const fontSize = layer.fontSize || 54;
-  const fontFamily = layer.fontFamily || 'Plus Jakarta Sans, sans-serif';
+  let fontFamily = (layer.fontFamily || 'Plus Jakarta Sans, sans-serif').trim();
+  if (!fontFamily.includes('"') && !fontFamily.includes("'")) {
+    const parts = fontFamily.split(',');
+    const primary = parts[0].trim();
+    const fallback = parts.slice(1).join(',').trim() || 'sans-serif';
+    fontFamily = `"${primary}", ${fallback}`;
+  }
 
   ctx.font = `${fontStyle}${fontWeight} ${fontSize}px ${fontFamily}`;
   ctx.textAlign = layer.textAlign || layer.alignment || 'center';

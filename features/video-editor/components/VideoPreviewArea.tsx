@@ -75,12 +75,27 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     preloadPopularFonts();
   }, []);
 
-  // Reactive subscription to video decoder ready / seeked events
+  // Reactive subscription to video decoder ready / seeked events and web font loading
   const [renderVersion, setRenderVersion] = useState(0);
   useEffect(() => {
-    return registerRedrawCallback(() => {
+    const unsubRedraw = registerRedrawCallback(() => {
       setRenderVersion((v) => (v + 1) % 1_000_000);
     });
+
+    const onFontsDone = () => {
+      setRenderVersion((v) => (v + 1) % 1_000_000);
+    };
+
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.addEventListener('loadingdone', onFontsDone);
+    }
+
+    return () => {
+      unsubRedraw();
+      if (typeof document !== 'undefined' && document.fonts) {
+        document.fonts.removeEventListener('loadingdone', onFontsDone);
+      }
+    };
   }, []);
 
   // Timecode formatter: HH:MM:SS:FF
