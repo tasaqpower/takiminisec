@@ -388,7 +388,11 @@ export function renderTextLayer(
   let animOffsetX = 0;
   let animOffsetY = 0;
   let animScale = 1;
+  let animScaleX = 1;
+  let animScaleY = 1;
+  let animRotation = 0;
   let animBlur = 0;
+  let animTracking = 0;
 
   // Normalize animation configs
   const inType: TextInAnimationType =
@@ -472,6 +476,40 @@ export function renderTextLayer(
         animOpacity = 0.5 + progress * 0.5;
         break;
       }
+      case 'flip':
+        animScaleX = Math.max(0.01, Math.cos((1 - progress) * (Math.PI / 2)));
+        animOpacity = progress;
+        break;
+      case 'neon-flash':
+        animOpacity = progress > 0.85 ? 1 : (Math.sin(rawProgress * 28) > 0 ? 1 : 0.2);
+        animBlur = (1 - progress) * 10;
+        break;
+      case 'glitch': {
+        const jitter = (1 - progress) * 22;
+        animOffsetX = Math.sin(rawProgress * 45) * jitter;
+        animOffsetY = Math.cos(rawProgress * 35) * (jitter * 0.4);
+        animOpacity = Math.min(1, rawProgress * 2.5);
+        break;
+      }
+      case 'tracking':
+        animScale = 0.85 + progress * 0.15;
+        animOpacity = progress;
+        animTracking = (1 - progress) * 14;
+        break;
+      case 'bounce-drop':
+        animOffsetY = -(1 - applyEasing(rawProgress, 'bounce')) * 130;
+        animOpacity = Math.min(1, rawProgress * 3);
+        break;
+      case 'wave':
+        animOffsetY = Math.sin((1 - progress) * Math.PI * 3) * 30;
+        animOffsetX = (1 - progress) * 45;
+        animOpacity = progress;
+        break;
+      case 'crash-zoom':
+        animScale = 2.8 - applyEasing(rawProgress, 'ease-out') * 1.8;
+        animOpacity = progress;
+        animBlur = (1 - progress) * 12;
+        break;
       default:
         break;
     }
@@ -507,6 +545,20 @@ export function renderTextLayer(
         displayText = formattedText.slice(0, Math.max(0, charCount));
         break;
       }
+      case 'glitch-out': {
+        const jitter = (1 - progress) * 24;
+        animOffsetX += Math.sin((1 - progress) * 40) * jitter;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      }
+      case 'flip-out':
+        animScaleX = Math.max(0.01, Math.cos((1 - progress) * (Math.PI / 2)));
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      case 'crash-out':
+        animScale *= 1 + (1 - progress) * 2.2;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
       default:
         break;
     }
@@ -530,6 +582,20 @@ export function renderTextLayer(
       case 'shimmer':
         animOpacity *= 0.85 + Math.sin(loopT) * 0.15 * loopIntensity;
         break;
+      case 'glow-breathe':
+        animOpacity *= 0.82 + Math.sin(loopT * 0.9) * 0.18 * loopIntensity;
+        animBlur = Math.max(animBlur, (Math.sin(loopT * 0.9) * 0.5 + 0.5) * 6 * loopIntensity);
+        break;
+      case 'jitter':
+        animOffsetX += Math.sin(loopT * 4.2) * 3.5 * loopIntensity;
+        animOffsetY += Math.cos(loopT * 5.1) * 2.0 * loopIntensity;
+        break;
+      case 'strobe':
+        animOpacity *= Math.sin(loopT * 3.5) > 0 ? 1 : 0.2;
+        break;
+      case 'spin-slow':
+        animRotation += Math.sin(loopT * 0.6) * 5 * loopIntensity;
+        break;
       default:
         break;
     }
@@ -542,13 +608,14 @@ export function renderTextLayer(
   // Position and primary transformations
   ctx.translate(centerX + animOffsetX, centerY + animOffsetY);
 
-  if (rotation !== 0) {
-    ctx.rotate((rotation * Math.PI) / 180);
+  const totalRotation = rotation + animRotation;
+  if (totalRotation !== 0) {
+    ctx.rotate((totalRotation * Math.PI) / 180);
   }
 
   const effectiveScale = scale * animScale;
-  if (effectiveScale !== 1) {
-    ctx.scale(effectiveScale, effectiveScale);
+  if (effectiveScale !== 1 || animScaleX !== 1 || animScaleY !== 1) {
+    ctx.scale(effectiveScale * animScaleX, effectiveScale * animScaleY);
   }
 
   ctx.globalAlpha = Math.max(0, Math.min(1, opacity * animOpacity));

@@ -344,17 +344,32 @@ export function loadGoogleFont(fontFamilyString: string): Promise<boolean> {
   return promise;
 }
 
+const loadedCategoryBatches = new Set<string>();
+
 /**
- * Prefetches all fonts in a given category for instant selection
+ * Prefetches all fonts in a given category for instant selection and visual preview
  */
 export function prefetchCategoryFonts(category: FontCategory): void {
   if (typeof document === 'undefined') return;
+  if (loadedCategoryBatches.has(category)) return;
+  loadedCategoryBatches.add(category);
+
   const fonts = category === 'all'
-    ? FONT_CATALOG.slice(0, 30)
+    ? FONT_CATALOG
     : FONT_CATALOG.filter((f) => f.category === category);
 
-  for (const f of fonts) {
-    loadGoogleFont(f.id).catch(() => {});
+  // Group into batches of 14 families per stylesheet to prevent URL length limits
+  for (let i = 0; i < fonts.length; i += 14) {
+    const batch = fonts.slice(i, i + 14);
+    const families = batch.map((f) => `family=${f.googleFontName}`).join('&');
+    const linkId = `gfont-batch-${category}-${i}`;
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+      document.head.appendChild(link);
+    }
   }
 }
 

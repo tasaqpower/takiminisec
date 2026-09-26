@@ -41,14 +41,25 @@ export type TextInAnimationType =
   | 'blur-in'
   | 'typewriter'
   | 'word-by-word'
-  | 'char-by-char';
+  | 'char-by-char'
+  | 'flip'
+  | 'neon-flash'
+  | 'glitch'
+  | 'tracking'
+  | 'bounce-drop'
+  | 'wave'
+  | 'crash-zoom';
 
 export type TextLoopAnimationType =
   | 'none'
   | 'pulse'
   | 'heartbeat'
   | 'float'
-  | 'shimmer';
+  | 'shimmer'
+  | 'glow-breathe'
+  | 'jitter'
+  | 'strobe'
+  | 'spin-slow';
 
 export type TextOutAnimationType =
   | 'none'
@@ -57,7 +68,10 @@ export type TextOutAnimationType =
   | 'slide-up'
   | 'scale-down'
   | 'blur-out'
-  | 'typewriter-erase';
+  | 'typewriter-erase'
+  | 'glitch-out'
+  | 'flip-out'
+  | 'crash-out';
 
 export type TextEasingType =
   | 'linear'

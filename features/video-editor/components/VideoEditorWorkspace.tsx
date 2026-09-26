@@ -169,6 +169,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onSetDuration={setDuration}
           currentTime={currentTime}
           selectedClipId={selectedClipId}
+          onSelectClip={setSelectedClipId}
+          onPreviewAnimation={handlePreviewAnimation}
           onUpdateClipEffects={(clipId, effects) => updateClip(clipId, { effects })}
           onUpdateClip={updateClip}
         />

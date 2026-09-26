@@ -23,6 +23,8 @@ interface SidebarProps {
   onSetDuration: (duration: number) => void;
   currentTime: number;
   selectedClipId?: string | null;
+  onSelectClip?: (clipId: string | null) => void;
+  onPreviewAnimation?: (clipId: string, duration?: number) => void;
   onUpdateClipEffects?: (clipId: string, effects: Partial<ClipEffects>) => void;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
 }
@@ -38,11 +40,14 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   onSetDuration,
   currentTime,
   selectedClipId,
+  onSelectClip,
+  onPreviewAnimation,
   onUpdateClipEffects,
   onUpdateClip,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('media');
   const [assets, setAssets] = useState<MediaAsset[]>([]);
+  const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [sfxCategory, setSfxCategory] = useState<'all' | 'sfx' | 'bgm'>('all');
   const [addingSfxId, setAddingSfxId] = useState<string | null>(null);
@@ -648,42 +653,83 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
               </h4>
               <span className="text-[10px] text-indigo-400 font-mono">13 Geçiş</span>
             </div>
+
+            {statusBanner && (
+              <div className="p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-200 text-[11px] flex items-center gap-1.5 animate-fadeIn">
+                <span>⚡</span>
+                <span className="truncate">{statusBanner}</span>
+              </div>
+            )}
+
             <p className="text-[11px] text-gray-400">
               {selectedClipId
-                ? 'Seçili klibe geçiş uygulamak için aşağıdaki efektlerden birine tıklayın.'
-                : 'Bir klibe geçiş uygulamak için önce zaman çizelgesinden video veya görsel klibi seçin.'}
+                ? 'Geçiş uygulamak ve tuvalde canlı izlemek için bir efekte tıklayın.'
+                : 'Bir efekte tıkladığınızda otomatik olarak oynatma çizgisindeki veya ilk klibe uygulanır.'}
             </p>
+
             <div className="grid grid-cols-2 gap-2">
-              {TRANSITION_DEFINITIONS.map((tr) => (
-                <button
-                  key={tr.id}
-                  type="button"
-                  onClick={() => {
-                    if (selectedClipId && onUpdateClip) {
-                      onUpdateClip(selectedClipId, {
-                        transitionIn: tr.id === 'cut' || tr.id === 'none' ? undefined : { type: tr.id, duration: 0.8 },
-                      });
-                    }
-                  }}
-                  className={`p-2 rounded-lg border text-left transition-all group ${
-                    selectedClipId
-                      ? 'bg-[#161b22] hover:bg-[#21262d] border-[#30363d] hover:border-indigo-500/60 cursor-pointer'
-                      : 'bg-[#161b22]/70 border-[#30363d]/70 opacity-80 cursor-default'
-                  }`}
-                  title={tr.description}
-                >
-                  <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1">
-                    <span>{tr.icon}</span>
-                    <span className="text-[10px] font-bold text-indigo-400 font-mono">
-                      {tr.id.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
-                    {tr.name}
-                  </p>
-                  <p className="text-[10px] text-gray-400 truncate">{tr.description}</p>
-                </button>
-              ))}
+              {TRANSITION_DEFINITIONS.map((tr) => {
+                const allClips = project.tracks
+                  .flatMap((t) => t.clips)
+                  .filter((c) => c.type === 'video' || c.type === 'image');
+                const targetClip =
+                  (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
+                  allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
+                  allClips[0];
+                const isApplied = targetClip?.transitionIn?.type === tr.id;
+
+                return (
+                  <button
+                    key={tr.id}
+                    type="button"
+                    onClick={() => {
+                      if (!targetClip) {
+                        setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+                        setTimeout(() => setStatusBanner(null), 3000);
+                        return;
+                      }
+
+                      onSelectClip?.(targetClip.id);
+
+                      if (onUpdateClip) {
+                        onUpdateClip(targetClip.id, {
+                          transitionIn:
+                            tr.id === 'cut' || tr.id === 'none'
+                              ? undefined
+                              : { type: tr.id, duration: targetClip.transitionIn?.duration || 0.8 },
+                        });
+                      }
+
+                      if (onPreviewAnimation && tr.id !== 'cut' && tr.id !== 'none') {
+                        onPreviewAnimation(targetClip.id, 1.2);
+                      }
+
+                      setStatusBanner(`✨ "${tr.name}" uygulandı & oynatılıyor!`);
+                      setTimeout(() => setStatusBanner(null), 3000);
+                    }}
+                    className={`p-2 rounded-lg border text-left transition-all group cursor-pointer ${
+                      isApplied
+                        ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-500/50'
+                        : 'bg-[#161b22] hover:bg-[#21262d] border-[#30363d] hover:border-indigo-500/60'
+                    }`}
+                    title={tr.description}
+                  >
+                    <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1">
+                      <span>{tr.icon}</span>
+                      <span className="text-[10px] font-bold text-indigo-400 font-mono">
+                        {tr.id.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                        {tr.name}
+                      </p>
+                      {isApplied && <span className="text-indigo-400 font-bold text-xs">✓</span>}
+                    </div>
+                    <p className="text-[10px] text-gray-400 truncate">{tr.description}</p>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -697,42 +743,56 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
             <p className="text-[11px] text-gray-400">
               {selectedClipId
                 ? 'Seçili klibe filtre uygulamak için şablonlardan birine tıklayın.'
-                : 'Zaman çizelgesinden bir video veya görsel seçerek tek tıkla filtre uygulayın.'}
+                : 'Bir filtreye tıklayarak aktif veya seçili klibe anında uygulayın.'}
             </p>
             <div className="grid grid-cols-1 gap-2">
-              {COLOR_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => {
-                    if (selectedClipId && onUpdateClipEffects) {
-                      onUpdateClipEffects(selectedClipId, preset.effects);
-                    }
-                  }}
-                  className={`w-full p-2.5 rounded-lg bg-[#161b22] border transition-all text-left group flex items-start gap-3 ${
-                    selectedClipId
-                      ? 'hover:border-indigo-500 hover:bg-[#21262d] cursor-pointer'
-                      : 'border-[#30363d] opacity-80 cursor-default'
-                  }`}
-                >
-                  <span
-                    className="w-4 h-4 rounded-full shrink-0 mt-0.5 shadow-sm"
-                    style={{ backgroundColor: preset.thumbnailColor }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
-                        {preset.name}
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0d1117] text-gray-400 uppercase font-mono">
-                        {preset.category}
-                      </span>
+              {COLOR_PRESETS.map((preset) => {
+                const allClips = project.tracks
+                  .flatMap((t) => t.clips)
+                  .filter((c) => c.type === 'video' || c.type === 'image');
+                const targetClip =
+                  (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
+                  allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
+                  allClips[0];
+
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      if (!targetClip) {
+                        setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+                        setTimeout(() => setStatusBanner(null), 3000);
+                        return;
+                      }
+                      onSelectClip?.(targetClip.id);
+                      if (onUpdateClipEffects) {
+                        onUpdateClipEffects(targetClip.id, preset.effects);
+                      }
+                      setStatusBanner(`🎨 "${preset.name}" filtresi uygulandı!`);
+                      setTimeout(() => setStatusBanner(null), 3000);
+                    }}
+                    className="w-full p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500 hover:bg-[#21262d] transition-all text-left group flex items-start gap-3 cursor-pointer"
+                  >
+                    <span
+                      className="w-4 h-4 rounded-full shrink-0 mt-0.5 shadow-sm"
+                      style={{ backgroundColor: preset.thumbnailColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
+                          {preset.name}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0d1117] text-gray-400 uppercase font-mono">
+                          {preset.category}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 leading-tight">
+                        {preset.description}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-gray-400 leading-tight">
-                      {preset.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   VideoProject,
   VideoClip,
@@ -38,10 +38,17 @@ const IN_ANIMATIONS: { id: TextInAnimationType; name: string; desc: string; icon
   { id: 'scale', name: 'Büyüyerek Açılma', desc: 'Merkezden büyüyerek açılır', icon: '🔍', tag: 'Zoom' },
   { id: 'fade', name: 'Yumuşak Belirme', desc: 'Opaklık akıcı şekilde artar', icon: '✨', tag: 'Fade' },
   { id: 'slide-up', name: 'Aşağıdan Yukarı', desc: 'Alttan yumuşakça kayar', icon: '⬆️', tag: 'Kayma' },
-  { id: 'slide-down', name: 'Yukarıdan Aşağı', desc: 'Tavandan yumuşakça iner', icon: '⬇️', tag: 'İnme' },
+  { id: 'slide-down', name: 'Tavandan Düşüş', desc: 'Tavandan yumuşakça iner', icon: '⬇️', tag: 'İnme' },
   { id: 'slide-left', name: 'Sağdan Sola', desc: 'Sağdan akarak gelir', icon: '⬅️', tag: 'Kayma' },
   { id: 'slide-right', name: 'Soldan Sağa', desc: 'Soldan akarak gelir', icon: '➡️', tag: 'Kayma' },
   { id: 'blur-in', name: 'Bulanıktan Net', desc: 'Netleşerek görünür', icon: '🌫️', tag: 'Netleşme' },
+  { id: 'flip', name: '3D Fırdöndü / Takla', desc: 'Y ekseninde 3D dönerek açılır', icon: '🔄', tag: '3D Spin' },
+  { id: 'neon-flash', name: 'Neon Flaş & Çakma', desc: 'Neon flaş çakışlarıyla yanar', icon: '⚡', tag: 'Neon' },
+  { id: 'glitch', name: 'Siber Glitch', desc: 'Dijital parazit ve kaymalar', icon: '👾', tag: 'Glitch' },
+  { id: 'tracking', name: 'Sinematik Genişleme', desc: 'Harf aralığı açılarak yayılır', icon: '↔️', tag: 'Sinema' },
+  { id: 'bounce-drop', name: 'Zıplayan Düşüş', desc: 'Yukarıdan düşüp yaylanır', icon: '🏀', tag: 'Zıplama' },
+  { id: 'wave', name: 'Dalgalı Giriş', desc: 'Sinüs dalgasıyla süzülür', icon: '🌊', tag: 'Dalga' },
+  { id: 'crash-zoom', name: 'Çarpıcı Yakınlaşma', desc: 'Devasa boyuttan yerine oturur', icon: '🚀', tag: 'Crash' },
   { id: 'word-by-word', name: 'Kelime Kelime', desc: 'Kelimeler sırayla belirir', icon: '💬', tag: 'Kelime' },
   { id: 'char-by-char', name: 'Harf Harf', desc: 'Harfler teker teker açılır', icon: '🔤', tag: 'Harf' },
   { id: 'none', name: 'Animasyonsuz', desc: 'Doğrudan sabit görünür', icon: '⏹️', tag: 'Sabit' },
@@ -53,6 +60,10 @@ const LOOP_ANIMATIONS: { id: TextLoopAnimationType; name: string; icon: string }
   { id: 'heartbeat', name: 'Kalp Ritmi (Heartbeat)', icon: '❤️' },
   { id: 'float', name: 'Havada Süzülme (Float)', icon: '🎈' },
   { id: 'shimmer', name: 'Işıltı & Parıldama (Shimmer)', icon: '✨' },
+  { id: 'glow-breathe', name: 'Nefes Alan Neon (Glow)', icon: '💡' },
+  { id: 'jitter', name: 'Dijital Titreme (Jitter)', icon: '📳' },
+  { id: 'strobe', name: 'Flaşör / Çakar (Strobe)', icon: '🚨' },
+  { id: 'spin-slow', name: 'Ağır 3D Salınım (Tilt)', icon: '🧭' },
 ];
 
 const OUT_ANIMATIONS: { id: TextOutAnimationType; name: string; icon: string }[] = [
@@ -63,6 +74,9 @@ const OUT_ANIMATIONS: { id: TextOutAnimationType; name: string; icon: string }[]
   { id: 'scale-down', name: 'Küçülerek Kaybolma', icon: '🔍' },
   { id: 'blur-out', name: 'Bulanıklaşarak Çıkış', icon: '🌫️' },
   { id: 'typewriter-erase', name: 'Daktilo ile Silinme', icon: '⌨️' },
+  { id: 'glitch-out', name: 'Dijital Dağılma (Glitch)', icon: '👾' },
+  { id: 'flip-out', name: '3D Dönerek Kaybolma', icon: '🔄' },
+  { id: 'crash-out', name: 'Sonsuza Fırlama (Crash)', icon: '🚀' },
 ];
 
 const EASING_OPTIONS: { id: TextEasingType; name: string }[] = [
@@ -91,6 +105,13 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
   const [fontSearch, setFontSearch] = useState('');
   const [fontCategory, setFontCategory] = useState<FontCategory>('all');
+  const [activeTransitionTab, setActiveTransitionTab] = useState<'in' | 'out'>('in');
+
+  useEffect(() => {
+    if (isFontPickerOpen) {
+      prefetchCategoryFonts(fontCategory);
+    }
+  }, [isFontPickerOpen, fontCategory]);
 
   const filteredFonts = useMemo(() => {
     return FONT_CATALOG.filter((f) => {
@@ -310,7 +331,13 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               {/* Current Active Font Trigger */}
               <button
                 type="button"
-                onClick={() => setIsFontPickerOpen(!isFontPickerOpen)}
+                onClick={() => {
+                  const next = !isFontPickerOpen;
+                  setIsFontPickerOpen(next);
+                  if (next) {
+                    prefetchCategoryFonts(fontCategory);
+                  }
+                }}
                 className="w-full px-3 py-2 rounded bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500 text-left flex items-center justify-between transition-colors group"
               >
                 <div className="flex items-center gap-2 truncate">
@@ -402,13 +429,18 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 : 'bg-[#161b22]/70 hover:bg-[#21262d] text-gray-200'
                             }`}
                           >
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold truncate">{f.name}</p>
+                            <div className="min-w-0 flex-1">
                               <p
-                                className="text-[11px] text-gray-400 truncate mt-0.5"
-                                style={{ fontFamily: `"${f.id}", ${f.fallback}` }}
+                                className="text-sm font-semibold truncate text-white tracking-wide"
+                                style={{ fontFamily: `"${f.id}", ${f.fallback || 'sans-serif'}` }}
                               >
-                                {textData.text?.substring(0, 24) || 'İyilik ve Adalet — 123'}
+                                {f.name}
+                              </p>
+                              <p
+                                className="text-[11px] text-indigo-300/80 truncate mt-0.5"
+                                style={{ fontFamily: `"${f.id}", ${f.fallback || 'sans-serif'}` }}
+                              >
+                                {textData.text?.substring(0, 28) || 'İyilik ve Adalet — 123'}
                               </p>
                             </div>
                             {isSelected && <span className="text-indigo-400 text-xs font-bold">✓</span>}
@@ -1038,62 +1070,192 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
         )}
 
         {/* ============================================================== */}
-        {/* TRANSITIONS SECTION (13 TRANSITIONS)                            */}
+        {/* TRANSITIONS STUDIO (13 HIGH-FIDELITY TRANSITIONS)              */}
         {/* ============================================================== */}
         {(selectedClip.type === 'video' || selectedClip.type === 'image') && (
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-              <span>🔀</span>
-              <span>Geçiş Efektleri (13 Profesyonel Geçiş)</span>
-            </h4>
-
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Giriş Geçişi (Transition In)</label>
-              <select
-                value={selectedClip.transitionIn?.type || 'cut'}
-                onChange={(e) => {
-                  const type = e.target.value as TransitionType;
-                  if (type === 'cut' || type === 'none') {
-                    onUpdateClip(selectedClip.id, { transitionIn: undefined });
-                  } else {
-                    onUpdateClip(selectedClip.id, {
-                      transitionIn: { type, duration: selectedClip.transitionIn?.duration || 0.8 },
-                    });
-                  }
-                }}
-                className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none"
-              >
-                {TRANSITION_DEFINITIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.icon} {o.name}
-                  </option>
-                ))}
-              </select>
+          <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+                <span className="text-base">🔀</span>
+                <span>Geçiş Efektleri Stüdyosu</span>
+              </h4>
+              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-indigo-500/30">
+                13 Çeşit
+              </span>
             </div>
 
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Çıkış Geçişi (Transition Out)</label>
-              <select
-                value={selectedClip.transitionOut?.type || 'cut'}
-                onChange={(e) => {
-                  const type = e.target.value as TransitionType;
-                  if (type === 'cut' || type === 'none') {
-                    onUpdateClip(selectedClip.id, { transitionOut: undefined });
-                  } else {
-                    onUpdateClip(selectedClip.id, {
-                      transitionOut: { type, duration: selectedClip.transitionOut?.duration || 0.8 },
-                    });
-                  }
-                }}
-                className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none"
+            {/* In / Out Direction Tabs */}
+            <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#0d1117] border border-[#30363d]/80">
+              <button
+                type="button"
+                onClick={() => setActiveTransitionTab('in')}
+                className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTransitionTab === 'in'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
               >
-                {TRANSITION_DEFINITIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.icon} {o.name}
-                  </option>
-                ))}
-              </select>
+                <span>➡️</span>
+                <span>Giriş Geçişi</span>
+                {selectedClip.transitionIn?.type && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTransitionTab('out')}
+                className={`py-1.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTransitionTab === 'out'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <span>⬅️</span>
+                <span>Çıkış Geçişi</span>
+                {selectedClip.transitionOut?.type && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                )}
+              </button>
             </div>
+
+            {/* Active Transition Info & Controls */}
+            {(() => {
+              const currentTrans = activeTransitionTab === 'in' ? selectedClip.transitionIn : selectedClip.transitionOut;
+              const activeType = currentTrans?.type || 'cut';
+              const activeDuration = currentTrans?.duration ?? 0.8;
+              const def = TRANSITION_DEFINITIONS.find((t) => t.id === activeType) || TRANSITION_DEFINITIONS[0];
+
+              return (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-xs bg-[#0d1117] p-2 rounded-lg border border-white/5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base">{def.icon}</span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white truncate text-[11px]">{def.name}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{def.description}</p>
+                      </div>
+                    </div>
+                    {activeType !== 'cut' && activeType !== 'none' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (activeTransitionTab === 'in') {
+                            onUpdateClip(selectedClip.id, { transitionIn: undefined });
+                          } else {
+                            onUpdateClip(selectedClip.id, { transitionOut: undefined });
+                          }
+                        }}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 shrink-0"
+                      >
+                        Kaldır
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Duration Slider (only if transition is not cut/none) */}
+                  {activeType !== 'cut' && activeType !== 'none' && (
+                    <div className="p-2 rounded-lg bg-[#0d1117]/80 border border-white/5 space-y-1">
+                      <div className="flex justify-between text-[11px] text-gray-400">
+                        <span>Geçiş Süresi</span>
+                        <span className="font-mono text-indigo-400 font-semibold">{activeDuration.toFixed(1)} sn</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="2.5"
+                        step="0.1"
+                        value={activeDuration}
+                        onChange={(e) => {
+                          const dur = parseFloat(e.target.value);
+                          if (activeTransitionTab === 'in') {
+                            onUpdateClip(selectedClip.id, {
+                              transitionIn: { type: activeType, duration: dur },
+                            });
+                          } else {
+                            onUpdateClip(selectedClip.id, {
+                              transitionOut: { type: activeType, duration: dur },
+                            });
+                          }
+                        }}
+                        className="w-full accent-indigo-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Live Canvas Preview Button */}
+                  {activeType !== 'cut' && activeType !== 'none' && onPreviewAnimation && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTransitionTab === 'in') {
+                          onSeek?.(selectedClip.startTime);
+                          onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
+                        } else {
+                          onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
+                          onPreviewAnimation(selectedClip.id, activeDuration + 0.3);
+                        }
+                      }}
+                      className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md"
+                    >
+                      <span>▶</span>
+                      <span>Geçişi Tuvalde Canlı Oynat</span>
+                    </button>
+                  )}
+
+                  {/* Visual Grid of All 13 Transitions */}
+                  <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
+                    {TRANSITION_DEFINITIONS.map((tr) => {
+                      const isSelected = activeType === tr.id;
+                      return (
+                        <button
+                          key={tr.id}
+                          type="button"
+                          onClick={() => {
+                            if (tr.id === 'cut' || tr.id === 'none') {
+                              if (activeTransitionTab === 'in') {
+                                onUpdateClip(selectedClip.id, { transitionIn: undefined });
+                              } else {
+                                onUpdateClip(selectedClip.id, { transitionOut: undefined });
+                              }
+                            } else {
+                              if (activeTransitionTab === 'in') {
+                                onUpdateClip(selectedClip.id, {
+                                  transitionIn: { type: tr.id, duration: activeDuration },
+                                });
+                                onSeek?.(selectedClip.startTime);
+                                onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
+                              } else {
+                                onUpdateClip(selectedClip.id, {
+                                  transitionOut: { type: tr.id, duration: activeDuration },
+                                });
+                                onSeek?.(Math.max(0, selectedClip.startTime + selectedClip.duration - activeDuration));
+                                onPreviewAnimation?.(selectedClip.id, activeDuration + 0.3);
+                              }
+                            }
+                          }}
+                          className={`p-2 rounded-lg text-left transition-all border flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50'
+                              : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d]/70 text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full mb-1">
+                            <span className="text-base">{tr.icon}</span>
+                            {isSelected && (
+                              <span className="text-indigo-400 font-bold text-xs">✓</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold truncate leading-tight">{tr.name}</p>
+                            <p className="text-[9px] text-gray-400 truncate mt-0.5">{tr.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
