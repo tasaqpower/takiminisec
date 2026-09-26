@@ -142,7 +142,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   if (!selectedClip) {
     return (
-      <aside className="w-80 bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto p-4 text-xs">
+      <aside className="w-[360px] bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto p-4 text-xs">
         <h3 className="font-semibold text-gray-300 uppercase tracking-wider text-[11px] mb-3">
           Proje Ayarları
         </h3>
@@ -1092,24 +1092,32 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   };
 
   return (
-    <aside className="w-80 bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 h-full overflow-hidden text-xs">
+    <aside className="w-[360px] bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 h-full overflow-hidden text-xs">
       {/* Header */}
       <div className="p-3 border-b border-[#21262d] bg-[#161b22]/40 flex items-center justify-between shrink-0">
         <div className="min-w-0 flex-1 mr-2">
-          <input
-            type="text"
-            value={selectedClip.name}
-            onChange={(e) => onUpdateClip(selectedClip.id, { name: e.target.value })}
-            className="w-full font-semibold text-white bg-transparent border-b border-transparent hover:border-gray-500 focus:border-indigo-500 outline-none truncate"
-          />
-          <p className="text-[10px] text-gray-400 capitalize mt-0.5">
-            {selectedClip.type.toUpperCase()} • {selectedClip.duration.toFixed(2)} sn
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-indigo-950/70 text-indigo-400 border border-indigo-800/50 shrink-0">
+              {selectedClip.type === 'video' ? '🎬 Video' : selectedClip.type === 'audio' ? '🎵 Ses' : selectedClip.type === 'image' ? '🖼️ Görsel' : '🔤 Metin'}
+            </span>
+            <input
+              type="text"
+              value={selectedClip.name}
+              onChange={(e) => onUpdateClip(selectedClip.id, { name: e.target.value })}
+              title="Klip Adını Değiştir (Tıklayın)"
+              className="font-semibold text-white bg-transparent border-b border-transparent hover:border-gray-500 focus:border-indigo-500 outline-none truncate text-xs flex-1 transition-colors"
+            />
+          </div>
+          <p className="text-[10px] text-gray-400 flex items-center gap-2">
+            <span>⏱️ {selectedClip.duration.toFixed(2)} sn</span>
+            <span className="text-gray-600">•</span>
+            <span>Konum: {(selectedClip.startTime ?? 0).toFixed(2)} sn</span>
           </p>
         </div>
         <button
           onClick={() => onDuplicateClip(selectedClip.id)}
-          className="p-1.5 rounded hover:bg-[#21262d] text-gray-400 hover:text-white"
-          title="Klibi Kopyala"
+          className="p-1.5 rounded hover:bg-[#21262d] text-gray-400 hover:text-white shrink-0"
+          title="Klibi Çoğalt (Duplicate)"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1119,7 +1127,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
       {/* Tab Navigation Bar */}
       {isTextLike && (
-        <div className="flex border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 overflow-x-auto no-scrollbar shrink-0">
+        <div className="grid grid-cols-3 border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 shrink-0">
           {[
             { id: 'text', label: 'Metin', icon: '🔤' },
             { id: 'animation', label: 'Animasyon', icon: '✨' },
@@ -1129,25 +1137,26 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTextTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+              title={tab.label}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
                 activeTextTab === tab.id
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
               }`}
             >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span className="shrink-0">{tab.icon}</span>
+              <span className="truncate">{tab.label}</span>
             </button>
           ))}
         </div>
       )}
 
       {isVisualMedia && (
-        <div className="flex border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 overflow-x-auto no-scrollbar shrink-0">
+        <div className={`grid ${selectedClip.type === 'video' ? 'grid-cols-5' : 'grid-cols-4'} border-b border-[#21262d] bg-[#161b22]/70 p-1 gap-1 shrink-0`}>
           {[
             { id: 'basic', label: 'Temel', icon: '⚙️' },
             { id: 'animation', label: 'Animasyon', icon: '⚡' },
-            { id: 'mask', label: 'Kırp & Maske', icon: '✂️' },
+            { id: 'mask', label: 'Maske', icon: '✂️' },
             { id: 'color', label: 'Renk', icon: '🎨' },
             ...(selectedClip.type === 'video' ? [{ id: 'audio', label: 'Ses', icon: '🔊' }] : []),
           ].map((tab) => (
@@ -1155,14 +1164,15 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+              title={tab.label}
+              className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors overflow-hidden ${
                 activeTab === tab.id
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
               }`}
             >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
+              <span className="shrink-0">{tab.icon}</span>
+              <span className="truncate">{tab.label}</span>
             </button>
           ))}
         </div>

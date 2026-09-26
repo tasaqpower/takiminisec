@@ -217,6 +217,274 @@ function exportSrt(project: VideoProject): string {
     .join('\n');
 }
 
+interface StockMediaPreset {
+  id: string;
+  name: string;
+  category: 'intro' | 'motion' | 'tech' | 'nature';
+  tag: string;
+  icon: string;
+  duration: number;
+  previewBg: string;
+  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
+}
+
+const STOCK_MEDIA_PRESETS: StockMediaPreset[] = [
+  {
+    id: 'countdown-intro',
+    name: '5 Sn Sinematik Geri Sayım',
+    category: 'intro',
+    tag: 'İntro',
+    icon: '⏳',
+    duration: 5,
+    previewBg: '#090d16',
+    draw: (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w / 1.5);
+      grad.addColorStop(0, '#1e1b4b');
+      grad.addColorStop(0.7, '#0f172a');
+      grad.addColorStop(1, '#020617');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 280, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 340, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(w / 2 - 380, h / 2);
+      ctx.lineTo(w / 2 + 380, h / 2);
+      ctx.moveTo(w / 2, h / 2 - 380);
+      ctx.lineTo(w / 2, h / 2 + 380);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '900 180px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('5', w / 2, h / 2 - 10);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText('BAŞLIYOR', w / 2, h / 2 + 150);
+    },
+  },
+  {
+    id: 'deep-space',
+    name: 'Kozmik Galaksi & Yıldızlar',
+    category: 'motion',
+    tag: 'Uzay',
+    icon: '🌌',
+    duration: 6,
+    previewBg: '#0b001a',
+    draw: (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w * 0.3, h * 0.4, 80, w / 2, h / 2, w);
+      grad.addColorStop(0, '#581c87');
+      grad.addColorStop(0.4, '#1e1b4b');
+      grad.addColorStop(0.8, '#090514');
+      grad.addColorStop(1, '#000000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 220; i++) {
+        const x = (Math.sin(i * 99) * 0.5 + 0.5) * w;
+        const y = (Math.cos(i * 33) * 0.5 + 0.5) * h;
+        const r = (i % 3 === 0) ? 2.5 : (i % 2 === 0 ? 1.5 : 0.8);
+        ctx.fillStyle = i % 5 === 0 ? '#38bdf8' : (i % 4 === 0 ? '#f472b6' : '#ffffff');
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('KOZMİK UZAY & NEBULA', w / 2, h / 2);
+    },
+  },
+  {
+    id: 'cyber-tech',
+    name: 'Matrix Siber Ağ & Kod',
+    category: 'tech',
+    tag: 'Siber',
+    icon: '💻',
+    duration: 5,
+    previewBg: '#021814',
+    draw: (ctx, w, h) => {
+      ctx.fillStyle = '#020d0a';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.lineWidth = 1;
+      const step = 60;
+      for (let x = 0; x < w; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 25; i++) {
+        const nx = Math.floor((Math.sin(i * 17) * 0.5 + 0.5) * (w / step)) * step;
+        const ny = Math.floor((Math.cos(i * 23) * 0.5 + 0.5) * (h / step)) * step;
+        ctx.fillStyle = '#34d399';
+        ctx.beginPath();
+        ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = '900 48px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('< CYBER MATRIX PROTOCOL />', w / 2, h / 2);
+    },
+  },
+  {
+    id: 'ocean-waves',
+    name: 'Okyanus & Sakin Gün Batımı',
+    category: 'nature',
+    tag: 'Doğa',
+    icon: '🌊',
+    duration: 6,
+    previewBg: '#0c4a6e',
+    draw: (ctx, w, h) => {
+      const sky = ctx.createLinearGradient(0, 0, 0, h * 0.65);
+      sky.addColorStop(0, '#f97316');
+      sky.addColorStop(0.5, '#fb923c');
+      sky.addColorStop(1, '#fed7aa');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h * 0.65);
+
+      ctx.fillStyle = '#fff7ed';
+      ctx.beginPath();
+      ctx.arc(w / 2, h * 0.45, 90, 0, Math.PI * 2);
+      ctx.fill();
+
+      const sea = ctx.createLinearGradient(0, h * 0.65, 0, h);
+      sea.addColorStop(0, '#0284c7');
+      sea.addColorStop(1, '#082f49');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      for (let y = h * 0.7; y < h; y += 40) {
+        ctx.fillRect(w * 0.2, y, w * 0.6, 3);
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('OKYANUS VE SAKİNLİK', w / 2, h * 0.3);
+    },
+  },
+  {
+    id: 'celebration-confetti',
+    name: 'Kutlama & Renkli Konfeti',
+    category: 'intro',
+    tag: 'Kutlama',
+    icon: '🎆',
+    duration: 5,
+    previewBg: '#1e1035',
+    draw: (ctx, w, h) => {
+      const bg = ctx.createRadialGradient(w / 2, h / 2, 100, w / 2, h / 2, w * 0.8);
+      bg.addColorStop(0, '#3b0764');
+      bg.addColorStop(1, '#090111');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      const colors = ['#f43f5e', '#ec4899', '#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#facc15'];
+      for (let i = 0; i < 180; i++) {
+        const cx = (Math.sin(i * 47) * 0.5 + 0.5) * w;
+        const cy = (Math.cos(i * 61) * 0.5 + 0.5) * h;
+        const rot = (i * 37) % 360;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate((rot * Math.PI) / 180);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(-8, -4, 16, 8);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#fef08a';
+      ctx.font = '900 52px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎉 TEBRİKLER & KUTLAMA 🎉', w / 2, h / 2);
+    },
+  },
+  {
+    id: 'tiktok-reels-916',
+    name: '9:16 Dikey Neon Reels Zemin',
+    category: 'motion',
+    tag: 'Dikey 9:16',
+    icon: '📱',
+    duration: 6,
+    previewBg: '#0f172a',
+    draw: (ctx, w, h) => {
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, w, h);
+
+      const vWidth = h * (9 / 16);
+      const startX = (w - vWidth) / 2;
+
+      const grad = ctx.createLinearGradient(startX, 0, startX + vWidth, h);
+      grad.addColorStop(0, '#ec4899');
+      grad.addColorStop(0.5, '#8b5cf6');
+      grad.addColorStop(1, '#3b82f6');
+      ctx.fillStyle = grad;
+      ctx.fillRect(startX, 0, vWidth, h);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(startX + 20, 20, vWidth - 40, h - 40);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('REELS & TIKTOK 9:16', w / 2, h / 2);
+    },
+  },
+];
+
+interface ColorPresetItem {
+  name: string;
+  color: string;
+  category: 'chroma' | 'solid' | 'gradient';
+  desc: string;
+}
+
+const COLOR_PRESETS_LIST: ColorPresetItem[] = [
+  // Chroma Key
+  { name: 'Yeşil Perde', color: '#00ff00', category: 'chroma', desc: 'Chroma Key Yeşil Ekran' },
+  { name: 'Mavi Perde', color: '#0000ff', category: 'chroma', desc: 'Chroma Key Mavi Ekran' },
+  // Solid
+  { name: 'Sinematik Siyah', color: '#050505', category: 'solid', desc: 'Saf Siyah Zemin' },
+  { name: 'Stüdyo Beyaz', color: '#ffffff', category: 'solid', desc: 'Saf Beyaz Zemin' },
+  { name: 'Koyu Mavi', color: '#1e293b', category: 'solid', desc: 'Slate Blue' },
+  { name: 'Tutku Kırmızı', color: '#881337', category: 'solid', desc: 'Deep Crimson' },
+  { name: 'Zümrüt Yeşil', color: '#064e3b', category: 'solid', desc: 'Emerald' },
+  { name: 'Mor Gece', color: '#3b0764', category: 'solid', desc: 'Deep Violet' },
+  // Gradients
+  { name: 'Neon Günbatımı', color: 'linear-gradient(135deg, #f97316, #ec4899)', category: 'gradient', desc: 'Turuncu -> Pembe' },
+  { name: 'Kozmik Mor', color: 'linear-gradient(135deg, #4f46e5, #06b6d4)', category: 'gradient', desc: 'İndigo -> Camgöbeği' },
+  { name: 'Siber Ateş', color: 'linear-gradient(135deg, #f12711, #f5af19)', category: 'gradient', desc: 'Ateş Kırmızısı' },
+  { name: 'Kuzey Işıkları', color: 'linear-gradient(135deg, #00f2fe, #4facfe)', category: 'gradient', desc: 'Neon Turkuaz' },
+];
+
 interface SidebarProps {
   project: VideoProject;
   onAddClip: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
@@ -233,7 +501,7 @@ interface SidebarProps {
   currentTime: number;
   selectedClipId?: string | null;
   onSelectClip?: (clipId: string | null) => void;
-  onPreviewAnimation?: (clipId: string, duration?: number) => void;
+  onPreviewAnimation?: (target: string | number, duration?: number) => void;
   onUpdateClipEffects?: (clipId: string, effects: Partial<ClipEffects>) => void;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
 }
@@ -258,12 +526,26 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isRecordingScreen, setIsRecordingScreen] = useState(false);
+  const [isRecordingWebcam, setIsRecordingWebcam] = useState(false);
+  const [isUrlInputOpen, setIsUrlInputOpen] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [isUrlLoading, setIsUrlLoading] = useState(false);
+  const [customColor, setCustomColor] = useState('#4f46e5');
+  const [mediaSubTab, setMediaSubTab] = useState<'all' | 'stock' | 'colors' | 'uploads'>('all');
+  const [assetFilter, setAssetFilter] = useState<'all' | 'video' | 'audio' | 'image'>('all');
+  const [assetSearch, setAssetSearch] = useState('');
+
   const [sfxCategory, setSfxCategory] = useState<'all' | 'sfx' | 'bgm'>('all');
   const [elementsCategory, setElementsCategory] = useState<'all' | 'social' | 'arrows' | 'shapes' | 'emojis'>('all');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [addingSfxId, setAddingSfxId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
+  const screenRecRef = useRef<MediaRecorder | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const webcamRecRef = useRef<MediaRecorder | null>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
 
   // Find suitable track
   const findTrack = (type: 'video' | 'audio' | 'text' | 'subtitle') => {
@@ -377,17 +659,32 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // Add demo asset for immediate testing
+  // Add color / gradient asset
   const addDemoColorClip = (name: string, color: string) => {
     const canvas = document.createElement('canvas');
     canvas.width = 1920;
     canvas.height = 1080;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = color;
+
+    if (color.startsWith('linear-gradient')) {
+      const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
+      const matches = color.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/g);
+      if (matches && matches.length >= 2) {
+        matches.forEach((c, idx) => {
+          grad.addColorStop(idx / (matches.length - 1), c);
+        });
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = '#1e1b4b';
+      }
+    } else {
+      ctx.fillStyle = color;
+    }
     ctx.fillRect(0, 0, 1920, 1080);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 72px sans-serif';
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(name, 960, 540);
 
     canvas.toBlob(async (blob) => {
@@ -395,6 +692,19 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
       const assetId = 'asset-color-' + Date.now();
       await saveAssetBlob(assetId, blob);
       const url = URL.createObjectURL(blob);
+
+      const newAsset: MediaAsset = {
+        id: assetId,
+        name: `${name} (Arka Plan)`,
+        type: 'image',
+        mimeType: 'image/png',
+        size: blob.size,
+        duration: 5,
+        thumbnailUrl: url,
+        url,
+        blob,
+      };
+      setAssets((prev) => [newAsset, ...prev]);
 
       const targetTrackId = findTrack('video');
       onAddClip(targetTrackId, {
@@ -408,7 +718,271 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
         trimIn: 0,
         trimOut: 5,
       });
+      setStatusBanner(`🎨 "${name}" arka plan katmanı eklendi!`);
+      setTimeout(() => setStatusBanner(null), 3000);
     }, 'image/png');
+  };
+
+  // Add stock media preset clip
+  const addStockMediaClip = (preset: (typeof STOCK_MEDIA_PRESETS)[0]) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d')!;
+    preset.draw(ctx, 1920, 1080);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const assetId = 'stock-' + preset.id + '-' + Date.now();
+      await saveAssetBlob(assetId, blob);
+      const url = URL.createObjectURL(blob);
+
+      const newAsset: MediaAsset = {
+        id: assetId,
+        name: `${preset.name}`,
+        type: 'image',
+        mimeType: 'image/png',
+        size: blob.size,
+        duration: preset.duration,
+        thumbnailUrl: url,
+        url,
+        blob,
+      };
+      setAssets((prev) => [newAsset, ...prev]);
+
+      const targetTrackId = findTrack('video');
+      onAddClip(targetTrackId, {
+        assetId,
+        name: preset.name,
+        type: 'image',
+        sourceUrl: url,
+        startTime: currentTime,
+        duration: preset.duration,
+        sourceDuration: preset.duration,
+        trimIn: 0,
+        trimOut: preset.duration,
+      });
+      setStatusBanner(`✨ "${preset.name}" zaman çizelgesine eklendi!`);
+      setTimeout(() => setStatusBanner(null), 3000);
+    }, 'image/png');
+  };
+
+  // Screen recording (Ekran Paylaşımı & Kaydı)
+  const toggleScreenRecording = async () => {
+    if (isRecordingScreen) {
+      if (screenRecRef.current && screenRecRef.current.state !== 'inactive') {
+        screenRecRef.current.stop();
+      }
+      setIsRecordingScreen(false);
+    } else {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        alert('Tarayıcınız ekran kaydı özelliğini desteklemiyor.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 30 } },
+          audio: true,
+        });
+        screenStreamRef.current = stream;
+
+        const chunks: Blob[] = [];
+        const mediaRec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+        screenRecRef.current = mediaRec;
+
+        mediaRec.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        mediaRec.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          const completeBlob = new Blob(chunks, { type: 'video/webm' });
+          const assetId = 'screen-' + Date.now();
+          await saveAssetBlob(assetId, completeBlob);
+          const url = URL.createObjectURL(completeBlob);
+
+          const newAsset: MediaAsset = {
+            id: assetId,
+            name: 'Ekran Kaydı (' + new Date().toLocaleTimeString('tr-TR') + ')',
+            type: 'video',
+            mimeType: 'video/webm',
+            size: completeBlob.size,
+            duration: 8,
+            url,
+            blob: completeBlob,
+          };
+          setAssets((prev) => [newAsset, ...prev]);
+
+          const targetTrackId = findTrack('video');
+          onAddClip(targetTrackId, {
+            assetId,
+            name: newAsset.name,
+            type: 'video',
+            sourceUrl: url,
+            startTime: currentTime,
+            duration: 8,
+            sourceDuration: 8,
+            trimIn: 0,
+            trimOut: 8,
+          });
+          setStatusBanner('✅ Ekran kaydı başarıyla eklendi!');
+          setTimeout(() => setStatusBanner(null), 3000);
+        };
+
+        stream.getVideoTracks()[0].onended = () => {
+          if (mediaRec.state !== 'inactive') {
+            mediaRec.stop();
+          }
+          setIsRecordingScreen(false);
+        };
+
+        mediaRec.start(500);
+        setIsRecordingScreen(true);
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+          alert('Ekran kaydı başlatılamadı: ' + err.message);
+        }
+      }
+    }
+  };
+
+  // Webcam recording (Kamera Kaydı)
+  const toggleWebcamRecording = async () => {
+    if (isRecordingWebcam) {
+      if (webcamRecRef.current && webcamRecRef.current.state !== 'inactive') {
+        webcamRecRef.current.stop();
+      }
+      setIsRecordingWebcam(false);
+    } else {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('Tarayıcınız kamera kaydı özelliğini desteklemiyor.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720 },
+          audio: true,
+        });
+        webcamStreamRef.current = stream;
+
+        const chunks: Blob[] = [];
+        const mediaRec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+        webcamRecRef.current = mediaRec;
+
+        mediaRec.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        mediaRec.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          const completeBlob = new Blob(chunks, { type: 'video/webm' });
+          const assetId = 'cam-' + Date.now();
+          await saveAssetBlob(assetId, completeBlob);
+          const url = URL.createObjectURL(completeBlob);
+
+          const newAsset: MediaAsset = {
+            id: assetId,
+            name: 'Kamera Kaydı (' + new Date().toLocaleTimeString('tr-TR') + ')',
+            type: 'video',
+            mimeType: 'video/webm',
+            size: completeBlob.size,
+            duration: 6,
+            url,
+            blob: completeBlob,
+          };
+          setAssets((prev) => [newAsset, ...prev]);
+
+          const targetTrackId = findTrack('video');
+          onAddClip(targetTrackId, {
+            assetId,
+            name: newAsset.name,
+            type: 'video',
+            sourceUrl: url,
+            startTime: currentTime,
+            duration: 6,
+            sourceDuration: 6,
+            trimIn: 0,
+            trimOut: 6,
+          });
+          setStatusBanner('✅ Kamera kaydı başarıyla eklendi!');
+          setTimeout(() => setStatusBanner(null), 3000);
+        };
+
+        mediaRec.start(500);
+        setIsRecordingWebcam(true);
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+          alert('Kamera kaydı başlatılamadı: ' + err.message);
+        }
+      }
+    }
+  };
+
+  // URL import
+  const handleImportUrl = async () => {
+    if (!urlInput.trim()) return;
+    setIsUrlLoading(true);
+    try {
+      const res = await fetch(urlInput.trim());
+      const blob = await res.blob();
+      const isVideo = blob.type.startsWith('video') || urlInput.match(/\.(mp4|webm|mov)($|\?)/i);
+      const isAudio = blob.type.startsWith('audio') || urlInput.match(/\.(mp3|wav|ogg|aac)($|\?)/i);
+      const isImage = blob.type.startsWith('image') || urlInput.match(/\.(png|jpg|jpeg|webp|gif|svg)($|\?)/i);
+
+      const assetId = 'url-' + Date.now();
+      await saveAssetBlob(assetId, blob);
+      const url = URL.createObjectURL(blob);
+      const filename = urlInput.split('/').pop()?.split('?')[0] || 'Web Medyası';
+
+      const newAsset: MediaAsset = {
+        id: assetId,
+        name: filename,
+        type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
+        mimeType: blob.type || (isVideo ? 'video/mp4' : isAudio ? 'audio/mp3' : 'image/png'),
+        size: blob.size,
+        duration: isImage ? 4 : 8,
+        url,
+        blob,
+      };
+      setAssets((prev) => [newAsset, ...prev]);
+
+      const targetType = isAudio ? 'audio' : 'video';
+      const targetTrackId = findTrack(targetType);
+      onAddClip(targetTrackId, {
+        assetId,
+        name: filename,
+        type: newAsset.type,
+        sourceUrl: url,
+        startTime: currentTime,
+        duration: isImage ? 4 : 8,
+        sourceDuration: isImage ? 4 : 8,
+        trimIn: 0,
+        trimOut: isImage ? 4 : 8,
+      });
+      setUrlInput('');
+      setIsUrlInputOpen(false);
+      setStatusBanner('✅ Web medyası başarıyla aktarıldı!');
+      setTimeout(() => setStatusBanner(null), 3000);
+    } catch (err: any) {
+      alert('URL yüklenirken hata oluştu: ' + err.message);
+    } finally {
+      setIsUrlLoading(false);
+    }
+  };
+
+  // Delete individual asset
+  const handleDeleteAsset = (assetId: string) => {
+    setAssets((prev) => prev.filter((a) => a.id !== assetId));
+  };
+
+  // Clear all assets
+  const handleClearAllAssets = () => {
+    if (assets.length === 0) return;
+    if (confirm('Tüm yüklenen medyaları kütüphaneden kaldırmak istediğinize emin misiniz?')) {
+      setAssets([]);
+      setStatusBanner('🗑️ Tüm medyalar kütüphaneden temizlendi.');
+      setTimeout(() => setStatusBanner(null), 3000);
+    }
   };
 
   // Live microphone voiceover toggle
@@ -618,9 +1192,9 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-80 bg-[#0d1117] border-r border-[#21262d] flex flex-col shrink-0 select-none z-10">
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-[#21262d] overflow-x-auto no-scrollbar bg-[#161b22]/50 p-1 gap-1">
+    <aside className="w-[360px] bg-[#0d1117] border-r border-[#21262d] flex flex-col shrink-0 select-none z-10">
+      {/* Navigation Tabs - 2-row 4x2 grid so all 8 tabs are visible */}
+      <div className="grid grid-cols-4 gap-1 p-1.5 border-b border-[#21262d] bg-[#161b22]/70 shrink-0">
         {[
           { id: 'media', label: 'Medya', icon: '📁' },
           { id: 'text', label: 'Metin', icon: '🔤' },
@@ -633,15 +1207,17 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id as TabType)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+            title={tab.label}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-md text-[11px] font-semibold transition-all ${
               activeTab === tab.id
-                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-gray-400 hover:text-gray-200 hover:bg-[#21262d]'
             }`}
           >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
+            <span className="shrink-0">{tab.icon}</span>
+            <span className="truncate">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -660,115 +1236,403 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
               className="hidden"
             />
 
-            {/* Upload & Record Buttons */}
+            {/* Top Quick Actions Grid */}
             <div className="grid grid-cols-2 gap-2">
+              {/* File Upload */}
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="flex flex-col items-center justify-center p-3 rounded-lg border border-dashed border-[#30363d] hover:border-indigo-500 hover:bg-[#161b22] text-gray-300 hover:text-white transition-all group"
               >
-                <svg className="w-6 h-6 text-indigo-400 group-hover:scale-110 transition-transform mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
                 <span className="text-xs font-semibold">Dosya Yükle</span>
-                <span className="text-[10px] text-gray-500">Video, Ses, Görsel</span>
+                <span className="text-[9px] text-gray-500">Video, Ses, Resim</span>
               </button>
 
+              {/* Screen Record */}
               <button
-                onClick={toggleVoiceRecording}
+                type="button"
+                onClick={toggleScreenRecording}
                 className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                  isRecordingScreen
+                    ? 'border-red-500 bg-red-950/30 text-red-300 animate-pulse'
+                    : 'border-[#30363d] hover:border-emerald-500 hover:bg-[#161b22] text-gray-300 hover:text-white'
+                }`}
+              >
+                <span className="text-base mb-1">{isRecordingScreen ? '⏹️' : '🖥️'}</span>
+                <span className="text-xs font-semibold">
+                  {isRecordingScreen ? 'Kaydı Bitir' : 'Ekranı Kaydet'}
+                </span>
+                <span className="text-[9px] text-gray-500">
+                  {isRecordingScreen ? 'Kayıt Yapılıyor...' : 'Ekran & Sekme'}
+                </span>
+              </button>
+
+              {/* Webcam Record */}
+              <button
+                type="button"
+                onClick={toggleWebcamRecording}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-lg border transition-all ${
+                  isRecordingWebcam
+                    ? 'border-red-500 bg-red-950/30 text-red-300 animate-pulse'
+                    : 'border-[#30363d] hover:border-purple-500 hover:bg-[#161b22] text-gray-300 hover:text-white'
+                }`}
+              >
+                <span className="text-base mb-0.5">{isRecordingWebcam ? '⏹️' : '📹'}</span>
+                <span className="text-xs font-semibold">
+                  {isRecordingWebcam ? 'Kamerayı Durdur' : 'Kamera Kaydet'}
+                </span>
+                <span className="text-[9px] text-gray-500">
+                  {isRecordingWebcam ? 'Kayıt Yapılıyor...' : 'Webcam & Ses'}
+                </span>
+              </button>
+
+              {/* Voice Record */}
+              <button
+                type="button"
+                onClick={toggleVoiceRecording}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-lg border transition-all ${
                   isRecordingVoice
                     ? 'border-red-500 bg-red-950/30 text-red-300 animate-pulse'
                     : 'border-[#30363d] hover:border-red-500 hover:bg-[#161b22] text-gray-300 hover:text-white'
                 }`}
               >
-                <svg className="w-6 h-6 text-red-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-red-400 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
                 <span className="text-xs font-semibold">
                   {isRecordingVoice ? 'Kaydı Durdur' : 'Ses Kaydet'}
                 </span>
-                <span className="text-[10px] text-gray-500">Mikrofon</span>
+                <span className="text-[9px] text-gray-500">
+                  {isRecordingVoice ? 'Kaydediliyor...' : 'Yalnızca Mikrofon'}
+                </span>
               </button>
             </div>
 
-            {/* Quick Demo Solid Clips */}
-            <div>
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Hızlı Renk Katmanları
-              </h4>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { name: 'Koyu Mavi', color: '#1e293b' },
-                  { name: 'Kırmızı', color: '#881337' },
-                  { name: 'Zümrüt', color: '#064e3b' },
-                  { name: 'Mor Gece', color: '#3b0764' },
-                  { name: 'Kömür', color: '#18181b' },
-                  { name: 'Altın', color: '#78350f' },
-                ].map((c) => (
-                  <button
-                    key={c.name}
-                    onClick={() => addDemoColorClip(c.name, c.color)}
-                    style={{ backgroundColor: c.color }}
-                    className="h-10 rounded-md border border-white/10 hover:border-white text-[10px] font-medium text-white/90 shadow transition-all flex items-center justify-center p-1 text-center"
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Asset library list */}
-            <div>
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Yüklenen Medyalar ({assets.length})
-              </h4>
-              {assets.length === 0 ? (
-                <div className="p-4 rounded-lg bg-[#161b22]/50 border border-[#21262d] text-center text-xs text-gray-500">
-                  Henüz medya yüklenmedi. Yukarıdaki butondan video veya ses dosyaları ekleyebilirsiniz.
-                </div>
+            {/* URL Import Bar Toggle */}
+            <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d]">
+              {!isUrlInputOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setIsUrlInputOpen(true)}
+                  className="w-full flex items-center justify-between text-xs text-gray-300 hover:text-white transition-colors"
+                >
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span>🔗</span>
+                    <span>Web Bağlantısından Medya İçe Aktar (URL)</span>
+                  </span>
+                  <span className="text-indigo-400 text-xs font-bold">+ Aç</span>
+                </button>
               ) : (
                 <div className="space-y-2">
-                  {assets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      onClick={() => {
-                        const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
-                        onAddClip(targetTrackId, {
-                          assetId: asset.id,
-                          name: asset.name,
-                          type: asset.type,
-                          startTime: currentTime,
-                          duration: asset.type === 'image' ? 4 : asset.duration,
-                          sourceDuration: asset.duration,
-                        });
-                      }}
-                      className="flex items-center gap-2.5 p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] cursor-pointer group transition-all"
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase">Doğrudan Medya URL'si</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsUrlInputOpen(false)}
+                      className="text-[10px] text-gray-400 hover:text-white"
                     >
-                      <div className="w-12 h-10 rounded bg-[#0d1117] flex items-center justify-center overflow-hidden border border-white/5">
-                        {asset.thumbnailUrl ? (
-                          <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-base">{asset.type === 'audio' ? '🎵' : '📹'}</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-200 truncate group-hover:text-indigo-300">
-                          {asset.name}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {Math.round(asset.duration)} sn • {asset.type.toUpperCase()}
-                        </p>
-                      </div>
-                      <button className="p-1 rounded text-gray-400 group-hover:text-indigo-400" title="Timeline'a Ekle">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                      ✕ Kapat
+                    </button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="url"
+                      placeholder="https://example.com/video.mp4"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 rounded bg-[#0d1117] border border-[#30363d] text-white text-xs outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={isUrlLoading || !urlInput.trim()}
+                      onClick={handleImportUrl}
+                      className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs whitespace-nowrap"
+                    >
+                      {isUrlLoading ? 'İndiriliyor...' : 'İçe Aktar'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Media Sub-Tab Segment Filter */}
+            <div className="flex rounded-lg bg-[#161b22] p-1 border border-[#30363d] gap-1">
+              {[
+                { id: 'all', label: 'Tümü', icon: '📁' },
+                { id: 'stock', label: 'Stok Klipler', icon: '✨' },
+                { id: 'colors', label: 'Renk & Zemin', icon: '🎨' },
+                { id: 'uploads', label: `Medyalarım (${assets.length})`, icon: '📥' },
+              ].map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setMediaSubTab(sub.id as any)}
+                  className={`flex-1 py-1 px-1 rounded text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap ${
+                    mediaSubTab === sub.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="shrink-0">{sub.icon}</span>
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* 1. STOCK PRESETS SECTION */}
+            {(mediaSubTab === 'all' || mediaSubTab === 'stock') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>✨</span>
+                    <span>Hazır Stok Klipler & İntrolar</span>
+                  </h4>
+                  <span className="text-[9px] text-gray-500">1-Tıkla Ekle</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {STOCK_MEDIA_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => addStockMediaClip(preset)}
+                      className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/70 text-left transition-all group flex flex-col justify-between"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-lg">{preset.icon}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/40">
+                          {preset.tag}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 leading-tight">
+                          {preset.name}
+                        </p>
+                        <p className="text-[9px] text-gray-500 mt-0.5">⏱️ {preset.duration} sn HD</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. COLOR & GRADIENT SECTION */}
+            {(mediaSubTab === 'all' || mediaSubTab === 'colors') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🎨</span>
+                    <span>Renk, Gradyan & Yeşil Perde</span>
+                  </h4>
+                  <span className="text-[9px] text-emerald-400 font-medium">Chroma Uyumlu</span>
+                </div>
+
+                {/* Chroma Keys */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addDemoColorClip('Yeşil Perde (Chroma)', '#00ff00')}
+                    className="p-2 rounded-lg border border-emerald-500/50 bg-[#064e3b]/30 hover:bg-[#064e3b]/50 text-left transition-all flex items-center gap-2 group"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-[#00ff00] border border-white/20 shrink-0 shadow-sm" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-emerald-300 leading-tight">Yeşil Perde</p>
+                      <p className="text-[9px] text-gray-400">Chroma Key</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addDemoColorClip('Mavi Perde (Chroma)', '#0000ff')}
+                    className="p-2 rounded-lg border border-blue-500/50 bg-[#1e3a8a]/30 hover:bg-[#1e3a8a]/50 text-left transition-all flex items-center gap-2 group"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-[#0000ff] border border-white/20 shrink-0 shadow-sm" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-blue-300 leading-tight">Mavi Perde</p>
+                      <p className="text-[9px] text-gray-400">Chroma Key</p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Quick Color Grid */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {COLOR_PRESETS_LIST.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => addDemoColorClip(c.name, c.color)}
+                      style={{ background: c.color }}
+                      className="h-9 rounded-md border border-white/10 hover:border-white text-[10px] font-medium text-white shadow transition-all flex items-center justify-center p-1 text-center truncate drop-shadow"
+                      title={c.desc}
+                    >
+                      <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] truncate">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Color Creator */}
+                <div className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-medium text-gray-300">Özel Renk Zemin:</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addDemoColorClip('Özel Renk', customColor)}
+                      className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-semibold whitespace-nowrap"
+                    >
+                      + Ekle
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3. UPLOADED ASSETS LIBRARY */}
+            {(mediaSubTab === 'all' || mediaSubTab === 'uploads') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Yüklenen Medyalar ({assets.length})
+                  </h4>
+                  {assets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllAssets}
+                      className="text-[10px] text-red-400 hover:text-red-300"
+                    >
+                      Tümünü Temizle
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter & Search Bar */}
+                {assets.length > 0 && (
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      placeholder="Medyalarda ara..."
+                      value={assetSearch}
+                      onChange={(e) => setAssetSearch(e.target.value)}
+                      className="w-full px-2.5 py-1 rounded bg-[#161b22] border border-[#30363d] text-white text-xs outline-none focus:border-indigo-500"
+                    />
+                    <div className="flex gap-1">
+                      {(['all', 'video', 'audio', 'image'] as const).map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setAssetFilter(f)}
+                          className={`flex-1 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                            assetFilter === f
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-[#161b22] text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {f === 'all' ? 'Tümü' : f === 'video' ? 'Video' : f === 'audio' ? 'Ses' : 'Görsel'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {assets.length === 0 ? (
+                  <div className="p-4 rounded-lg bg-[#161b22]/50 border border-[#21262d] text-center text-xs text-gray-500">
+                    Henüz medya yüklenmedi. Yukarıdaki butonlardan dosya yükleyebilir, ekran/kamera kaydedebilir veya hazır stok klipleri ekleyebilirsiniz.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {assets
+                      .filter((a) => assetFilter === 'all' || a.type === assetFilter)
+                      .filter((a) => !assetSearch.trim() || a.name.toLowerCase().includes(assetSearch.toLowerCase()))
+                      .map((asset) => (
+                        <div
+                          key={asset.id}
+                          className="flex items-center gap-2.5 p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] group transition-all"
+                        >
+                          <div
+                            onClick={() => {
+                              const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                              onAddClip(targetTrackId, {
+                                assetId: asset.id,
+                                name: asset.name,
+                                type: asset.type,
+                                startTime: currentTime,
+                                duration: asset.type === 'image' ? 4 : asset.duration,
+                                sourceDuration: asset.duration,
+                              });
+                            }}
+                            className="w-12 h-10 rounded bg-[#0d1117] flex items-center justify-center overflow-hidden border border-white/5 cursor-pointer shrink-0"
+                          >
+                            {asset.thumbnailUrl ? (
+                              <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-base">{asset.type === 'audio' ? '🎵' : '📹'}</span>
+                            )}
+                          </div>
+                          <div
+                            onClick={() => {
+                              const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                              onAddClip(targetTrackId, {
+                                assetId: asset.id,
+                                name: asset.name,
+                                type: asset.type,
+                                startTime: currentTime,
+                                duration: asset.type === 'image' ? 4 : asset.duration,
+                                sourceDuration: asset.duration,
+                              });
+                            }}
+                            className="flex-1 min-w-0 cursor-pointer"
+                          >
+                            <p className="text-xs font-medium text-gray-200 truncate group-hover:text-indigo-300">
+                              {asset.name}
+                            </p>
+                            <p className="text-[10px] text-gray-500">
+                              {Math.round(asset.duration)} sn • {asset.type.toUpperCase()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                                onAddClip(targetTrackId, {
+                                  assetId: asset.id,
+                                  name: asset.name,
+                                  type: asset.type,
+                                  startTime: currentTime,
+                                  duration: asset.type === 'image' ? 4 : asset.duration,
+                                  sourceDuration: asset.duration,
+                                });
+                              }}
+                              className="p-1 rounded text-gray-400 hover:text-indigo-400 hover:bg-[#30363d]"
+                              title="Zaman Çizelgesine Ekle"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAsset(asset.id)}
+                              className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-[#30363d]"
+                              title="Kütüphaneden Sil"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
