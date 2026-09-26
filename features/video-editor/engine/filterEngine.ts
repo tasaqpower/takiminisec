@@ -123,3 +123,119 @@ export function applyCanvasPostEffects(
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
 }
+
+export interface FilterPreset {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  thumbnailColor: string;
+  effects: Partial<ClipEffects>;
+}
+
+export const COLOR_PRESETS: FilterPreset[] = [
+  {
+    id: 'normal',
+    name: 'Orijinal (Sıfırla)',
+    category: 'Temel',
+    description: 'Tüm filtre ve renk efektlerini sıfırlar',
+    thumbnailColor: '#3b82f6',
+    effects: {
+      brightness: 0,
+      contrast: 1,
+      saturation: 1,
+      exposure: 0,
+      temperature: 0,
+      tint: 0,
+      grayscale: 0,
+      sepia: 0,
+      vignette: 0,
+      blur: 0,
+    },
+  },
+  {
+    id: 'cinematic',
+    name: 'Sinematik Teal & Orange',
+    category: 'Film',
+    description: 'Hollywood renk derecelendirmesi, yüksek kontrast ve derin gölgeler',
+    thumbnailColor: '#0ea5e9',
+    effects: {
+      contrast: 1.25,
+      saturation: 1.2,
+      temperature: -15,
+      tint: 10,
+      exposure: 0.05,
+      vignette: 0.3,
+    },
+  },
+  {
+    id: 'noir',
+    name: 'Siyah & Beyaz (Film Noir)',
+    category: 'Klasik',
+    description: 'Yüksek kontrastlı dramatik monokrom sinema havası',
+    thumbnailColor: '#4b5563',
+    effects: {
+      grayscale: 1,
+      contrast: 1.35,
+      brightness: 0.05,
+      vignette: 0.4,
+    },
+  },
+  {
+    id: 'vintage',
+    name: "90'lar VHS Retro",
+    category: 'Retro',
+    description: 'Nostaljik sıcak sepya tonları ve solgun renkler',
+    thumbnailColor: '#d97706',
+    effects: {
+      sepia: 0.35,
+      contrast: 1.1,
+      saturation: 0.85,
+      temperature: 25,
+      vignette: 0.25,
+    },
+  },
+  {
+    id: 'warm-summer',
+    name: 'Sıcak Güneş (Golden Hour)',
+    category: 'Atmosfer',
+    description: 'Altın saat gün batımı sıcaklığı ve parlak ışıltı',
+    thumbnailColor: '#f59e0b',
+    effects: {
+      temperature: 35,
+      saturation: 1.25,
+      brightness: 0.08,
+      contrast: 1.05,
+      vignette: 0.15,
+    },
+  },
+  {
+    id: 'cyberpunk',
+    name: 'Cyberpunk Neon',
+    category: 'Modern',
+    description: 'Mor-mavi fütüristik neon doygunluğu ve yüksek dinamizm',
+    thumbnailColor: '#ec4899',
+    effects: {
+      saturation: 1.5,
+      contrast: 1.3,
+      temperature: -40,
+      tint: -20,
+      vignette: 0.35,
+    },
+  },
+  {
+    id: 'scandi-cold',
+    name: 'İskandinav Soğuk (Nordic)',
+    category: 'Minimal',
+    description: 'Mavi ağırlıklı, hafif doygunluğu azaltılmış ferah tonlar',
+    thumbnailColor: '#67e8f9',
+    effects: {
+      temperature: -30,
+      saturation: 0.75,
+      contrast: 1.15,
+      brightness: 0.02,
+      vignette: 0.1,
+    },
+  },
+];
+

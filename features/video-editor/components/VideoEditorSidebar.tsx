@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, MediaAsset, VideoClip, TransitionType } from '../types';
+import { VideoProject, MediaAsset, VideoClip, TransitionType, ClipEffects } from '../types';
 import { saveAssetBlob } from '../db';
 import { audioMixer } from '../engine/audioMixer';
 import { generateCoverThumbnail } from '../engine/thumbnailGenerator';
+import { BUILTIN_SFX_LIST, playSfxPreview, generateSfxBlob, SfxType } from '../engine/sfxGenerator';
+import { COLOR_PRESETS } from '../engine/filterEngine';
 
 interface SidebarProps {
   project: VideoProject;
@@ -12,6 +14,8 @@ interface SidebarProps {
   onSetBackgroundColor: (color: string) => void;
   onSetDuration: (duration: number) => void;
   currentTime: number;
+  selectedClipId?: string | null;
+  onUpdateClipEffects?: (clipId: string, effects: Partial<ClipEffects>) => void;
 }
 
 type TabType = 'media' | 'text' | 'audio' | 'transitions' | 'filters' | 'subtitles' | 'elements' | 'settings';
@@ -24,10 +28,14 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   onSetBackgroundColor,
   onSetDuration,
   currentTime,
+  selectedClipId,
+  onUpdateClipEffects,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('media');
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [sfxCategory, setSfxCategory] = useState<'all' | 'sfx' | 'bgm'>('all');
+  const [addingSfxId, setAddingSfxId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Find suitable track
@@ -401,16 +409,118 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
 
         {/* 3. AUDIO TAB */}
         {activeTab === 'audio' && (
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Ses & Müzik</h4>
-            <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] text-xs text-gray-300 space-y-2">
-              <p>Müzik veya ses efekti dosyalarınızı (MP3, WAV, AAC, M4A) Medya sekmesinden yükleyerek ses kanalına ekleyebilirsiniz.</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                Ses & Müzik Kütüphanesi
+              </h4>
               <button
                 onClick={() => onAddTrack('audio', 'Ek Ses Kanalı')}
-                className="w-full py-1.5 px-3 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/40 text-xs font-medium"
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
               >
-                + Yeni Ses Kanalı Ekle
+                + Kanal Ekle
               </button>
+            </div>
+
+            {/* SFX Category Selector */}
+            <div className="flex items-center bg-[#161b22] p-0.5 rounded-lg border border-[#30363d] gap-1">
+              <button
+                onClick={() => setSfxCategory('all')}
+                className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${
+                  sfxCategory === 'all'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Tümü
+              </button>
+              <button
+                onClick={() => setSfxCategory('sfx')}
+                className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${
+                  sfxCategory === 'sfx'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Efektler (SFX)
+              </button>
+              <button
+                onClick={() => setSfxCategory('bgm')}
+                className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${
+                  sfxCategory === 'bgm'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Fon Müziği
+              </button>
+            </div>
+
+            {/* Built-in SFX list */}
+            <div className="space-y-2">
+              {BUILTIN_SFX_LIST.filter(
+                (s) => sfxCategory === 'all' || s.category === sfxCategory
+              ).map((sfx) => (
+                <div
+                  key={sfx.id}
+                  className="p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500/50 transition-all flex items-center justify-between gap-2.5 group"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-lg shrink-0">{sfx.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-gray-200 truncate group-hover:text-indigo-300">
+                        {sfx.name}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        {sfx.duration} sn • {sfx.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => playSfxPreview(sfx.id)}
+                      className="p-1.5 rounded-md bg-[#0d1117] hover:bg-indigo-600/30 text-gray-300 hover:text-indigo-300 border border-[#30363d] transition-colors"
+                      title="Sesi Dinle"
+                    >
+                      🔊
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setAddingSfxId(sfx.id);
+                          const blob = await generateSfxBlob(sfx.id);
+                          const assetId = 'asset-sfx-' + sfx.id + '-' + Date.now();
+                          await saveAssetBlob(assetId, blob);
+                          const url = URL.createObjectURL(blob);
+                          const targetTrackId = findTrack('audio');
+                          onAddClip(targetTrackId, {
+                            assetId,
+                            sourceUrl: url,
+                            name: sfx.name,
+                            type: 'audio',
+                            startTime: currentTime,
+                            duration: sfx.duration,
+                            sourceDuration: sfx.duration,
+                            trimIn: 0,
+                            trimOut: sfx.duration,
+                            volume: 0.9,
+                          });
+                        } catch (err) {
+                          console.warn('Failed to add SFX:', err);
+                        } finally {
+                          setAddingSfxId(null);
+                        }
+                      }}
+                      disabled={addingSfxId === sfx.id}
+                      className="px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-sm"
+                      title="Zaman Çizelgesine Ekle"
+                    >
+                      {addingSfxId === sfx.id ? '...' : '+ Ekle'}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -454,29 +564,46 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
         {activeTab === 'filters' && (
           <div className="space-y-3">
             <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              Renk & Görsel Profilleri
+              Renk & Atmosfer Filtreleri ({COLOR_PRESETS.length})
             </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: 'Orijinal', desc: 'Standart renkler' },
-                { name: 'Sinematik Sıcak', desc: 'Sıcak film tonları' },
-                { name: 'Siyah-Beyaz', desc: 'Klasik monokrom' },
-                { name: 'Sepya', desc: 'Nostaljik vintage' },
-                { name: 'Canlı Renkler', desc: 'Yüksek doygunluk' },
-                { name: 'Soğuk Mavi', desc: 'Modern soğuk ton' },
-                { name: 'Dramatik Kontrast', desc: 'Derin gölgeler' },
-                { name: 'Vinyet Gölge', desc: 'Odaklı kenar karartması' },
-              ].map((f, i) => (
-                <div
-                  key={i}
-                  className="p-2 rounded-lg bg-[#161b22] border border-[#30363d] text-left"
+            <p className="text-[11px] text-gray-400">
+              {selectedClipId
+                ? 'Seçili klibe filtre uygulamak için şablonlardan birine tıklayın.'
+                : 'Zaman çizelgesinden bir video veya görsel seçerek tek tıkla filtre uygulayın.'}
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {COLOR_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => {
+                    if (selectedClipId && onUpdateClipEffects) {
+                      onUpdateClipEffects(selectedClipId, preset.effects);
+                    }
+                  }}
+                  className={`w-full p-2.5 rounded-lg bg-[#161b22] border transition-all text-left group flex items-start gap-3 ${
+                    selectedClipId
+                      ? 'hover:border-indigo-500 hover:bg-[#21262d] cursor-pointer'
+                      : 'border-[#30363d] opacity-80 cursor-default'
+                  }`}
                 >
-                  <div className="w-full h-10 rounded bg-[#0d1117] flex items-center justify-center text-xs font-semibold text-indigo-300 mb-1 border border-white/5">
-                    {f.name}
+                  <span
+                    className="w-4 h-4 rounded-full shrink-0 mt-0.5 shadow-sm"
+                    style={{ backgroundColor: preset.thumbnailColor }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
+                        {preset.name}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0d1117] text-gray-400 uppercase font-mono">
+                        {preset.category}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 leading-tight">
+                      {preset.description}
+                    </p>
                   </div>
-                  <p className="text-[11px] font-medium text-gray-200">{f.name}</p>
-                  <p className="text-[10px] text-gray-500">{f.desc}</p>
-                </div>
+                </button>
               ))}
             </div>
           </div>

@@ -581,6 +581,90 @@ export function useVideoProject() {
     [commitProjectChange]
   );
 
+  // Detach Audio: separates audio from a video clip onto an audio track
+  const detachAudio = useCallback(
+    (clipId: string): string | null => {
+      let createdAudioClipId: string | null = null;
+
+      commitProjectChange((prev) => {
+        let videoClip: VideoClip | null = null;
+        let videoTrackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            videoClip = c;
+            videoTrackId = t.id;
+            break;
+          }
+        }
+
+        if (!videoClip || videoClip.type !== 'video') return prev;
+
+        // Find or create an audio track
+        let audioTrack = prev.tracks.find((t) => t.type === 'audio' && !t.locked);
+        let updatedTracks = [...prev.tracks];
+
+        if (!audioTrack) {
+          const newAudioTrack: TimelineTrack = {
+            id: 'track-audio-' + Date.now(),
+            name: 'Ayrılan Ses Kanalı',
+            type: 'audio',
+            clips: [],
+            muted: false,
+            locked: false,
+            visible: true,
+          };
+          updatedTracks.push(newAudioTrack);
+          audioTrack = newAudioTrack;
+        }
+
+        createdAudioClipId = 'clip-audio-' + Math.random().toString(36).substring(2, 9);
+        const audioClip: VideoClip = {
+          id: createdAudioClipId,
+          trackId: audioTrack.id,
+          assetId: videoClip.assetId,
+          sourceUrl: videoClip.sourceUrl,
+          name: `${videoClip.name} (Ses)`,
+          type: 'audio',
+          startTime: videoClip.startTime,
+          duration: videoClip.duration,
+          trimIn: videoClip.trimIn,
+          trimOut: videoClip.trimOut,
+          sourceDuration: videoClip.sourceDuration,
+          speed: videoClip.speed || 1.0,
+          volume: videoClip.volume ?? 1.0,
+          muted: false,
+          fadeIn: videoClip.fadeIn || 0,
+          fadeOut: videoClip.fadeOut || 0,
+        };
+
+        // Mute the original video clip
+        return {
+          ...prev,
+          tracks: updatedTracks.map((track) => {
+            if (track.id === videoTrackId) {
+              return {
+                ...track,
+                clips: track.clips.map((c) =>
+                  c.id === clipId ? { ...c, muted: true, volume: 0 } : c
+                ),
+              };
+            }
+            if (track.id === audioTrack!.id) {
+              const clips = [...track.clips, audioClip].sort((a, b) => a.startTime - b.startTime);
+              return { ...track, clips };
+            }
+            return track;
+          }),
+        };
+      });
+
+      return createdAudioClipId;
+    },
+    [commitProjectChange]
+  );
+
   // Text helpers
   const addTextClip = useCallback(
     (trackId: string, text: string, startTime = 0, duration = 3) => {
@@ -719,6 +803,7 @@ export function useVideoProject() {
     deleteClip,
     rippleDeleteClip,
     duplicateClip,
+    detachAudio,
     addTextClip,
     // Project property ops
     setProjectName,

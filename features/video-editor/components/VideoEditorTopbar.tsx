@@ -13,6 +13,7 @@ interface TopbarProps {
   onOpenExport: () => void;
   onOpenAi: () => void;
   onNavigateHome: () => void;
+  onOpenShortcuts?: () => void;
   isDirty: boolean;
 }
 
@@ -36,6 +37,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
   onRedo,
   onOpenExport,
   onOpenAi,
+  onOpenShortcuts,
   onNavigateHome,
   isDirty,
 }) => {
@@ -148,6 +150,43 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
           </button>
         </div>
 
+        {/* Quick Aspect Ratio Toggle Pills */}
+        <div className="flex items-center bg-[#161b22] rounded-lg border border-[#30363d] p-0.5 gap-0.5">
+          <button
+            onClick={() => onUpdateResolution(1920, 1080)}
+            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+              project.resolution.width === 1920 && project.resolution.height === 1080
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+            }`}
+            title="16:9 Yatay Format (YouTube, Video)"
+          >
+            📺 16:9
+          </button>
+          <button
+            onClick={() => onUpdateResolution(1080, 1920)}
+            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+              project.resolution.width === 1080 && project.resolution.height === 1920
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+            }`}
+            title="9:16 Dikey Format (Reels, TikTok, Shorts)"
+          >
+            📱 9:16
+          </button>
+          <button
+            onClick={() => onUpdateResolution(1080, 1080)}
+            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+              project.resolution.width === 1080 && project.resolution.height === 1080
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+            }`}
+            title="1:1 Kare Format (Instagram Post)"
+          >
+            📷 1:1
+          </button>
+        </div>
+
         {/* Resolution selector */}
         <select
           value={currentResKey}
@@ -176,8 +215,22 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
         </select>
       </div>
 
-      {/* Right: Forma AI & Export Button */}
-      <div className="flex items-center gap-3">
+      {/* Right: Shortcuts, Forma AI & Export Button */}
+      <div className="flex items-center gap-2.5">
+        {/* Shortcuts guide button */}
+        {onOpenShortcuts && (
+          <button
+            onClick={onOpenShortcuts}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#161b22] text-gray-300 hover:text-white hover:bg-[#21262d] border border-[#30363d] transition-all"
+            title="Klavye Kısayolları Rehberi"
+          >
+            <span className="w-4 h-4 rounded bg-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center text-[10px]">
+              ?
+            </span>
+            <span className="hidden sm:inline">Kısayollar</span>
+          </button>
+        )}
+
         {/* Forma AI button */}
         <button
           onClick={onOpenAi}

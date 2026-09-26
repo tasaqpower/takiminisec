@@ -12,6 +12,7 @@ import { VideoTimeline } from './VideoTimeline';
 import { VideoExportModal } from './VideoExportModal';
 import { VideoAiModal } from './VideoAiModal';
 import { VideoRecoveryModal } from './VideoRecoveryModal';
+import { VideoShortcutsModal } from './VideoShortcutsModal';
 
 interface WorkspaceProps {
   onNavigateHome?: () => void;
@@ -42,6 +43,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     deleteClip,
     rippleDeleteClip,
     duplicateClip,
+    detachAudio,
     addTextClip,
     setProjectName,
     setResolution,
@@ -69,6 +71,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
 
   // Return home guard
   const handleHomeClick = useCallback(() => {
@@ -127,6 +130,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         onRedo={redo}
         onOpenExport={() => setIsExportModalOpen(true)}
         onOpenAi={() => setIsAiModalOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
         onNavigateHome={handleHomeClick}
         isDirty={isDirty}
       />
@@ -142,6 +146,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onSetBackgroundColor={setBackgroundColor}
           onSetDuration={setDuration}
           currentTime={currentTime}
+          selectedClipId={selectedClipId}
+          onUpdateClipEffects={(clipId, effects) => updateClip(clipId, { effects })}
         />
 
         {/* Center Preview Viewport */}
@@ -178,6 +184,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onDuplicateClip={duplicateClip}
           onSetBackgroundColor={setBackgroundColor}
           onSetDuration={setDuration}
+          onDetachAudio={detachAudio}
         />
       </div>
 
@@ -199,6 +206,12 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         onToggleTrackMute={toggleTrackMute}
         onToggleTrackLock={toggleTrackLock}
         onToggleTrackVisibility={toggleTrackVisibility}
+        onDetachAudio={detachAudio}
+        onUpdateClipSpeed={(clipId, speed) => updateClip(clipId, { speed })}
+        onToggleClipMute={(clipId) => {
+          const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+          if (clip) updateClip(clipId, { muted: !clip.muted });
+        }}
       />
 
       {/* 4. MODALS */}
@@ -223,6 +236,11 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         onAccept={acceptRecovery}
         onDecline={declineRecovery}
         project={project}
+      />
+
+      <VideoShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
     </div>
   );

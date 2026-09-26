@@ -53,6 +53,8 @@ async function runTestSuite() {
     'features/video-editor/components/VideoRecoveryModal.tsx',
     'features/video-editor/components/ModeSelectionScreen.tsx',
     'features/video-editor/components/VideoEditorWorkspace.tsx',
+    'features/video-editor/components/VideoShortcutsModal.tsx',
+    'features/video-editor/engine/sfxGenerator.ts',
     'app/video-editor/page.tsx',
   ];
 
@@ -180,6 +182,49 @@ async function runTestSuite() {
     !projectCode.includes('axios.post'),
     'Gizlilik ve %100 Yerel Mimari Doğrulaması',
     'Hiçbir harici API veya sunucuya veri aktarımı yapılmamaktadır.'
+  );
+
+  // TEST 10: 1-Click Color & Atmosphere Presets Verification
+  const filterEngineCode = await fs.readFile('features/video-editor/engine/filterEngine.ts', 'utf-8');
+  assert(
+    filterEngineCode.includes('COLOR_PRESETS') &&
+    filterEngineCode.includes('cinematic') &&
+    filterEngineCode.includes('noir') &&
+    filterEngineCode.includes('vintage') &&
+    filterEngineCode.includes('cyberpunk'),
+    'Hazır Renk & Atmosfer Filtreleri (Presets) Doğrulaması'
+  );
+
+  // TEST 11: Built-in SFX & Audio Synthesizer Verification
+  const sfxCode = await fs.readFile('features/video-editor/engine/sfxGenerator.ts', 'utf-8');
+  assert(
+    sfxCode.includes('BUILTIN_SFX_LIST') &&
+    sfxCode.includes('whoosh') &&
+    sfxCode.includes('ding') &&
+    sfxCode.includes('pop') &&
+    sfxCode.includes('shutter') &&
+    sfxCode.includes('lofi-chord'),
+    'Dahili Telifsiz SFX & Müzik Sentezleyici Doğrulaması'
+  );
+
+  // TEST 12: Detach Audio & Context Menu Verification
+  const hookCode = await fs.readFile('features/video-editor/hooks/useVideoProject.ts', 'utf-8');
+  const timelineCode = await fs.readFile('features/video-editor/components/VideoTimeline.tsx', 'utf-8');
+  const topbarCode = await fs.readFile('features/video-editor/components/VideoEditorTopbar.tsx', 'utf-8');
+
+  assert(
+    hookCode.includes('detachAudio') &&
+    timelineCode.includes('onDetachAudio') &&
+    timelineCode.includes('contextMenu'),
+    'Sesi Videodan Ayırma (Detach Audio) & Sağ Tık Menüsü Doğrulaması'
+  );
+
+  assert(
+    topbarCode.includes('📺 16:9') &&
+    topbarCode.includes('📱 9:16') &&
+    topbarCode.includes('📷 1:1') &&
+    topbarCode.includes('onOpenShortcuts'),
+    'Üst Çubuk Hızlı Format Değiştirici & Kısayollar Butonu Doğrulaması'
   );
 
   // SUMMARY

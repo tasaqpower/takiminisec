@@ -1,5 +1,6 @@
 import React from 'react';
 import { VideoProject, VideoClip, Transform2D, ClipEffects, Transition, TransitionType, TextLayerData } from '../types';
+import { COLOR_PRESETS } from '../engine/filterEngine';
 
 interface PropertiesPanelProps {
   project: VideoProject;
@@ -10,6 +11,7 @@ interface PropertiesPanelProps {
   onDuplicateClip: (clipId: string) => void;
   onSetBackgroundColor: (color: string) => void;
   onSetDuration: (duration: number) => void;
+  onDetachAudio?: (clipId: string) => void;
 }
 
 const TRANSITION_OPTIONS: { value: TransitionType; label: string }[] = [
@@ -32,6 +34,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDuplicateClip,
   onSetBackgroundColor,
   onSetDuration,
+  onDetachAudio,
 }) => {
   if (!selectedClip) {
     return (
@@ -391,6 +394,18 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               />
               <span>Klibi Sessize Al (Mute)</span>
             </label>
+
+            {selectedClip.type === 'video' && onDetachAudio && (
+              <button
+                type="button"
+                onClick={() => onDetachAudio(selectedClip.id)}
+                className="w-full mt-2 py-2 px-3 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/30 flex items-center justify-center gap-2 text-xs font-semibold transition-colors"
+                title="Videonun sesini ayrı bir ses kanalına taşır ve videoyu sessize alır"
+              >
+                <span>🎵</span>
+                <span>Sesi Videodan Ayır (Detach Audio)</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -457,6 +472,32 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
               Renk & Filtre Ayarları
             </h4>
+
+            {/* Presets */}
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
+                Hazır Renk Şablonları (Presets)
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => updateEffects(preset.effects)}
+                    className="p-1.5 rounded-lg bg-[#0d1117] border border-[#30363d] hover:border-indigo-500/60 text-left transition-all group flex items-center gap-2"
+                    title={preset.description}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: preset.thumbnailColor }}
+                    />
+                    <span className="text-[10px] font-medium text-gray-300 group-hover:text-white truncate">
+                      {preset.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div>
               <div className="flex justify-between text-gray-400 text-[10px] mb-1">

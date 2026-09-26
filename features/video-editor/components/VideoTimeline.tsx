@@ -18,6 +18,9 @@ interface TimelineProps {
   onToggleTrackMute: (trackId: string) => void;
   onToggleTrackLock: (trackId: string) => void;
   onToggleTrackVisibility: (trackId: string) => void;
+  onDetachAudio?: (clipId: string) => void;
+  onUpdateClipSpeed?: (clipId: string, speed: number) => void;
+  onToggleClipMute?: (clipId: string) => void;
 }
 
 export const VideoTimeline: React.FC<TimelineProps> = ({
@@ -37,9 +40,18 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onToggleTrackMute,
   onToggleTrackLock,
   onToggleTrackVisibility,
+  onDetachAudio,
+  onUpdateClipSpeed,
+  onToggleClipMute,
 }) => {
   const [zoom, setZoom] = useState<number>(40); // pixels per second
   const [snapping, setSnapping] = useState<boolean>(true);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    clip: VideoClip;
+    track: TimelineTrack;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -149,6 +161,21 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isScrubbing, draggingClip, trimmingClip, zoom, clientXToTime, snapTime, onSeek, onMoveClip, onTrimClip, project.duration]);
+
+  // Close context menu on external click or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClose = () => setContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    window.addEventListener('click', handleClose);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu]);
 
   const totalWidth = Math.max(1200, (project.duration + 5) * zoom);
 
@@ -471,6 +498,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           e.stopPropagation();
                           onSelectClip(clip.id);
                         }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelectClip(clip.id);
+                          setContextMenu({
+                            x: Math.min(window.innerWidth - 230, e.clientX),
+                            y: Math.min(window.innerHeight - 320, e.clientY),
+                            clip,
+                            track,
+                          });
+                        }}
                         onMouseDown={(e) => {
                           if (e.button === 0 && !track.locked) {
                             e.stopPropagation();
@@ -493,6 +531,67 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             : 'hover:brightness-110 z-10'
                         }`}
                       >
+                        {/* 1. Background Visuals: Audio Waveform or Video Filmstrip */}
+                        {clip.type === 'audio' && (
+                          <div className="absolute inset-0 opacity-40 pointer-events-none flex items-center overflow-hidden px-1 z-0">
+                            <svg className="w-full h-8" preserveAspectRatio="none" viewBox="0 0 100 32">
+                              {Array.from({ length: 40 }).map((_, i) => {
+                                const seed = (clip.id.charCodeAt(clip.id.length - 1) || 1) * 31 + i * 17;
+                                const heightRatio = 0.2 + 0.8 * Math.abs(Math.sin(seed * 0.45));
+                                const barH = Math.max(3, heightRatio * 28);
+                                const y = (32 - barH) / 2;
+                                return (
+                                  <rect
+                                    key={i}
+                                    x={i * 2.5}
+                                    y={y}
+                                    width={1.6}
+                                    height={barH}
+                                    rx={0.8}
+                                    fill="#34d399"
+                                  />
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        )}
+
+                        {clip.type === 'video' && clip.sourceUrl && (
+                          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden flex z-0">
+                            {Array.from({ length: Math.max(1, Math.ceil(width / 70)) }).map((_, i) => (
+                              <div
+                                key={i}
+                                className="h-full w-[70px] shrink-0 bg-cover bg-center border-r border-black/30"
+                                style={{
+                                  backgroundImage: `url(${clip.sourceUrl})`,
+                                  backgroundColor: '#1e293b',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 2. Transition Badges */}
+                        {clip.transitionIn && clip.transitionIn.type !== 'cut' && clip.transitionIn.type !== 'none' && (
+                          <div
+                            className="absolute left-3 top-1 z-20 px-1 py-0.2 rounded bg-amber-500/90 text-black text-[8px] font-extrabold flex items-center gap-0.5 shadow pointer-events-none uppercase tracking-tight"
+                            title={`Giriş: ${clip.transitionIn.type} (${clip.transitionIn.duration}s)`}
+                          >
+                            <span>⚡</span>
+                            <span>{clip.transitionIn.type}</span>
+                          </div>
+                        )}
+
+                        {clip.transitionOut && clip.transitionOut.type !== 'cut' && clip.transitionOut.type !== 'none' && (
+                          <div
+                            className="absolute right-3 top-1 z-20 px-1 py-0.2 rounded bg-amber-500/90 text-black text-[8px] font-extrabold flex items-center gap-0.5 shadow pointer-events-none uppercase tracking-tight"
+                            title={`Çıkış: ${clip.transitionOut.type} (${clip.transitionOut.duration}s)`}
+                          >
+                            <span>{clip.transitionOut.type}</span>
+                            <span>⚡</span>
+                          </div>
+                        )}
+
                         {/* Left Trim Handle */}
                         <div
                           onMouseDown={(e) => {
@@ -509,16 +608,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               });
                             }
                           }}
-                          className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center"
+                          className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center z-10"
                           title="Başlangıcı Kırp"
                         >
                           <div className="w-[2px] h-3 bg-white/70" />
                         </div>
 
                         {/* Clip Content Label & Visuals */}
-                        <div className="flex-1 min-w-0 mx-2 pointer-events-none flex flex-col justify-center">
-                          <p className="text-xs font-semibold truncate text-white drop-shadow-sm">
-                            {clip.name}
+                        <div className="flex-1 min-w-0 mx-2 pointer-events-none flex flex-col justify-center relative z-10">
+                          <p className="text-xs font-semibold truncate text-white drop-shadow-sm flex items-center gap-1">
+                            {clip.muted && <span className="text-[10px]" title="Sessize Alındı">🔇</span>}
+                            <span>{clip.name}</span>
                           </p>
                           <p className="text-[9px] opacity-75 font-mono truncate">
                             {clip.duration.toFixed(1)} sn
@@ -542,7 +642,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               });
                             }
                           }}
-                          className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center"
+                          className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center z-10"
                           title="Bitişi Kırp"
                         >
                           <div className="w-[2px] h-3 bg-white/70" />
@@ -571,6 +671,125 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 4. Floating Clip Context Menu */}
+      {contextMenu && (
+        <div
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          className="fixed z-50 min-w-[210px] bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-1.5 text-xs text-gray-200 select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 border-b border-[#21262d] uppercase truncate mb-1">
+            {contextMenu.clip.name}
+          </div>
+
+          <button
+            onClick={() => {
+              onSplitClip(contextMenu.clip.id, currentTime);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <span>✂️</span>
+              <span>Buradan Böl</span>
+            </span>
+            <kbd className="text-[10px] text-gray-400 font-mono">S</kbd>
+          </button>
+
+          <button
+            onClick={() => {
+              onDuplicateClip(contextMenu.clip.id);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <span>📋</span>
+              <span>Kopyasını Oluştur</span>
+            </span>
+            <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+D</kbd>
+          </button>
+
+          {contextMenu.clip.type === 'video' && onDetachAudio && (
+            <button
+              onClick={() => {
+                onDetachAudio(contextMenu.clip.id);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-indigo-300 text-left"
+            >
+              <span>🎵</span>
+              <span>Sesi Videodan Ayır</span>
+            </button>
+          )}
+
+          {onToggleClipMute && (
+            <button
+              onClick={() => {
+                onToggleClipMute(contextMenu.clip.id);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+            >
+              <span>{contextMenu.clip.muted ? '🔊' : '🔇'}</span>
+              <span>{contextMenu.clip.muted ? 'Sesi Aç' : 'Sessize Al'}</span>
+            </button>
+          )}
+
+          {contextMenu.clip.type === 'video' && onUpdateClipSpeed && (
+            <div className="px-2.5 py-1.5 border-t border-b border-[#21262d] my-1">
+              <span className="text-[10px] text-gray-400 block mb-1">Oynatma Hızı</span>
+              <div className="flex items-center gap-1">
+                {[0.5, 1.0, 1.5, 2.0].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      onUpdateClipSpeed(contextMenu.clip.id, s);
+                      setContextMenu(null);
+                    }}
+                    className={`flex-1 py-0.5 rounded text-[10px] font-mono border ${
+                      (contextMenu.clip.speed || 1) === s
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-[#0d1117] text-gray-300 border-[#30363d] hover:bg-[#21262d]'
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              onDeleteClip(contextMenu.clip.id);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-red-600 hover:text-white text-red-400 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <span>🗑️</span>
+              <span>Klibi Sil</span>
+            </span>
+            <kbd className="text-[10px] font-mono">Del</kbd>
+          </button>
+
+          <button
+            onClick={() => {
+              onRippleDeleteClip(contextMenu.clip.id);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-red-600 hover:text-white text-red-400 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <span>⏩</span>
+              <span>Boşluğu Kapatıp Sil</span>
+            </span>
+            <kbd className="text-[10px] font-mono">Shift+Del</kbd>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
