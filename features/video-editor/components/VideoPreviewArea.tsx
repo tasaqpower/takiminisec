@@ -3,7 +3,8 @@ import { VideoProject, VideoClip, Transform2D } from '../types';
 import { renderFrameToCanvas, registerRedrawCallback } from '../engine/previewRenderer';
 import { exportEngine } from '../engine/exportEngine';
 import { audioMixer } from '../engine/audioMixer';
-import { calculateClipBounds, isPointInClip } from '../engine/clipBounds';
+import { calculateClipBounds, isPointInClip, getGizmoHandleAt, GizmoHandleType } from '../engine/clipBounds';
+import { preloadPopularFonts } from '../engine/fontCatalog';
 
 interface PreviewProps {
   project: VideoProject;
@@ -48,11 +49,31 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   const [masterVolume, setMasterVolume] = useState(1.0);
   const [isMuted, setIsMuted] = useState(false);
   const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
-  const dragStartPos = useRef<{ x: number; y: number; initialClipX: number; initialClipY: number } | null>(null);
+  const dragInfoRef = useRef<{
+    mode: GizmoHandleType;
+    startCanvasX: number;
+    startCanvasY: number;
+    initialClipX: number;
+    initialClipY: number;
+    initialScaleX: number;
+    initialScaleY: number;
+    initialRotation: number;
+    centerX: number;
+    centerY: number;
+    startAngle: number;
+    startDist: number;
+    boundsW: number;
+    boundsH: number;
+  } | null>(null);
 
   // In-canvas Direct Text Editing
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
+
+  // Preload top typography on mount
+  useEffect(() => {
+    preloadPopularFonts();
+  }, []);
 
   // Reactive subscription to video decoder ready / seeked events
   const [renderVersion, setRenderVersion] = useState(0);
@@ -128,7 +149,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     setEditingClipId(null);
   }, [editingClipId, editingText, onUpdateClipText]);
 
-  // Canvas Mouse Down: hit test to select clip and start dragging
+  // Canvas Mouse Down: hit test handles, rotation pin, or clip body
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
 
@@ -145,9 +166,37 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     const canvasX = (clickX / rect.width) * project.resolution.width;
     const canvasY = (clickY / rect.height) * project.resolution.height;
 
-    // 1. Hit test foreground interactive clips (text, overlays) first
-    let clickedClip: VideoClip | null = null;
+    // 1. If currently selected clip has an active gizmo handle or body clicked
+    if (selectedClip) {
+      const bounds = calculateClipBounds(selectedClip, project.resolution.width, project.resolution.height);
+      const handle = getGizmoHandleAt(canvasX, canvasY, bounds);
+      if (handle) {
+        dragInfoRef.current = {
+          mode: handle,
+          startCanvasX: canvasX,
+          startCanvasY: canvasY,
+          initialClipX: selectedClip.transform?.x || 0,
+          initialClipY: selectedClip.transform?.y || 0,
+          initialScaleX: selectedClip.transform?.scaleX ?? selectedClip.scaleX ?? 1,
+          initialScaleY: selectedClip.transform?.scaleY ?? selectedClip.scaleY ?? 1,
+          initialRotation: selectedClip.transform?.rotation ?? selectedClip.rotation ?? 0,
+          centerX: bounds.centerX,
+          centerY: bounds.centerY,
+          startAngle: Math.atan2(canvasY - bounds.centerY, canvasX - bounds.centerX),
+          startDist: Math.hypot(canvasX - bounds.centerX, canvasY - bounds.centerY),
+          boundsW: bounds.width,
+          boundsH: bounds.height,
+        };
+        setIsDraggingGizmo(true);
+        if (handle === 'rotate') {
+          canvasRef.current.style.cursor = 'grabbing';
+        }
+        return;
+      }
+    }
 
+    // 2. Hit test foreground interactive clips to select & start moving
+    let clickedClip: VideoClip | null = null;
     for (const track of project.tracks) {
       if (track.muted || track.visible === false || track.type === 'video' || track.type === 'audio') continue;
       for (const clip of track.clips) {
@@ -165,35 +214,31 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
 
     if (clickedClip) {
       onSelectClip?.(clickedClip.id);
-      setIsDraggingGizmo(true);
-      dragStartPos.current = {
-        x: clickX,
-        y: clickY,
+      const bounds = calculateClipBounds(clickedClip, project.resolution.width, project.resolution.height);
+      dragInfoRef.current = {
+        mode: 'move',
+        startCanvasX: canvasX,
+        startCanvasY: canvasY,
         initialClipX: clickedClip.transform?.x || 0,
         initialClipY: clickedClip.transform?.y || 0,
+        initialScaleX: clickedClip.transform?.scaleX ?? clickedClip.scaleX ?? 1,
+        initialScaleY: clickedClip.transform?.scaleY ?? clickedClip.scaleY ?? 1,
+        initialRotation: clickedClip.transform?.rotation ?? clickedClip.rotation ?? 0,
+        centerX: bounds.centerX,
+        centerY: bounds.centerY,
+        startAngle: Math.atan2(canvasY - bounds.centerY, canvasX - bounds.centerX),
+        startDist: Math.hypot(canvasX - bounds.centerX, canvasY - bounds.centerY),
+        boundsW: bounds.width,
+        boundsH: bounds.height,
       };
+      setIsDraggingGizmo(true);
       return;
-    }
-
-    // 2. If already having a selected clip, check if clicked inside its bounds to drag
-    if (selectedClip) {
-      const bounds = calculateClipBounds(selectedClip, project.resolution.width, project.resolution.height);
-      if (isPointInClip(canvasX, canvasY, bounds)) {
-        setIsDraggingGizmo(true);
-        dragStartPos.current = {
-          x: clickX,
-          y: clickY,
-          initialClipX: selectedClip.transform?.x || 0,
-          initialClipY: selectedClip.transform?.y || 0,
-        };
-        return;
-      }
     }
 
     // 3. Clicked empty space outside active elements -> DESELECT ALL
     onSelectClip?.(null);
+    dragInfoRef.current = null;
     setIsDraggingGizmo(false);
-    dragStartPos.current = null;
   };
 
   // Canvas Double Click: activate direct in-canvas text editing
@@ -209,7 +254,6 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
 
     // Find clicked text clip
     let textClip: VideoClip | null = null;
-
     for (const track of project.tracks) {
       if (track.type !== 'text' || track.muted || track.visible === false) continue;
       for (const clip of track.clips) {
@@ -237,27 +281,82 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDraggingGizmo || !dragStartPos.current || !selectedClip || !canvasRef.current) return;
+    if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    const curX = e.clientX - rect.left;
-    const curY = e.clientY - rect.top;
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
 
-    const scaleX = project.resolution.width / rect.width;
-    const scaleY = project.resolution.height / rect.height;
+    const canvasX = (clickX / rect.width) * project.resolution.width;
+    const canvasY = (clickY / rect.height) * project.resolution.height;
 
-    const deltaX = (curX - dragStartPos.current.x) * scaleX;
-    const deltaY = (curY - dragStartPos.current.y) * scaleY;
+    // A. Active Dragging Operation
+    if (isDraggingGizmo && dragInfoRef.current && selectedClip) {
+      const info = dragInfoRef.current;
 
-    onUpdateClipTransform(selectedClip.id, {
-      x: Math.round(dragStartPos.current.initialClipX + deltaX),
-      y: Math.round(dragStartPos.current.initialClipY + deltaY),
-    });
+      if (info.mode === 'rotate') {
+        const curAngle = Math.atan2(canvasY - info.centerY, canvasX - info.centerX);
+        let deltaDeg = ((curAngle - info.startAngle) * 180) / Math.PI;
+        let newRot = Math.round((info.initialRotation + deltaDeg) % 360);
+        if (newRot < 0) newRot += 360;
+        // Snap to cardinal angles (0, 90, 180, 270) if within 4 degrees
+        for (const snap of [0, 90, 180, 270, 360]) {
+          if (Math.abs(newRot - snap) <= 4) {
+            newRot = snap % 360;
+            break;
+          }
+        }
+        onUpdateClipTransform(selectedClip.id, { rotation: newRot });
+      } else if (info.mode.startsWith('resize')) {
+        const curDist = Math.hypot(canvasX - info.centerX, canvasY - info.centerY);
+        const scaleRatio = Math.max(0.1, curDist / Math.max(1, info.startDist));
+        const newScaleX = Number((info.initialScaleX * scaleRatio).toFixed(3));
+        const newScaleY = Number((info.initialScaleY * scaleRatio).toFixed(3));
+        onUpdateClipTransform(selectedClip.id, {
+          scaleX: Math.max(0.1, Math.min(10, newScaleX)),
+          scaleY: Math.max(0.1, Math.min(10, newScaleY)),
+        });
+      } else if (info.mode === 'move') {
+        const deltaX = canvasX - info.startCanvasX;
+        const deltaY = canvasY - info.startCanvasY;
+        onUpdateClipTransform(selectedClip.id, {
+          x: Math.round(info.initialClipX + deltaX),
+          y: Math.round(info.initialClipY + deltaY),
+        });
+      }
+      return;
+    }
+
+    // B. Idle Hover: dynamic cursor feedback
+    if (selectedClip && !isPlaying) {
+      const bounds = calculateClipBounds(selectedClip, project.resolution.width, project.resolution.height);
+      const handle = getGizmoHandleAt(canvasX, canvasY, bounds);
+      if (handle === 'rotate') {
+        canvasRef.current.style.cursor = 'grab';
+      } else if (handle === 'resize-nw' || handle === 'resize-se') {
+        canvasRef.current.style.cursor = 'nwse-resize';
+      } else if (handle === 'resize-ne' || handle === 'resize-sw') {
+        canvasRef.current.style.cursor = 'nesw-resize';
+      } else if (handle === 'resize-n' || handle === 'resize-s') {
+        canvasRef.current.style.cursor = 'ns-resize';
+      } else if (handle === 'resize-e' || handle === 'resize-w') {
+        canvasRef.current.style.cursor = 'ew-resize';
+      } else if (handle === 'move') {
+        canvasRef.current.style.cursor = 'move';
+      } else {
+        canvasRef.current.style.cursor = 'default';
+      }
+    } else {
+      canvasRef.current.style.cursor = 'default';
+    }
   };
 
   const handleCanvasMouseUp = () => {
     setIsDraggingGizmo(false);
-    dragStartPos.current = null;
+    dragInfoRef.current = null;
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = 'default';
+    }
   };
 
   // Find active editing clip

@@ -227,3 +227,60 @@ export function isPointInClip(pointX: number, pointY: number, bounds: ClipBounds
 
   return Math.abs(localX) <= bounds.halfW && Math.abs(localY) <= bounds.halfH;
 }
+
+export type GizmoHandleType =
+  | 'rotate'
+  | 'resize-nw'
+  | 'resize-ne'
+  | 'resize-se'
+  | 'resize-sw'
+  | 'resize-n'
+  | 'resize-s'
+  | 'resize-w'
+  | 'resize-e'
+  | 'move';
+
+/**
+ * Determines which gizmo handle (if any) is under the given point in canvas coordinates.
+ */
+export function getGizmoHandleAt(
+  pointX: number,
+  pointY: number,
+  bounds: ClipBounds,
+  handleHitRadius = 32
+): GizmoHandleType | null {
+  const dx = pointX - bounds.centerX;
+  const dy = pointY - bounds.centerY;
+  const rad = (-bounds.rotation * Math.PI) / 180;
+  const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+  const { halfW, halfH } = bounds;
+  const pinLength = 26;
+  const rotRadius = Math.max(handleHitRadius, 34);
+
+  // 1. Rotation pin handle at (0, -halfH - pinLength)
+  const distToRot = Math.hypot(localX - 0, localY - (-halfH - pinLength));
+  if (distToRot <= rotRadius) {
+    return 'rotate';
+  }
+
+  // 2. Corner handles (generous hit box for easy grabbing)
+  if (Math.hypot(localX - (-halfW), localY - (-halfH)) <= handleHitRadius) return 'resize-nw';
+  if (Math.hypot(localX - halfW, localY - (-halfH)) <= handleHitRadius) return 'resize-ne';
+  if (Math.hypot(localX - halfW, localY - halfH) <= handleHitRadius) return 'resize-se';
+  if (Math.hypot(localX - (-halfW), localY - halfH) <= handleHitRadius) return 'resize-sw';
+
+  // 3. Edge midpoint handles
+  if (Math.hypot(localX - 0, localY - (-halfH)) <= handleHitRadius) return 'resize-n';
+  if (Math.hypot(localX - halfW, localY - 0) <= handleHitRadius) return 'resize-e';
+  if (Math.hypot(localX - 0, localY - halfH) <= handleHitRadius) return 'resize-s';
+  if (Math.hypot(localX - (-halfW), localY - 0) <= handleHitRadius) return 'resize-w';
+
+  // 4. Inside the bounding box -> move
+  if (Math.abs(localX) <= halfW && Math.abs(localY) <= halfH) {
+    return 'move';
+  }
+
+  return null;
+}

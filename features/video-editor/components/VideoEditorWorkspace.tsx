@@ -88,6 +88,18 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     }
   }, [isDirty, onNavigateHome]);
 
+  // Live animation preview playback
+  const handlePreviewAnimation = useCallback(
+    (clipStartTime: number, durationSec = 1.8) => {
+      seek(clipStartTime);
+      play();
+      setTimeout(() => {
+        pause();
+      }, durationSec * 1000);
+    },
+    [seek, play, pause]
+  );
+
   // Keyboard shortcuts
   useShortcuts({
     onTogglePlay: togglePlay,
@@ -198,6 +210,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onSetBackgroundColor={setBackgroundColor}
           onSetDuration={setDuration}
           onDetachAudio={detachAudio}
+          onPreviewAnimation={handlePreviewAnimation}
+          onSeek={seek}
         />
       </div>
 
