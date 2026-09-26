@@ -145,6 +145,25 @@ export interface SubtitleItem {
   text: string;
 }
 
+export interface ChromaKeySettings {
+  enabled: boolean;
+  color: string; // hex color e.g. '#00FF00'
+  similarity: number; // 0.0 to 1.0 (default 0.35)
+  smoothness: number; // 0.0 to 1.0 (default 0.1)
+}
+
+export interface MaskSettings {
+  type: 'none' | 'circle' | 'rounded-rect' | 'star' | 'heart';
+  radius?: number; // for rounded-rect (in px)
+}
+
+export interface CropSettings {
+  top: number;    // % 0-50
+  right: number;  // % 0-50
+  bottom: number; // % 0-50
+  left: number;   // % 0-50
+}
+
 export interface ClipEffects {
   brightness?: number;   // -1 to 1 or 0 to 2
   contrast?: number;     // 0 to 3
@@ -159,14 +178,18 @@ export interface ClipEffects {
   grayscale?: number;    // 0 to 1
   sepia?: number;        // 0 to 1
   vignette?: number;     // 0 to 1
+  chromaKey?: ChromaKeySettings;
+  mask?: MaskSettings;
+  crop?: CropSettings;
 }
 
 export interface Keyframe {
   id: string;
-  time: number;
+  time: number; // relative to clip start (0 to clip.duration)
   x?: number;
   y?: number;
-  scale?: number;
+  scaleX?: number;
+  scaleY?: number;
   rotation?: number;
   opacity?: number;
   easing?: 'linear' | 'ease-in-out';

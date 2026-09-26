@@ -215,6 +215,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         <VideoPropertiesPanel
           project={project}
           selectedClip={selectedClip}
+          currentTime={currentTime}
           onUpdateClip={updateClip}
           onDeleteClip={deleteClip}
           onRippleDeleteClip={rippleDeleteClip}

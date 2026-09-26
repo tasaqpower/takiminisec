@@ -657,6 +657,27 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           </p>
                         </div>
 
+                        {/* Keyframe Diamond Markers */}
+                        {clip.keyframes && clip.keyframes.length > 0 && (
+                          <div className="absolute inset-x-0 bottom-1 h-3 pointer-events-none z-20 overflow-hidden">
+                            {clip.keyframes.map((kf) => {
+                              const kfPercent = Math.min(100, Math.max(0, (kf.time / (clip.duration || 1)) * 100));
+                              return (
+                                <div
+                                  key={kf.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSeek(clip.startTime + kf.time);
+                                  }}
+                                  className="absolute bottom-0 w-2.5 h-2.5 bg-amber-400 border border-amber-950 transform rotate-45 -translate-x-1/2 pointer-events-auto cursor-pointer hover:scale-125 hover:bg-yellow-200 transition-transform shadow-sm"
+                                  style={{ left: `${kfPercent}%` }}
+                                  title={`Keyframe: ${(clip.startTime + kf.time).toFixed(2)}s (Tıkla ve Git)`}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {/* Right Trim Handle */}
                         <div
                           onMouseDown={(e) => {

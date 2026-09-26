@@ -96,19 +96,25 @@ function safeRoundRect(
 function interpolateKeyframeValue(
   keyframes: Keyframe[] | undefined,
   clipTime: number,
-  field: 'x' | 'y' | 'scale' | 'rotation' | 'opacity',
+  field: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity',
   defaultValue: number
 ): number {
   if (!keyframes || keyframes.length === 0) return defaultValue;
 
   const validKfs = keyframes
-    .filter((kf) => kf[field] !== undefined)
+    .filter((kf) => (kf as any)[field] !== undefined || (field === 'scaleX' && (kf as any).scale !== undefined) || (field === 'scaleY' && (kf as any).scale !== undefined))
     .sort((a, b) => a.time - b.time);
 
   if (validKfs.length === 0) return defaultValue;
-  if (clipTime <= validKfs[0].time) return validKfs[0][field] ?? defaultValue;
+  const getVal = (kf: Keyframe): number => {
+    if ((kf as any)[field] !== undefined) return (kf as any)[field];
+    if (field === 'scaleX' || field === 'scaleY') return (kf as any).scale ?? defaultValue;
+    return defaultValue;
+  };
+
+  if (clipTime <= validKfs[0].time) return getVal(validKfs[0]);
   if (clipTime >= validKfs[validKfs.length - 1].time) {
-    return validKfs[validKfs.length - 1][field] ?? defaultValue;
+    return getVal(validKfs[validKfs.length - 1]);
   }
 
   // Find surrounding pair
@@ -117,15 +123,78 @@ function interpolateKeyframeValue(
     const k2 = validKfs[i + 1];
     if (clipTime >= k1.time && clipTime <= k2.time) {
       const duration = k2.time - k1.time;
-      if (duration <= 0) return k1[field] ?? defaultValue;
+      if (duration <= 0) return getVal(k1);
       const progress = (clipTime - k1.time) / duration;
-      const v1 = k1[field] ?? defaultValue;
-      const v2 = k2[field] ?? defaultValue;
+      const v1 = getVal(k1);
+      const v2 = getVal(k2);
       return v1 + (v2 - v1) * progress;
     }
   }
 
   return defaultValue;
+}
+
+let chromaOffscreenCanvas: HTMLCanvasElement | null = null;
+let chromaOffscreenCtx: CanvasRenderingContext2D | null = null;
+
+/**
+ * Real-time fast CPU Chroma Key (Green screen / Blue screen background color remover)
+ */
+function applyChromaKeyFrame(
+  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  w: number,
+  h: number,
+  hexColor: string,
+  similarity: number = 0.35,
+  smoothness: number = 0.1
+): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || w <= 0 || h <= 0) return null;
+  if (!chromaOffscreenCanvas) {
+    chromaOffscreenCanvas = document.createElement('canvas');
+    chromaOffscreenCtx = chromaOffscreenCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (!chromaOffscreenCtx) return null;
+
+  const renderW = Math.min(1280, w);
+  const renderH = Math.min(720, h);
+
+  if (chromaOffscreenCanvas.width !== renderW || chromaOffscreenCanvas.height !== renderH) {
+    chromaOffscreenCanvas.width = renderW;
+    chromaOffscreenCanvas.height = renderH;
+  }
+
+  chromaOffscreenCtx.clearRect(0, 0, renderW, renderH);
+  chromaOffscreenCtx.drawImage(source, 0, 0, renderW, renderH);
+
+  const cleanHex = hexColor.replace('#', '');
+  const tr = parseInt(cleanHex.substring(0, 2) || '00', 16);
+  const tg = parseInt(cleanHex.substring(2, 4) || 'ff', 16);
+  const tb = parseInt(cleanHex.substring(4, 6) || '00', 16);
+
+  try {
+    const imgData = chromaOffscreenCtx.getImageData(0, 0, renderW, renderH);
+    const data = imgData.data;
+    const len = data.length;
+
+    for (let i = 0; i < len; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const diff = Math.sqrt((r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2) / 441.67;
+      if (diff < similarity) {
+        data[i + 3] = 0;
+      } else if (diff < similarity + smoothness) {
+        const alphaFactor = (diff - similarity) / Math.max(0.001, smoothness);
+        data[i + 3] = Math.round(data[i + 3] * alphaFactor);
+      }
+    }
+
+    chromaOffscreenCtx.putImageData(imgData, 0, 0);
+    return chromaOffscreenCanvas;
+  } catch (err) {
+    return null;
+  }
 }
 
 /**
@@ -174,11 +243,17 @@ export function renderScene(renderCtx: RenderContext): void {
         // Interpolate keyframe transforms
         const currentX = interpolateKeyframeValue(clip.keyframes, clipTime, 'x', clip.transform?.x ?? clip.x ?? 0);
         const currentY = interpolateKeyframeValue(clip.keyframes, clipTime, 'y', clip.transform?.y ?? clip.y ?? 0);
-        const currentScale = interpolateKeyframeValue(
+        const currentScaleX = interpolateKeyframeValue(
           clip.keyframes,
           clipTime,
-          'scale',
+          'scaleX',
           clip.transform?.scaleX ?? clip.scaleX ?? 1
+        );
+        const currentScaleY = interpolateKeyframeValue(
+          clip.keyframes,
+          clipTime,
+          'scaleY',
+          clip.transform?.scaleY ?? clip.scaleY ?? 1
         );
         const currentRotation = interpolateKeyframeValue(
           clip.keyframes,
@@ -268,33 +343,34 @@ export function renderScene(renderCtx: RenderContext): void {
             if (currentRotation !== 0) ctx.rotate((currentRotation * Math.PI) / 180);
             if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
 
-            const scale = currentScale * transScale;
+            const sX = currentScaleX * transScale;
+            const sY = currentScaleY * transScale;
             const vw = video && video.videoWidth > 0 ? video.videoWidth : cachedCanvas ? cachedCanvas.width : width;
             const vh = video && video.videoHeight > 0 ? video.videoHeight : cachedCanvas ? cachedCanvas.height : height;
 
-            let dw = width * scale;
-            let dh = height * scale;
+            let dw = width * sX;
+            let dh = height * sY;
             const fitMode = clip.fitMode || 'fit';
 
             if (fitMode === 'fit') {
               const videoRatio = vw / Math.max(1, vh);
               const canvasRatio = width / Math.max(1, height);
               if (videoRatio > canvasRatio) {
-                dw = width * scale;
-                dh = (width / videoRatio) * scale;
+                dw = width * sX;
+                dh = (width / videoRatio) * sY;
               } else {
-                dh = height * scale;
-                dw = (height * videoRatio) * scale;
+                dh = height * sY;
+                dw = (height * videoRatio) * sX;
               }
             } else if (fitMode === 'fill') {
               const videoRatio = vw / Math.max(1, vh);
               const canvasRatio = width / Math.max(1, height);
               if (videoRatio > canvasRatio) {
-                dh = height * scale;
-                dw = (height * videoRatio) * scale;
+                dh = height * sY;
+                dw = (height * videoRatio) * sX;
               } else {
-                dw = width * scale;
-                dh = (width / videoRatio) * scale;
+                dw = width * sX;
+                dh = (width / videoRatio) * sY;
               }
             }
 
@@ -311,16 +387,59 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
-            if (clip.cornerRadius && clip.cornerRadius > 0) {
+            // Crop Clipping (Top, Right, Bottom, Left %)
+            const crop = clip.effects?.crop || (clip as any).crop;
+            if (crop && (crop.top > 0 || crop.right > 0 || crop.bottom > 0 || crop.left > 0)) {
+              ctx.beginPath();
+              const cropX = -dw / 2 + (dw * (crop.left || 0)) / 100;
+              const cropY = -dh / 2 + (dh * (crop.top || 0)) / 100;
+              const cropW = dw * (1 - ((crop.left || 0) + (crop.right || 0)) / 100);
+              const cropH = dh * (1 - ((crop.top || 0) + (crop.bottom || 0)) / 100);
+              ctx.rect(cropX, cropY, Math.max(1, cropW), Math.max(1, cropH));
+              ctx.clip();
+            }
+
+            // Mask Clipping (Circle, Rounded, etc.)
+            const mask = clip.effects?.mask || (clip as any).mask;
+            if (mask && mask.type !== 'none') {
+              ctx.beginPath();
+              if (mask.type === 'circle') {
+                const r = Math.min(dw, dh) / 2;
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+              } else if (mask.type === 'rounded-rect') {
+                const r = mask.radius || Math.min(dw, dh) * 0.15;
+                safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, r);
+              }
+              ctx.clip();
+            } else if (clip.cornerRadius && clip.cornerRadius > 0) {
               ctx.beginPath();
               safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, clip.cornerRadius);
               ctx.clip();
             }
 
-            // Draw active video or cached frame
+            // Draw active video or cached frame (with ChromaKey support)
+            const chroma = clip.effects?.chromaKey;
+            const useChroma = chroma && chroma.enabled;
+
             if (isVideoReady && video) {
               try {
-                ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+                if (useChroma) {
+                  const processedCanvas = applyChromaKeyFrame(
+                    video,
+                    video.videoWidth,
+                    video.videoHeight,
+                    chroma.color || '#00FF00',
+                    chroma.similarity || 0.35,
+                    chroma.smoothness || 0.1
+                  );
+                  if (processedCanvas) {
+                    ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
+                  } else {
+                    ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+                  }
+                } else {
+                  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+                }
 
                 // Update offscreen frame cache ONLY with valid decoded pixels
                 if (!cachedCanvas) {
@@ -344,7 +463,6 @@ export function renderScene(renderCtx: RenderContext): void {
               }
             } else if (cachedCanvas) {
               // Frame retention fallback: video is seeking, buffering or decoding
-              // Render last known good frame so canvas never flickers to black
               ctx.drawImage(cachedCanvas, -dw / 2, -dh / 2, dw, dh);
             }
 
@@ -374,32 +492,33 @@ export function renderScene(renderCtx: RenderContext): void {
             if (currentRotation !== 0) ctx.rotate((currentRotation * Math.PI) / 180);
             if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
 
-            const scale = currentScale * transScale;
+            const sX = currentScaleX * transScale;
+            const sY = currentScaleY * transScale;
             const iw = img.naturalWidth || width;
             const ih = img.naturalHeight || height;
-            let dw = width * scale;
-            let dh = height * scale;
+            let dw = width * sX;
+            let dh = height * sY;
 
             const fitMode = clip.fitMode || 'fit';
             if (fitMode === 'fit') {
               const imgRatio = iw / Math.max(1, ih);
               const canvasRatio = width / Math.max(1, height);
               if (imgRatio > canvasRatio) {
-                dw = width * scale;
-                dh = (width / imgRatio) * scale;
+                dw = width * sX;
+                dh = (width / imgRatio) * sY;
               } else {
-                dh = height * scale;
-                dw = (height * imgRatio) * scale;
+                dh = height * sY;
+                dw = (height * imgRatio) * sX;
               }
             } else if (fitMode === 'fill') {
               const imgRatio = iw / Math.max(1, ih);
               const canvasRatio = width / Math.max(1, height);
               if (imgRatio > canvasRatio) {
-                dh = height * scale;
-                dw = (height * imgRatio) * scale;
+                dh = height * sY;
+                dw = (height * imgRatio) * sX;
               } else {
-                dw = width * scale;
-                dh = (width / imgRatio) * scale;
+                dw = width * sX;
+                dh = (width / imgRatio) * sY;
               }
             }
 
@@ -415,13 +534,56 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
-            if (clip.cornerRadius && clip.cornerRadius > 0) {
+            // Crop Clipping (Top, Right, Bottom, Left %)
+            const crop = clip.effects?.crop || (clip as any).crop;
+            if (crop && (crop.top > 0 || crop.right > 0 || crop.bottom > 0 || crop.left > 0)) {
+              ctx.beginPath();
+              const cropX = -dw / 2 + (dw * (crop.left || 0)) / 100;
+              const cropY = -dh / 2 + (dh * (crop.top || 0)) / 100;
+              const cropW = dw * (1 - ((crop.left || 0) + (crop.right || 0)) / 100);
+              const cropH = dh * (1 - ((crop.top || 0) + (crop.bottom || 0)) / 100);
+              ctx.rect(cropX, cropY, Math.max(1, cropW), Math.max(1, cropH));
+              ctx.clip();
+            }
+
+            // Mask Clipping
+            const mask = clip.effects?.mask || (clip as any).mask;
+            if (mask && mask.type !== 'none') {
+              ctx.beginPath();
+              if (mask.type === 'circle') {
+                const r = Math.min(dw, dh) / 2;
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+              } else if (mask.type === 'rounded-rect') {
+                const r = mask.radius || Math.min(dw, dh) * 0.15;
+                safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, r);
+              }
+              ctx.clip();
+            } else if (clip.cornerRadius && clip.cornerRadius > 0) {
               ctx.beginPath();
               safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, clip.cornerRadius);
               ctx.clip();
             }
 
-            ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+            // Chroma Key for Image
+            const chroma = clip.effects?.chromaKey;
+            const useChroma = chroma && chroma.enabled;
+            if (useChroma) {
+              const processedCanvas = applyChromaKeyFrame(
+                img,
+                iw,
+                ih,
+                chroma.color || '#00FF00',
+                chroma.similarity || 0.35,
+                chroma.smoothness || 0.1
+              );
+              if (processedCanvas) {
+                ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
+              } else {
+                ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+              }
+            } else {
+              ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+            }
 
             if (transOverlay && transOverlay.a > 0) {
               ctx.fillStyle = `rgba(${transOverlay.r}, ${transOverlay.g}, ${transOverlay.b}, ${transOverlay.a})`;
@@ -434,7 +596,7 @@ export function renderScene(renderCtx: RenderContext): void {
         } catch (imgErr) {
           console.error('[FORMA] Error rendering image clip:', clip.id, imgErr);
         }
-      } else if (clip.type === 'text' && clip.textData) {
+      } else if ((clip.type === 'text' || clip.type === 'subtitle') && clip.textData) {
         try {
           renderTextLayer(ctx, {
             layer: clip.textData,
@@ -444,7 +606,7 @@ export function renderScene(renderCtx: RenderContext): void {
             canvasHeight: height,
             centerX: width / 2 + currentX + transOffsetX,
             centerY: height / 2 + currentY + transOffsetY,
-            scale: currentScale * transScale,
+            scale: currentScaleX * transScale,
             rotation: currentRotation,
             opacity: currentOpacity,
           });

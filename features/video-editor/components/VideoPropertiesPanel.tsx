@@ -21,6 +21,7 @@ import { notifyCanvasNeedsRedraw } from '../engine/previewRenderer';
 interface PropertiesPanelProps {
   project: VideoProject;
   selectedClip: VideoClip | null;
+  currentTime?: number;
   onUpdateClip: (clipId: string, updates: Partial<VideoClip>) => void;
   onDeleteClip: (clipId: string) => void;
   onRippleDeleteClip: (clipId: string) => void;
@@ -92,6 +93,7 @@ const EASING_OPTIONS: { id: TextEasingType; name: string }[] = [
 export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   project,
   selectedClip,
+  currentTime = 0,
   onUpdateClip,
   onDeleteClip,
   onRippleDeleteClip,
@@ -971,6 +973,242 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
 
+        {/* ============================================================== */}
+        {/* KEYFRAME ANIMATION STUDIO                                       */}
+        {/* ============================================================== */}
+        {(() => {
+          const relTime = Number(
+            Math.max(0, Math.min(selectedClip.duration, (currentTime - selectedClip.startTime) * (selectedClip.speed || 1))).toFixed(2)
+          );
+          const keyframes = selectedClip.keyframes || [];
+          const existingKfIndex = keyframes.findIndex((kf) => Math.abs(kf.time - relTime) < 0.08);
+          const hasKfAtPlayhead = existingKfIndex !== -1;
+
+          return (
+            <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+                  <span className="text-amber-400">◆</span>
+                  <span>Anahtar Kareler (Keyframe)</span>
+                </h4>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-amber-500/30">
+                  {keyframes.length} Kare
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] bg-[#0d1117] p-2 rounded-lg border border-white/5">
+                <span className="text-gray-400">Şu Anki Konum:</span>
+                <span className="font-mono text-indigo-400 font-bold">
+                  {relTime.toFixed(2)} sn / {selectedClip.duration.toFixed(2)} sn
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const newKf = {
+                    id: 'kf-' + Date.now(),
+                    time: relTime,
+                    x: transform.x,
+                    y: transform.y,
+                    scaleX: transform.scaleX,
+                    scaleY: transform.scaleY,
+                    rotation: transform.rotation,
+                    opacity: transform.opacity,
+                  };
+                  let updated: typeof keyframes;
+                  if (hasKfAtPlayhead) {
+                    updated = keyframes.map((kf, i) => (i === existingKfIndex ? { ...kf, ...newKf } : kf));
+                  } else {
+                    updated = [...keyframes, newKf].sort((a, b) => a.time - b.time);
+                  }
+                  onUpdateClip(selectedClip.id, { keyframes: updated });
+                }}
+                className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow ${
+                  hasKfAtPlayhead
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
+              >
+                <span>◆</span>
+                <span>{hasKfAtPlayhead ? 'Bu Karedeki Keyframe\'i Güncelle' : '+ Mevcut Konuma Keyframe Ekle'}</span>
+              </button>
+
+              {/* Keyframe List */}
+              {keyframes.length > 0 && (
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-gray-400 px-1">
+                    <span>Zaman Damgası</span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateClip(selectedClip.id, { keyframes: [] })}
+                      className="text-rose-400 hover:text-rose-300 font-semibold"
+                    >
+                      Tümünü Sil
+                    </button>
+                  </div>
+                  {keyframes.map((kf) => (
+                    <div
+                      key={kf.id}
+                      className="flex items-center justify-between p-1.5 rounded bg-[#0d1117] border border-white/5 text-[11px]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetTime = selectedClip.startTime + kf.time / (selectedClip.speed || 1);
+                          onSeek?.(targetTime);
+                        }}
+                        className="font-mono text-amber-300 hover:underline flex items-center gap-1"
+                        title="Bu keyframe anına git"
+                      >
+                        <span>◆</span>
+                        <span>{kf.time.toFixed(2)} sn</span>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          X:{Math.round(kf.x ?? 0)} Y:{Math.round(kf.y ?? 0)} Ö:{((kf.scaleX ?? 1) * 100).toFixed(0)}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = keyframes.filter((k) => k.id !== kf.id);
+                            onUpdateClip(selectedClip.id, { keyframes: updated });
+                          }}
+                          className="text-gray-500 hover:text-rose-400 text-xs px-1"
+                          title="Sil"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ============================================================== */}
+        {/* CROP & MASK STUDIO (VIDEO / IMAGE)                             */}
+        {/* ============================================================== */}
+        {(selectedClip.type === 'video' || selectedClip.type === 'image') && (() => {
+          const crop = effects.crop || { top: 0, right: 0, bottom: 0, left: 0 };
+          const mask = effects.mask || { type: 'none' };
+
+          return (
+            <div className="p-3 rounded-xl bg-[#161b22]/70 border border-[#30363d] space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-200 text-xs flex items-center gap-1.5">
+                  <span>✂️</span>
+                  <span>Kırpma & Maskeleme (Crop & Mask)</span>
+                </h4>
+              </div>
+
+              {/* Mask Presets */}
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
+                  Şekil Maskesi
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'none', label: 'Normal', icon: '⏹️' },
+                    { id: 'circle', label: 'Daire (Webcam)', icon: '🔘' },
+                    { id: 'rounded-rect', label: 'Yuvarlak Kutu', icon: '🔲' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => updateEffects({ mask: { type: m.id as any } })}
+                      className={`p-1.5 rounded-lg border text-center transition-all ${
+                        mask.type === m.id
+                          ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300 font-semibold'
+                          : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d] text-gray-400'
+                      }`}
+                    >
+                      <span className="block text-sm">{m.icon}</span>
+                      <span className="text-[10px] block truncate mt-0.5">{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4-Edge Crop Sliders */}
+              <div>
+                <div className="flex items-center justify-between mb-1 text-[10px]">
+                  <span className="text-gray-400 font-bold uppercase tracking-wider">Kenar Kırpma (%)</span>
+                  {(crop.top > 0 || crop.bottom > 0 || crop.left > 0 || crop.right > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => updateEffects({ crop: { top: 0, right: 0, bottom: 0, left: 0 } })}
+                      className="text-rose-400 hover:text-rose-300 font-semibold"
+                    >
+                      Sıfırla
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  <div>
+                    <div className="flex justify-between text-gray-400 mb-0.5">
+                      <span>Üst: {crop.top}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="45"
+                      step="1"
+                      value={crop.top || 0}
+                      onChange={(e) => updateEffects({ crop: { ...crop, top: parseInt(e.target.value) || 0 } })}
+                      className="w-full accent-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-gray-400 mb-0.5">
+                      <span>Alt: {crop.bottom}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="45"
+                      step="1"
+                      value={crop.bottom || 0}
+                      onChange={(e) => updateEffects({ crop: { ...crop, bottom: parseInt(e.target.value) || 0 } })}
+                      className="w-full accent-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-gray-400 mb-0.5">
+                      <span>Sol: {crop.left}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="45"
+                      step="1"
+                      value={crop.left || 0}
+                      onChange={(e) => updateEffects({ crop: { ...crop, left: parseInt(e.target.value) || 0 } })}
+                      className="w-full accent-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-gray-400 mb-0.5">
+                      <span>Sağ: {crop.right}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="45"
+                      step="1"
+                      value={crop.right || 0}
+                      onChange={(e) => updateEffects({ crop: { ...crop, right: parseInt(e.target.value) || 0 } })}
+                      className="w-full accent-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* SPEED SECTION */}
         {selectedClip.type === 'video' && (
           <div className="space-y-2">
@@ -1265,6 +1503,142 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
               Renk & Filtre Ayarları
             </h4>
+
+            {/* CHROMA KEY (GREEN SCREEN) STUDIO */}
+            <div className="p-2.5 rounded-lg bg-[#0d1117] border border-[#30363d] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-400 text-sm">🟩</span>
+                  <span className="text-xs font-semibold text-gray-200">Chroma Key (Yeşil Ekran)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = effects.chromaKey;
+                    const nextEnabled = !current?.enabled;
+                    updateEffects({
+                      chromaKey: {
+                        enabled: nextEnabled,
+                        color: current?.color || '#00FF00',
+                        similarity: current?.similarity ?? 0.35,
+                        smoothness: current?.smoothness ?? 0.1,
+                      },
+                    });
+                  }}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                    effects.chromaKey?.enabled
+                      ? 'bg-emerald-600 text-white border-emerald-500'
+                      : 'bg-[#161b22] text-gray-400 border-[#30363d] hover:text-white'
+                  }`}
+                >
+                  {effects.chromaKey?.enabled ? 'Açık' : 'Kapalı'}
+                </button>
+              </div>
+
+              {effects.chromaKey?.enabled && (
+                <div className="space-y-2 pt-1 border-t border-white/5">
+                  {/* Preset Colors */}
+                  <div>
+                    <label className="text-gray-400 text-[10px] block mb-1">Hedef Rengi Seç</label>
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { color: '#00FF00', label: 'Yeşil' },
+                        { color: '#0000FF', label: 'Mavi' },
+                        { color: '#000000', label: 'Siyah' },
+                        { color: '#FFFFFF', label: 'Beyaz' },
+                      ].map((c) => (
+                        <button
+                          key={c.color}
+                          type="button"
+                          onClick={() =>
+                            updateEffects({
+                              chromaKey: {
+                                ...effects.chromaKey!,
+                                color: c.color,
+                              },
+                            })
+                          }
+                          className={`flex-1 py-1 rounded text-[10px] flex items-center justify-center gap-1 border ${
+                            effects.chromaKey?.color?.toUpperCase() === c.color.toUpperCase()
+                              ? 'border-indigo-500 bg-indigo-600/20 text-white'
+                              : 'border-[#30363d] bg-[#161b22] text-gray-400'
+                          }`}
+                        >
+                          <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: c.color }} />
+                          <span>{c.label}</span>
+                        </button>
+                      ))}
+                      <input
+                        type="color"
+                        value={effects.chromaKey.color || '#00FF00'}
+                        onChange={(e) =>
+                          updateEffects({
+                            chromaKey: {
+                              ...effects.chromaKey!,
+                              color: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer shrink-0"
+                        title="Özel Renk Seç"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Similarity Slider */}
+                  <div>
+                    <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
+                      <span>Tolerans / Benzerlik</span>
+                      <span className="font-mono text-emerald-400">
+                        {Math.round((effects.chromaKey.similarity ?? 0.35) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.80"
+                      step="0.02"
+                      value={effects.chromaKey.similarity ?? 0.35}
+                      onChange={(e) =>
+                        updateEffects({
+                          chromaKey: {
+                            ...effects.chromaKey!,
+                            similarity: parseFloat(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full accent-emerald-500"
+                    />
+                  </div>
+
+                  {/* Smoothness Slider */}
+                  <div>
+                    <div className="flex justify-between text-gray-400 text-[10px] mb-0.5">
+                      <span>Kenar Yumuşatma</span>
+                      <span className="font-mono text-emerald-400">
+                        {Math.round((effects.chromaKey.smoothness ?? 0.1) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.00"
+                      max="0.40"
+                      step="0.02"
+                      value={effects.chromaKey.smoothness ?? 0.1}
+                      onChange={(e) =>
+                        updateEffects({
+                          chromaKey: {
+                            ...effects.chromaKey!,
+                            smoothness: parseFloat(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full accent-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Presets */}
             <div>
