@@ -179,12 +179,13 @@ export function WatermarkRemovalModal({
 
         let finalCandidates = [...detected];
 
-        // If no vector text watermarks found, try visual OCR on the active page
-        if (finalCandidates.length === 0 && typeof window !== "undefined") {
+        // If the active page has no candidates from vector/layer detection, run visual watermark detection for it
+        const hasActivePageCandidates = finalCandidates.some((c) => c.pages.includes(activePage - 1));
+        if (!hasActivePageCandidates && typeof window !== "undefined") {
           try {
             const visual = await detectVisualWatermarks(pdfBytes, activePage - 1);
             if (active && visual.length > 0) {
-              finalCandidates = visual;
+              finalCandidates = [...finalCandidates, ...visual];
             }
           } catch (err) {
             console.warn("Visual OCR auto-detection error:", err);

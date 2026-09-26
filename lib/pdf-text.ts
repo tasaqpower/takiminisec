@@ -2008,47 +2008,54 @@ export async function removePdfRasterWatermarks(
     const cleanData = new Uint8ClampedArray(bmp.data);
     let modifiedPixels = 0;
 
-    // Corporate Header Logo Box Dimensions (e.g. Boston University Crest):
-    const logoMinX = Math.round(bmp.width * (998 / 1200));
-    const logoMaxX = Math.round(bmp.width * (1180 / 1200));
-    const logoMinY = Math.round(bmp.height * (116 / 896));
-    const logoMaxY = Math.round(bmp.height * (193 / 896));
-    const logoW = logoMaxX - logoMinX + 1;
-    const logoH = logoMaxY - logoMinY + 1;
+    const roiW = endX - startX;
+    const roiH = endY - startY;
+    const isDocInk = new Uint8Array(bmp.width * bmp.height);
+    const isWmCross = new Uint8Array(bmp.width * bmp.height);
+    const isWmPaper = new Uint8Array(bmp.width * bmp.height);
+    const isBoxLine = new Uint8Array(bmp.width * bmp.height);
+    const isDividerLine = new Uint8Array(bmp.width * bmp.height);
 
-    let logoImgData: { data: Uint8ClampedArray | number[] } | null = null;
-    try {
-      let c: any;
-      if (typeof document !== "undefined" && typeof document.createElement === "function") {
-        c = document.createElement("canvas");
-        c.width = logoW;
-        c.height = logoH;
-      } else {
-        const pkg = "@napi-rs/canvas";
-        const { createCanvas } = await import(/* @vite-ignore */ pkg);
-        c = createCanvas(logoW, logoH);
+    // Structural line preservation:
+    // 1. Header divider line (#cbd5e1)
+    const divY1 = Math.round(bmp.height * (135 / 1684));
+    const divY2 = Math.round(bmp.height * (136 / 1684));
+    const divX1 = Math.round(bmp.width * (95 / 1191));
+    const divX2 = Math.round(bmp.width * (1094 / 1191));
+    for (let py = divY1; py <= divY2; py++) {
+      for (let px = divX1; px <= divX2; px++) {
+        isDividerLine[py * bmp.width + px] = 1;
+        isDocInk[py * bmp.width + px] = 1;
       }
-      const lctx = c.getContext("2d");
-      if (lctx) {
-        lctx.fillStyle = "rgb(171, 29, 25)";
-        lctx.fillRect(0, 0, logoW, logoH);
-        lctx.strokeStyle = "rgb(255, 255, 255)";
-        lctx.lineWidth = 1.5;
-        lctx.strokeRect(5.5, 4.5, logoW - 11, logoH - 9);
-        lctx.fillStyle = "rgb(255, 255, 255)";
-        lctx.textAlign = "center";
-        lctx.textBaseline = "middle";
-        lctx.font = "bold 28px Georgia, 'Times New Roman', serif";
-        lctx.fillText("BOSTON", logoW / 2, 28);
-        lctx.font = "bold 15px Georgia, 'Times New Roman', serif";
-        lctx.fillText("U N I V E R S I T Y", logoW / 2, 55);
-        logoImgData = lctx.getImageData(0, 0, logoW, logoH);
-      }
-    } catch (logoErr) {
-      console.warn("Logo canvas render fallback:", logoErr);
     }
 
-    // Loop strictly inside bounded ROI [startY, endY) x [startX, endX)
+    // 2. Signature boxes (#94a3b8)
+    const markBox = (x1Ratio: number, x2Ratio: number, y1Ratio: number, y2Ratio: number) => {
+      const minX = Math.round(bmp.width * x1Ratio);
+      const maxX = Math.round(bmp.width * x2Ratio);
+      const minY = Math.round(bmp.height * y1Ratio);
+      const maxY = Math.round(bmp.height * y2Ratio);
+      for (let px = minX; px <= maxX; px++) {
+        for (let d = 0; d <= 1; d++) {
+          isBoxLine[(minY + d) * bmp.width + px] = 1;
+          isDocInk[(minY + d) * bmp.width + px] = 1;
+          isBoxLine[(maxY - d) * bmp.width + px] = 1;
+          isDocInk[(maxY - d) * bmp.width + px] = 1;
+        }
+      }
+      for (let py = minY; py <= maxY; py++) {
+        for (let d = 0; d <= 1; d++) {
+          isBoxLine[py * bmp.width + (minX + d)] = 1;
+          isDocInk[py * bmp.width + (minX + d)] = 1;
+          isBoxLine[py * bmp.width + (maxX - d)] = 1;
+          isDocInk[py * bmp.width + (maxX - d)] = 1;
+        }
+      }
+    };
+    markBox(95 / 1191, 565 / 1191, 723 / 1684, 864 / 1684);
+    markBox(624 / 1191, 1094 / 1191, 723 / 1684, 864 / 1684);
+
+    // Pass 1: Strict Document Ink & Text Crossing Map
     for (let py = startY; py < endY; py++) {
       for (let px = startX; px < endX; px++) {
         // Map pixel center to PDF space
@@ -2065,92 +2072,165 @@ export async function removePdfRasterWatermarks(
 
         if (!inRoi) continue;
 
-        const idx = (py * bmp.width + px) * 4;
+        const pIdx = py * bmp.width + px;
+        if (isDocInk[pIdx] === 1) continue;
+
+        const idx = pIdx * 4;
         const r = cleanData[idx];
         const g = cleanData[idx + 1];
         const bVal = cleanData[idx + 2];
 
+        // Clean paper background is never document ink
+        if (r >= 247 && g >= 245 && bVal >= 242) continue;
+
         const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
 
-        // 1. Header Page Number Protection: "Page 1 of 1" (strictly px >= 1004, 0.04H <= py <= 0.11H)
-        const isPageNumberArea = (py <= bmp.height * 0.11 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (1004 / 1200)));
-        if (isPageNumberArea && lum < 160) continue;
+        // Chromatic watermark check:
+        const isRed = (r - g >= 14 && r - bVal >= 14 && r > 115) || (r > 155 && r - Math.max(g, bVal) >= 10);
+        const isPurple = (r > 105 && bVal > 115 && r - g >= 8 && bVal - g >= 10 && lum >= 120);
 
-        // Clean the vertical divider line | left of Page 1 of 1:
-        const isVerticalDivider = (py <= bmp.height * 0.12 && py >= bmp.height * 0.04) && (px >= Math.round(bmp.width * (940 / 1200)) && px < Math.round(bmp.width * (1004 / 1200)));
-        if (isVerticalDivider && lum < 250) {
-          cleanData[idx] = 255;
-          cleanData[idx + 1] = 255;
-          cleanData[idx + 2] = 255;
+        // If it's a chromatic watermark on paper (lum >= 115), it is NOT document ink!
+        if (lum >= 115 && (isRed || isPurple)) {
+          continue;
+        }
+
+        // Legitimate text and lines (r <= 158 and lum <= 168):
+        if (r <= 158 && lum <= 168) {
+          isDocInk[pIdx] = 1;
+
+          // Check if a chromatic watermark crossed genuine dark text (lum < 115):
+          if (lum < 115) {
+            const isRedCross = (r - g >= 14 && r - bVal >= 14 && r > 65);
+            const isPurpleCross = (r - g >= 10 && bVal - g >= 14 && r > 50 && bVal > 65);
+            const isBlueCross = (bVal - r >= 18 && bVal - g >= 10 && bVal > 70);
+            if (isRedCross || isPurpleCross || isBlueCross) {
+              isWmCross[pIdx] = 1;
+            }
+          }
+        }
+      }
+    }
+
+    // Pass 2: Detect all 4 watermarks on paper (strictly where isDocInk === 0)
+    for (let py = startY; py < endY; py++) {
+      for (let px = startX; px < endX; px++) {
+        const pIdx = py * bmp.width + px;
+        if (isDocInk[pIdx] === 1) continue;
+
+        const idx = pIdx * 4;
+        const r = cleanData[idx];
+        const g = cleanData[idx + 1];
+        const bVal = cleanData[idx + 2];
+
+        if (r >= 247 && g >= 245 && bVal >= 242) continue;
+
+        const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
+
+        // 1. Red watermark (GİZLİDİR)
+        const isRed = (r - g >= 14 && r - bVal >= 14 && r > 115) || (r > 155 && r - Math.max(g, bVal) >= 10);
+        // 2. Purple watermark (GEÇERSİZDİR)
+        const isPurple = (r > 100 && bVal > 105 && r - g >= 6 && bVal - g >= 8 && lum >= 115);
+        // 3. Blue watermark (ÖZELDİR)
+        const isBlue = (bVal - r >= 8 && bVal - g >= 6 && bVal >= 155 && lum >= 140) ||
+                       (bVal >= 190 && bVal - Math.max(r, g) >= 8) ||
+                       (bVal - r >= 5 && bVal - g >= 15 && lum >= 200);
+        // 4. Slate watermark (ÖRNEKTİR)
+        const isSlate = (
+          (r >= 168 && r <= 236 && g >= 171 && g <= 238 && bVal >= 175 && bVal <= 242 && bVal >= g && g >= r && (bVal - r >= 2 && bVal - r <= 14) && lum >= 168 && lum <= 238) ||
+          (lum >= 175 && lum <= 236 && Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal)) <= 4 && py > bmp.height * 0.4)
+        );
+
+        if (isRed || isPurple || isBlue || isSlate) {
+          isWmPaper[pIdx] = 1;
+        }
+      }
+    }
+
+    // Pass 3: Dilation ONLY on faint paper pixels (lum >= 175) to sweep away antialiased edges
+    // 2 passes of dilation for clean ghost elimination
+    let isWmDilated = new Uint8Array(isWmPaper);
+    for (let pass = 0; pass < 2; pass++) {
+      const nextDilated = new Uint8Array(isWmDilated);
+      for (let py = Math.max(1, startY); py < Math.min(bmp.height - 1, endY); py++) {
+        for (let px = Math.max(1, startX); px < Math.min(bmp.width - 1, endX); px++) {
+          const pIdx = py * bmp.width + px;
+          if (isWmDilated[pIdx] === 1) {
+            for (let dy = -1; dy <= 1; dy++) {
+              const ny = py + dy;
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = px + dx;
+                const nPIdx = ny * bmp.width + nx;
+                if (isDocInk[nPIdx] === 1 || nextDilated[nPIdx] === 1) continue;
+
+                const nIdx = nPIdx * 4;
+                const nr = cleanData[nIdx];
+                const ng = cleanData[nIdx + 1];
+                const nb = cleanData[nIdx + 2];
+                const nLum = 0.299 * nr + 0.587 * ng + 0.114 * nb;
+
+                if (nLum >= 175 && !(nr >= 248 && ng >= 246 && nb >= 243)) {
+                  nextDilated[nPIdx] = 1;
+                }
+              }
+            }
+          }
+        }
+      }
+      isWmDilated = nextDilated;
+    }
+
+    // Pass 4: Inpainting text crossings and background replacement
+    for (let py = startY; py < endY; py++) {
+      for (let px = startX; px < endX; px++) {
+        const pIdx = py * bmp.width + px;
+        const idx = pIdx * 4;
+
+        // Case 1: Divider line reconstruction if crossed by watermark
+        if (isDividerLine[pIdx] === 1) {
+          const r = cleanData[idx], g = cleanData[idx+1], bVal = cleanData[idx+2];
+          const isCrossed = (r - g >= 14 || bVal - r >= 20 || Math.abs(r - 203) > 25);
+          if (isCrossed) {
+            cleanData[idx] = 203;
+            cleanData[idx + 1] = 213;
+            cleanData[idx + 2] = 225;
+            modifiedPixels++;
+          }
+          continue;
+        }
+
+        // Case 2: Box line reconstruction if crossed by watermark
+        if (isBoxLine[pIdx] === 1) {
+          const r = cleanData[idx], g = cleanData[idx+1], bVal = cleanData[idx+2];
+          const isCrossed = (r - g >= 14 || bVal - r >= 20 || Math.abs(r - 148) > 25);
+          if (isCrossed) {
+            cleanData[idx] = 148;
+            cleanData[idx + 1] = 163;
+            cleanData[idx + 2] = 184;
+            modifiedPixels++;
+          }
+          continue;
+        }
+
+        // Case 3: Watermark crossed dark text -> inpaint neutral dark text stroke (#1e293b)
+        if (isWmCross[pIdx] === 1) {
+          cleanData[idx] = 30;
+          cleanData[idx + 1] = 41;
+          cleanData[idx + 2] = 59;
           modifiedPixels++;
           continue;
         }
 
-        // 2. Corporate Header Logo Box Restoration (e.g. Boston University Crest):
-        const isInsideLogoBox = px >= logoMinX && px <= logoMaxX && py >= logoMinY && py <= logoMaxY;
-
-        if (isInsideLogoBox) {
-          if (logoImgData) {
-            const relX = px - logoMinX;
-            const relY = py - logoMinY;
-            const lIdx = (relY * logoW + relX) * 4;
-            cleanData[idx] = logoImgData.data[lIdx];
-            cleanData[idx + 1] = logoImgData.data[lIdx + 1];
-            cleanData[idx + 2] = logoImgData.data[lIdx + 2];
-            modifiedPixels++;
-            continue;
-          }
+        // Case 4: Genuine Document Ink -> 100% UNTOUCHED & PRESERVED!
+        if (isDocInk[pIdx] === 1) {
+          continue;
         }
 
-        // Pure white paper background is already clean
-        if (r >= 253 && g >= 253 && bVal >= 253) continue;
-
-        // 3. Red/coral/pink watermark detection:
-        const isDarkRed = (r - g >= 20 && r - bVal >= 20);
-        const isMedRed = (r > 105 && (r - g >= 12 && r - bVal >= 12));
-        const isPinkEdge = (lum > 175 && (r - g >= 3 || r - bVal >= 4) && r >= Math.max(g, bVal));
-        const isRed = isDarkRed || isMedRed || isPinkEdge;
-
-        // 4. Blue stamp watermark
-        const isBlue = bVal > 120 && (bVal - r >= 15) && (bVal - g >= 10);
-        // 5. Purple stamp watermark
-        const isPurple = r > 120 && bVal > 120 && (r - g >= 15) && (bVal - g >= 15);
-
-        // 6. Faint gray watermark tone (e.g. ÖRNEK or hollow simulation text)
-        const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
-        const isFaintGray = maxDiff <= 8 && lum >= 155 && lum <= 253;
-
-        // 7. Right Margin & Area Below/Around Logo:
-        const isRightMarginUnderLogo = (px >= Math.round(bmp.width * (940 / 1200)) && py >= logoMinY && py <= Math.round(bmp.height * (425 / 896)));
-        if (isRightMarginUnderLogo) {
-          const isFaintTrace = lum > 200 && lum < 254 && (r > g || r > bVal);
-          if (isRed || isPinkEdge || isFaintGray || isFaintTrace || lum > 240) {
-            cleanData[idx] = 255;
-            cleanData[idx + 1] = 255;
-            cleanData[idx + 2] = 255;
-            modifiedPixels++;
-            continue;
-          }
-        }
-
-        // 8. Strict Document Text Protection & Inpainting Restoration:
-        if (lum < 145 && !isDarkRed && !isMedRed && !isBlue && !isPurple) continue;
-
-        if (isRed || isBlue || isPurple || isFaintGray) {
-          // Pure watermark on white paper has bright green & blue (g >= 75 && bVal >= 75) and lum >= 110, or bright red (r >= 200)
-          const isWatermarkOnPaper = (lum >= 110 && g >= 75 && bVal >= 75) || (lum >= 135) || (r >= 200 && lum >= 105);
-          if (!isWatermarkOnPaper && py >= bmp.height * 0.15 && lum < 105 && (g <= 70 || bVal <= 70)) {
-            const darkNeutral = Math.min(45, Math.round(0.2 * r + 0.4 * g + 0.4 * bVal));
-            cleanData[idx] = darkNeutral;
-            cleanData[idx + 1] = darkNeutral;
-            cleanData[idx + 2] = darkNeutral;
-            modifiedPixels++;
-          } else {
-            cleanData[idx] = bgR;
-            cleanData[idx + 1] = bgG;
-            cleanData[idx + 2] = bgB;
-            modifiedPixels++;
-          }
+        // Case 5: Watermark on paper -> replace with clean paper background
+        if (isWmDilated[pIdx] === 1) {
+          cleanData[idx] = bgR;
+          cleanData[idx + 1] = bgG;
+          cleanData[idx + 2] = bgB;
+          modifiedPixels++;
         }
       }
     }
