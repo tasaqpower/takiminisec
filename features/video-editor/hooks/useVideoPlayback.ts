@@ -18,24 +18,27 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
   const playbackRateRef = useRef(1.0);
   const isLoopingRef = useRef(false);
   const lastRafTimeRef = useRef<number | null>(null);
+  const lastAudioSyncTimeRef = useRef<number>(0);
   const rafIdRef = useRef<number | null>(null);
+  const projectRef = useRef(project);
 
   // Keep refs in sync
   isPlayingRef.current = isPlaying;
   currentTimeRef.current = currentTime;
   playbackRateRef.current = playbackRate;
   isLoopingRef.current = isLooping;
+  projectRef.current = project;
 
   const duration = Math.max(1, project.duration);
 
   // Audio sync helper
   const syncAudio = useCallback(
-    (time: number, playing: boolean) => {
-      audioMixer.syncPlayback(project, time, playing).catch((err) => {
-        console.warn('Audio sync error:', err);
+    (time: number, playing: boolean, forceSeek = false) => {
+      audioMixer.syncPlayback(projectRef.current, time, playing, forceSeek).catch((err) => {
+        console.warn('[FORMA Playback] Audio sync error:', err);
       });
     },
-    [project]
+    []
   );
 
   const pause = useCallback(() => {
@@ -52,6 +55,11 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
   const play = useCallback(() => {
     if (isPlayingRef.current) return;
 
+    // Browser autoplay policy: ensure AudioContext is awake immediately on user click
+    try {
+      audioMixer.getAudioContext();
+    } catch {}
+
     // If at the end, restart from 0
     if (currentTimeRef.current >= duration) {
       currentTimeRef.current = 0;
@@ -61,8 +69,9 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
     setIsPlaying(true);
     isPlayingRef.current = true;
     lastRafTimeRef.current = performance.now();
+    lastAudioSyncTimeRef.current = performance.now();
 
-    syncAudio(currentTimeRef.current, true);
+    syncAudio(currentTimeRef.current, true, true);
 
     const tick = (now: number) => {
       if (!isPlayingRef.current) return;
@@ -76,7 +85,7 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
             nextTime = 0;
             currentTimeRef.current = 0;
             setCurrentTime(0);
-            syncAudio(0, true);
+            syncAudio(0, true, true);
           } else {
             nextTime = duration;
             currentTimeRef.current = duration;
@@ -88,6 +97,12 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
           currentTimeRef.current = nextTime;
           setCurrentTime(nextTime);
           onTimeUpdate?.(nextTime);
+
+          // Continuous audio synchronization across clip boundaries
+          if (now - lastAudioSyncTimeRef.current >= 80) {
+            lastAudioSyncTimeRef.current = now;
+            syncAudio(nextTime, true, false);
+          }
         }
       }
 
@@ -114,9 +129,9 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
       onTimeUpdate?.(clamped);
 
       if (isPlayingRef.current) {
-        syncAudio(clamped, true);
+        syncAudio(clamped, true, true);
       } else {
-        syncAudio(clamped, false);
+        syncAudio(clamped, false, true);
       }
     },
     [duration, onTimeUpdate, syncAudio]
@@ -128,6 +143,17 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
     },
     [seek]
   );
+
+  // Background preload whenever project changes
+  useEffect(() => {
+    audioMixer.preloadProjectAudio(project).catch((err) => {
+      console.warn('[FORMA Playback] Audio preloading failed:', err);
+    });
+
+    if (isPlayingRef.current) {
+      syncAudio(currentTimeRef.current, true, false);
+    }
+  }, [project, syncAudio]);
 
   // Clean up on unmount
   useEffect(() => {

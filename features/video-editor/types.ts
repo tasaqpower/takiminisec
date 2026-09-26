@@ -9,24 +9,121 @@ export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | 'custom';
 export type ResolutionPreset = '480p' | '720p' | '1080p' | '4K' | 'original' | 'custom';
 
 export type TransitionType =
+  // Temel (Basic)
   | 'none'
   | 'cut'
   | 'crossfade'
   | 'fade-black'
   | 'fade-white'
+  | 'fade-through-blur'
+  | 'dissolve'
+  // Kaydırma ve İtme (Slide & Push)
   | 'slide-left'
   | 'slide-right'
   | 'slide-up'
   | 'slide-down'
+  | 'push-left'
+  | 'push-right'
+  | 'push-up'
+  | 'push-down'
+  | 'whip-pan-left'
+  | 'whip-pan-right'
+  // Perde ve Maske (Wipe & Mask)
+  | 'wipe-left'
+  | 'wipe-right'
+  | 'wipe-up'
+  | 'wipe-down'
+  | 'diagonal-wipe'
+  | 'circle-reveal'
+  | 'circle-close'
+  | 'soft-mask-reveal'
+  // Kamera ve Hareket (Camera & Motion)
   | 'zoom-in'
   | 'zoom-out'
+  | 'zoom-blur'
+  | 'spin'
+  | 'flip-horizontal'
+  | 'flip-vertical'
+  // Stilize (Stylized)
   | 'blur-dissolve'
-  | 'wipe-left'
-  | 'wipe-right';
+  | 'pixel-dissolve'
+  | 'rgb-split'
+  | 'glitch'
+  | 'light-leak'
+  | 'film-burn'
+  | 'flash'
+  | 'vhs-distortion';
 
 export interface Transition {
   type: TransitionType;
   duration: number; // in seconds
+  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+  intensity?: number;
+  direction?: 'left' | 'right' | 'up' | 'down';
+}
+
+export interface TimelineTransition {
+  id: string;
+  trackId: string;
+  type: TransitionType;
+  duration: number;
+  cutTime: number; // Cut time position on timeline
+  leftClipId?: string;
+  rightClipId?: string;
+  alignment: 'between' | 'in' | 'out';
+  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+  intensity?: number;
+  direction?: 'left' | 'right' | 'up' | 'down';
+}
+
+export interface EffectSegment {
+  id: string;
+  effectId: string;
+  effectKind: 'filter' | 'blur' | 'distortion' | 'color' | 'stylize';
+  name: string;
+  targetClipId?: string;
+  trackId?: string;
+  startTime: number;
+  duration: number;
+  parameters: Record<string, any>;
+  enabled: boolean;
+  blendMode?: string;
+  createdAt: number;
+}
+
+export interface TextAnimationSegment {
+  id: string;
+  type: 'in' | 'loop' | 'out';
+  animationName: string;
+  startTime: number; // Offset relative to text clip start (seconds)
+  duration: number;
+  easing?: TextEasingType;
+  speed?: number;
+  intensity?: number;
+  delay?: number;
+}
+
+export type DragPayloadType =
+  | 'transition'
+  | 'video-effect'
+  | 'text-animation'
+  | 'title-template'
+  | 'audio-sfx'
+  | 'overlay'
+  | 'filter-preset'
+  | 'video'
+  | 'audio'
+  | 'image'
+  | 'media';
+
+export interface DragPayload {
+  type: DragPayloadType;
+  id: string;
+  name: string;
+  icon?: string;
+  duration?: number;
+  category?: string;
+  data?: any;
 }
 
 export type TextInAnimationType =
@@ -38,15 +135,25 @@ export type TextInAnimationType =
   | 'slide-right'
   | 'scale'
   | 'pop'
+  | 'bounce-in'
+  | 'bounce-drop'
+  | 'elastic-in'
   | 'blur-in'
+  | 'rotate-in'
+  | 'flip-in'
+  | 'flip'
+  | 'mask-reveal'
+  | 'wipe-reveal'
+  | 'tracking-in'
+  | 'tracking'
   | 'typewriter'
   | 'word-by-word'
+  | 'char-cascade'
   | 'char-by-char'
-  | 'flip'
-  | 'neon-flash'
+  | 'glitch-in'
   | 'glitch'
-  | 'tracking'
-  | 'bounce-drop'
+  | 'neon-flicker-in'
+  | 'neon-flash'
   | 'wave'
   | 'crash-zoom';
 
@@ -55,8 +162,15 @@ export type TextLoopAnimationType =
   | 'pulse'
   | 'heartbeat'
   | 'float'
+  | 'gentle-shake'
+  | 'wiggle'
   | 'shimmer'
+  | 'breathing'
+  | 'neon-flicker'
   | 'glow-breathe'
+  | 'wave'
+  | 'subtle-zoom'
+  | 'color-sweep'
   | 'jitter'
   | 'strobe'
   | 'spin-slow';
@@ -66,11 +180,17 @@ export type TextOutAnimationType =
   | 'fade'
   | 'slide-down'
   | 'slide-up'
+  | 'slide-left'
+  | 'slide-right'
   | 'scale-down'
+  | 'pop-out'
   | 'blur-out'
-  | 'typewriter-erase'
-  | 'glitch-out'
+  | 'rotate-out'
   | 'flip-out'
+  | 'mask-close'
+  | 'typewriter-erase'
+  | 'char-scatter'
+  | 'glitch-out'
   | 'crash-out';
 
 export type TextEasingType =
@@ -263,6 +383,10 @@ export interface VideoClip {
 
   // Text
   textData?: TextLayerData;
+  animationSegments?: TextAnimationSegment[];
+
+  // Effect segments on this clip
+  effectSegments?: EffectSegment[];
 
   // Compatibility fields
   start?: number;
@@ -287,6 +411,12 @@ export interface TimelineTrack {
   muted: boolean;
   locked: boolean;
   visible: boolean;
+
+  // Track-level transitions between clips
+  transitions?: TimelineTransition[];
+
+  // Track-level effect segments
+  effectSegments?: EffectSegment[];
 
   // Compatibility
   order?: number;
@@ -318,6 +448,10 @@ export interface VideoProject {
   backgroundColor?: string;
   tracks: TimelineTrack[];
 
+  // Global transitions & effect segments (for fast indexing)
+  transitions?: TimelineTransition[];
+  effectSegments?: EffectSegment[];
+
   // Optional collections
   clips?: Record<string, VideoClip>;
   assets?: Record<string, MediaAsset>;
@@ -335,3 +469,4 @@ export interface ExportOptions {
   filename?: string;
   bitrate?: number;
 }
+

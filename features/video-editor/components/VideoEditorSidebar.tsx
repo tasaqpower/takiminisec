@@ -1,12 +1,24 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, MediaAsset, VideoClip, TransitionType, ClipEffects, TextLayerData } from '../types';
+import {
+  VideoProject,
+  MediaAsset,
+  VideoClip,
+  TransitionType,
+  ClipEffects,
+  TextLayerData,
+  TimelineTransition,
+  EffectSegment,
+  TextAnimationSegment,
+  TrackType,
+} from '../types';
 import { saveAssetBlob } from '../db';
 import { audioMixer } from '../engine/audioMixer';
 import { generateCoverThumbnail } from '../engine/thumbnailGenerator';
 import { BUILTIN_SFX_LIST, playSfxPreview, generateSfxBlob, SfxType } from '../engine/sfxGenerator';
-import { COLOR_PRESETS } from '../engine/filterEngine';
+import { COLOR_PRESETS, VISUAL_EFFECT_DEFINITIONS } from '../engine/filterEngine';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
-import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
+import { TEXT_STYLE_PRESETS, TEXT_ANIMATION_DEFINITIONS } from '../engine/textRasterizer';
+import { useEditorDragDrop } from '../context/DragDropContext';
 
 interface ElementPreset {
   id: string;
@@ -494,7 +506,7 @@ interface SidebarProps {
     startTime?: number,
     duration?: number,
     initialData?: Partial<TextLayerData>
-  ) => void;
+  ) => VideoClip;
   onAddTrack: (type: 'video' | 'audio' | 'text' | 'subtitle', name?: string) => void;
   onSetBackgroundColor: (color: string) => void;
   onSetDuration: (duration: number) => void;
@@ -504,6 +516,9 @@ interface SidebarProps {
   onPreviewAnimation?: (target: string | number, duration?: number) => void;
   onUpdateClipEffects?: (clipId: string, effects: Partial<ClipEffects>) => void;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
+  onAddTimelineTransition?: (transition: Omit<TimelineTransition, 'id'>) => TimelineTransition;
+  onAddEffectSegment?: (segment: Omit<EffectSegment, 'id' | 'createdAt'>) => EffectSegment;
+  onAddTextAnimationSegment?: (clipId: string, segment: Omit<TextAnimationSegment, 'id'>) => TextAnimationSegment;
 }
 
 type TabType = 'media' | 'text' | 'audio' | 'transitions' | 'filters' | 'subtitles' | 'elements' | 'settings';
@@ -521,7 +536,11 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   onPreviewAnimation,
   onUpdateClipEffects,
   onUpdateClip,
+  onAddTimelineTransition,
+  onAddEffectSegment,
+  onAddTextAnimationSegment,
 }) => {
+  const { startDrag, isClickSuppressed } = useEditorDragDrop();
   const [activeTab, setActiveTab] = useState<TabType>('media');
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
@@ -535,6 +554,19 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   const [mediaSubTab, setMediaSubTab] = useState<'all' | 'stock' | 'colors' | 'uploads'>('all');
   const [assetFilter, setAssetFilter] = useState<'all' | 'video' | 'audio' | 'image'>('all');
   const [assetSearch, setAssetSearch] = useState('');
+
+  // Transitions Filtering State
+  const [transitionCategory, setTransitionCategory] = useState<string>('all');
+  const [transitionSearch, setTransitionSearch] = useState<string>('');
+
+  // Effects & Filters State
+  const [filterSubTab, setFilterSubTab] = useState<'effects' | 'presets'>('effects');
+  const [effectCategory, setEffectCategory] = useState<string>('all');
+  const [effectSearch, setEffectSearch] = useState<string>('');
+
+  // Text Animations State
+  const [textAnimSubTab, setTextAnimSubTab] = useState<'in' | 'loop' | 'out'>('in');
+  const [textAnimSearch, setTextAnimSearch] = useState<string>('');
 
   const [sfxCategory, setSfxCategory] = useState<'all' | 'sfx' | 'bgm'>('all');
   const [elementsCategory, setElementsCategory] = useState<'all' | 'social' | 'arrows' | 'shapes' | 'emojis'>('all');
@@ -555,6 +587,15 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
       return '';
     }
     return project.tracks[0]?.id || '';
+  };
+
+  // Determine sequential start time if currentTime is 0 and track already has clips
+  const getNextClipStartTime = (trackId: string): number => {
+    const track = project.tracks.find((t) => t.id === trackId);
+    if (!track || track.clips.length === 0) return currentTime;
+    if (currentTime > 0) return currentTime;
+    const trackEnd = Math.max(...track.clips.map((c) => c.startTime + c.duration), 0);
+    return trackEnd;
   };
 
   // Handle local file upload
@@ -640,13 +681,14 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
       // Automatically add to timeline
       const targetType = isVideo ? 'video' : isAudio ? 'audio' : 'video';
       const targetTrackId = findTrack(targetType);
+      const startTime = getNextClipStartTime(targetTrackId);
 
       onAddClip(targetTrackId, {
         assetId: newAsset.id,
         name: newAsset.name,
         type: newAsset.type,
         sourceUrl: objectUrl,
-        startTime: currentTime,
+        startTime,
         duration: isImage ? 4 : duration,
         sourceDuration: duration,
         trimIn: 0,
@@ -1552,16 +1594,35 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                       .map((asset) => (
                         <div
                           key={asset.id}
-                          className="flex items-center gap-2.5 p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] group transition-all"
+                          onPointerDown={(e) => {
+                            if (e.button === 0) {
+                              startDrag(
+                                {
+                                  type: asset.type === 'audio' ? 'audio' : asset.type === 'image' ? 'image' : 'video',
+                                  id: asset.id,
+                                  name: asset.name,
+                                  icon: asset.type === 'audio' ? '🎵' : asset.type === 'image' ? '🖼️' : '📹',
+                                  duration: asset.type === 'image' ? 4 : asset.duration,
+                                  data: asset,
+                                },
+                                e.clientX,
+                                e.clientY
+                              );
+                            }
+                          }}
+                          className="flex items-center gap-2.5 p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] group transition-all cursor-grab active:cursor-grabbing select-none"
                         >
                           <div
                             onClick={() => {
+                              if (isClickSuppressed()) return;
                               const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                              const startTime = getNextClipStartTime(targetTrackId);
                               onAddClip(targetTrackId, {
                                 assetId: asset.id,
                                 name: asset.name,
                                 type: asset.type,
-                                startTime: currentTime,
+                                sourceUrl: asset.url,
+                                startTime,
                                 duration: asset.type === 'image' ? 4 : asset.duration,
                                 sourceDuration: asset.duration,
                               });
@@ -1569,19 +1630,22 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                             className="w-12 h-10 rounded bg-[#0d1117] flex items-center justify-center overflow-hidden border border-white/5 cursor-pointer shrink-0"
                           >
                             {asset.thumbnailUrl ? (
-                              <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                              <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover pointer-events-none" />
                             ) : (
-                              <span className="text-base">{asset.type === 'audio' ? '🎵' : '📹'}</span>
+                              <span className="text-base pointer-events-none">{asset.type === 'audio' ? '🎵' : '📹'}</span>
                             )}
                           </div>
                           <div
                             onClick={() => {
+                              if (isClickSuppressed()) return;
                               const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                              const startTime = getNextClipStartTime(targetTrackId);
                               onAddClip(targetTrackId, {
                                 assetId: asset.id,
                                 name: asset.name,
                                 type: asset.type,
-                                startTime: currentTime,
+                                sourceUrl: asset.url,
+                                startTime,
                                 duration: asset.type === 'image' ? 4 : asset.duration,
                                 sourceDuration: asset.duration,
                               });
@@ -1598,13 +1662,17 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isClickSuppressed()) return;
                                 const targetTrackId = findTrack(asset.type === 'audio' ? 'audio' : 'video');
+                                const startTime = getNextClipStartTime(targetTrackId);
                                 onAddClip(targetTrackId, {
                                   assetId: asset.id,
                                   name: asset.name,
                                   type: asset.type,
-                                  startTime: currentTime,
+                                  sourceUrl: asset.url,
+                                  startTime,
                                   duration: asset.type === 'image' ? 4 : asset.duration,
                                   sourceDuration: asset.duration,
                                 });
@@ -1648,8 +1716,9 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
 
             {/* 6 Quick-Add Templates */}
             <div>
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Hızlı Metin Şablonları (6 Çeşit)
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Hızlı Metin Şablonları (6 Çeşit)</span>
+                <span className="text-[9px] text-indigo-400 lowercase font-mono">sürükle & bırak</span>
               </h4>
               <div className="space-y-2">
                 {[
@@ -1718,14 +1787,33 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                     },
                   },
                 ].map((tmpl, idx) => (
-                  <button
+                  <div
                     key={idx}
-                    type="button"
+                    onPointerDown={(e) => {
+                      if (e.button === 0) {
+                        startDrag(
+                          {
+                            type: 'title-template',
+                            id: `tmpl-${idx}`,
+                            name: tmpl.label,
+                            icon: '🔤',
+                            duration: 4,
+                            category: 'text',
+                            data: tmpl,
+                          },
+                          e.clientX,
+                          e.clientY
+                        );
+                      }
+                    }}
                     onClick={() => {
+                      if (isClickSuppressed()) return;
                       const targetTrackId = findTrack('text');
                       onAddTextClip(targetTrackId, tmpl.text, currentTime, 4, tmpl.data);
+                      setStatusBanner(`🔤 "${tmpl.label}" eklendi!`);
+                      setTimeout(() => setStatusBanner(null), 3000);
                     }}
-                    className="w-full text-left p-2.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all group"
+                    className="w-full text-left p-2.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all group cursor-grab active:cursor-grabbing select-none"
                   >
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
@@ -1734,22 +1822,40 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                       <span className="text-[10px] text-indigo-400 font-medium">+ Ekle</span>
                     </div>
                     <p className="text-[10px] text-gray-400 line-clamp-1">{tmpl.desc}</p>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* 10 1-Click Style Presets */}
             <div>
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                1-Tıkla Tasarım Stilleri (10 Hazır Stil)
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>1-Tıkla Tasarım Stilleri (10 Hazır Stil)</span>
+                <span className="text-[9px] text-indigo-400 lowercase font-mono">sürükle & bırak</span>
               </h4>
               <div className="grid grid-cols-2 gap-2">
                 {TEXT_STYLE_PRESETS.map((preset) => (
-                  <button
+                  <div
                     key={preset.id}
-                    type="button"
+                    onPointerDown={(e) => {
+                      if (e.button === 0) {
+                        startDrag(
+                          {
+                            type: 'title-template',
+                            id: preset.id,
+                            name: preset.name,
+                            icon: '🎨',
+                            duration: 4,
+                            category: 'preset',
+                            data: { text: preset.name, data: preset.data },
+                          },
+                          e.clientX,
+                          e.clientY
+                        );
+                      }
+                    }}
                     onClick={() => {
+                      if (isClickSuppressed()) return;
                       const targetTrackId = findTrack('text');
                       onAddTextClip(
                         targetTrackId,
@@ -1758,8 +1864,10 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                         4,
                         preset.data
                       );
+                      setStatusBanner(`🎨 "${preset.name}" stili eklendi!`);
+                      setTimeout(() => setStatusBanner(null), 3000);
                     }}
-                    className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all text-left flex flex-col justify-between group"
+                    className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all text-left flex flex-col justify-between group cursor-grab active:cursor-grabbing select-none"
                     title={preset.description}
                   >
                     <div className="flex items-center gap-1.5 mb-1">
@@ -1772,8 +1880,162 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                       </span>
                     </div>
                     <p className="text-[9px] text-gray-500 line-clamp-1">{preset.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Metin Animasyonları (45 Çeşit - Türkçe Graphem Destekli) */}
+            <div className="pt-2 border-t border-[#21262d] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>✨</span>
+                  <span>Metin Animasyonları ({TEXT_ANIMATION_DEFINITIONS.length})</span>
+                </h4>
+                <span className="text-[10px] text-indigo-400 font-mono">Türkçe Güvenli</span>
+              </div>
+
+              {/* In / Loop / Out Category Subtabs */}
+              <div className="flex items-center bg-[#161b22] p-0.5 rounded-lg border border-[#30363d] gap-1">
+                {(['in', 'loop', 'out'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setTextAnimSubTab(mode)}
+                    className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors ${
+                      textAnimSubTab === mode
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    {mode === 'in' ? 'Giriş (20)' : mode === 'loop' ? 'Döngü (11)' : 'Çıkış (14)'}
                   </button>
                 ))}
+              </div>
+
+              {/* Search input */}
+              <input
+                type="text"
+                placeholder="Animasyon ara..."
+                value={textAnimSearch}
+                onChange={(e) => setTextAnimSearch(e.target.value)}
+                className="w-full px-2.5 py-1 rounded bg-[#161b22] border border-[#30363d] text-white text-xs outline-none focus:border-indigo-500"
+              />
+
+              {/* Animation Cards Grid */}
+              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
+                {TEXT_ANIMATION_DEFINITIONS.filter((a) => a.type === textAnimSubTab)
+                  .filter(
+                    (a) =>
+                      !textAnimSearch.trim() ||
+                      a.name.toLowerCase().includes(textAnimSearch.toLowerCase()) ||
+                      a.description.toLowerCase().includes(textAnimSearch.toLowerCase())
+                  )
+                  .map((anim) => {
+                    const textClips = project.tracks
+                      .filter((t) => t.type === 'text' || t.type === 'subtitle')
+                      .flatMap((t) => t.clips);
+                    const selectedTextClip = textClips.find((c) => c.id === selectedClipId);
+
+                    return (
+                      <div
+                        key={anim.id}
+                        onPointerDown={(e) => {
+                          if (e.button === 0) {
+                            startDrag(
+                              {
+                                type: 'text-animation',
+                                id: anim.id,
+                                name: anim.name,
+                                icon: anim.icon,
+                                duration: anim.defaultDuration,
+                                category: anim.type,
+                                data: anim,
+                              },
+                              e.clientX,
+                              e.clientY
+                            );
+                          }
+                        }}
+                        onClick={() => {
+                          if (isClickSuppressed()) return;
+                          if (selectedTextClip) {
+                            if (onAddTextAnimationSegment) {
+                              onAddTextAnimationSegment(selectedTextClip.id, {
+                                type: anim.type,
+                                animationName: anim.id,
+                                startTime: 0,
+                                duration: anim.defaultDuration,
+                              });
+                            } else if (onUpdateClip) {
+                              const tData = { ...(selectedTextClip.textData || {}) } as any;
+                              if (anim.type === 'in') {
+                                tData.inAnimation = anim.id;
+                                tData.inDuration = anim.defaultDuration;
+                              } else if (anim.type === 'loop') {
+                                tData.loopAnimation = anim.id;
+                              } else if (anim.type === 'out') {
+                                tData.outAnimation = anim.id;
+                                tData.outDuration = anim.defaultDuration;
+                              }
+                              onUpdateClip(selectedTextClip.id, { textData: tData });
+                            }
+                            if (onPreviewAnimation) {
+                              onPreviewAnimation(selectedTextClip.id, anim.defaultDuration + 0.5);
+                            }
+                            setStatusBanner(`✨ "${anim.name}" seçili metne uygulandı!`);
+                            setTimeout(() => setStatusBanner(null), 3000);
+                          } else {
+                            // Create text clip with this animation
+                            const targetTrackId = findTrack('text');
+                            const initialData: any = {};
+                            if (anim.type === 'in') {
+                              initialData.inAnimation = anim.id;
+                              initialData.inDuration = anim.defaultDuration;
+                            } else if (anim.type === 'loop') {
+                              initialData.loopAnimation = anim.id;
+                            } else if (anim.type === 'out') {
+                              initialData.outAnimation = anim.id;
+                              initialData.outDuration = anim.defaultDuration;
+                            }
+                            const newClip = onAddTextClip(
+                              targetTrackId,
+                              anim.name,
+                              currentTime,
+                              4,
+                              initialData
+                            );
+                            if (onPreviewAnimation && newClip) {
+                              onPreviewAnimation(newClip.id, anim.defaultDuration + 0.5);
+                            }
+                            setStatusBanner(`✨ "${anim.name}" ile yeni metin katmanı eklendi!`);
+                            setTimeout(() => setStatusBanner(null), 3000);
+                          }
+                        }}
+                        className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all text-left group cursor-grab active:cursor-grabbing select-none flex flex-col justify-between"
+                        title={anim.description}
+                      >
+                        <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1">
+                          <span>{anim.icon}</span>
+                          <span className="text-[10px] font-bold text-indigo-400 font-mono">
+                            {anim.id.toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                            {anim.name}
+                          </p>
+                          <p className="text-[9px] text-gray-400 line-clamp-1">{anim.description}</p>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-[9px] text-indigo-400 font-mono">
+                          <span>⏱️ {anim.defaultDuration}s</span>
+                          <span className="opacity-0 group-hover:opacity-100 font-bold transition-opacity">
+                            + Uygula
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -1828,13 +2090,32 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
               {ELEMENT_PRESETS.filter(
                 (el) => elementsCategory === 'all' || el.category === elementsCategory
               ).map((preset) => (
-                <button
+                <div
                   key={preset.id}
-                  type="button"
-                  onClick={() => handleAddElement(preset)}
-                  className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-amber-500 transition-all text-left flex flex-col justify-between group cursor-pointer"
+                  onPointerDown={(e) => {
+                    if (e.button === 0) {
+                      startDrag(
+                        {
+                          type: 'overlay',
+                          id: preset.id,
+                          name: preset.name,
+                          icon: preset.icon,
+                          duration: 4,
+                          category: preset.category,
+                          data: preset,
+                        },
+                        e.clientX,
+                        e.clientY
+                      );
+                    }
+                  }}
+                  onClick={() => {
+                    if (isClickSuppressed()) return;
+                    handleAddElement(preset);
+                  }}
+                  className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-amber-500 transition-all text-left flex flex-col justify-between group cursor-grab active:cursor-grabbing select-none"
                 >
-                  <div className="w-full h-12 rounded bg-[#0d1117] flex items-center justify-center p-1 mb-1.5 overflow-hidden">
+                  <div className="w-full h-12 rounded bg-[#0d1117] flex items-center justify-center p-1 mb-1.5 overflow-hidden pointer-events-none">
                     {preset.svg ? (
                       <div
                         className="w-full h-full flex items-center justify-center [&>svg]:max-h-full [&>svg]:max-w-full"
@@ -1850,7 +2131,7 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                     </span>
                     <span className="text-amber-400 text-xs font-bold">+</span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -1912,9 +2193,26 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
               ).map((sfx) => (
                 <div
                   key={sfx.id}
-                  className="p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500/50 transition-all flex items-center justify-between gap-2.5 group"
+                  onPointerDown={(e) => {
+                    if (e.button === 0) {
+                      startDrag(
+                        {
+                          type: 'audio-sfx',
+                          id: sfx.id,
+                          name: sfx.name,
+                          icon: sfx.icon,
+                          duration: sfx.duration,
+                          category: sfx.category,
+                          data: sfx,
+                        },
+                        e.clientX,
+                        e.clientY
+                      );
+                    }
+                  }}
+                  className="p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500/50 transition-all flex items-center justify-between gap-2.5 group cursor-grab active:cursor-grabbing select-none"
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 pointer-events-none">
                     <span className="text-lg shrink-0">{sfx.icon}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-gray-200 truncate group-hover:text-indigo-300">
@@ -1928,14 +2226,20 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
 
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      onClick={() => playSfxPreview(sfx.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playSfxPreview(sfx.id);
+                      }}
                       className="p-1.5 rounded-md bg-[#0d1117] hover:bg-indigo-600/30 text-gray-300 hover:text-indigo-300 border border-[#30363d] transition-colors"
                       title="Sesi Dinle"
                     >
                       🔊
                     </button>
                     <button
-                      onClick={async () => {
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         try {
                           setAddingSfxId(sfx.id);
                           const blob = await generateSfxBlob(sfx.id);
@@ -1955,6 +2259,8 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
                             trimOut: sfx.duration,
                             volume: 0.9,
                           });
+                          setStatusBanner(`🎵 "${sfx.name}" ses kanalına eklendi!`);
+                          setTimeout(() => setStatusBanner(null), 3000);
                         } catch (err) {
                           console.warn('Failed to add SFX:', err);
                         } finally {
@@ -1978,10 +2284,11 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
         {activeTab === 'transitions' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Klip Geçiş Efektleri (13 Çeşit)
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🔀</span>
+                <span>Klip Geçiş Efektleri ({TRANSITION_DEFINITIONS.length} Çeşit)</span>
               </h4>
-              <span className="text-[10px] text-indigo-400 font-mono">13 Geçiş</span>
+              <span className="text-[10px] text-indigo-400 font-mono">5 Kategori</span>
             </div>
 
             {statusBanner && (
@@ -1992,138 +2299,394 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
             )}
 
             <p className="text-[11px] text-gray-400">
-              {selectedClipId
-                ? 'Geçiş uygulamak ve tuvalde canlı izlemek için bir efekte tıklayın.'
-                : 'Bir efekte tıkladığınızda otomatik olarak oynatma çizgisindeki veya ilk klibe uygulanır.'}
+              Klipler arasına veya klip kenarlarına sürükleyip bırakabilir ya da seçili klibe doğrudan tıklayarak uygulayabilirsiniz.
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
-              {TRANSITION_DEFINITIONS.map((tr) => {
-                const allClips = project.tracks
-                  .flatMap((t) => t.clips)
-                  .filter((c) => c.type === 'video' || c.type === 'image');
-                const targetClip =
-                  (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
-                  allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
-                  allClips[0];
-                const isApplied = targetClip?.transitionIn?.type === tr.id;
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { id: 'all', label: 'Tümü (38)' },
+                { id: 'basic', label: 'Temel (4)' },
+                { id: 'slide-push', label: 'Kayma & İtme (8)' },
+                { id: 'wipe-mask', label: 'Silme & Maske (9)' },
+                { id: 'camera-motion', label: 'Kamera (8)' },
+                { id: 'stylize', label: 'Stilize (9)' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setTransitionCategory(cat.id)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap transition-colors ${
+                    transitionCategory === cat.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-[#161b22] text-gray-400 hover:text-gray-200 border border-[#30363d]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
-                return (
-                  <button
-                    key={tr.id}
-                    type="button"
-                    onClick={() => {
-                      if (!targetClip) {
-                        setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Geçiş efekti ara..."
+              value={transitionSearch}
+              onChange={(e) => setTransitionSearch(e.target.value)}
+              className="w-full px-2.5 py-1 rounded bg-[#161b22] border border-[#30363d] text-white text-xs outline-none focus:border-indigo-500"
+            />
+
+            {/* Transition Cards Grid */}
+            <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto pr-1">
+              {TRANSITION_DEFINITIONS.filter(
+                (tr) => transitionCategory === 'all' || tr.category === transitionCategory
+              )
+                .filter(
+                  (tr) =>
+                    !transitionSearch.trim() ||
+                    tr.name.toLowerCase().includes(transitionSearch.toLowerCase()) ||
+                    tr.description.toLowerCase().includes(transitionSearch.toLowerCase()) ||
+                    tr.id.toLowerCase().includes(transitionSearch.toLowerCase())
+                )
+                .map((tr) => {
+                  const allClips = project.tracks
+                    .flatMap((t) => t.clips)
+                    .filter((c) => c.type === 'video' || c.type === 'image');
+                  const targetClip =
+                    (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
+                    allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
+                    allClips[0];
+                  const isApplied = targetClip?.transitionIn?.type === tr.id;
+
+                  return (
+                    <div
+                      key={tr.id}
+                      onPointerDown={(e) => {
+                        if (e.button === 0) {
+                          startDrag(
+                            {
+                              type: 'transition',
+                              id: tr.id,
+                              name: tr.name,
+                              icon: tr.icon,
+                              duration: tr.defaultDuration || 1.0,
+                              category: tr.category,
+                              data: tr,
+                            },
+                            e.clientX,
+                            e.clientY
+                          );
+                        }
+                      }}
+                      onClick={() => {
+                        if (isClickSuppressed()) return;
+                        if (!targetClip) {
+                          setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+                          setTimeout(() => setStatusBanner(null), 3000);
+                          return;
+                        }
+
+                        onSelectClip?.(targetClip.id);
+
+                        if (onUpdateClip) {
+                          onUpdateClip(targetClip.id, {
+                            transitionIn:
+                              tr.id === 'cut' || tr.id === 'none'
+                                ? undefined
+                                : { type: tr.id, duration: targetClip.transitionIn?.duration || tr.defaultDuration || 0.8 },
+                          });
+                        }
+
+                        if (onPreviewAnimation && tr.id !== 'cut' && tr.id !== 'none') {
+                          onPreviewAnimation(targetClip.id, 1.2);
+                        }
+
+                        setStatusBanner(`✨ "${tr.name}" uygulandı & oynatılıyor!`);
                         setTimeout(() => setStatusBanner(null), 3000);
-                        return;
-                      }
-
-                      onSelectClip?.(targetClip.id);
-
-                      if (onUpdateClip) {
-                        onUpdateClip(targetClip.id, {
-                          transitionIn:
-                            tr.id === 'cut' || tr.id === 'none'
-                              ? undefined
-                              : { type: tr.id, duration: targetClip.transitionIn?.duration || 0.8 },
-                        });
-                      }
-
-                      if (onPreviewAnimation && tr.id !== 'cut' && tr.id !== 'none') {
-                        onPreviewAnimation(targetClip.id, 1.2);
-                      }
-
-                      setStatusBanner(`✨ "${tr.name}" uygulandı & oynatılıyor!`);
-                      setTimeout(() => setStatusBanner(null), 3000);
-                    }}
-                    className={`p-2 rounded-lg border text-left transition-all group cursor-pointer ${
-                      isApplied
-                        ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-500/50'
-                        : 'bg-[#161b22] hover:bg-[#21262d] border-[#30363d] hover:border-indigo-500/60'
-                    }`}
-                    title={tr.description}
-                  >
-                    <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1">
-                      <span>{tr.icon}</span>
-                      <span className="text-[10px] font-bold text-indigo-400 font-mono">
-                        {tr.id.toUpperCase()}
-                      </span>
+                      }}
+                      className={`p-2 rounded-lg border text-left transition-all group cursor-grab active:cursor-grabbing select-none flex flex-col justify-between ${
+                        isApplied
+                          ? 'bg-indigo-600/30 border-indigo-500 text-white ring-1 ring-indigo-500/50'
+                          : 'bg-[#161b22] hover:bg-[#21262d] border-[#30363d] hover:border-indigo-500/60'
+                      }`}
+                      title={tr.description}
+                    >
+                      <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1 pointer-events-none">
+                        <span>{tr.icon}</span>
+                        <span className="text-[10px] font-bold text-indigo-400 font-mono">
+                          {tr.id.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="pointer-events-none">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                            {tr.name}
+                          </p>
+                          {isApplied && <span className="text-indigo-400 font-bold text-xs">✓</span>}
+                        </div>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{tr.description}</p>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[9px] text-indigo-400 font-mono">
+                        <span className="capitalize">{tr.categoryName}</span>
+                        <span className="opacity-0 group-hover:opacity-100 font-bold transition-opacity">
+                          + Uygula
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
-                        {tr.name}
-                      </p>
-                      {isApplied && <span className="text-indigo-400 font-bold text-xs">✓</span>}
-                    </div>
-                    <p className="text-[10px] text-gray-400 truncate">{tr.description}</p>
-                  </button>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         )}
 
-        {/* 5. FILTERS TAB */}
+        {/* 5. FILTERS & EFFECTS TAB */}
         {activeTab === 'filters' && (
           <div className="space-y-3">
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              Renk & Atmosfer Filtreleri ({COLOR_PRESETS.length})
-            </h4>
-            <p className="text-[11px] text-gray-400">
-              {selectedClipId
-                ? 'Seçili klibe filtre uygulamak için şablonlardan birine tıklayın.'
-                : 'Bir filtreye tıklayarak aktif veya seçili klibe anında uygulayın.'}
-            </p>
-            <div className="grid grid-cols-1 gap-2">
-              {COLOR_PRESETS.map((preset) => {
-                const allClips = project.tracks
-                  .flatMap((t) => t.clips)
-                  .filter((c) => c.type === 'video' || c.type === 'image');
-                const targetClip =
-                  (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
-                  allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
-                  allClips[0];
-
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      if (!targetClip) {
-                        setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
-                        setTimeout(() => setStatusBanner(null), 3000);
-                        return;
-                      }
-                      onSelectClip?.(targetClip.id);
-                      if (onUpdateClipEffects) {
-                        onUpdateClipEffects(targetClip.id, preset.effects);
-                      }
-                      setStatusBanner(`🎨 "${preset.name}" filtresi uygulandı!`);
-                      setTimeout(() => setStatusBanner(null), 3000);
-                    }}
-                    className="w-full p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500 hover:bg-[#21262d] transition-all text-left group flex items-start gap-3 cursor-pointer"
-                  >
-                    <span
-                      className="w-4 h-4 rounded-full shrink-0 mt-0.5 shadow-sm"
-                      style={{ backgroundColor: preset.thumbnailColor }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
-                          {preset.name}
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0d1117] text-gray-400 uppercase font-mono">
-                          {preset.category}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 leading-tight">
-                        {preset.description}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🎨</span>
+                <span>Efektler & Renk Filtreleri</span>
+              </h4>
+              <span className="text-[10px] text-indigo-400 font-mono">24 Efekt + 12 Filtre</span>
             </div>
+
+            {/* Subtab Toggle: Visual Effects vs Color Presets */}
+            <div className="flex items-center bg-[#161b22] p-0.5 rounded-lg border border-[#30363d] gap-1">
+              <button
+                type="button"
+                onClick={() => setFilterSubTab('effects')}
+                className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors ${
+                  filterSubTab === 'effects'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Görsel Efektler (24)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterSubTab('presets')}
+                className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors ${
+                  filterSubTab === 'presets'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Renk Filtreleri (12)
+              </button>
+            </div>
+
+            {statusBanner && (
+              <div className="p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-200 text-[11px] flex items-center gap-1.5 animate-fadeIn">
+                <span>🎨</span>
+                <span className="truncate">{statusBanner}</span>
+              </div>
+            )}
+
+            {filterSubTab === 'effects' ? (
+              <div className="space-y-3">
+                <p className="text-[11px] text-gray-400">
+                  Efekti doğrudan klibin üzerine sürükleyerek süreli efekt şeridi ekleyin veya seçili klibe tıklayarak uygulayın.
+                </p>
+
+                {/* Effect Categories */}
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
+                  {[
+                    { id: 'all', label: 'Tümü (24)' },
+                    { id: 'blur', label: 'Bulanıklık (4)' },
+                    { id: 'retro', label: 'Retro & Analog (4)' },
+                    { id: 'stylize', label: 'Stilize & Glitch (5)' },
+                    { id: 'color', label: 'Renk & Atmosfer (6)' },
+                    { id: 'light', label: 'Işık & Parlama (5)' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setEffectCategory(cat.id)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap transition-colors ${
+                        effectCategory === cat.id
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-[#161b22] text-gray-400 hover:text-gray-200 border border-[#30363d]'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Effect Search */}
+                <input
+                  type="text"
+                  placeholder="Görsel efekt ara..."
+                  value={effectSearch}
+                  onChange={(e) => setEffectSearch(e.target.value)}
+                  className="w-full px-2.5 py-1 rounded bg-[#161b22] border border-[#30363d] text-white text-xs outline-none focus:border-indigo-500"
+                />
+
+                {/* Effects Grid */}
+                <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto pr-1">
+                  {VISUAL_EFFECT_DEFINITIONS.filter(
+                    (eff) => effectCategory === 'all' || eff.category === effectCategory
+                  )
+                    .filter(
+                      (eff) =>
+                        !effectSearch.trim() ||
+                        eff.name.toLowerCase().includes(effectSearch.toLowerCase()) ||
+                        eff.description.toLowerCase().includes(effectSearch.toLowerCase())
+                    )
+                    .map((eff) => {
+                      const allClips = project.tracks
+                        .flatMap((t) => t.clips)
+                        .filter((c) => c.type === 'video' || c.type === 'image');
+                      const targetClip =
+                        (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
+                        allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
+                        allClips[0];
+
+                      return (
+                        <div
+                          key={eff.id}
+                          onPointerDown={(e) => {
+                            if (e.button === 0) {
+                              startDrag(
+                                {
+                                  type: 'video-effect',
+                                  id: eff.id,
+                                  name: eff.name,
+                                  icon: eff.icon,
+                                  duration: eff.defaultDuration,
+                                  category: eff.category,
+                                  data: eff,
+                                },
+                                e.clientX,
+                                e.clientY
+                              );
+                            }
+                          }}
+                          onClick={() => {
+                            if (isClickSuppressed()) return;
+                            if (!targetClip) {
+                              setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+                              setTimeout(() => setStatusBanner(null), 3000);
+                              return;
+                            }
+
+                            if (onAddEffectSegment) {
+                              onAddEffectSegment({
+                                effectId: eff.id,
+                                effectKind: eff.category as any,
+                                name: eff.name,
+                                targetClipId: targetClip.id,
+                                startTime: targetClip.startTime,
+                                duration: Math.min(eff.defaultDuration, targetClip.duration),
+                                parameters: { intensity: eff.defaultIntensity },
+                                enabled: true,
+                              });
+                            }
+                            setStatusBanner(`✨ "${eff.name}" klibe uygulandı!`);
+                            setTimeout(() => setStatusBanner(null), 3000);
+                          }}
+                          className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all text-left flex flex-col justify-between group cursor-grab active:cursor-grabbing select-none"
+                          title={eff.description}
+                        >
+                          <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1 pointer-events-none">
+                            <span>{eff.icon}</span>
+                            <span className="text-[10px] font-bold text-indigo-400 font-mono">
+                              {eff.id.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="pointer-events-none">
+                            <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                              {eff.name}
+                            </p>
+                            <p className="text-[10px] text-gray-400 line-clamp-1">{eff.description}</p>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-[9px] text-indigo-400 font-mono">
+                            <span>⏱️ {eff.defaultDuration}s</span>
+                            <span className="opacity-0 group-hover:opacity-100 font-bold transition-opacity">
+                              + Uygula
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            ) : (
+              /* Color Presets Subtab */
+              <div className="space-y-3">
+                <p className="text-[11px] text-gray-400">
+                  Renk şablonunu seçili klibe uygulamak veya klibin üzerine sürüklemek için tıklayın.
+                </p>
+                <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-1">
+                  {COLOR_PRESETS.map((preset) => {
+                    const allClips = project.tracks
+                      .flatMap((t) => t.clips)
+                      .filter((c) => c.type === 'video' || c.type === 'image');
+                    const targetClip =
+                      (selectedClipId && allClips.find((c) => c.id === selectedClipId)) ||
+                      allClips.find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration) ||
+                      allClips[0];
+
+                    return (
+                      <div
+                        key={preset.id}
+                        onPointerDown={(e) => {
+                          if (e.button === 0) {
+                            startDrag(
+                              {
+                                type: 'filter-preset',
+                                id: preset.id,
+                                name: preset.name,
+                                icon: '🎨',
+                                duration: 3,
+                                category: 'filter',
+                                data: preset,
+                              },
+                              e.clientX,
+                              e.clientY
+                            );
+                          }
+                        }}
+                        onClick={() => {
+                          if (isClickSuppressed()) return;
+                          if (!targetClip) {
+                            setStatusBanner('⚠️ Lütfen önce bir video veya görsel klip ekleyin.');
+                            setTimeout(() => setStatusBanner(null), 3000);
+                            return;
+                          }
+                          onSelectClip?.(targetClip.id);
+                          if (onUpdateClipEffects) {
+                            onUpdateClipEffects(targetClip.id, preset.effects);
+                          }
+                          setStatusBanner(`🎨 "${preset.name}" filtresi uygulandı!`);
+                          setTimeout(() => setStatusBanner(null), 3000);
+                        }}
+                        className="w-full p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500 hover:bg-[#21262d] transition-all text-left group flex items-start gap-3 cursor-grab active:cursor-grabbing select-none"
+                      >
+                        <span
+                          className="w-4 h-4 rounded-full shrink-0 mt-0.5 shadow-sm"
+                          style={{ backgroundColor: preset.thumbnailColor }}
+                        />
+                        <div className="flex-1 min-w-0 pointer-events-none">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
+                              {preset.name}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0d1117] text-gray-400 uppercase font-mono">
+                              {preset.category}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 leading-tight">
+                            {preset.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

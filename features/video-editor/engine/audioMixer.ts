@@ -9,69 +9,146 @@ import { getAssetBlob } from '../db';
  * 4. Offline audio mixing for export rendering (returns mixed AudioBuffer).
  * 5. WAV file encoder for audio exports.
  * 6. Voiceover microphone recording.
+ * 7. Real-time PCM audio energy analysis & multi-clip transition synchronization.
  */
+
+interface ActiveAudioSource {
+  source: AudioBufferSourceNode;
+  gainNode: GainNode;
+  clipId: string;
+  startedAtTimelineSec: number;
+}
 
 class AudioMixer {
   private audioCtx: AudioContext | null = null;
-  private bufferCache: Map<string, AudioBuffer> = new Map();
-  private activeSources: Map<string, { source: AudioBufferSourceNode; gainNode: GainNode }> = new Map();
+  private bufferCache: Map<string, AudioBuffer | null> = new Map();
+  private pendingDecodes: Map<string, Promise<AudioBuffer | null>> = new Map();
+  private activeSources: Map<string, ActiveAudioSource> = new Map();
   private isMixing = false;
   private masterGain: GainNode | null = null;
+  private analyser: AnalyserNode | null = null;
 
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
 
   constructor() {
-    // AudioContext will be initialized on first user interaction to comply with browser autoplay policy
+    if (typeof window !== 'undefined') {
+      (window as any).__audioMixer = this;
+    }
   }
 
   public getAudioContext(): AudioContext {
     if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioCtx = new AudioCtxClass();
       this.masterGain = this.audioCtx.createGain();
-      this.masterGain.connect(this.audioCtx.destination);
+      this.masterGain.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
+
+      this.analyser = this.audioCtx.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.smoothingTimeConstant = 0.3;
+
+      this.masterGain.connect(this.analyser);
+      this.analyser.connect(this.audioCtx.destination);
     }
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
   }
 
-  /**
-   * Load and decode an audio buffer from a clip or asset blob
-   */
-  public async getAudioBuffer(clip: VideoClip): Promise<AudioBuffer | null> {
-    const cacheKey = clip.assetId || clip.id;
-    if (this.bufferCache.has(cacheKey)) {
-      return this.bufferCache.get(cacheKey)!;
+  public getAnalyserNode(): AnalyserNode | null {
+    this.getAudioContext();
+    return this.analyser;
+  }
+
+  public getAudioEnergy(): { rms: number; peak: number } {
+    if (!this.analyser) {
+      this.getAudioContext();
     }
+    if (!this.analyser) return { rms: 0, peak: 0 };
 
-    try {
-      let blob: Blob | null = null;
-      if (clip.assetId) {
-        blob = await getAssetBlob(clip.assetId);
-      }
-      if (!blob && clip.sourceUrl) {
-        const resp = await fetch(clip.sourceUrl);
-        blob = await resp.blob();
-      }
-
-      if (!blob) return null;
-
-      const arrayBuffer = await blob.arrayBuffer();
-      const ctx = this.getAudioContext();
-      const decoded = await ctx.decodeAudioData(arrayBuffer);
-      this.bufferCache.set(cacheKey, decoded);
-      return decoded;
-    } catch (err) {
-      console.warn('Audio decoding failed for clip:', clip.id, err);
-      return null;
+    const data = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(data);
+    let sum = 0;
+    let peak = 0;
+    for (let i = 0; i < data.length; i++) {
+      const absVal = Math.abs(data[i]);
+      if (absVal > peak) peak = absVal;
+      sum += absVal * absVal;
     }
+    return {
+      rms: Math.sqrt(sum / data.length),
+      peak,
+    };
+  }
+
+  public getActiveSourcesCount(): number {
+    return this.activeSources.size;
+  }
+
+  public getActiveClipIds(): string[] {
+    return Array.from(this.activeSources.keys());
   }
 
   /**
-   * Preload audio for all audio/video clips in the project
+   * Load and decode an audio buffer from a clip or asset blob.
+   * Caches results and debounces concurrent decodes.
+   */
+  public async getAudioBuffer(clip: VideoClip): Promise<AudioBuffer | null> {
+    const cacheKey = clip.assetId || clip.sourceUrl || clip.id;
+    if (this.bufferCache.has(cacheKey)) {
+      return this.bufferCache.get(cacheKey) || null;
+    }
+
+    if (this.pendingDecodes.has(cacheKey)) {
+      return this.pendingDecodes.get(cacheKey)!;
+    }
+
+    const decodePromise = (async () => {
+      try {
+        let blob: Blob | null = null;
+        if (clip.assetId) {
+          blob = await getAssetBlob(clip.assetId);
+        }
+        if (!blob && clip.sourceUrl) {
+          const resp = await fetch(clip.sourceUrl);
+          blob = await resp.blob();
+        }
+
+        if (!blob) {
+          this.bufferCache.set(cacheKey, null);
+          return null;
+        }
+
+        // Only decode audio or video blobs
+        if (blob.type && !blob.type.includes('audio') && !blob.type.includes('video') && !blob.type.includes('ogg')) {
+          this.bufferCache.set(cacheKey, null);
+          return null;
+        }
+
+        const arrayBuffer = await blob.arrayBuffer();
+        const ctx = this.getAudioContext();
+        const decoded = await ctx.decodeAudioData(arrayBuffer);
+        this.bufferCache.set(cacheKey, decoded);
+        return decoded;
+      } catch (err) {
+        // Video file might not have an audio track (e.g. silent recording)
+        this.bufferCache.set(cacheKey, null);
+        return null;
+      } finally {
+        this.pendingDecodes.delete(cacheKey);
+      }
+    })();
+
+    this.pendingDecodes.set(cacheKey, decodePromise);
+    return decodePromise;
+  }
+
+  /**
+   * Preload audio for all audio/video clips in the project so transitions have zero delay
    */
   public async preloadProjectAudio(project: VideoProject): Promise<void> {
     const audioClips: VideoClip[] = [];
@@ -88,23 +165,38 @@ class AudioMixer {
   }
 
   /**
-   * Synchronize audio preview playback at given timeline position
+   * Synchronize audio preview playback at given timeline position.
+   * Handles multi-clip playback, sequential clips, overlapping clips, and seek re-alignment.
    */
-  public async syncPlayback(project: VideoProject, currentTime: number, isPlaying: boolean): Promise<void> {
+  public async syncPlayback(
+    project: VideoProject,
+    currentTime: number,
+    isPlaying: boolean,
+    forceSeek = false
+  ): Promise<void> {
     if (!isPlaying) {
       this.stopAll();
       return;
     }
 
     const ctx = this.getAudioContext();
-    const tracksById = new Map(project.tracks.map((t) => [t.id, t]));
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {}
+    }
+
+    if (forceSeek) {
+      this.stopAll();
+    }
+
     const activeClipIds = new Set<string>();
 
     for (const track of project.tracks) {
       if (track.muted || (track.type !== 'audio' && track.type !== 'video')) continue;
 
       for (const clip of track.clips) {
-        if (clip.muted) continue;
+        if (clip.muted || (clip.volume !== undefined && clip.volume <= 0)) continue;
 
         const clipStart = clip.startTime;
         const clipEnd = clip.startTime + clip.duration;
@@ -112,20 +204,26 @@ class AudioMixer {
         if (currentTime >= clipStart && currentTime < clipEnd) {
           activeClipIds.add(clip.id);
 
-          // If not already playing, start it
-          if (!this.activeSources.has(clip.id)) {
+          const existing = this.activeSources.get(clip.id);
+
+          // If not playing, or if forced seek, start it
+          if (!existing) {
             const buffer = await this.getAudioBuffer(clip);
             if (!buffer) continue;
 
+            const speed = clip.speed || 1.0;
+            const clipRelTime = Math.max(0, (currentTime - clipStart) * speed + clip.trimIn);
+            const remainingClipDuration = Math.max(0.01, clipEnd - currentTime);
+
+            if (clipRelTime >= buffer.duration) {
+              continue;
+            }
+
             const source = ctx.createBufferSource();
             source.buffer = buffer;
-            source.playbackRate.value = clip.speed || 1.0;
+            source.playbackRate.value = speed;
 
             const gainNode = ctx.createGain();
-            const clipRelTime = (currentTime - clipStart) * (clip.speed || 1.0) + clip.trimIn;
-            const remainingClipDuration = (clipEnd - currentTime);
-
-            // Compute volume curve
             this.applyVolumeEnvelope(gainNode, clip, currentTime - clipStart, ctx.currentTime);
 
             source.connect(gainNode);
@@ -137,24 +235,32 @@ class AudioMixer {
 
             try {
               source.start(0, clipRelTime, remainingClipDuration);
-              this.activeSources.set(clip.id, { source, gainNode });
+              this.activeSources.set(clip.id, {
+                source,
+                gainNode,
+                clipId: clip.id,
+                startedAtTimelineSec: currentTime,
+              });
 
               source.onended = () => {
-                this.activeSources.delete(clip.id);
+                const current = this.activeSources.get(clip.id);
+                if (current && current.source === source) {
+                  this.activeSources.delete(clip.id);
+                }
               };
             } catch (err) {
-              console.warn('Failed to start audio source for clip:', clip.id, err);
+              console.warn('[FORMA AudioMixer] Failed to start audio source for clip:', clip.id, err);
             }
           }
         }
       }
     }
 
-    // Stop clips that are no longer active
-    for (const [id, { source }] of this.activeSources.entries()) {
+    // Stop clips that are no longer active on the timeline
+    for (const [id, active] of this.activeSources.entries()) {
       if (!activeClipIds.has(id)) {
         try {
-          source.stop();
+          active.source.stop();
         } catch (_) {}
         this.activeSources.delete(id);
       }
@@ -215,9 +321,9 @@ class AudioMixer {
    * Stop all currently playing preview audio
    */
   public stopAll(): void {
-    for (const [, { source }] of this.activeSources.entries()) {
+    for (const [, active] of this.activeSources.entries()) {
       try {
-        source.stop();
+        active.source.stop();
       } catch (_) {}
     }
     this.activeSources.clear();
@@ -227,8 +333,9 @@ class AudioMixer {
    * Set master preview volume
    */
   public setMasterVolume(volume: number): void {
-    if (this.masterGain && this.audioCtx) {
-      this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), this.audioCtx.currentTime);
+    const ctx = this.getAudioContext();
+    if (this.masterGain && ctx) {
+      this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), ctx.currentTime);
     }
   }
 
@@ -236,7 +343,11 @@ class AudioMixer {
    * Render all project audio tracks to a single mixed AudioBuffer using OfflineAudioContext.
    * Frame-accurate and completely offline.
    */
-  public async renderMixedAudio(project: VideoProject, totalDuration: number, sampleRate = 44100): Promise<AudioBuffer | null> {
+  public async renderMixedAudio(
+    project: VideoProject,
+    totalDuration: number,
+    sampleRate = 44100
+  ): Promise<AudioBuffer | null> {
     if (totalDuration <= 0) return null;
 
     const length = Math.ceil(totalDuration * sampleRate);
@@ -290,7 +401,7 @@ class AudioMixer {
     try {
       return await offlineCtx.startRendering();
     } catch (err) {
-      console.error('Offline audio rendering failed:', err);
+      console.error('[FORMA AudioMixer] Offline audio rendering failed:', err);
       return null;
     }
   }
@@ -405,6 +516,7 @@ class AudioMixer {
   public clearCache(): void {
     this.stopAll();
     this.bufferCache.clear();
+    this.pendingDecodes.clear();
   }
 }
 

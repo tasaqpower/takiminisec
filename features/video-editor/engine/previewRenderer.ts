@@ -6,7 +6,7 @@
  */
 
 import type { VideoProject, VideoClip, Keyframe } from '../types';
-import { buildCanvasFilterString, applyCanvasPostEffects } from './filterEngine';
+import { buildCanvasFilterString, applyCanvasPostEffects, applyVisualEffectSegment } from './filterEngine';
 import { computeTransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
 import { calculateClipBounds } from './clipBounds';
@@ -272,10 +272,19 @@ export function renderScene(renderCtx: RenderContext): void {
         let transOffsetX = 0;
         let transOffsetY = 0;
         let transScale = 1;
+        let transScaleX = 1;
+        let transScaleY = 1;
+        let transRotation = 0;
         let transBlur = 0;
         let transWipeRatio: number | undefined;
-        let transWipeDir: 'left' | 'right' | 'up' | 'down' | undefined;
+        let transWipeDir: 'left' | 'right' | 'up' | 'down' | 'diagonal' | undefined;
+        let transMaskShape: 'rect' | 'diagonal' | 'circle-in' | 'circle-out' | 'soft-circle' | undefined;
+        let transMaskRadius: number | undefined;
         let transOverlay: { r: number; g: number; b: number; a: number } | undefined;
+        let transLightLeak: { intensity: number; progress: number } | undefined;
+        let transFilmBurn: { intensity: number; progress: number } | undefined;
+        let transGlitch: { amount: number; sliceCount: number; jitter: number } | undefined;
+        let transVhs: { intensity: number; trackingJitter: number } | undefined;
 
         // In transition
         if (
@@ -290,12 +299,21 @@ export function renderScene(renderCtx: RenderContext): void {
           transOffsetX = st.offsetX * width;
           transOffsetY = st.offsetY * height;
           transScale *= st.scale;
+          if (st.scaleX !== undefined) transScaleX *= st.scaleX;
+          if (st.scaleY !== undefined) transScaleY *= st.scaleY;
+          if (st.rotation !== undefined) transRotation += st.rotation;
           if (st.blur) transBlur = Math.max(transBlur, st.blur);
           if (st.wipeRatio !== undefined) {
             transWipeRatio = st.wipeRatio;
             transWipeDir = st.wipeDirection;
           }
+          if (st.maskShape) transMaskShape = st.maskShape;
+          if (st.maskRadius !== undefined) transMaskRadius = st.maskRadius;
           if (st.colorOverlay) transOverlay = st.colorOverlay;
+          if (st.lightLeak) transLightLeak = st.lightLeak;
+          if (st.filmBurn) transFilmBurn = st.filmBurn;
+          if (st.glitch) transGlitch = st.glitch;
+          if (st.vhs) transVhs = st.vhs;
         }
 
         // Out transition
@@ -312,12 +330,21 @@ export function renderScene(renderCtx: RenderContext): void {
           transOffsetX = st.offsetX * width;
           transOffsetY = st.offsetY * height;
           transScale *= st.scale;
+          if (st.scaleX !== undefined) transScaleX *= st.scaleX;
+          if (st.scaleY !== undefined) transScaleY *= st.scaleY;
+          if (st.rotation !== undefined) transRotation += st.rotation;
           if (st.blur) transBlur = Math.max(transBlur, st.blur);
           if (st.wipeRatio !== undefined) {
             transWipeRatio = st.wipeRatio;
             transWipeDir = st.wipeDirection;
           }
+          if (st.maskShape) transMaskShape = st.maskShape;
+          if (st.maskRadius !== undefined) transMaskRadius = st.maskRadius;
           if (st.colorOverlay) transOverlay = st.colorOverlay;
+          if (st.lightLeak) transLightLeak = st.lightLeak;
+          if (st.filmBurn) transFilmBurn = st.filmBurn;
+          if (st.glitch) transGlitch = st.glitch;
+          if (st.vhs) transVhs = st.vhs;
         }
 
         // Render by type
@@ -339,12 +366,13 @@ export function renderScene(renderCtx: RenderContext): void {
             ctx.filter = filterStr;
 
             // Positioning and Transforms
+            const totalRotation = currentRotation + transRotation;
             ctx.translate(width / 2 + currentX + transOffsetX, height / 2 + currentY + transOffsetY);
-            if (currentRotation !== 0) ctx.rotate((currentRotation * Math.PI) / 180);
+            if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
             if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
 
-            const sX = currentScaleX * transScale;
-            const sY = currentScaleY * transScale;
+            const sX = currentScaleX * transScale * transScaleX;
+            const sY = currentScaleY * transScale * transScaleY;
             const vw = video && video.videoWidth > 0 ? video.videoWidth : cachedCanvas ? cachedCanvas.width : width;
             const vh = video && video.videoHeight > 0 ? video.videoHeight : cachedCanvas ? cachedCanvas.height : height;
 
@@ -374,16 +402,31 @@ export function renderScene(renderCtx: RenderContext): void {
               }
             }
 
-            // Wipe Transition Clipping
-            if (transWipeRatio !== undefined && transWipeDir) {
+            // Wipe & Mask Transition Clipping
+            if (transWipeRatio !== undefined) {
               ctx.beginPath();
               if (transWipeDir === 'left') {
                 ctx.rect(-dw / 2, -dh / 2, dw * transWipeRatio, dh);
               } else if (transWipeDir === 'right') {
                 ctx.rect(dw / 2 - dw * transWipeRatio, -dh / 2, dw * transWipeRatio, dh);
+              } else if (transWipeDir === 'up') {
+                ctx.rect(-dw / 2, -dh / 2, dw, dh * transWipeRatio);
+              } else if (transWipeDir === 'down') {
+                ctx.rect(-dw / 2, dh / 2 - dh * transWipeRatio, dw, dh * transWipeRatio);
+              } else if (transWipeDir === 'diagonal') {
+                ctx.moveTo(-dw / 2, -dh / 2);
+                ctx.lineTo(-dw / 2 + dw * transWipeRatio * 2, -dh / 2);
+                ctx.lineTo(-dw / 2, -dh / 2 + dh * transWipeRatio * 2);
+                ctx.closePath();
               } else {
                 ctx.rect(-dw / 2, -dh / 2, dw, dh);
               }
+              ctx.clip();
+            } else if (transMaskShape === 'circle-in' || transMaskShape === 'circle-out' || transMaskShape === 'soft-circle') {
+              const maxR = Math.hypot(dw, dh) / 2;
+              const r = maxR * (transMaskRadius ?? 1);
+              ctx.beginPath();
+              ctx.arc(0, 0, Math.max(0.1, r), 0, Math.PI * 2);
               ctx.clip();
             }
 
@@ -472,6 +515,68 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
             }
 
+            // Transition Overlays (Light leak, Film burn, Glitch, VHS)
+            if (transLightLeak && transLightLeak.intensity > 0.05) {
+              const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
+              grad.addColorStop(0, `rgba(245, 158, 11, ${transLightLeak.intensity * 0.7})`);
+              grad.addColorStop(0.5, `rgba(239, 68, 68, ${transLightLeak.intensity * 0.4})`);
+              grad.addColorStop(1, `rgba(254, 240, 138, ${transLightLeak.intensity * 0.8})`);
+              ctx.save();
+              ctx.fillStyle = grad;
+              ctx.globalCompositeOperation = 'screen';
+              ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+              ctx.restore();
+            }
+
+            if (transFilmBurn && transFilmBurn.intensity > 0.05) {
+              const grad = ctx.createRadialGradient(0, 0, 50, 0, 0, Math.max(dw, dh) / 2);
+              grad.addColorStop(0, `rgba(255, 255, 255, ${transFilmBurn.intensity * 0.85})`);
+              grad.addColorStop(0.6, `rgba(249, 115, 22, ${transFilmBurn.intensity * 0.6})`);
+              grad.addColorStop(1, `rgba(185, 28, 28, ${transFilmBurn.intensity * 0.9})`);
+              ctx.save();
+              ctx.fillStyle = grad;
+              ctx.globalCompositeOperation = 'screen';
+              ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+              ctx.restore();
+            }
+
+            if (transGlitch && transGlitch.amount > 0.05) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(0, 255, 255, 0.35)';
+              ctx.fillRect(-dw / 2 + transGlitch.jitter, -dh * 0.2, dw, dh * 0.15);
+              ctx.fillStyle = 'rgba(255, 0, 128, 0.35)';
+              ctx.fillRect(-dw / 2 - transGlitch.jitter, dh * 0.1, dw, dh * 0.15);
+              ctx.restore();
+            }
+
+            if (transVhs && transVhs.intensity > 0.05) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+              for (let y = -dh / 2; y < dh / 2; y += 4) {
+                ctx.fillRect(-dw / 2, y, dw, 1.5);
+              }
+              ctx.restore();
+            }
+
+            // Apply any active timed effect segments on this clip
+            const activeSegments = [
+              ...(clip.effectSegments || []),
+              ...((project.effectSegments || []).filter((s) => s.targetClipId === clip.id || !s.targetClipId)),
+            ].filter((s) => s.enabled !== false && currentTime >= s.startTime && currentTime <= (s.startTime + s.duration));
+
+            for (const seg of activeSegments) {
+              const timeInEffect = currentTime - seg.startTime;
+              applyVisualEffectSegment(
+                ctx,
+                dw,
+                dh,
+                seg.effectId,
+                seg.parameters?.intensity ?? 0.5,
+                timeInEffect,
+                seg.parameters
+              );
+            }
+
             applyCanvasPostEffects(ctx, width, height, clip.effects);
             ctx.restore();
           }
@@ -488,12 +593,13 @@ export function renderScene(renderCtx: RenderContext): void {
             }
             ctx.filter = filterStr;
 
+            const totalRotation = currentRotation + transRotation;
             ctx.translate(width / 2 + currentX + transOffsetX, height / 2 + currentY + transOffsetY);
-            if (currentRotation !== 0) ctx.rotate((currentRotation * Math.PI) / 180);
+            if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
             if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
 
-            const sX = currentScaleX * transScale;
-            const sY = currentScaleY * transScale;
+            const sX = currentScaleX * transScale * transScaleX;
+            const sY = currentScaleY * transScale * transScaleY;
             const iw = img.naturalWidth || width;
             const ih = img.naturalHeight || height;
             let dw = width * sX;
@@ -522,15 +628,31 @@ export function renderScene(renderCtx: RenderContext): void {
               }
             }
 
-            if (transWipeRatio !== undefined && transWipeDir) {
+            // Wipe & Mask Transition Clipping
+            if (transWipeRatio !== undefined) {
               ctx.beginPath();
               if (transWipeDir === 'left') {
                 ctx.rect(-dw / 2, -dh / 2, dw * transWipeRatio, dh);
               } else if (transWipeDir === 'right') {
                 ctx.rect(dw / 2 - dw * transWipeRatio, -dh / 2, dw * transWipeRatio, dh);
+              } else if (transWipeDir === 'up') {
+                ctx.rect(-dw / 2, -dh / 2, dw, dh * transWipeRatio);
+              } else if (transWipeDir === 'down') {
+                ctx.rect(-dw / 2, dh / 2 - dh * transWipeRatio, dw, dh * transWipeRatio);
+              } else if (transWipeDir === 'diagonal') {
+                ctx.moveTo(-dw / 2, -dh / 2);
+                ctx.lineTo(-dw / 2 + dw * transWipeRatio * 2, -dh / 2);
+                ctx.lineTo(-dw / 2, -dh / 2 + dh * transWipeRatio * 2);
+                ctx.closePath();
               } else {
                 ctx.rect(-dw / 2, -dh / 2, dw, dh);
               }
+              ctx.clip();
+            } else if (transMaskShape === 'circle-in' || transMaskShape === 'circle-out' || transMaskShape === 'soft-circle') {
+              const maxR = Math.hypot(dw, dh) / 2;
+              const r = maxR * (transMaskRadius ?? 1);
+              ctx.beginPath();
+              ctx.arc(0, 0, Math.max(0.1, r), 0, Math.PI * 2);
               ctx.clip();
             }
 
@@ -590,6 +712,68 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
             }
 
+            // Transition Overlays (Light leak, Film burn, Glitch, VHS)
+            if (transLightLeak && transLightLeak.intensity > 0.05) {
+              const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
+              grad.addColorStop(0, `rgba(245, 158, 11, ${transLightLeak.intensity * 0.7})`);
+              grad.addColorStop(0.5, `rgba(239, 68, 68, ${transLightLeak.intensity * 0.4})`);
+              grad.addColorStop(1, `rgba(254, 240, 138, ${transLightLeak.intensity * 0.8})`);
+              ctx.save();
+              ctx.fillStyle = grad;
+              ctx.globalCompositeOperation = 'screen';
+              ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+              ctx.restore();
+            }
+
+            if (transFilmBurn && transFilmBurn.intensity > 0.05) {
+              const grad = ctx.createRadialGradient(0, 0, 50, 0, 0, Math.max(dw, dh) / 2);
+              grad.addColorStop(0, `rgba(255, 255, 255, ${transFilmBurn.intensity * 0.85})`);
+              grad.addColorStop(0.6, `rgba(249, 115, 22, ${transFilmBurn.intensity * 0.6})`);
+              grad.addColorStop(1, `rgba(185, 28, 28, ${transFilmBurn.intensity * 0.9})`);
+              ctx.save();
+              ctx.fillStyle = grad;
+              ctx.globalCompositeOperation = 'screen';
+              ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+              ctx.restore();
+            }
+
+            if (transGlitch && transGlitch.amount > 0.05) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(0, 255, 255, 0.35)';
+              ctx.fillRect(-dw / 2 + transGlitch.jitter, -dh * 0.2, dw, dh * 0.15);
+              ctx.fillStyle = 'rgba(255, 0, 128, 0.35)';
+              ctx.fillRect(-dw / 2 - transGlitch.jitter, dh * 0.1, dw, dh * 0.15);
+              ctx.restore();
+            }
+
+            if (transVhs && transVhs.intensity > 0.05) {
+              ctx.save();
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+              for (let y = -dh / 2; y < dh / 2; y += 4) {
+                ctx.fillRect(-dw / 2, y, dw, 1.5);
+              }
+              ctx.restore();
+            }
+
+            // Apply any active timed effect segments on this clip
+            const activeSegments = [
+              ...(clip.effectSegments || []),
+              ...((project.effectSegments || []).filter((s) => s.targetClipId === clip.id || !s.targetClipId)),
+            ].filter((s) => s.enabled !== false && currentTime >= s.startTime && currentTime <= (s.startTime + s.duration));
+
+            for (const seg of activeSegments) {
+              const timeInEffect = currentTime - seg.startTime;
+              applyVisualEffectSegment(
+                ctx,
+                dw,
+                dh,
+                seg.effectId,
+                seg.parameters?.intensity ?? 0.5,
+                timeInEffect,
+                seg.parameters
+              );
+            }
+
             applyCanvasPostEffects(ctx, width, height, clip.effects);
             ctx.restore();
           }
@@ -598,8 +782,27 @@ export function renderScene(renderCtx: RenderContext): void {
         }
       } else if ((clip.type === 'text' || clip.type === 'subtitle') && clip.textData) {
         try {
+          let effectiveTextData = { ...clip.textData };
+          if (clip.animationSegments && clip.animationSegments.length > 0) {
+            for (const seg of clip.animationSegments) {
+              if (seg.type === 'in') {
+                effectiveTextData.inAnimation = seg.animationName as any;
+                effectiveTextData.inDuration = seg.duration;
+                if (seg.easing) effectiveTextData.inEasing = seg.easing;
+              } else if (seg.type === 'loop') {
+                effectiveTextData.loopAnimation = seg.animationName as any;
+                if (seg.speed) effectiveTextData.loopSpeed = seg.speed;
+                if (seg.intensity) effectiveTextData.loopIntensity = seg.intensity;
+              } else if (seg.type === 'out') {
+                effectiveTextData.outAnimation = seg.animationName as any;
+                effectiveTextData.outDuration = seg.duration;
+                if (seg.easing) effectiveTextData.outEasing = seg.easing;
+              }
+            }
+          }
+
           renderTextLayer(ctx, {
-            layer: clip.textData,
+            layer: effectiveTextData,
             timeInClip: clipTime,
             clipDuration: clip.duration,
             canvasWidth: width,

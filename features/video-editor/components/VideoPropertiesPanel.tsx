@@ -5,6 +5,8 @@ import {
   Transform2D,
   ClipEffects,
   Transition,
+  TimelineTransition,
+  EffectSegment,
   TransitionType,
   TextLayerData,
   TextInAnimationType,
@@ -12,7 +14,7 @@ import {
   TextOutAnimationType,
   TextEasingType,
 } from '../types';
-import { COLOR_PRESETS } from '../engine/filterEngine';
+import { COLOR_PRESETS, VISUAL_EFFECT_DEFINITIONS } from '../engine/filterEngine';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
 import { FONT_CATALOG, FONT_CATEGORIES, loadGoogleFont, prefetchCategoryFonts, FontCategory } from '../engine/fontCatalog';
@@ -22,6 +24,8 @@ interface PropertiesPanelProps {
   project: VideoProject;
   selectedClip: VideoClip | null;
   currentTime?: number;
+  selectedTransitionId?: string | null;
+  selectedEffectSegmentId?: string | null;
   onUpdateClip: (clipId: string, updates: Partial<VideoClip>) => void;
   onDeleteClip: (clipId: string) => void;
   onRippleDeleteClip: (clipId: string) => void;
@@ -31,6 +35,12 @@ interface PropertiesPanelProps {
   onDetachAudio?: (clipId: string) => void;
   onPreviewAnimation?: (target: string | number, durationSec?: number) => void;
   onSeek?: (time: number) => void;
+  onUpdateTimelineTransition?: (id: string, updates: Partial<TimelineTransition>) => void;
+  onDeleteTimelineTransition?: (id: string) => void;
+  onUpdateEffectSegment?: (segmentId: string, updates: Partial<EffectSegment>) => void;
+  onDeleteEffectSegment?: (segmentId: string) => void;
+  onDeselectTransition?: () => void;
+  onDeselectEffectSegment?: () => void;
 }
 
 const IN_ANIMATIONS: { id: TextInAnimationType; name: string; desc: string; icon: string; tag: string }[] = [
@@ -94,6 +104,8 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   project,
   selectedClip,
   currentTime = 0,
+  selectedTransitionId,
+  selectedEffectSegmentId,
   onUpdateClip,
   onDeleteClip,
   onRippleDeleteClip,
@@ -103,6 +115,12 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDetachAudio,
   onPreviewAnimation,
   onSeek,
+  onUpdateTimelineTransition,
+  onDeleteTimelineTransition,
+  onUpdateEffectSegment,
+  onDeleteEffectSegment,
+  onDeselectTransition,
+  onDeselectEffectSegment,
 }) => {
   const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
   const [fontSearch, setFontSearch] = useState('');
@@ -141,6 +159,231 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   }, [fontCategory, fontSearch]);
 
   if (!selectedClip) {
+    if (selectedTransitionId) {
+      const tr = project.transitions?.find((t) => t.id === selectedTransitionId);
+      if (tr) {
+        const trDef = TRANSITION_DEFINITIONS.find((d) => d.id === tr.type);
+        return (
+          <aside className="w-[360px] bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto p-4 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[#21262d] mb-4">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 text-sm">⚡</span>
+                <div>
+                  <h3 className="font-bold text-gray-200 text-xs">Geçiş Ayarları</h3>
+                  <span className="text-[10px] text-amber-400 font-medium">{trDef?.name || tr.type}</span>
+                </div>
+              </div>
+              <button
+                onClick={onDeselectTransition}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10"
+                title="Kapat"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Duration Slider */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-semibold text-[11px]">Geçiş Süresi</span>
+                  <span className="text-amber-400 font-mono font-bold text-xs">{tr.duration.toFixed(2)} sn</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="4.0"
+                  step="0.05"
+                  value={tr.duration}
+                  onChange={(e) => onUpdateTimelineTransition?.(tr.id, { duration: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-[#21262d] accent-amber-500 rounded cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                  <span>0.2s</span>
+                  <span>2.0s</span>
+                  <span>4.0s</span>
+                </div>
+              </div>
+
+              {/* Transition Alignment */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <span className="text-gray-300 font-semibold text-[11px] block">Hizalama (Alignment)</span>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['between', 'in', 'out'] as const).map((align) => (
+                    <button
+                      key={align}
+                      onClick={() => onUpdateTimelineTransition?.(tr.id, { alignment: align })}
+                      className={`py-1.5 rounded text-[10px] font-medium border transition-colors ${
+                        (tr.alignment || 'between') === align
+                          ? 'bg-amber-500 text-black border-amber-400 font-bold'
+                          : 'bg-[#0d1117] text-gray-300 border-[#30363d] hover:bg-[#21262d]'
+                      }`}
+                    >
+                      {align === 'between' ? 'Ortalı' : align === 'in' ? 'Girişte' : 'Çıkışta'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Change Transition Type Selector */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <span className="text-gray-300 font-semibold text-[11px] block">Geçiş Tipini Değiştir</span>
+                <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                  {TRANSITION_DEFINITIONS.filter((t) => t.id !== 'cut' && t.id !== 'none').map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => onUpdateTimelineTransition?.(tr.id, { type: t.id })}
+                      className={`p-2 rounded border text-left text-[10px] flex items-center gap-1.5 transition-colors ${
+                        tr.type === t.id
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500 font-bold'
+                          : 'bg-[#0d1117] text-gray-300 border-[#30363d] hover:border-gray-500 hover:text-white'
+                      }`}
+                    >
+                      <span>{t.icon}</span>
+                      <span className="truncate">{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Delete button */}
+              <button
+                onClick={() => {
+                  onDeleteTimelineTransition?.(tr.id);
+                  onDeselectTransition?.();
+                }}
+                className="w-full py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 hover:border-red-500 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>🗑️</span>
+                <span>Bu Geçişi Kaldır</span>
+              </button>
+            </div>
+          </aside>
+        );
+      }
+    }
+
+    if (selectedEffectSegmentId) {
+      const eff =
+        project.effectSegments?.find((e) => e.id === selectedEffectSegmentId) ||
+        project.tracks.flatMap((t) => t.effectSegments || []).find((e) => e.id === selectedEffectSegmentId) ||
+        project.tracks.flatMap((t) => t.clips).flatMap((c) => c.effectSegments || []).find((e) => e.id === selectedEffectSegmentId);
+
+      if (eff) {
+        return (
+          <aside className="w-[360px] bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto p-4 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[#21262d] mb-4">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 text-sm">🎨</span>
+                <div>
+                  <h3 className="font-bold text-gray-200 text-xs">Görsel Efekt Şeridi</h3>
+                  <span className="text-[10px] text-indigo-400 font-medium">{eff.name}</span>
+                </div>
+              </div>
+              <button
+                onClick={onDeselectEffectSegment}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10"
+                title="Kapat"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Active Toggle */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+                <div>
+                  <span className="text-gray-200 font-semibold text-[11px] block">Efekt Aktif</span>
+                  <span className="text-gray-400 text-[10px]">Önizleme ve dışa aktarımda uygula</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={eff.enabled}
+                  onChange={(e) => onUpdateEffectSegment?.(eff.id, { enabled: e.target.checked })}
+                  className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Intensity Slider */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-semibold text-[11px]">Yoğunluk (Intensity)</span>
+                  <span className="text-indigo-400 font-mono font-bold text-xs">
+                    {Math.round(((eff.parameters?.intensity ?? 1.0) as number) * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.02"
+                  value={(eff.parameters?.intensity ?? 1.0) as number}
+                  onChange={(e) =>
+                    onUpdateEffectSegment?.(eff.id, {
+                      parameters: { ...eff.parameters, intensity: parseFloat(e.target.value) },
+                    })
+                  }
+                  className="w-full h-1 bg-[#21262d] accent-indigo-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Speed Slider */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-semibold text-[11px]">Animasyon Hızı</span>
+                  <span className="text-indigo-400 font-mono font-bold text-xs">
+                    {((eff.parameters?.speed ?? 1.0) as number).toFixed(1)}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="3.0"
+                  step="0.1"
+                  value={(eff.parameters?.speed ?? 1.0) as number}
+                  onChange={(e) =>
+                    onUpdateEffectSegment?.(eff.id, {
+                      parameters: { ...eff.parameters, speed: parseFloat(e.target.value) },
+                    })
+                  }
+                  className="w-full h-1 bg-[#21262d] accent-indigo-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Duration Slider */}
+              <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-semibold text-[11px]">Efekt Süresi</span>
+                  <span className="text-indigo-400 font-mono font-bold text-xs">{eff.duration.toFixed(1)} sn</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="20"
+                  step="0.5"
+                  value={eff.duration}
+                  onChange={(e) => onUpdateEffectSegment?.(eff.id, { duration: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-[#21262d] accent-indigo-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Delete button */}
+              <button
+                onClick={() => {
+                  onDeleteEffectSegment?.(eff.id);
+                  onDeselectEffectSegment?.();
+                }}
+                className="w-full py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 hover:border-red-500 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>🗑️</span>
+                <span>Bu Efekti Kaldır</span>
+              </button>
+            </div>
+          </aside>
+        );
+      }
+    }
+
     return (
       <aside className="w-[360px] bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto p-4 text-xs">
         <h3 className="font-semibold text-gray-300 uppercase tracking-wider text-[11px] mb-3">

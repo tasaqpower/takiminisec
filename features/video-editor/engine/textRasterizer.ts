@@ -422,6 +422,19 @@ export function renderTextLayer(
 
   const timeRemaining = clipDuration - timeInClip;
 
+  // Safe unicode / Turkish grapheme splitter
+  const getGraphemeArray = (str: string): string[] => {
+    if (typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
+      try {
+        const segmenter = new (Intl as any).Segmenter('tr-TR', { granularity: 'grapheme' });
+        return Array.from(segmenter.segment(str), (s: any) => s.segment);
+      } catch {
+        // fallback
+      }
+    }
+    return Array.from(str);
+  };
+
   // 1. IN ANIMATION
   if (timeInClip < inDuration && inType !== 'none') {
     const rawProgress = timeInClip / Math.max(0.01, inDuration);
@@ -432,73 +445,96 @@ export function renderTextLayer(
         animOpacity = progress;
         break;
       case 'slide-up':
-        animOffsetY = (1 - progress) * 40;
+        animOffsetY = (1 - progress) * 45;
         animOpacity = progress;
         break;
       case 'slide-down':
-        animOffsetY = -(1 - progress) * 40;
+        animOffsetY = -(1 - progress) * 45;
         animOpacity = progress;
         break;
       case 'slide-left':
-        animOffsetX = (1 - progress) * 60;
+        animOffsetX = (1 - progress) * 70;
         animOpacity = progress;
         break;
       case 'slide-right':
-        animOffsetX = -(1 - progress) * 60;
+        animOffsetX = -(1 - progress) * 70;
         animOpacity = progress;
         break;
       case 'scale':
-        animScale = 0.5 + progress * 0.5;
+        animScale = 0.4 + progress * 0.6;
         animOpacity = progress;
         break;
       case 'pop':
         animScale = applyEasing(rawProgress, 'back');
+        animOpacity = Math.min(1, rawProgress * 2.5);
+        break;
+      case 'bounce-in':
+      case 'bounce-drop':
+        animOffsetY = -(1 - applyEasing(rawProgress, 'bounce')) * 130;
+        animOpacity = Math.min(1, rawProgress * 3);
+        break;
+      case 'elastic-in':
+        animScale = applyEasing(rawProgress, 'elastic');
         animOpacity = Math.min(1, rawProgress * 2);
         break;
       case 'blur-in':
-        animBlur = (1 - progress) * 16;
+        animBlur = (1 - progress) * 20;
         animOpacity = progress;
         break;
+      case 'rotate-in':
+        animRotation = (1 - progress) * -90;
+        animScale = 0.5 + progress * 0.5;
+        animOpacity = progress;
+        break;
+      case 'flip':
+      case 'flip-in':
+        animScaleX = Math.max(0.01, Math.cos((1 - progress) * (Math.PI / 2)));
+        animOpacity = progress;
+        break;
+      case 'mask-reveal':
+      case 'wipe-reveal':
+        animOffsetX = (1 - progress) * 35;
+        animOpacity = progress;
+        animTracking = (1 - progress) * 10;
+        break;
       case 'typewriter': {
-        const charCount = Math.floor(progress * formattedText.length);
-        displayText = formattedText.slice(0, Math.max(0, Math.min(formattedText.length, charCount)));
+        const graphemes = getGraphemeArray(formattedText);
+        const charCount = Math.floor(progress * graphemes.length);
+        displayText = graphemes.slice(0, Math.max(0, Math.min(graphemes.length, charCount))).join('');
         break;
       }
       case 'word-by-word': {
-        const words = formattedText.split(' ');
+        const words = formattedText.trim().split(/\s+/);
         const wordCount = Math.floor(progress * words.length);
         displayText = words.slice(0, Math.max(1, wordCount)).join(' ');
         break;
       }
+      case 'char-cascade':
       case 'char-by-char': {
-        const charCount = Math.floor(progress * formattedText.length);
-        displayText = formattedText.slice(0, Math.max(1, charCount));
+        const graphemes = getGraphemeArray(formattedText);
+        const charCount = Math.floor(progress * graphemes.length);
+        displayText = graphemes.slice(0, Math.max(1, charCount)).join('');
         animOpacity = 0.5 + progress * 0.5;
         break;
       }
-      case 'flip':
-        animScaleX = Math.max(0.01, Math.cos((1 - progress) * (Math.PI / 2)));
-        animOpacity = progress;
-        break;
-      case 'neon-flash':
-        animOpacity = progress > 0.85 ? 1 : (Math.sin(rawProgress * 28) > 0 ? 1 : 0.2);
-        animBlur = (1 - progress) * 10;
-        break;
-      case 'glitch': {
-        const jitter = (1 - progress) * 22;
+      case 'glitch':
+      case 'glitch-in': {
+        const jitter = (1 - progress) * 25;
         animOffsetX = Math.sin(rawProgress * 45) * jitter;
         animOffsetY = Math.cos(rawProgress * 35) * (jitter * 0.4);
         animOpacity = Math.min(1, rawProgress * 2.5);
         break;
       }
+      case 'neon-flash':
+      case 'neon-flicker-in':
+        animOpacity = progress > 0.85 ? 1 : (Math.sin(rawProgress * 30) > 0 ? 1 : 0.15);
+        animBlur = (1 - progress) * 12;
+        break;
       case 'tracking':
+      case 'tracking-in':
         animScale = 0.85 + progress * 0.15;
         animOpacity = progress;
-        animTracking = (1 - progress) * 14;
-        break;
-      case 'bounce-drop':
-        animOffsetY = -(1 - applyEasing(rawProgress, 'bounce')) * 130;
-        animOpacity = Math.min(1, rawProgress * 3);
+        animTracking = (1 - progress) * 16;
         break;
       case 'wave':
         animOffsetY = Math.sin((1 - progress) * Math.PI * 3) * 30;
@@ -525,38 +561,68 @@ export function renderTextLayer(
         animOpacity = Math.min(animOpacity, progress);
         break;
       case 'slide-down':
-        animOffsetY += (1 - progress) * 40;
+        animOffsetY += (1 - progress) * 50;
         animOpacity = Math.min(animOpacity, progress);
         break;
       case 'slide-up':
-        animOffsetY -= (1 - progress) * 40;
+        animOffsetY -= (1 - progress) * 50;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      case 'slide-left':
+        animOffsetX -= (1 - progress) * 70;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      case 'slide-right':
+        animOffsetX += (1 - progress) * 70;
         animOpacity = Math.min(animOpacity, progress);
         break;
       case 'scale-down':
-        animScale *= 0.5 + progress * 0.5;
+        animScale *= 0.4 + progress * 0.6;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      case 'pop-out':
+        animScale *= applyEasing(rawProgress, 'back');
         animOpacity = Math.min(animOpacity, progress);
         break;
       case 'blur-out':
-        animBlur = Math.max(animBlur, (1 - progress) * 16);
+        animBlur = Math.max(animBlur, (1 - progress) * 20);
         animOpacity = Math.min(animOpacity, progress);
         break;
-      case 'typewriter-erase': {
-        const charCount = Math.floor(progress * formattedText.length);
-        displayText = formattedText.slice(0, Math.max(0, charCount));
-        break;
-      }
-      case 'glitch-out': {
-        const jitter = (1 - progress) * 24;
-        animOffsetX += Math.sin((1 - progress) * 40) * jitter;
+      case 'rotate-out':
+        animRotation += (1 - progress) * 90;
+        animScale *= 0.5 + progress * 0.5;
         animOpacity = Math.min(animOpacity, progress);
         break;
-      }
       case 'flip-out':
         animScaleX = Math.max(0.01, Math.cos((1 - progress) * (Math.PI / 2)));
         animOpacity = Math.min(animOpacity, progress);
         break;
+      case 'mask-close':
+        animScaleY = Math.max(0.01, progress);
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      case 'typewriter-erase': {
+        const graphemes = getGraphemeArray(formattedText);
+        const charCount = Math.floor(progress * graphemes.length);
+        displayText = graphemes.slice(0, Math.max(0, charCount)).join('');
+        break;
+      }
+      case 'char-scatter': {
+        const graphemes = getGraphemeArray(formattedText);
+        const charCount = Math.floor(progress * graphemes.length);
+        displayText = graphemes.slice(0, Math.max(0, charCount)).join('');
+        animOffsetY += (1 - progress) * 20;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      }
+      case 'glitch-out': {
+        const jitter = (1 - progress) * 26;
+        animOffsetX += Math.sin((1 - progress) * 45) * jitter;
+        animOpacity = Math.min(animOpacity, progress);
+        break;
+      }
       case 'crash-out':
-        animScale *= 1 + (1 - progress) * 2.2;
+        animScale *= 1 + (1 - progress) * 2.5;
         animOpacity = Math.min(animOpacity, progress);
         break;
       default:
@@ -569,22 +635,40 @@ export function renderTextLayer(
     const loopT = timeInClip * loopSpeed * Math.PI * 2;
     switch (loopType) {
       case 'pulse':
-        animScale *= 1.0 + Math.sin(loopT) * 0.05 * loopIntensity;
+        animScale *= 1.0 + Math.sin(loopT) * 0.06 * loopIntensity;
         break;
       case 'heartbeat': {
         const beat = Math.pow(Math.sin(loopT), 3);
-        animScale *= 1.0 + beat * 0.08 * loopIntensity;
+        animScale *= 1.0 + beat * 0.09 * loopIntensity;
         break;
       }
       case 'float':
-        animOffsetY += Math.sin(loopT) * 6 * loopIntensity;
+        animOffsetY += Math.sin(loopT) * 7 * loopIntensity;
+        break;
+      case 'gentle-shake':
+      case 'wiggle':
+        animRotation += Math.sin(loopT * 2.5) * 3 * loopIntensity;
+        animOffsetX += Math.cos(loopT * 2.5) * 2 * loopIntensity;
         break;
       case 'shimmer':
         animOpacity *= 0.85 + Math.sin(loopT) * 0.15 * loopIntensity;
         break;
+      case 'breathing':
+        animScale *= 1.0 + Math.sin(loopT * 0.7) * 0.04 * loopIntensity;
+        break;
+      case 'neon-flicker':
       case 'glow-breathe':
         animOpacity *= 0.82 + Math.sin(loopT * 0.9) * 0.18 * loopIntensity;
-        animBlur = Math.max(animBlur, (Math.sin(loopT * 0.9) * 0.5 + 0.5) * 6 * loopIntensity);
+        animBlur = Math.max(animBlur, (Math.sin(loopT * 0.9) * 0.5 + 0.5) * 8 * loopIntensity);
+        break;
+      case 'wave':
+        animOffsetY += Math.sin(loopT * 1.5) * 8 * loopIntensity;
+        break;
+      case 'subtle-zoom':
+        animScale *= 1.0 + Math.sin(loopT * 0.5) * 0.05 * loopIntensity;
+        break;
+      case 'color-sweep':
+        animBlur = Math.max(animBlur, (Math.sin(loopT * 1.2) * 0.5 + 0.5) * 6 * loopIntensity);
         break;
       case 'jitter':
         animOffsetX += Math.sin(loopT * 4.2) * 3.5 * loopIntensity;
@@ -594,7 +678,7 @@ export function renderTextLayer(
         animOpacity *= Math.sin(loopT * 3.5) > 0 ? 1 : 0.2;
         break;
       case 'spin-slow':
-        animRotation += Math.sin(loopT * 0.6) * 5 * loopIntensity;
+        animRotation += Math.sin(loopT * 0.6) * 6 * loopIntensity;
         break;
       default:
         break;
@@ -751,3 +835,67 @@ export function renderTextLayer(
 
   ctx.restore();
 }
+
+export interface TextAnimationDef {
+  id: string;
+  name: string;
+  type: 'in' | 'loop' | 'out';
+  categoryName: string;
+  description: string;
+  icon: string;
+  defaultDuration: number;
+}
+
+export const TEXT_ANIMATION_DEFINITIONS: TextAnimationDef[] = [
+  // Giriş Animasyonları (In)
+  { id: 'fade', name: 'Belirerek (Fade In)', type: 'in', categoryName: 'Giriş', description: 'Yumuşak opasite artışıyla belirme', icon: '🌫️', defaultDuration: 0.8 },
+  { id: 'slide-up', name: 'Aşağıdan Kayarak (Slide Up)', type: 'in', categoryName: 'Giriş', description: 'Dikey aşağıdan yukarı doğru kayış', icon: '⬆️', defaultDuration: 0.8 },
+  { id: 'slide-down', name: 'Yukarıdan Kayarak (Slide Down)', type: 'in', categoryName: 'Giriş', description: 'Yukarıdan aşağı doğru kayış', icon: '⬇️', defaultDuration: 0.8 },
+  { id: 'slide-left', name: 'Sağdan Sola (Slide Left)', type: 'in', categoryName: 'Giriş', description: 'Sağ kenardan sola kayış', icon: '⬅️', defaultDuration: 0.8 },
+  { id: 'slide-right', name: 'Soldan Sağa (Slide Right)', type: 'in', categoryName: 'Giriş', description: 'Sol kenardan sağa kayış', icon: '➡️', defaultDuration: 0.8 },
+  { id: 'scale', name: 'Büyüyerek (Scale In)', type: 'in', categoryName: 'Giriş', description: 'Merkezden büyüyerek odaklanma', icon: '🔍', defaultDuration: 0.7 },
+  { id: 'pop', name: 'Patlayarak (Pop)', type: 'in', categoryName: 'Giriş', description: 'Esnek geri tepmeli canlı büyüme', icon: '💥', defaultDuration: 0.6 },
+  { id: 'bounce-in', name: 'Zıplayarak Düşme (Bounce In)', type: 'in', categoryName: 'Giriş', description: 'Yerçekimli dinamik zıplama', icon: '🏀', defaultDuration: 1.0 },
+  { id: 'elastic-in', name: 'Elastik Esneme (Elastic In)', type: 'in', categoryName: 'Giriş', description: 'Lastik gibi esneyerek oturma', icon: '🪀', defaultDuration: 0.9 },
+  { id: 'blur-in', name: 'Bulanıklıktan Netliğe (Blur In)', type: 'in', categoryName: 'Giriş', description: 'Optik bulanıklıktan netleşme', icon: '👓', defaultDuration: 0.8 },
+  { id: 'rotate-in', name: 'Dönerek Geliş (Rotate In)', type: 'in', categoryName: 'Giriş', description: 'Açılı eksenden dönerek yerleşme', icon: '🔄', defaultDuration: 0.8 },
+  { id: 'flip-in', name: 'Kart Çevirme (Flip In)', type: 'in', categoryName: 'Giriş', description: 'Yatay 3D kart gibi açılarak geliş', icon: '🃏', defaultDuration: 0.8 },
+  { id: 'mask-reveal', name: 'Perde Açılışı (Mask Reveal)', type: 'in', categoryName: 'Giriş', description: 'Görünmez maskenin arkasından çıkış', icon: '🎭', defaultDuration: 0.8 },
+  { id: 'wipe-reveal', name: 'Süpürerek Açılış (Wipe Reveal)', type: 'in', categoryName: 'Giriş', description: 'Soldan sağa süpürülerek beliriş', icon: '🧹', defaultDuration: 0.8 },
+  { id: 'tracking-in', name: 'Harf Aralığı Daralma (Tracking In)', type: 'in', categoryName: 'Giriş', description: 'Geniş harf aralığından sinematik toplanma', icon: '↔️', defaultDuration: 1.0 },
+  { id: 'typewriter', name: 'Daktilo Harf Harf (Typewriter)', type: 'in', categoryName: 'Giriş', description: 'Daktilo gibi harf harf yazılma (Türkçe uyumlu)', icon: '⌨️', defaultDuration: 1.5 },
+  { id: 'word-by-word', name: 'Kelime Kelime (Word by Word)', type: 'in', categoryName: 'Giriş', description: 'Kelimelerin sırayla belirmesi', icon: '🗣️', defaultDuration: 1.2 },
+  { id: 'char-cascade', name: 'Karakter Şelalesi (Cascade)', type: 'in', categoryName: 'Giriş', description: 'Harflerin art arda akışı', icon: '🌊', defaultDuration: 1.0 },
+  { id: 'glitch-in', name: 'Siber Glitch (Glitch In)', type: 'in', categoryName: 'Giriş', description: 'Yatay piksel parazitiyle ani belirme', icon: '⚡', defaultDuration: 0.6 },
+  { id: 'neon-flicker-in', name: 'Neon Titreşimi (Neon Flicker In)', type: 'in', categoryName: 'Giriş', description: 'Neon lamba gibi yanıp sönerek açılma', icon: '💡', defaultDuration: 0.9 },
+
+  // Sürekli Animasyonlar (Loop)
+  { id: 'pulse', name: 'Nabız (Pulse)', type: 'loop', categoryName: 'Sürekli', description: 'Hafif ritmik büyüme ve küçülme', icon: '💓', defaultDuration: 2.0 },
+  { id: 'heartbeat', name: 'Kalp Atışı (Heartbeat)', type: 'loop', categoryName: 'Sürekli', description: 'İkili vuruşlu canlı kalp atışı', icon: '❤️', defaultDuration: 1.5 },
+  { id: 'float', name: 'Süzülme (Float)', type: 'loop', categoryName: 'Sürekli', description: 'Yerçekimsiz havada salınım', icon: '🎈', defaultDuration: 2.5 },
+  { id: 'gentle-shake', name: 'Hafif Titreme (Gentle Shake)', type: 'loop', categoryName: 'Sürekli', description: 'Dikkat çekici mikro titreşim', icon: '📳', defaultDuration: 1.5 },
+  { id: 'wiggle', name: 'Kıpırdama (Wiggle)', type: 'loop', categoryName: 'Sürekli', description: 'Açısal eğlenceli kıpırdanma', icon: '〰️', defaultDuration: 1.5 },
+  { id: 'shimmer', name: 'Işıltı & Parıltı (Shimmer)', type: 'loop', categoryName: 'Sürekli', description: 'Parlaklık ve opasite dalgalanması', icon: '✨', defaultDuration: 2.0 },
+  { id: 'breathing', name: 'Nefes Alma (Breathing)', type: 'loop', categoryName: 'Sürekli', description: 'Yavaş, derin ve sakin ölçeklenme', icon: '🧘', defaultDuration: 3.0 },
+  { id: 'neon-flicker', name: 'Neon Işıma (Neon Glow)', type: 'loop', categoryName: 'Sürekli', description: 'Canlı neon parlaması ve titreşimi', icon: '🔮', defaultDuration: 2.0 },
+  { id: 'wave', name: 'Dalgalanma (Wave)', type: 'loop', categoryName: 'Sürekli', description: 'Dikey akıcı deniz dalgası hareketi', icon: '🏄', defaultDuration: 2.0 },
+  { id: 'subtle-zoom', name: 'Hafif Yakınlaşma (Subtle Zoom)', type: 'loop', categoryName: 'Sürekli', description: 'Belgesel tarzı ağır sinematik yaklaşma', icon: '🔭', defaultDuration: 4.0 },
+  { id: 'color-sweep', name: 'Renk Dalgası (Color Sweep)', type: 'loop', categoryName: 'Sürekli', description: 'Sürekli yumuşak atmosfer geçişi', icon: '🌈', defaultDuration: 3.0 },
+
+  // Çıkış Animasyonları (Out)
+  { id: 'fade', name: 'Karararak Kaybol (Fade Out)', type: 'out', categoryName: 'Çıkış', description: 'Opasitenin sıfıra düşmesi', icon: '🌫️', defaultDuration: 0.6 },
+  { id: 'slide-down', name: 'Aşağı Kayarak (Slide Down Out)', type: 'out', categoryName: 'Çıkış', description: 'Aşağı doğru kayarak ekranı terk ediş', icon: '⬇️', defaultDuration: 0.6 },
+  { id: 'slide-up', name: 'Yukarı Kayarak (Slide Up Out)', type: 'out', categoryName: 'Çıkış', description: 'Yukarı doğru kayarak çıkış', icon: '⬆️', defaultDuration: 0.6 },
+  { id: 'slide-left', name: 'Sola Kayarak (Slide Left Out)', type: 'out', categoryName: 'Çıkış', description: 'Sol kenardan dışarı kayış', icon: '⬅️', defaultDuration: 0.6 },
+  { id: 'slide-right', name: 'Sağa Kayarak (Slide Right Out)', type: 'out', categoryName: 'Çıkış', description: 'Sağ kenardan dışarı kayış', icon: '➡️', defaultDuration: 0.6 },
+  { id: 'scale-down', name: 'Küçülerek (Scale Down)', type: 'out', categoryName: 'Çıkış', description: 'Merkeze küçülerek yok olma', icon: '🔬', defaultDuration: 0.6 },
+  { id: 'pop-out', name: 'İçeri Çöküş (Pop Out)', type: 'out', categoryName: 'Çıkış', description: 'Hızlı içe çökerek kapanış', icon: '🗯️', defaultDuration: 0.5 },
+  { id: 'blur-out', name: 'Bulanıklaşarak (Blur Out)', type: 'out', categoryName: 'Çıkış', description: 'Odak kaybedip buğulanarak kaybolma', icon: '💨', defaultDuration: 0.7 },
+  { id: 'rotate-out', name: 'Dönerek Çıkış (Rotate Out)', type: 'out', categoryName: 'Çıkış', description: 'Eksen etrafında dönerek uzaklaşma', icon: '💫', defaultDuration: 0.7 },
+  { id: 'flip-out', name: 'Kart Kapanışı (Flip Out)', type: 'out', categoryName: 'Çıkış', description: '3D kartın kapanması gibi kaybolma', icon: '🃏', defaultDuration: 0.6 },
+  { id: 'mask-close', name: 'Perde Kapanışı (Mask Close)', type: 'out', categoryName: 'Çıkış', description: 'Yatayda daralarak kapanış', icon: '🪟', defaultDuration: 0.6 },
+  { id: 'typewriter-erase', name: 'Daktilo Silinmesi (Typewriter Erase)', type: 'out', categoryName: 'Çıkış', description: 'Sondan başa harf harf silinme', icon: '🔙', defaultDuration: 1.0 },
+  { id: 'char-scatter', name: 'Harf Dağılması (Scatter)', type: 'out', categoryName: 'Çıkış', description: 'Karakterlerin aşağı dökülerek kaybolması', icon: '🍂', defaultDuration: 0.8 },
+  { id: 'glitch-out', name: 'Glitch Kapanış (Glitch Out)', type: 'out', categoryName: 'Çıkış', description: 'Dijital sinyal kesintisiyle kayboluş', icon: '⚡', defaultDuration: 0.5 },
+];
+

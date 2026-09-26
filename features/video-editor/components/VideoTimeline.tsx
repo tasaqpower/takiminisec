@@ -1,12 +1,29 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { VideoProject, TimelineTrack, VideoClip, TrackType, Transition } from '../types';
+import {
+  VideoProject,
+  TimelineTrack,
+  VideoClip,
+  TrackType,
+  Transition,
+  TimelineTransition,
+  EffectSegment,
+  TextAnimationSegment,
+  TransitionType,
+} from '../types';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
+import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
+import { generateSfxBlob } from '../engine/sfxGenerator';
+import { saveAssetBlob } from '../db';
 
 interface TimelineProps {
   project: VideoProject;
   currentTime: number;
   selectedClipId: string | null;
+  selectedTransitionId?: string | null;
+  selectedEffectSegmentId?: string | null;
   onSelectClip: (clipId: string | null) => void;
+  onSelectTransition?: (transitionId: string | null) => void;
+  onSelectEffectSegment?: (segmentId: string | null) => void;
   onSeek: (time: number) => void;
   onSplitClip: (clipId: string, splitTime: number) => void;
   onDeleteClip: (clipId: string) => void;
@@ -23,13 +40,29 @@ interface TimelineProps {
   onUpdateClipSpeed?: (clipId: string, speed: number) => void;
   onToggleClipMute?: (clipId: string) => void;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
+  onAddClip?: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
+  onAddTimelineTransition?: (transition: Omit<TimelineTransition, 'id'>) => TimelineTransition;
+  onUpdateTimelineTransition?: (id: string, updates: Partial<TimelineTransition>) => void;
+  onDeleteTimelineTransition?: (id: string) => void;
+  onAddEffectSegment?: (segment: Omit<EffectSegment, 'id' | 'createdAt'>) => EffectSegment;
+  onUpdateEffectSegment?: (segmentId: string, updates: Partial<EffectSegment>) => void;
+  onDeleteEffectSegment?: (segmentId: string) => void;
+  onMoveEffectSegment?: (segmentId: string, newStartTime: number) => void;
+  onResizeEffectSegment?: (segmentId: string, newDuration: number) => void;
+  onAddTextAnimationSegment?: (clipId: string, segment: Omit<TextAnimationSegment, 'id'>) => TextAnimationSegment;
+  onUpdateTextAnimationSegment?: (clipId: string, segmentId: string, updates: Partial<TextAnimationSegment>) => void;
+  onDeleteTextAnimationSegment?: (clipId: string, segmentId: string) => void;
 }
 
 export const VideoTimeline: React.FC<TimelineProps> = ({
   project,
   currentTime,
   selectedClipId,
+  selectedTransitionId,
+  selectedEffectSegmentId,
   onSelectClip,
+  onSelectTransition,
+  onSelectEffectSegment,
   onSeek,
   onSplitClip,
   onDeleteClip,
@@ -46,6 +79,18 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onUpdateClipSpeed,
   onToggleClipMute,
   onUpdateClip,
+  onAddClip,
+  onAddTimelineTransition,
+  onUpdateTimelineTransition,
+  onDeleteTimelineTransition,
+  onAddEffectSegment,
+  onUpdateEffectSegment,
+  onDeleteEffectSegment,
+  onMoveEffectSegment,
+  onResizeEffectSegment,
+  onAddTextAnimationSegment,
+  onUpdateTextAnimationSegment,
+  onDeleteTextAnimationSegment,
 }) => {
   const [zoom, setZoom] = useState<number>(40); // pixels per second
   const [snapping, setSnapping] = useState<boolean>(true);
@@ -82,6 +127,33 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     initialTrimIn: number;
     initialTrimOut: number;
     initialMouseX: number;
+  } | null>(null);
+
+  const { isDragging, activePayload, updateDragPosition, endDrag, registerDropTarget } = useEditorDragDrop();
+
+  const [resizingTransition, setResizingTransition] = useState<{
+    transitionId: string;
+    initialDuration: number;
+    initialMouseX: number;
+    edge: 'left' | 'right';
+  } | null>(null);
+
+  const [resizingEffect, setResizingEffect] = useState<{
+    segmentId: string;
+    initialDuration: number;
+    initialStartTime: number;
+    initialMouseX: number;
+    edge: 'left' | 'right';
+  } | null>(null);
+
+  const [dropHoverTime, setDropHoverTime] = useState<number | null>(null);
+  const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
+  const [hoveredClipId, setHoveredClipId] = useState<string | null>(null);
+  const [hoveredCutPoint, setHoveredCutPoint] = useState<{
+    trackId: string;
+    cutTime: number;
+    leftClipId?: string;
+    rightClipId?: string;
   } | null>(null);
 
   // Helper for snapping
@@ -151,6 +223,16 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           const newTrimOut = trimmingClip.initialTrimIn + newDuration;
           onTrimClip(trimmingClip.clipId, trimmingClip.initialTrimIn, newTrimOut, trimmingClip.initialStartTime, newDuration);
         }
+      } else if (resizingTransition) {
+        const deltaX = e.clientX - resizingTransition.initialMouseX;
+        const deltaSec = (resizingTransition.edge === 'right' ? deltaX : -deltaX) / zoom;
+        const newDuration = Math.max(0.2, Math.min(5.0, resizingTransition.initialDuration + deltaSec));
+        onUpdateTimelineTransition?.(resizingTransition.transitionId, { duration: newDuration });
+      } else if (resizingEffect) {
+        const deltaX = e.clientX - resizingEffect.initialMouseX;
+        const deltaSec = (resizingEffect.edge === 'right' ? deltaX : -deltaX) / zoom;
+        const newDuration = Math.max(0.2, resizingEffect.initialDuration + deltaSec);
+        onResizeEffectSegment?.(resizingEffect.segmentId, newDuration);
       }
     };
 
@@ -158,9 +240,11 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       if (isScrubbing) setIsScrubbing(false);
       if (draggingClip) setDraggingClip(null);
       if (trimmingClip) setTrimmingClip(null);
+      if (resizingTransition) setResizingTransition(null);
+      if (resizingEffect) setResizingEffect(null);
     };
 
-    if (isScrubbing || draggingClip || trimmingClip) {
+    if (isScrubbing || draggingClip || trimmingClip || resizingTransition || resizingEffect) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
@@ -169,7 +253,435 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isScrubbing, draggingClip, trimmingClip, zoom, clientXToTime, snapTime, onSeek, onMoveClip, onTrimClip, project.duration]);
+  }, [
+    isScrubbing,
+    draggingClip,
+    trimmingClip,
+    resizingTransition,
+    resizingEffect,
+    zoom,
+    clientXToTime,
+    snapTime,
+    onSeek,
+    onMoveClip,
+    onTrimClip,
+    onUpdateTimelineTransition,
+    onResizeEffectSegment,
+    project.duration,
+  ]);
+
+  const executeTimelineDrop = useCallback(
+    async (payload: DragPayload, clientX: number, clientY: number, altKey = false) => {
+      const rawSec = clientXToTime(clientX);
+      const dropTime = altKey ? rawSec : snapTime(rawSec);
+
+      // Detect track index from clientY
+      let targetTrackId: string | null = null;
+      if (scrollContainerRef.current) {
+        const rect = scrollContainerRef.current.getBoundingClientRect();
+        const relativeY = clientY - rect.top + scrollContainerRef.current.scrollTop - 24;
+        const trackIdx = Math.floor(relativeY / 64);
+        if (trackIdx >= 0 && trackIdx < project.tracks.length) {
+          targetTrackId = project.tracks[trackIdx].id;
+        }
+      }
+
+      // Detect nearest cut point between two clips
+      let nearestCut: { trackId: string; cutTime: number; leftClipId?: string; rightClipId?: string } | null = null;
+      let minCutDist = Infinity;
+      for (const track of project.tracks) {
+        const sorted = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const c1 = sorted[i];
+          const c2 = sorted[i + 1];
+          const c1End = c1.startTime + c1.duration;
+          if (Math.abs(c1End - c2.startTime) < 0.4) {
+            const dist = Math.abs(dropTime - c1End);
+            if (dist < minCutDist && dist < Math.max(1.8, 60 / zoom)) {
+              minCutDist = dist;
+              nearestCut = {
+                trackId: track.id,
+                cutTime: c1End,
+                leftClipId: c1.id,
+                rightClipId: c2.id,
+              };
+            }
+          }
+        }
+      }
+
+      // Detect clip at dropTime
+      let hitClip: VideoClip | null = null;
+      for (const track of project.tracks) {
+        for (const clip of track.clips) {
+          if (dropTime >= clip.startTime && dropTime <= clip.startTime + clip.duration) {
+            hitClip = clip;
+            if (!targetTrackId) targetTrackId = track.id;
+            break;
+          }
+        }
+        if (hitClip) break;
+      }
+
+      // If no hit clip, find closest clip within 2.5 seconds
+      if (!hitClip && !nearestCut) {
+        let minClipDist = Infinity;
+        for (const track of project.tracks) {
+          for (const clip of track.clips) {
+            const distStart = Math.abs(dropTime - clip.startTime);
+            const distEnd = Math.abs(dropTime - (clip.startTime + clip.duration));
+            const d = Math.min(distStart, distEnd);
+            if (d < minClipDist && d < 2.5) {
+              minClipDist = d;
+              hitClip = clip;
+              if (!targetTrackId) targetTrackId = track.id;
+            }
+          }
+        }
+      }
+
+      setDropHoverTime(null);
+      setHoveredCutPoint(null);
+      setHoveredClipId(null);
+      setHoveredTrackId(null);
+
+      if (payload.type === 'transition') {
+        const cut = hoveredCutPoint || nearestCut;
+        if (cut && onAddTimelineTransition) {
+          onAddTimelineTransition({
+            trackId: cut.trackId,
+            type: payload.id as TransitionType,
+            duration: payload.duration || 1.0,
+            cutTime: cut.cutTime,
+            leftClipId: cut.leftClipId,
+            rightClipId: cut.rightClipId,
+            alignment: 'between',
+          });
+        } else {
+          const target =
+            hitClip ||
+            (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null) ||
+            project.tracks.flatMap((t) => t.clips)[0];
+          if (target && onUpdateClip) {
+            onUpdateClip(target.id, {
+              transitionIn: { type: payload.id as TransitionType, duration: payload.duration || 1.0 },
+            });
+          }
+        }
+      } else if (payload.type === 'video-effect') {
+        const target =
+          hitClip ||
+          (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null);
+        if (target && onAddEffectSegment) {
+          onAddEffectSegment({
+            effectId: payload.id,
+            effectKind: payload.category as any,
+            name: payload.name,
+            targetClipId: target.id,
+            startTime: target.startTime,
+            duration: Math.min(payload.duration || 3.0, target.duration),
+            parameters: {},
+            enabled: true,
+          });
+        } else if (onAddEffectSegment) {
+          const videoTrack =
+            project.tracks.find((t) => t.id === targetTrackId && t.type === 'video') ||
+            project.tracks.find((t) => t.type === 'video') ||
+            project.tracks[0];
+          if (videoTrack) {
+            onAddEffectSegment({
+              effectId: payload.id,
+              effectKind: payload.category as any,
+              name: payload.name,
+              trackId: videoTrack.id,
+              startTime: dropTime,
+              duration: payload.duration || 3.0,
+              parameters: {},
+              enabled: true,
+            });
+          }
+        }
+      } else if (payload.type === 'text-animation') {
+        const target =
+          hitClip ||
+          (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null);
+        if (target && (target.type === 'text' || target.type === 'subtitle')) {
+          if (onAddTextAnimationSegment) {
+            onAddTextAnimationSegment(target.id, {
+              type: payload.category as any,
+              animationName: payload.id,
+              startTime: 0,
+              duration: payload.duration || 0.8,
+            });
+          }
+        } else if (onAddClip) {
+          const textTrack = project.tracks.find((t) => t.type === 'text') || project.tracks[0];
+          if (textTrack) {
+            const newClip = onAddClip(textTrack.id, {
+              name: payload.name,
+              type: 'text',
+              startTime: dropTime,
+              duration: 4.0,
+              sourceDuration: 4.0,
+              textData: {
+                text: 'Yeni Metin',
+                fontSize: 54,
+                fontWeight: 'bold',
+                color: '#ffffff',
+                inAnimation: payload.category === 'in' ? (payload.id as any) : undefined,
+                inDuration: payload.category === 'in' ? payload.duration || 0.8 : undefined,
+                loopAnimation: payload.category === 'loop' ? (payload.id as any) : undefined,
+                outAnimation: payload.category === 'out' ? (payload.id as any) : undefined,
+                outDuration: payload.category === 'out' ? payload.duration || 0.8 : undefined,
+              },
+            });
+            if (newClip) onSelectClip?.(newClip.id);
+          }
+        }
+      } else if (payload.type === 'filter-preset') {
+        const target =
+          hitClip ||
+          (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null) ||
+          (selectedClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId) : null) ||
+          project.tracks.flatMap((t) => t.clips)[0];
+        if (target && payload.data?.effects && onUpdateClip) {
+          onUpdateClip(target.id, { effects: payload.data.effects });
+        }
+      } else if (payload.type === 'audio-sfx') {
+        const audioTrack =
+          project.tracks.find((t) => t.id === targetTrackId && t.type === 'audio') ||
+          project.tracks.find((t) => t.type === 'audio') ||
+          project.tracks[0];
+        if (audioTrack && onAddClip) {
+          try {
+            const blob = await generateSfxBlob(payload.id as any);
+            const assetId = 'asset-sfx-' + payload.id + '-' + Date.now();
+            await saveAssetBlob(assetId, blob);
+            const url = URL.createObjectURL(blob);
+            onAddClip(audioTrack.id, {
+              assetId,
+              sourceUrl: url,
+              name: payload.name,
+              type: 'audio',
+              startTime: dropTime,
+              duration: payload.duration || 3.0,
+              sourceDuration: payload.duration || 3.0,
+              volume: 0.9,
+            });
+          } catch (err) {
+            console.warn('Failed to add SFX on drop:', err);
+          }
+        }
+      } else if (payload.type === 'title-template') {
+        const textTrack =
+          project.tracks.find((t) => t.id === targetTrackId && t.type === 'text') ||
+          project.tracks.find((t) => t.type === 'text') ||
+          project.tracks[0];
+        if (textTrack && onAddClip) {
+          const newClip = onAddClip(textTrack.id, {
+            name: payload.name,
+            type: 'text',
+            startTime: dropTime,
+            duration: payload.duration || 4.0,
+            sourceDuration: payload.duration || 4.0,
+            textData: {
+              text: payload.data?.text || payload.name,
+              fontSize: payload.data?.data?.fontSize || 54,
+              fontWeight: payload.data?.data?.fontWeight || 'bold',
+              color: '#ffffff',
+              ...payload.data?.data,
+            },
+          });
+          if (newClip) onSelectClip?.(newClip.id);
+        }
+      } else if (payload.type === 'overlay') {
+        const videoTrack =
+          project.tracks.find((t) => t.id === targetTrackId && t.type === 'video') ||
+          project.tracks.find((t) => t.type === 'video') ||
+          project.tracks[0];
+        if (videoTrack && onAddClip) {
+          const newClip = onAddClip(videoTrack.id, {
+            name: payload.name,
+            type: 'image',
+            startTime: dropTime,
+            duration: payload.duration || 4.0,
+            sourceDuration: payload.duration || 4.0,
+            transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 },
+          });
+          if (newClip) onSelectClip?.(newClip.id);
+        }
+      } else if (payload.type === 'video' || payload.type === 'audio' || payload.type === 'image') {
+        const targetType = payload.type === 'audio' ? 'audio' : 'video';
+        const targetTrack =
+          project.tracks.find((t) => t.id === targetTrackId) ||
+          project.tracks.find((t) => t.type === targetType) ||
+          project.tracks[0];
+        if (targetTrack && onAddClip) {
+          const newClip = onAddClip(targetTrack.id, {
+            assetId: payload.id,
+            name: payload.name,
+            type: payload.type,
+            sourceUrl: payload.data?.url || (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined),
+            startTime: dropTime,
+            duration: payload.duration || (payload.type === 'image' ? 4 : 5),
+            sourceDuration: payload.duration || (payload.type === 'image' ? 4 : 5),
+            trimIn: 0,
+            trimOut: payload.duration || (payload.type === 'image' ? 4 : 5),
+          });
+          if (newClip) onSelectClip?.(newClip.id);
+        }
+      }
+    },
+    [
+      clientXToTime,
+      snapTime,
+      zoom,
+      project.tracks,
+      hoveredCutPoint,
+      hoveredClipId,
+      selectedClipId,
+      onAddTimelineTransition,
+      onUpdateClip,
+      onAddEffectSegment,
+      onAddTextAnimationSegment,
+      onAddClip,
+      onSelectClip,
+    ]
+  );
+
+  // Register timeline drop zone with global DragDropContext
+  useEffect(() => {
+    return registerDropTarget({
+      id: 'timeline',
+      getBounds: () => {
+        if (!containerRef.current) return null;
+        return containerRef.current.getBoundingClientRect();
+      },
+      onPointerMove: (e, payload) => {
+        const mouseSec = clientXToTime(e.clientX);
+        const snappedSec = snapTime(mouseSec);
+        setDropHoverTime(snappedSec);
+
+        let detectedCut: { trackId: string; cutTime: number; leftClipId?: string; rightClipId?: string } | null = null;
+        let detectedClip: string | null = null;
+        let detectedTrack: string | null = null;
+
+        if (scrollContainerRef.current) {
+          const rect = scrollContainerRef.current.getBoundingClientRect();
+          const relativeY = e.clientY - rect.top + scrollContainerRef.current.scrollTop - 24;
+          const trackIdx = Math.floor(relativeY / 64);
+          if (trackIdx >= 0 && trackIdx < project.tracks.length) {
+            detectedTrack = project.tracks[trackIdx].id;
+          }
+        }
+
+        for (const track of project.tracks) {
+          const sorted = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+          for (let i = 0; i < sorted.length - 1; i++) {
+            const c1 = sorted[i];
+            const c2 = sorted[i + 1];
+            const c1End = c1.startTime + c1.duration;
+            if (Math.abs(c1End - c2.startTime) < 0.4) {
+              if (Math.abs(mouseSec - c1End) < Math.max(0.4, 40 / zoom)) {
+                detectedCut = {
+                  trackId: track.id,
+                  cutTime: c1End,
+                  leftClipId: c1.id,
+                  rightClipId: c2.id,
+                };
+                break;
+              }
+            }
+          }
+          if (detectedCut) break;
+        }
+
+        if (!detectedCut) {
+          for (const track of project.tracks) {
+            for (const clip of track.clips) {
+              if (mouseSec >= clip.startTime && mouseSec <= clip.startTime + clip.duration) {
+                detectedClip = clip.id;
+                detectedTrack = track.id;
+                break;
+              }
+            }
+            if (detectedClip) break;
+          }
+        }
+
+        setHoveredCutPoint(detectedCut);
+        setHoveredClipId(detectedClip);
+        setHoveredTrackId(detectedTrack);
+
+        let targetType: DragTargetInfo['targetType'] = 'track';
+        let label = 'Zaman Çizgisine Ekle';
+        let isValid = true;
+
+        if (payload.type === 'transition') {
+          if (detectedCut) {
+            targetType = 'cut-point';
+            label = 'Kesim Noktasına Geçiş (Papyon)';
+          } else if (detectedClip) {
+            targetType = 'clip';
+            label = 'Klibe Giriş Geçişi Uygula';
+          } else {
+            targetType = 'track';
+            label = 'En Yakın Klibe Geçiş Ekle';
+          }
+        } else if (payload.type === 'video-effect') {
+          if (detectedClip) {
+            targetType = 'clip';
+            label = 'Klibe Efekt Ekle';
+          } else {
+            targetType = 'track';
+            label = 'Efekt Şeridi Ekle';
+          }
+        } else if (payload.type === 'text-animation') {
+          if (detectedClip) {
+            targetType = 'clip';
+            label = 'Metne Animasyon Ekle';
+          } else {
+            targetType = 'track';
+            label = 'Yeni Animasyonlu Metin Ekle';
+          }
+        } else if (payload.type === 'filter-preset') {
+          targetType = detectedClip ? 'clip' : 'track';
+          label = detectedClip ? 'Filtreyi Klibe Uygula' : 'Filtre Ekle';
+        } else if (payload.type === 'audio-sfx') {
+          targetType = 'track';
+          label = 'Ses Efekti (SFX) Ekle';
+        } else if (payload.type === 'title-template') {
+          targetType = 'track';
+          label = 'Başlık Şablonu Ekle';
+        } else if (payload.type === 'overlay') {
+          targetType = 'track';
+          label = 'Öğe Ekle';
+        } else if (payload.type === 'video' || payload.type === 'audio' || payload.type === 'image' || payload.type === 'media') {
+          targetType = 'track';
+          label = 'Medyayı İze Yerleştir';
+        }
+
+        return {
+          targetType,
+          isValid,
+          time: snappedSec,
+          label,
+          trackId: detectedTrack || undefined,
+          clipId: detectedClip || undefined,
+        };
+      },
+      onDrop: async (payload, e) => {
+        await executeTimelineDrop(payload, e.clientX, e.clientY, e.altKey);
+        return true;
+      },
+      onPointerLeave: () => {
+        setDropHoverTime(null);
+        setHoveredCutPoint(null);
+        setHoveredClipId(null);
+        setHoveredTrackId(null);
+      },
+    });
+  }, [registerDropTarget, executeTimelineDrop, clientXToTime, snapTime, zoom, project.tracks]);
 
   // Close context menu on external click or Escape
   useEffect(() => {
@@ -457,6 +969,99 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
         {/* Right Scrollable: Ruler & Track Lanes & Playhead */}
         <div
           ref={scrollContainerRef}
+          data-timeline-scroll-container="true"
+          onPointerMove={(e) => {
+            if (!isDragging) return;
+            if (scrollContainerRef.current) {
+              const rect = scrollContainerRef.current.getBoundingClientRect();
+              if (e.clientX - rect.left < 60) {
+                scrollContainerRef.current.scrollLeft -= 12;
+              } else if (rect.right - e.clientX < 60) {
+                scrollContainerRef.current.scrollLeft += 12;
+              }
+            }
+
+            const mouseSec = clientXToTime(e.clientX);
+            const snappedSec = snapTime(mouseSec);
+            setDropHoverTime(snappedSec);
+
+            // Cut point detection
+            let detectedCut: { trackId: string; cutTime: number; leftClipId?: string; rightClipId?: string } | null = null;
+            let detectedClip: string | null = null;
+            let detectedTrack: string | null = null;
+
+            if (scrollContainerRef.current) {
+              const rect = scrollContainerRef.current.getBoundingClientRect();
+              const relativeY = e.clientY - rect.top + scrollContainerRef.current.scrollTop - 24;
+              const trackIdx = Math.floor(relativeY / 64);
+              if (trackIdx >= 0 && trackIdx < project.tracks.length) {
+                detectedTrack = project.tracks[trackIdx].id;
+              }
+            }
+
+            for (const track of project.tracks) {
+              const sorted = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+              for (let i = 0; i < sorted.length - 1; i++) {
+                const c1 = sorted[i];
+                const c2 = sorted[i + 1];
+                const c1End = c1.startTime + c1.duration;
+                if (Math.abs(c1End - c2.startTime) < 0.35) {
+                  if (Math.abs(mouseSec - c1End) < Math.max(0.35, 35 / zoom)) {
+                    detectedCut = {
+                      trackId: track.id,
+                      cutTime: c1End,
+                      leftClipId: c1.id,
+                      rightClipId: c2.id,
+                    };
+                    break;
+                  }
+                }
+              }
+              if (detectedCut) break;
+            }
+
+            if (!detectedCut) {
+              for (const track of project.tracks) {
+                for (const clip of track.clips) {
+                  if (mouseSec >= clip.startTime && mouseSec <= clip.startTime + clip.duration) {
+                    detectedClip = clip.id;
+                    break;
+                  }
+                }
+                if (detectedClip) break;
+              }
+            }
+
+            setHoveredCutPoint(detectedCut);
+            setHoveredClipId(detectedClip);
+            setHoveredTrackId(detectedTrack);
+
+            let isValid = true;
+            if (activePayload?.type === 'transition') {
+              isValid = Boolean(detectedCut || detectedClip);
+            } else if (activePayload?.type === 'video-effect') {
+              isValid = Boolean(detectedClip || detectedTrack);
+            } else if (activePayload?.type === 'text-animation') {
+              const targetClip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === detectedClip);
+              isValid = Boolean(targetClip && (targetClip.type === 'text' || targetClip.type === 'subtitle'));
+            } else if (activePayload?.type === 'filter-preset') {
+              isValid = Boolean(detectedClip);
+            }
+
+            updateDragPosition(e.clientX, e.clientY, isValid);
+          }}
+          onPointerUp={(e) => {
+            if (isDragging && activePayload) {
+              executeTimelineDrop(activePayload, e.clientX, e.clientY, e.altKey);
+            }
+          }}
+          onPointerLeave={() => {
+            if (isDragging) {
+              setDropHoverTime(null);
+              setHoveredCutPoint(null);
+              setHoveredClipId(null);
+            }
+          }}
           className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#090d13]"
         >
           <div style={{ width: totalWidth }} className="relative min-h-full">
@@ -471,6 +1076,38 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             >
               {renderRulerTicks()}
             </div>
+
+            {/* Drag Drop Hover Line Indicator */}
+            {isDragging && dropHoverTime !== null && (
+              <div
+                style={{ left: `${dropHoverTime * zoom}px` }}
+                className="absolute top-0 bottom-0 w-[2px] z-50 pointer-events-none transition-all duration-75"
+              >
+                <div
+                  className={`h-full w-full shadow-lg ${
+                    activePayload?.type === 'transition' && !hoveredCutPoint && !hoveredClipId
+                      ? 'bg-red-500 shadow-red-500/80'
+                      : 'bg-emerald-400 shadow-emerald-400/80'
+                  }`}
+                />
+                <div className="absolute top-7 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#161b22] border border-gray-600 text-[10px] font-mono font-bold text-white shadow-xl flex items-center gap-1 whitespace-nowrap">
+                  <span>{hoveredCutPoint ? '⚡ Kesim Noktası' : `${dropHoverTime.toFixed(2)}s`}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Cut Point Snap Highlight */}
+            {isDragging && hoveredCutPoint && activePayload?.type === 'transition' && (
+              <div
+                style={{ left: `${hoveredCutPoint.cutTime * zoom}px` }}
+                className="absolute top-6 bottom-0 w-8 -translate-x-1/2 flex items-center justify-center pointer-events-none z-50 animate-pulse"
+              >
+                <div className="px-2 py-1 rounded bg-amber-500 text-black text-[10px] font-extrabold shadow-2xl flex items-center gap-1 border-2 border-white">
+                  <span>⚡</span>
+                  <span>BURAYA BIRAKIN</span>
+                </div>
+              </div>
+            )}
 
             {/* 2. Track Lanes */}
             <div className="relative">
@@ -503,6 +1140,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                     return (
                       <div
                         key={clip.id}
+                        data-clip-id={clip.id}
+                        data-clip-type={clip.type}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectClip(clip.id);
@@ -655,6 +1294,72 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             {clip.duration.toFixed(1)} sn
                             {clip.speed && clip.speed !== 1 ? ` • ${clip.speed}x` : ''}
                           </p>
+
+                          {/* Text Animation Badges */}
+                          {clip.animationSegments && clip.animationSegments.length > 0 && (
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap z-20 pointer-events-auto">
+                              {clip.animationSegments.map((anim) => (
+                                <span
+                                  key={anim.id}
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-0.5 shadow-sm border ${
+                                    anim.type === 'in'
+                                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60'
+                                      : anim.type === 'loop'
+                                      ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60'
+                                      : 'bg-amber-950/80 text-amber-300 border-amber-500/60'
+                                  }`}
+                                  title={`${anim.type.toUpperCase()}: ${anim.animationName}`}
+                                >
+                                  <span>{anim.type === 'in' ? '🟢' : anim.type === 'loop' ? '🔵' : '🟠'}</span>
+                                  <span className="truncate max-w-[45px]">{anim.animationName}</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteTextAnimationSegment?.(clip.id, anim.id);
+                                    }}
+                                    className="hover:text-red-400 ml-0.5 cursor-pointer font-bold"
+                                    title="Animasyonu Kaldır"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Clip Effect Segment Ribbons */}
+                          {clip.effectSegments && clip.effectSegments.length > 0 && (
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap z-20 pointer-events-auto">
+                              {clip.effectSegments.map((eff) => (
+                                <span
+                                  key={eff.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectEffectSegment?.(eff.id);
+                                  }}
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-0.5 shadow-sm border bg-indigo-950/80 text-indigo-300 border-indigo-500/60 cursor-pointer hover:bg-indigo-900 ${
+                                    selectedEffectSegmentId === eff.id ? 'ring-1 ring-white' : ''
+                                  }`}
+                                  title={`Efekt: ${eff.name} — Tıkla: Düzenle`}
+                                >
+                                  <span>🎨</span>
+                                  <span className="truncate max-w-[45px]">{eff.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteEffectSegment?.(eff.id);
+                                    }}
+                                    className="hover:text-red-400 ml-0.5 cursor-pointer font-bold"
+                                    title="Efekti Kaldır"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Keyframe Diamond Markers */}
@@ -705,6 +1410,165 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 </div>
               ))}
             </div>
+
+            {/* 2.5 Bowtie / Butterfly Transitions Layer */}
+            {project.transitions && project.transitions.length > 0 && (
+              <div className="absolute inset-0 pointer-events-none z-30">
+                {project.transitions.map((tr) => {
+                  const isSelected = selectedTransitionId === tr.id;
+                  const trWidth = Math.max(36, tr.duration * zoom);
+                  const trLeft = (tr.cutTime - tr.duration / 2) * zoom;
+                  const trDef = TRANSITION_DEFINITIONS.find((d) => d.id === tr.type);
+
+                  const trackIdx = project.tracks.findIndex((t) => t.id === tr.trackId);
+                  const topOffset = (trackIdx >= 0 ? trackIdx * 64 : 0) + 24 + 14;
+
+                  return (
+                    <div
+                      key={tr.id}
+                      data-transition-id={tr.id}
+                      data-testid="timeline-transition"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectClip(null);
+                        onSelectTransition?.(tr.id);
+                      }}
+                      style={{
+                        left: `${trLeft}px`,
+                        width: `${trWidth}px`,
+                        top: `${topOffset}px`,
+                        height: '36px',
+                      }}
+                      className={`absolute pointer-events-auto group flex items-center justify-center select-none cursor-pointer transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black z-40'
+                          : 'hover:brightness-125'
+                      }`}
+                      title={`${trDef?.name || tr.type} (${tr.duration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
+                    >
+                      {/* Bowtie / Butterfly SVG shape */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <svg
+                          viewBox="0 0 40 24"
+                          preserveAspectRatio="none"
+                          className="w-full h-full drop-shadow-md"
+                        >
+                          <defs>
+                            <linearGradient id={`bowtie-grad-${tr.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.9" />
+                              <stop offset="50%" stopColor="#d97706" stopOpacity="0.75" />
+                              <stop offset="100%" stopColor="#b45309" stopOpacity="0.9" />
+                            </linearGradient>
+                          </defs>
+                          <polygon points="0,2 18,12 0,22" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="1" />
+                          <polygon points="40,2 22,12 40,22" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="1" />
+                          <line x1="20" y1="0" x2="20" y2="24" stroke="#ffffff" strokeWidth="2" strokeDasharray="2 2" />
+                        </svg>
+                      </div>
+
+                      {/* Center Badge label */}
+                      <div className="relative z-10 px-1.5 py-0.5 rounded bg-black/70 border border-amber-400/80 text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow-sm backdrop-blur-sm pointer-events-none truncate max-w-full">
+                        <span>{trDef?.icon || '⚡'}</span>
+                        <span className="truncate">{trDef?.name || tr.type}</span>
+                      </div>
+
+                      {/* Left Duration Handle */}
+                      <div
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setResizingTransition({
+                            transitionId: tr.id,
+                            initialDuration: tr.duration,
+                            initialMouseX: e.clientX,
+                            edge: 'left',
+                          });
+                        }}
+                        className="absolute left-0 top-0 bottom-0 w-2 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        title="Geçiş süresini ayarla (Sol)"
+                      />
+
+                      {/* Right Duration Handle */}
+                      <div
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setResizingTransition({
+                            transitionId: tr.id,
+                            initialDuration: tr.duration,
+                            initialMouseX: e.clientX,
+                            edge: 'right',
+                          });
+                        }}
+                        className="absolute right-0 top-0 bottom-0 w-2 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        title="Geçiş süresini ayarla (Sağ)"
+                      />
+
+                      {/* Delete button on hover */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTimelineTransition?.(tr.id);
+                        }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity z-30"
+                        title="Geçişi Sil"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 2.6 Independent Effect Segments Layer */}
+            {project.effectSegments && project.effectSegments.length > 0 && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {project.effectSegments.filter((eff) => !eff.targetClipId).map((eff) => {
+                  const isSelected = selectedEffectSegmentId === eff.id;
+                  const effLeft = eff.startTime * zoom;
+                  const effWidth = Math.max(30, eff.duration * zoom);
+                  const trackIdx = project.tracks.findIndex((t) => t.id === eff.trackId);
+                  const topOffset = (trackIdx >= 0 ? trackIdx * 64 : 0) + 24 + 40;
+
+                  return (
+                    <div
+                      key={eff.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectClip(null);
+                        onSelectEffectSegment?.(eff.id);
+                      }}
+                      style={{
+                        left: `${effLeft}px`,
+                        width: `${effWidth}px`,
+                        top: `${topOffset}px`,
+                        height: '20px',
+                      }}
+                      className={`absolute pointer-events-auto z-20 rounded bg-indigo-600/70 hover:bg-indigo-600/90 border border-indigo-400 text-indigo-100 text-[9px] px-1.5 flex items-center justify-between cursor-pointer group shadow ${
+                        isSelected ? 'ring-2 ring-white border-white' : ''
+                      }`}
+                      title={`Efekt: ${eff.name} — Tıkla: Düzenle`}
+                    >
+                      <span className="truncate flex items-center gap-1">
+                        <span>🎨</span>
+                        <span className="font-semibold">{eff.name}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteEffectSegment?.(eff.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 ml-1 font-bold"
+                        title="Efekti Sil"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* 3. Playhead Line & Scrubber Scraper */}
             <div

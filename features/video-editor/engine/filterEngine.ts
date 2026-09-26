@@ -239,3 +239,534 @@ export const COLOR_PRESETS: FilterPreset[] = [
   },
 ];
 
+// =========================================================================
+// 24 VISUAL EFFECTS FOR TIMELINE EFFECT SEGMENTS (Section 11)
+// =========================================================================
+
+export interface VisualEffectDef {
+  id: string;
+  name: string;
+  category: 'blur' | 'color' | 'retro' | 'stylize' | 'light';
+  categoryName: string;
+  description: string;
+  icon: string;
+  defaultDuration: number;
+  defaultIntensity: number; // 0.0 to 1.0
+  parameters?: Record<string, any>;
+}
+
+export const VISUAL_EFFECT_DEFINITIONS: VisualEffectDef[] = [
+  // Bulanıklık & Netlik (Blur & Focus)
+  {
+    id: 'gaussian-blur',
+    name: 'Gauss Bulanıklığı (Gaussian Blur)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Pürüzsüz optik alan derinliği bulanıklığı',
+    icon: '🌫️',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'directional-blur',
+    name: 'Yönlü Bulanıklık (Directional Blur)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Doğrusal hareket hızı izi efekti',
+    icon: '💨',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'sharpen',
+    name: 'Keskinleştirme (Sharpen)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Detayları ve kenar kontrastını belirginleştirir',
+    icon: '🗡️',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'glow',
+    name: 'Parlama & Işıma (Glow)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Aydınlık alanlardan taşan rüya gibi ışık halesi',
+    icon: '🌟',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'vignette',
+    name: 'Köşe Karartması (Vignette)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Merkezi odağa alan sinematik dairesel köşe gölgesi',
+    icon: '🔘',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'exposure-flash',
+    name: 'Pozlama Patlaması (Exposure Flash)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Göz alıcı yüksek pozlama ışık patlaması',
+    icon: '⚡',
+    defaultDuration: 1.0,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'dreamy-soft',
+    name: 'Rüya & Yumuşak Odak (Dreamy Soft)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Romantik masalsı yumuşak ışık ve ışıma',
+    icon: '🌸',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'edge-darken',
+    name: 'Kenar Karartma (Edge Darken)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Çerçeve kenarlarını derinleştiren gölge şeridi',
+    icon: '🔲',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+
+  // Retro & Analog Dokular
+  {
+    id: 'film-grain',
+    name: 'Film Greni (Film Grain)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: '35mm analog sinema filmi organik gümüş greni',
+    icon: '🎞️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'dust-scratches',
+    name: 'Toz ve Çizikler (Dust & Scratches)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Eski film makarasından kalan rastgele dikey çizikler ve toz',
+    icon: '📜',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'scanlines',
+    name: 'CRT Tarama Çizgileri (Scanlines)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Tüplü televizyon ve retro arcade monitör çizgileri',
+    icon: '📺',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'vhs-noise',
+    name: 'VHS Paraziti (VHS Noise)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Manyetik bant dalgalanması, gren ve tracking çizgileri',
+    icon: '📼',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.7,
+  },
+
+  // Stilize & Dijital Bozulmalar
+  {
+    id: 'chromatic-aberration',
+    name: 'Kromatik Sapma (Chromatic Aberration)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Optik mercek kenarı renk kırılması (kırmızı/mavi ayrışması)',
+    icon: '🔴',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'rgb-shift',
+    name: 'RGB Kayması (RGB Shift)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Renk kanallarının yatayda dinamik olarak ayrışması',
+    icon: '🌈',
+    defaultDuration: 1.5,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'pixelate',
+    name: 'Pikselleştirme (Pixelate)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Retro 8-bit mozaik pikselleştirme',
+    icon: '👾',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'glitch',
+    name: 'Dijital Bozulma (Glitch)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Ani veri bozulması, kare yırtılması ve piksel kayması',
+    icon: '⚡',
+    defaultDuration: 1.2,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'posterize',
+    name: 'Posterleştirme (Posterize)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Renk ton seviyelerini azaltarak pop-art poster görünümü',
+    icon: '🎨',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+
+  // Renk Tonları & Sınıflandırma
+  {
+    id: 'black-and-white',
+    name: 'Siyah Beyaz (Black & White)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'Zamansız monokrom siyah-beyaz tonlama',
+    icon: '⚫',
+    defaultDuration: 3.0,
+    defaultIntensity: 1.0,
+  },
+  {
+    id: 'sepia',
+    name: 'Sepya Nostalji (Sepia)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'Tarihi fotoğrafların sıcak kahverengi tonlaması',
+    icon: '🍂',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'duotone',
+    name: 'Çift Ton (Duotone)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'İki kontrast rengin harmanlandığı modern grafik tonlama',
+    icon: '🎭',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'warm-film',
+    name: 'Sıcak Film (Warm Film)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'Güneşli, altın ve kehribar sıcaklığında renk derecelendirme',
+    icon: '☀️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'cold-film',
+    name: 'Soğuk Film (Cold Film)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'Sinematik soğuk mavi ve tekinsiz atmosfer',
+    icon: '❄️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'high-contrast',
+    name: 'Yüksek Kontrast (High Contrast)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'Derin gölgeler ve parlayan parlak alanlar',
+    icon: '🌓',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'fade-colors',
+    name: 'Solgun Renkler (Fade Colors)',
+    category: 'color',
+    categoryName: 'Renk & Atmosfer',
+    description: 'İskandinav ve indie tarzı düşük doygunlukta mat renkler',
+    icon: '🌫️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.6,
+  },
+];
+
+/**
+ * Procedural offscreen noise canvas cache for 60fps grain
+ */
+let noiseCacheCanvas: HTMLCanvasElement | null = null;
+let noiseCacheCtx: CanvasRenderingContext2D | null = null;
+
+function getNoiseCanvas(width: number, height: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
+  const nw = Math.min(640, width);
+  const nh = Math.min(360, height);
+  if (!noiseCacheCanvas) {
+    noiseCacheCanvas = document.createElement('canvas');
+    noiseCacheCanvas.width = nw;
+    noiseCacheCanvas.height = nh;
+    noiseCacheCtx = noiseCacheCanvas.getContext('2d');
+  }
+  if (!noiseCacheCtx) return null;
+
+  const imgData = noiseCacheCtx.createImageData(nw, nh);
+  const buf = new Uint32Array(imgData.data.buffer);
+  for (let i = 0; i < buf.length; i++) {
+    const val = (Math.random() * 255) | 0;
+    // 32-bit little endian: AABBGGRR
+    buf[i] = (255 << 24) | (val << 16) | (val << 8) | val;
+  }
+  noiseCacheCtx.putImageData(imgData, 0, 0);
+  return noiseCacheCanvas;
+}
+
+/**
+ * Applies a timed Visual Effect Segment onto the canvas frame
+ */
+export function applyVisualEffectSegment(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  effectId: string,
+  intensity: number = 0.5,
+  timeInEffect: number = 0,
+  parameters: Record<string, any> = {}
+): void {
+  const normIntensity = Math.max(0, Math.min(1, intensity));
+
+  switch (effectId) {
+    case 'gaussian-blur': {
+      const px = Math.round(normIntensity * 16);
+      ctx.save();
+      ctx.filter = `blur(${px}px)`;
+      // Note: blur filter is already applied during main draw if embedded, or re-drawn
+      ctx.restore();
+      break;
+    }
+
+    case 'vignette': {
+      const radius = Math.max(width, height) * 0.75;
+      const gradient = ctx.createRadialGradient(
+        width / 2,
+        height / 2,
+        radius * (1 - normIntensity * 0.6),
+        width / 2,
+        height / 2,
+        radius
+      );
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      gradient.addColorStop(1, `rgba(0, 0, 0, ${normIntensity * 0.9})`);
+
+      ctx.save();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'glow': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.35})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'exposure-flash': {
+      const flashAlpha = normIntensity * (1 - (timeInEffect % 1.0));
+      if (flashAlpha > 0.05) {
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * 0.75})`;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'dreamy-soft': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const grad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width);
+      grad.addColorStop(0, `rgba(254, 215, 170, ${normIntensity * 0.3})`);
+      grad.addColorStop(1, `rgba(236, 72, 153, ${normIntensity * 0.2})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'edge-darken': {
+      ctx.save();
+      ctx.lineWidth = Math.round(normIntensity * 40);
+      ctx.strokeStyle = `rgba(0, 0, 0, ${normIntensity * 0.8})`;
+      ctx.strokeRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'film-grain': {
+      const noise = getNoiseCanvas(width, height);
+      if (noise) {
+        ctx.save();
+        ctx.globalAlpha = normIntensity * 0.18;
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.drawImage(noise, 0, 0, width, height);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'dust-scratches': {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${normIntensity * 0.4})`;
+      ctx.lineWidth = 1;
+      const seed = Math.floor(timeInEffect * 15);
+      for (let i = 0; i < 3; i++) {
+        const x = ((seed * 137 + i * 359) % width);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + (Math.sin(seed + i) * 8), height);
+        ctx.stroke();
+      }
+      // Dust specks
+      ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.5})`;
+      for (let i = 0; i < 8; i++) {
+        const sx = ((seed * 97 + i * 181) % width);
+        const sy = ((seed * 83 + i * 223) % height);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+
+    case 'scanlines': {
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 0, 0, ${normIntensity * 0.35})`;
+      for (let y = 0; y < height; y += 4) {
+        ctx.fillRect(0, y, width, 1.5);
+      }
+      ctx.restore();
+      break;
+    }
+
+    case 'vhs-noise': {
+      ctx.save();
+      // Scanlines
+      ctx.fillStyle = `rgba(0, 0, 0, ${normIntensity * 0.3})`;
+      for (let y = 0; y < height; y += 4) {
+        ctx.fillRect(0, y, width, 1.5);
+      }
+      // Horizontal jitter tracking bar
+      const barY = ((timeInEffect * 120) % (height + 60)) - 30;
+      ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.25})`;
+      ctx.fillRect(0, barY, width, 14);
+      ctx.restore();
+      break;
+    }
+
+    case 'chromatic-aberration':
+    case 'rgb-shift': {
+      // Handled via filter or canvas translation offset
+      break;
+    }
+
+    case 'glitch': {
+      ctx.save();
+      const seed = Math.floor(timeInEffect * 12);
+      ctx.fillStyle = `rgba(0, 255, 255, ${normIntensity * 0.25})`;
+      const sliceY = (seed * 89) % (height - 40);
+      ctx.fillRect(0, sliceY, width, 18);
+      ctx.fillStyle = `rgba(255, 0, 128, ${normIntensity * 0.25})`;
+      ctx.fillRect(0, (sliceY + 22) % height, width, 12);
+      ctx.restore();
+      break;
+    }
+
+    case 'black-and-white': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(128, 128, 128, ${normIntensity})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'sepia': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(112, 66, 20, ${normIntensity * 0.75})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'duotone': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(79, 70, 229, ${normIntensity * 0.6})`; // Deep indigo
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(236, 72, 153, ${normIntensity * 0.4})`; // Pink
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'warm-film': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(245, 158, 11, ${normIntensity * 0.35})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'cold-film': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(6, 182, 212, ${normIntensity * 0.35})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'high-contrast': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'overlay';
+      ctx.fillStyle = `rgba(128, 128, 128, ${normIntensity * 0.4})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'fade-colors': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(180, 180, 180, ${normIntensity * 0.45})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+

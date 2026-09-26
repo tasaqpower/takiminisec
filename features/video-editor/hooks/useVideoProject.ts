@@ -8,10 +8,37 @@ import {
   ClipEffects,
   Transform2D,
   Transition,
+  TimelineTransition,
+  EffectSegment,
+  TextAnimationSegment,
 } from '../types';
 import { saveProjectMetadata, loadLatestProject, deleteProjectMetadata } from '../db';
 
 const MAX_HISTORY = 50;
+
+export function migrateProject(raw: any): VideoProject {
+  if (!raw) return createDefaultProject();
+  return {
+    ...raw,
+    transitions: Array.isArray(raw.transitions) ? raw.transitions : [],
+    effectSegments: Array.isArray(raw.effectSegments) ? raw.effectSegments : [],
+    tracks: Array.isArray(raw.tracks)
+      ? raw.tracks.map((t: any) => ({
+          ...t,
+          transitions: Array.isArray(t.transitions) ? t.transitions : [],
+          effectSegments: Array.isArray(t.effectSegments) ? t.effectSegments : [],
+          clips: Array.isArray(t.clips)
+            ? t.clips.map((c: any) => ({
+                ...c,
+                startTime: typeof c.startTime === 'number' ? c.startTime : (typeof c.start === 'number' ? c.start : 0),
+                effectSegments: Array.isArray(c.effectSegments) ? c.effectSegments : [],
+                animationSegments: Array.isArray(c.animationSegments) ? c.animationSegments : [],
+              }))
+            : [],
+        }))
+      : [],
+  };
+}
 
 function createDefaultProject(): VideoProject {
   const videoTrackId = 'track-video-' + Math.random().toString(36).substring(2, 9);
@@ -27,6 +54,8 @@ function createDefaultProject(): VideoProject {
     fps: 30,
     duration: 10,
     backgroundColor: '#000000',
+    transitions: [],
+    effectSegments: [],
     tracks: [
       {
         id: textTrackId,
@@ -36,6 +65,8 @@ function createDefaultProject(): VideoProject {
         muted: false,
         locked: false,
         visible: true,
+        transitions: [],
+        effectSegments: [],
       },
       {
         id: videoTrackId,
@@ -45,6 +76,8 @@ function createDefaultProject(): VideoProject {
         muted: false,
         locked: false,
         visible: true,
+        transitions: [],
+        effectSegments: [],
       },
       {
         id: audioTrackId,
@@ -54,6 +87,8 @@ function createDefaultProject(): VideoProject {
         muted: false,
         locked: false,
         visible: true,
+        transitions: [],
+        effectSegments: [],
       },
     ],
   };
@@ -63,6 +98,8 @@ export function useVideoProject() {
   const [project, setProject] = useState<VideoProject>(createDefaultProject);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
+  const [selectedEffectSegmentId, setSelectedEffectSegmentId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [hasAutosavePrompt, setHasAutosavePrompt] = useState(false);
   const [recoveredProject, setRecoveredProject] = useState<VideoProject | null>(null);
@@ -78,9 +115,10 @@ export function useVideoProject() {
       try {
         const latest = await loadLatestProject();
         if (latest && latest.tracks && latest.tracks.length > 0) {
-          const totalClips = latest.tracks.reduce((acc, t) => acc + t.clips.length, 0);
+          const migrated = migrateProject(latest);
+          const totalClips = migrated.tracks.reduce((acc, t) => acc + t.clips.length, 0);
           if (totalClips > 0) {
-            setRecoveredProject(latest);
+            setRecoveredProject(migrated);
             setHasAutosavePrompt(true);
           }
         }
@@ -779,6 +817,410 @@ export function useVideoProject() {
     [commitProjectChange]
   );
 
+  // Timeline Transition Operations
+  const addTimelineTransition = useCallback(
+    (data: Omit<TimelineTransition, 'id'>): TimelineTransition => {
+      const newTransition: TimelineTransition = {
+        id: 'trans-' + Math.random().toString(36).substring(2, 9),
+        trackId: data.trackId,
+        type: data.type,
+        duration: data.duration ?? 1.0,
+        cutTime: data.cutTime,
+        leftClipId: data.leftClipId,
+        rightClipId: data.rightClipId,
+        alignment: data.alignment || 'between',
+        easing: data.easing || 'ease-in-out',
+        intensity: data.intensity ?? 1.0,
+        direction: data.direction,
+      };
+
+      commitProjectChange((prev) => {
+        const nextTransitions = [
+          ...(prev.transitions || []).filter((t) => t.id !== newTransition.id),
+          newTransition,
+        ];
+
+        const nextTracks = prev.tracks.map((track) => {
+          if (track.id === data.trackId) {
+            const trackTransitions = [
+              ...(track.transitions || []).filter((t) => t.id !== newTransition.id),
+              newTransition,
+            ];
+
+            const nextClips = track.clips.map((clip) => {
+              if (clip.id === data.leftClipId) {
+                return {
+                  ...clip,
+                  transitionOut: {
+                    type: data.type,
+                    duration: data.duration ?? 1.0,
+                    easing: data.easing,
+                    intensity: data.intensity,
+                    direction: data.direction,
+                  },
+                };
+              }
+              if (clip.id === data.rightClipId) {
+                return {
+                  ...clip,
+                  transitionIn: {
+                    type: data.type,
+                    duration: data.duration ?? 1.0,
+                    easing: data.easing,
+                    intensity: data.intensity,
+                    direction: data.direction,
+                  },
+                };
+              }
+              return clip;
+            });
+
+            return {
+              ...track,
+              transitions: trackTransitions,
+              clips: nextClips,
+            };
+          }
+          return track;
+        });
+
+        return {
+          ...prev,
+          transitions: nextTransitions,
+          tracks: nextTracks,
+        };
+      });
+
+      setSelectedTransitionId(newTransition.id);
+      return newTransition;
+    },
+    [commitProjectChange]
+  );
+
+  const updateTimelineTransition = useCallback(
+    (id: string, updates: Partial<TimelineTransition>) => {
+      commitProjectChange((prev) => {
+        const nextTransitions = (prev.transitions || []).map((t) =>
+          t.id === id ? { ...t, ...updates } : t
+        );
+        const targetTrans = nextTransitions.find((t) => t.id === id);
+
+        const nextTracks = prev.tracks.map((track) => {
+          const hasTrans = track.transitions?.some((t) => t.id === id);
+          if (!hasTrans && track.id !== targetTrans?.trackId) return track;
+
+          const updatedTrackTransitions = (track.transitions || []).map((t) =>
+            t.id === id ? { ...t, ...updates } : t
+          );
+
+          let updatedClips = track.clips;
+          if (targetTrans) {
+            updatedClips = track.clips.map((clip) => {
+              if (clip.id === targetTrans.leftClipId && targetTrans.type) {
+                return {
+                  ...clip,
+                  transitionOut: {
+                    type: targetTrans.type,
+                    duration: targetTrans.duration,
+                    easing: targetTrans.easing,
+                    intensity: targetTrans.intensity,
+                    direction: targetTrans.direction,
+                  },
+                };
+              }
+              if (clip.id === targetTrans.rightClipId && targetTrans.type) {
+                return {
+                  ...clip,
+                  transitionIn: {
+                    type: targetTrans.type,
+                    duration: targetTrans.duration,
+                    easing: targetTrans.easing,
+                    intensity: targetTrans.intensity,
+                    direction: targetTrans.direction,
+                  },
+                };
+              }
+              return clip;
+            });
+          }
+
+          return {
+            ...track,
+            transitions: updatedTrackTransitions,
+            clips: updatedClips,
+          };
+        });
+
+        return {
+          ...prev,
+          transitions: nextTransitions,
+          tracks: nextTracks,
+        };
+      });
+    },
+    [commitProjectChange]
+  );
+
+  const deleteTimelineTransition = useCallback(
+    (id: string) => {
+      commitProjectChange((prev) => {
+        const target = prev.transitions?.find((t) => t.id === id);
+        const nextTransitions = (prev.transitions || []).filter((t) => t.id !== id);
+
+        const nextTracks = prev.tracks.map((track) => {
+          const nextTrackTrans = (track.transitions || []).filter((t) => t.id !== id);
+          let nextClips = track.clips;
+          if (target) {
+            nextClips = track.clips.map((c) => {
+              if (c.id === target.leftClipId) return { ...c, transitionOut: undefined };
+              if (c.id === target.rightClipId) return { ...c, transitionIn: undefined };
+              return c;
+            });
+          }
+          return {
+            ...track,
+            transitions: nextTrackTrans,
+            clips: nextClips,
+          };
+        });
+
+        return {
+          ...prev,
+          transitions: nextTransitions,
+          tracks: nextTracks,
+        };
+      });
+
+      setSelectedTransitionId((curr) => (curr === id ? null : curr));
+    },
+    [commitProjectChange]
+  );
+
+  // Effect Segment Operations
+  const addEffectSegment = useCallback(
+    (data: Omit<EffectSegment, 'id' | 'createdAt'>): EffectSegment => {
+      const newSegment: EffectSegment = {
+        id: 'effseg-' + Math.random().toString(36).substring(2, 9),
+        effectId: data.effectId,
+        effectKind: data.effectKind,
+        name: data.name,
+        targetClipId: data.targetClipId,
+        trackId: data.trackId,
+        startTime: data.startTime,
+        duration: Math.max(0.1, data.duration),
+        parameters: data.parameters || {},
+        enabled: data.enabled ?? true,
+        blendMode: data.blendMode || 'source-over',
+        createdAt: Date.now(),
+      };
+
+      commitProjectChange((prev) => {
+        const nextGlobalSegments = [...(prev.effectSegments || []), newSegment];
+
+        const nextTracks = prev.tracks.map((track) => {
+          if (data.targetClipId) {
+            const hasClip = track.clips.some((c) => c.id === data.targetClipId);
+            if (hasClip) {
+              return {
+                ...track,
+                clips: track.clips.map((clip) =>
+                  clip.id === data.targetClipId
+                    ? { ...clip, effectSegments: [...(clip.effectSegments || []), newSegment] }
+                    : clip
+                ),
+              };
+            }
+          }
+          if (track.id === data.trackId) {
+            return {
+              ...track,
+              effectSegments: [...(track.effectSegments || []), newSegment],
+            };
+          }
+          return track;
+        });
+
+        return {
+          ...prev,
+          effectSegments: nextGlobalSegments,
+          tracks: nextTracks,
+        };
+      });
+
+      setSelectedEffectSegmentId(newSegment.id);
+      return newSegment;
+    },
+    [commitProjectChange]
+  );
+
+  const updateEffectSegment = useCallback(
+    (segmentId: string, updates: Partial<EffectSegment>) => {
+      commitProjectChange((prev) => {
+        const nextGlobalSegments = (prev.effectSegments || []).map((seg) =>
+          seg.id === segmentId ? { ...seg, ...updates } : seg
+        );
+
+        const nextTracks = prev.tracks.map((track) => ({
+          ...track,
+          effectSegments: (track.effectSegments || []).map((seg) =>
+            seg.id === segmentId ? { ...seg, ...updates } : seg
+          ),
+          clips: track.clips.map((clip) => ({
+            ...clip,
+            effectSegments: (clip.effectSegments || []).map((seg) =>
+              seg.id === segmentId ? { ...seg, ...updates } : seg
+            ),
+          })),
+        }));
+
+        return {
+          ...prev,
+          effectSegments: nextGlobalSegments,
+          tracks: nextTracks,
+        };
+      });
+    },
+    [commitProjectChange]
+  );
+
+  const deleteEffectSegment = useCallback(
+    (segmentId: string) => {
+      commitProjectChange((prev) => {
+        const nextGlobalSegments = (prev.effectSegments || []).filter((seg) => seg.id !== segmentId);
+
+        const nextTracks = prev.tracks.map((track) => ({
+          ...track,
+          effectSegments: (track.effectSegments || []).filter((seg) => seg.id !== segmentId),
+          clips: track.clips.map((clip) => ({
+            ...clip,
+            effectSegments: (clip.effectSegments || []).filter((seg) => seg.id !== segmentId),
+          })),
+        }));
+
+        return {
+          ...prev,
+          effectSegments: nextGlobalSegments,
+          tracks: nextTracks,
+        };
+      });
+
+      setSelectedEffectSegmentId((curr) => (curr === segmentId ? null : curr));
+    },
+    [commitProjectChange]
+  );
+
+  const moveEffectSegment = useCallback(
+    (segmentId: string, newStartTime: number) => {
+      updateEffectSegment(segmentId, { startTime: Math.max(0, newStartTime) });
+    },
+    [updateEffectSegment]
+  );
+
+  const resizeEffectSegment = useCallback(
+    (segmentId: string, newDuration: number) => {
+      updateEffectSegment(segmentId, { duration: Math.max(0.1, newDuration) });
+    },
+    [updateEffectSegment]
+  );
+
+  // Text Animation Segment Operations
+  const addTextAnimationSegment = useCallback(
+    (clipId: string, data: Omit<TextAnimationSegment, 'id'>): TextAnimationSegment => {
+      const newSegment: TextAnimationSegment = {
+        id: 'animseg-' + Math.random().toString(36).substring(2, 9),
+        type: data.type,
+        animationName: data.animationName,
+        startTime: data.startTime ?? 0,
+        duration: Math.max(0.1, data.duration ?? 0.8),
+        easing: data.easing || 'ease-out',
+        speed: data.speed ?? 1.0,
+        intensity: data.intensity ?? 1.0,
+        delay: data.delay ?? 0,
+      };
+
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id === clipId) {
+              const nextAnimSegments = [...(clip.animationSegments || []), newSegment];
+              const updatedTextData = { ...clip.textData } as TextLayerData;
+              if (data.type === 'in') {
+                updatedTextData.inAnimation = data.animationName as any;
+                updatedTextData.inDuration = data.duration;
+                updatedTextData.inEasing = data.easing;
+              } else if (data.type === 'loop') {
+                updatedTextData.loopAnimation = data.animationName as any;
+                updatedTextData.loopSpeed = data.speed;
+                updatedTextData.loopIntensity = data.intensity;
+              } else if (data.type === 'out') {
+                updatedTextData.outAnimation = data.animationName as any;
+                updatedTextData.outDuration = data.duration;
+                updatedTextData.outEasing = data.easing;
+              }
+              return {
+                ...clip,
+                animationSegments: nextAnimSegments,
+                textData: updatedTextData,
+              };
+            }
+            return clip;
+          }),
+        })),
+      }));
+
+      return newSegment;
+    },
+    [commitProjectChange]
+  );
+
+  const updateTextAnimationSegment = useCallback(
+    (clipId: string, segmentId: string, updates: Partial<TextAnimationSegment>) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id === clipId) {
+              return {
+                ...clip,
+                animationSegments: (clip.animationSegments || []).map((seg) =>
+                  seg.id === segmentId ? { ...seg, ...updates } : seg
+                ),
+              };
+            }
+            return clip;
+          }),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  const deleteTextAnimationSegment = useCallback(
+    (clipId: string, segmentId: string) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id === clipId) {
+              return {
+                ...clip,
+                animationSegments: (clip.animationSegments || []).filter(
+                  (seg) => seg.id !== segmentId
+                ),
+              };
+            }
+            return clip;
+          }),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
   // Selected clip getter
   const selectedClip = useCallback((): VideoClip | null => {
     if (!selectedClipId) return null;
@@ -823,7 +1265,7 @@ export function useVideoProject() {
 
   const acceptRecovery = useCallback(() => {
     if (recoveredProject) {
-      setProject(recoveredProject);
+      setProject(migrateProject(recoveredProject));
       setHasAutosavePrompt(false);
       setRecoveredProject(null);
     }
@@ -841,6 +1283,8 @@ export function useVideoProject() {
     setProject(createDefaultProject());
     setSelectedClipId(null);
     setSelectedTrackId(null);
+    setSelectedTransitionId(null);
+    setSelectedEffectSegmentId(null);
     undoStackRef.current = [];
     redoStackRef.current = [];
     setIsDirty(false);
@@ -851,9 +1295,13 @@ export function useVideoProject() {
     setProject,
     selectedClipId,
     selectedTrackId,
+    selectedTransitionId,
+    selectedEffectSegmentId,
     selectedClip: selectedClip(),
     setSelectedClipId,
     setSelectedTrackId,
+    setSelectedTransitionId,
+    setSelectedEffectSegmentId,
     isDirty,
     canUndo: undoStackRef.current.length > 0,
     canRedo: redoStackRef.current.length > 0,
@@ -876,6 +1324,20 @@ export function useVideoProject() {
     duplicateClip,
     detachAudio,
     addTextClip,
+    // Transition ops
+    addTimelineTransition,
+    updateTimelineTransition,
+    deleteTimelineTransition,
+    // Effect segment ops
+    addEffectSegment,
+    updateEffectSegment,
+    deleteEffectSegment,
+    moveEffectSegment,
+    resizeEffectSegment,
+    // Text animation segment ops
+    addTextAnimationSegment,
+    updateTextAnimationSegment,
+    deleteTextAnimationSegment,
     // Project property ops
     setProjectName,
     setResolution,

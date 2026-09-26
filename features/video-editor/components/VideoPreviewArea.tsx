@@ -5,6 +5,7 @@ import { exportEngine } from '../engine/exportEngine';
 import { audioMixer } from '../engine/audioMixer';
 import { calculateClipBounds, isPointInClip, getGizmoHandleAt, GizmoHandleType } from '../engine/clipBounds';
 import { preloadPopularFonts } from '../engine/fontCatalog';
+import { useEditorDragDrop, DragPayload } from '../context/DragDropContext';
 
 interface PreviewProps {
   project: VideoProject;
@@ -22,6 +23,8 @@ interface PreviewProps {
   onUpdateClipTransform: (clipId: string, transform: Partial<Transform2D>) => void;
   onSelectClip?: (clipId: string | null) => void;
   onUpdateClipText?: (clipId: string, text: string) => void;
+  onAddClip?: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
+  onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
 }
 
 export const VideoPreviewArea: React.FC<PreviewProps> = ({
@@ -40,6 +43,8 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   onUpdateClipTransform,
   onSelectClip,
   onUpdateClipText,
+  onAddClip,
+  onUpdateClip,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +74,10 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   // In-canvas Direct Text Editing
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
+
+  const { isDragging, activePayload, endDrag, updateDragPosition, registerDropTarget } = useEditorDragDrop();
+  const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
   // Preload top typography on mount
   useEffect(() => {
@@ -383,19 +392,144 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     ? calculateClipBounds(editingClip, project.resolution.width, project.resolution.height)
     : null;
 
+  const handleCanvasDrop = useCallback(
+    (payload: DragPayload, clientX: number, clientY: number) => {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const clickX = clientX - rect.left;
+      const clickY = clientY - rect.top;
+      const canvasX = (clickX / rect.width) * project.resolution.width;
+      const canvasY = (clickY / rect.height) * project.resolution.height;
+      const centerOffsetX = canvasX - project.resolution.width / 2;
+      const centerOffsetY = canvasY - project.resolution.height / 2;
+
+      if (payload.type === 'title-template') {
+        const textTrack = project.tracks.find((t) => t.type === 'text') || project.tracks[0];
+        if (textTrack && onAddClip) {
+          const newClip = onAddClip(textTrack.id, {
+            name: payload.name,
+            type: 'text',
+            startTime: currentTime,
+            duration: payload.duration || 4.0,
+            sourceDuration: payload.duration || 4.0,
+            transform: {
+              x: centerOffsetX,
+              y: centerOffsetY,
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+              opacity: 1,
+            },
+            textData: {
+              text: payload.data?.text || payload.name,
+              fontSize: payload.data?.data?.fontSize || 54,
+              fontWeight: payload.data?.data?.fontWeight || 'bold',
+              color: '#ffffff',
+              ...payload.data?.data,
+            },
+          });
+          if (newClip) onSelectClip?.(newClip.id);
+        }
+      } else if (payload.type === 'overlay') {
+        const videoTrack = project.tracks.find((t) => t.type === 'video') || project.tracks[0];
+        if (videoTrack && onAddClip) {
+          const newClip = onAddClip(videoTrack.id, {
+            name: payload.name,
+            type: 'image',
+            startTime: currentTime,
+            duration: payload.duration || 4.0,
+            sourceDuration: payload.duration || 4.0,
+            transform: {
+              x: centerOffsetX,
+              y: centerOffsetY,
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+              opacity: 1,
+            },
+          });
+          if (newClip) onSelectClip?.(newClip.id);
+        }
+      } else if (payload.type === 'filter-preset') {
+        const target =
+          selectedClip ||
+          project.tracks
+            .flatMap((t) => t.clips)
+            .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+        if (target && payload.data?.effects && onUpdateClip) {
+          onUpdateClip(target.id, { effects: payload.data.effects });
+        }
+      } else if (payload.type === 'transition') {
+        const target =
+          selectedClip ||
+          project.tracks
+            .flatMap((t) => t.clips)
+            .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+        if (target && onUpdateClip) {
+          onUpdateClip(target.id, {
+            transitionIn: { type: payload.id as any, duration: payload.duration || 1.0 },
+          });
+        }
+      }
+      endDrag();
+      setIsDragOverCanvas(false);
+    },
+    [project, currentTime, onAddClip, onSelectClip, selectedClip, onUpdateClip, endDrag]
+  );
+
+  // Register canvas drop zone with global DragDropContext
+  useEffect(() => {
+    return registerDropTarget({
+      id: 'canvas',
+      getBounds: () => {
+        if (!canvasWrapperRef.current) return null;
+        return canvasWrapperRef.current.getBoundingClientRect();
+      },
+      onPointerMove: (e, payload) => {
+        setIsDragOverCanvas(true);
+        return {
+          targetType: 'canvas',
+          isValid: true,
+          label: `Tuval (${payload.name})`,
+        };
+      },
+      onDrop: async (payload, e) => {
+        handleCanvasDrop(payload, e.clientX, e.clientY);
+        return true;
+      },
+      onPointerLeave: () => {
+        setIsDragOverCanvas(false);
+      },
+    });
+  }, [registerDropTarget, handleCanvasDrop]);
+
   const isVertical = project.resolution.height > project.resolution.width;
 
   return (
     <div className="flex-1 flex flex-col bg-[#090d13] overflow-hidden relative select-none">
       {/* Top Preview Bar */}
-      <div className="h-9 px-4 flex items-center justify-between border-b border-[#21262d] bg-[#0d1117]/80 text-xs text-gray-400">
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-gray-300">
+      <div className="h-9 px-4 flex items-center justify-between border-b border-[#21262d] bg-[#0d1117]/80 text-xs text-gray-400 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-1.5 font-bold text-gray-200 shrink-0">
+            <span className="text-indigo-400 text-sm">🖥️</span>
+            <span className="text-xs text-gray-300">Tuval:</span>
+            <span className="text-white font-semibold truncate max-w-[180px]" title={project.name}>
+              {project.name}
+            </span>
+          </div>
+          <span className="text-gray-600 shrink-0">•</span>
+          <span className="font-mono text-gray-300 shrink-0">
             {project.resolution.width} x {project.resolution.height}
           </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161b22] text-gray-400 border border-[#30363d]">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161b22] text-gray-300 border border-[#30363d] font-medium shrink-0">
             {isVertical ? 'Dikey (9:16)' : 'Yatay (16:9)'}
           </span>
+          {selectedClip && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/40 font-semibold flex items-center gap-1.5 shrink-0 truncate max-w-[220px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="truncate">Seçili: {selectedClip.name}</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -432,7 +566,36 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
         className="flex-1 flex items-center justify-center p-6 relative overflow-hidden"
       >
         <div
-          className="relative shadow-2xl rounded-sm overflow-hidden flex items-center justify-center border border-[#30363d]"
+          ref={canvasWrapperRef}
+          onPointerMove={(e) => {
+            if (!isDragging) return;
+            if (canvasRef.current) {
+              const rect = canvasRef.current.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const clickY = e.clientY - rect.top;
+              const canvasX = (clickX / rect.width) * project.resolution.width;
+              const canvasY = (clickY / rect.height) * project.resolution.height;
+              setIsDragOverCanvas(true);
+              updateDragPosition(e.clientX, e.clientY, {
+                targetType: 'canvas',
+                isValid: true,
+                label: `Tuval (${Math.round(canvasX)}, ${Math.round(canvasY)})`,
+              });
+            }
+          }}
+          onPointerLeave={() => {
+            if (isDragging) setIsDragOverCanvas(false);
+          }}
+          onPointerUp={(e) => {
+            if (isDragging && activePayload) {
+              handleCanvasDrop(activePayload, e.clientX, e.clientY);
+            }
+          }}
+          className={`relative shadow-2xl rounded-sm overflow-hidden flex items-center justify-center border transition-all ${
+            isDragOverCanvas
+              ? 'border-indigo-500 ring-4 ring-indigo-500/50 shadow-indigo-500/30'
+              : 'border-[#30363d]'
+          }`}
           style={{
             aspectRatio: `${project.resolution.width} / ${project.resolution.height}`,
             maxHeight: '100%',
@@ -448,6 +611,16 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
             onDoubleClick={handleCanvasDoubleClick}
             className="w-full h-full object-contain cursor-default"
           />
+
+          {/* Drag Overlay Indicator */}
+          {isDragOverCanvas && (
+            <div className="absolute inset-0 border-2 border-dashed border-indigo-400 bg-indigo-500/10 pointer-events-none flex items-center justify-center z-40">
+              <div className="px-3 py-1.5 rounded-lg bg-[#0d1117]/90 border border-indigo-500 text-indigo-200 text-xs font-bold shadow-2xl flex items-center gap-1.5 backdrop-blur-sm">
+                <span>✨</span>
+                <span>Öğeyi Bu Konuma Bırak</span>
+              </div>
+            </div>
+          )}
 
           {/* IN-CANVAS DIRECT TEXT EDITING OVERLAY */}
           {editingClip && editingBounds && editingClip.textData && (
