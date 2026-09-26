@@ -329,17 +329,14 @@ export function useVideoProject() {
   const moveClip = useCallback(
     (clipId: string, targetTrackId: string, newStartTime: number) => {
       commitProjectChange((prev) => {
-        let clipToMove: VideoClip | null = null;
-
-        // Remove from current track
-        const tracksWithoutClip = prev.tracks.map((track) => {
-          const found = track.clips.find((c) => c.id === clipId);
-          if (found) clipToMove = { ...found };
-          return {
-            ...track,
-            clips: track.clips.filter((c) => c.id !== clipId),
-          };
-        });
+        let clipToMove: VideoClip | undefined;
+        for (const t of prev.tracks) {
+          const found = t.clips.find((c) => c.id === clipId);
+          if (found) {
+            clipToMove = found;
+            break;
+          }
+        }
 
         if (!clipToMove) return prev;
 
@@ -348,6 +345,12 @@ export function useVideoProject() {
           trackId: targetTrackId,
           startTime: Math.max(0, newStartTime),
         };
+
+        // Remove from original track
+        const tracksWithoutClip = prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.filter((c) => c.id !== clipId),
+        }));
 
         // Add to target track
         return {
@@ -667,45 +670,113 @@ export function useVideoProject() {
 
   // Text helpers
   const addTextClip = useCallback(
-    (trackId: string, text: string, startTime = 0, duration = 3) => {
+    (trackId: string, text: string, startTime = 0, duration = 3, initialData?: Partial<TextLayerData>): VideoClip => {
       const textData: TextLayerData = {
         text,
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: 54,
         fontWeight: 'bold',
         fillColor: '#FFFFFF',
+        color: '#FFFFFF',
         textAlign: 'center',
+        alignment: 'center',
         boxPadding: 16,
+        padding: 16,
+        paddingX: 16,
+        paddingY: 16,
         boxRadius: 8,
+        borderRadius: 8,
+        lineHeight: 1.25,
+        letterSpacing: 0,
         shadow: {
           color: 'rgba(0,0,0,0.8)',
           blur: 10,
           offsetX: 2,
           offsetY: 2,
         },
+        shadowColor: 'rgba(0,0,0,0.8)',
+        shadowBlur: 10,
+        shadowOffsetX: 2,
+        shadowOffsetY: 2,
+        inAnimation: 'none',
+        inDuration: 0,
+        inEasing: 'ease-out',
         animation: {
-          type: 'fade',
-          duration: 0.5,
+          type: 'none',
+          duration: 0,
         },
+        ...initialData,
       };
 
-      return addClip(trackId, {
-        type: 'text',
-        name: `Metin: "${text.substring(0, 15)}${text.length > 15 ? '...' : ''}"`,
-        startTime,
-        duration,
-        textData,
-        transform: {
-          x: 0,
-          y: 0,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-          opacity: 1,
-        },
+      const newClipId = 'clip-' + Math.random().toString(36).substring(2, 9);
+      let createdClip: VideoClip;
+
+      commitProjectChange((prev) => {
+        let textTrack = prev.tracks.find((t) => t.id === trackId && t.type === 'text' && !t.locked);
+        if (!textTrack) {
+          textTrack = prev.tracks.find((t) => t.type === 'text' && !t.locked);
+        }
+
+        let updatedTracks = [...prev.tracks];
+        if (!textTrack) {
+          const newTextTrackId = 'track-text-' + Math.random().toString(36).substring(2, 9);
+          textTrack = {
+            id: newTextTrackId,
+            name: 'Metin & Efektler',
+            type: 'text',
+            clips: [],
+            muted: false,
+            locked: false,
+            visible: true,
+          };
+          updatedTracks = [textTrack, ...prev.tracks];
+        }
+
+        createdClip = {
+          id: newClipId,
+          trackId: textTrack.id,
+          type: 'text',
+          name: `Metin: "${text.substring(0, 15)}${text.length > 15 ? '...' : ''}"`,
+          startTime,
+          duration,
+          trimIn: 0,
+          trimOut: duration,
+          sourceDuration: duration,
+          volume: 1.0,
+          muted: false,
+          speed: 1.0,
+          fadeIn: 0,
+          fadeOut: 0,
+          transform: {
+            x: 0,
+            y: 0,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0,
+            opacity: 1,
+          },
+          effects: {},
+          textData,
+        };
+
+        return {
+          ...prev,
+          tracks: updatedTracks.map((track) => {
+            if (track.id === textTrack!.id) {
+              return {
+                ...track,
+                clips: [...track.clips, createdClip].sort((a, b) => a.startTime - b.startTime),
+              };
+            }
+            return track;
+          }),
+        };
       });
+
+      setSelectedClipId(newClipId);
+      return createdClip!;
     },
-    [addClip]
+    [commitProjectChange]
   );
 
   // Selected clip getter

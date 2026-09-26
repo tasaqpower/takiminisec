@@ -16,27 +16,65 @@ export type TransitionType =
   | 'fade-white'
   | 'slide-left'
   | 'slide-right'
+  | 'slide-up'
+  | 'slide-down'
   | 'zoom-in'
-  | 'zoom-out';
+  | 'zoom-out'
+  | 'blur-dissolve'
+  | 'wipe-left'
+  | 'wipe-right';
 
 export interface Transition {
   type: TransitionType;
   duration: number; // in seconds
 }
 
-export type TextAnimationType =
+export type TextInAnimationType =
   | 'none'
   | 'fade'
   | 'slide-up'
   | 'slide-down'
+  | 'slide-left'
+  | 'slide-right'
   | 'scale'
-  | 'typewriter';
+  | 'pop'
+  | 'blur-in'
+  | 'typewriter'
+  | 'word-by-word'
+  | 'char-by-char';
+
+export type TextLoopAnimationType =
+  | 'none'
+  | 'pulse'
+  | 'heartbeat'
+  | 'float'
+  | 'shimmer';
+
+export type TextOutAnimationType =
+  | 'none'
+  | 'fade'
+  | 'slide-down'
+  | 'slide-up'
+  | 'scale-down'
+  | 'blur-out'
+  | 'typewriter-erase';
+
+export type TextEasingType =
+  | 'linear'
+  | 'ease-in'
+  | 'ease-out'
+  | 'ease-in-out'
+  | 'back'
+  | 'elastic'
+  | 'bounce';
+
+export type TextAnimationType = TextInAnimationType;
 
 export interface TextLayerData {
   text: string;
   fontFamily?: string;
   fontSize?: number;
-  fontWeight?: 'normal' | 'bold' | '600' | '700' | '900';
+  fontWeight?: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | number;
   fontStyle?: 'normal' | 'italic';
   underline?: boolean;
   color?: string;
@@ -47,6 +85,8 @@ export interface TextLayerData {
   backgroundColor?: string;
   backgroundOpacity?: number;
   padding?: number;
+  paddingX?: number;
+  paddingY?: number;
   boxPadding?: number;
   borderRadius?: number;
   boxRadius?: number;
@@ -54,6 +94,8 @@ export interface TextLayerData {
   textAlign?: 'left' | 'center' | 'right';
   letterSpacing?: number;
   lineHeight?: number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   shadow?: {
     color: string;
     blur: number;
@@ -64,10 +106,22 @@ export interface TextLayerData {
   shadowBlur?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
+  // Unified Animation Properties
+  inAnimation?: TextInAnimationType;
+  inDuration?: number;
+  inDelay?: number;
+  inEasing?: TextEasingType;
+  loopAnimation?: TextLoopAnimationType;
+  loopSpeed?: number;
+  loopIntensity?: number;
+  outAnimation?: TextOutAnimationType;
+  outDuration?: number;
+  outEasing?: TextEasingType;
   animation?: {
-    type: TextAnimationType;
-    duration: number;
-  };
+    type?: TextAnimationType | string;
+    duration?: number;
+    [key: string]: any;
+  } | string;
 }
 
 export interface SubtitleItem {
@@ -182,6 +236,7 @@ export interface VideoClip {
   flipH?: boolean;
   flipV?: boolean;
   fitMode?: 'fit' | 'fill' | 'custom';
+  cornerRadius?: number;
 }
 
 export interface TimelineTrack {

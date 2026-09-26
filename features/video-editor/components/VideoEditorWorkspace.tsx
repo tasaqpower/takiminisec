@@ -148,6 +148,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           currentTime={currentTime}
           selectedClipId={selectedClipId}
           onUpdateClipEffects={(clipId, effects) => updateClip(clipId, { effects })}
+          onUpdateClip={updateClip}
         />
 
         {/* Center Preview Viewport */}
@@ -164,6 +165,18 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onSetPlaybackRate={setPlaybackRate}
           onSetIsLooping={setIsLooping}
           selectedClip={selectedClip}
+          onSelectClip={setSelectedClipId}
+          onUpdateClipText={(clipId, text) => {
+            const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+            if (clip && clip.textData) {
+              updateClip(clipId, {
+                textData: {
+                  ...clip.textData,
+                  text,
+                },
+              });
+            }
+          }}
           onUpdateClipTransform={(clipId, transform) => {
             updateClip(clipId, {
               transform: {
@@ -212,6 +225,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
           if (clip) updateClip(clipId, { muted: !clip.muted });
         }}
+        onUpdateClip={updateClip}
       />
 
       {/* 4. MODALS */}

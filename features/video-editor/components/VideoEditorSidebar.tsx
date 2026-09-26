@@ -1,21 +1,30 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, MediaAsset, VideoClip, TransitionType, ClipEffects } from '../types';
+import { VideoProject, MediaAsset, VideoClip, TransitionType, ClipEffects, TextLayerData } from '../types';
 import { saveAssetBlob } from '../db';
 import { audioMixer } from '../engine/audioMixer';
 import { generateCoverThumbnail } from '../engine/thumbnailGenerator';
 import { BUILTIN_SFX_LIST, playSfxPreview, generateSfxBlob, SfxType } from '../engine/sfxGenerator';
 import { COLOR_PRESETS } from '../engine/filterEngine';
+import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
+import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
 
 interface SidebarProps {
   project: VideoProject;
   onAddClip: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
-  onAddTextClip: (trackId: string, text: string, startTime?: number, duration?: number) => void;
+  onAddTextClip: (
+    trackId: string,
+    text: string,
+    startTime?: number,
+    duration?: number,
+    initialData?: Partial<TextLayerData>
+  ) => void;
   onAddTrack: (type: 'video' | 'audio' | 'text' | 'subtitle', name?: string) => void;
   onSetBackgroundColor: (color: string) => void;
   onSetDuration: (duration: number) => void;
   currentTime: number;
   selectedClipId?: string | null;
   onUpdateClipEffects?: (clipId: string, effects: Partial<ClipEffects>) => void;
+  onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
 }
 
 type TabType = 'media' | 'text' | 'audio' | 'transitions' | 'filters' | 'subtitles' | 'elements' | 'settings';
@@ -30,6 +39,7 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
   currentTime,
   selectedClipId,
   onUpdateClipEffects,
+  onUpdateClip,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('media');
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -40,11 +50,12 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
 
   // Find suitable track
   const findTrack = (type: 'video' | 'audio' | 'text' | 'subtitle') => {
-    let t = project.tracks.find((track) => track.type === type && !track.locked);
-    if (!t) {
-      t = project.tracks[0];
+    const t = project.tracks.find((track) => track.type === type && !track.locked);
+    if (t) return t.id;
+    if (type === 'text' || type === 'subtitle') {
+      return '';
     }
-    return t?.id || project.tracks[0]?.id || '';
+    return project.tracks[0]?.id || '';
   };
 
   // Handle local file upload
@@ -369,41 +380,144 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
 
         {/* 2. TEXT TAB */}
         {activeTab === 'text' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="p-2.5 rounded-lg bg-indigo-950/30 border border-indigo-900/50 text-[11px] text-indigo-300 flex items-start gap-2">
               <svg className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>Tüm metin katmanları Türkçe karakterleri (ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü) %100 kusursuz destekler.</span>
+              <span>Türkçe karakterler (ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü) tam desteklenir. Tuval üzerinde çift tıklayarak doğrudan düzenleyebilirsiniz.</span>
             </div>
 
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Metin Şablonları</h4>
-            {[
-              { label: 'Büyük Başlık (Hero)', text: 'FORMA VİDEO DÜZENLEME', size: 64, weight: 'bold' },
-              { label: 'Alt Başlık', text: 'Profesyonel İçerik Üretimi', size: 42, weight: '600' },
-              { label: 'Paragraf / Açıklama', text: 'Tarayıcıda %100 yerel ve güvenli video kurgu deneyimi.', size: 28, weight: 'normal' },
-              { label: 'Sosyal Medya Çağrısı', text: 'Beğenmeyi ve Takip Etmeyi Unutmayın! 🚀', size: 36, weight: 'bold' },
-              { label: 'İndirim & Kampanya', text: 'BÜYÜK FIRSAT %50 İNDİRİM 🔥', size: 48, weight: '900' },
-            ].map((tmpl, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  const targetTrackId = findTrack('text');
-                  onAddTextClip(targetTrackId, tmpl.text, currentTime, 4);
-                }}
-                className="w-full text-left p-3 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/50 transition-all group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-300 group-hover:text-indigo-300">
-                    {tmpl.label}
-                  </span>
-                  <span className="text-[10px] text-gray-500">+ Ekle</span>
-                </div>
-                <div className="text-xs text-white/90 truncate font-semibold" style={{ fontWeight: tmpl.weight }}>
-                  {tmpl.text}
-                </div>
-              </button>
-            ))}
+            {/* 6 Quick-Add Templates */}
+            <div>
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Hızlı Metin Şablonları (6 Çeşit)
+              </h4>
+              <div className="space-y-2">
+                {[
+                  {
+                    label: 'Başlık (Heading)',
+                    text: 'FORMA VİDEO DÜZENLEME',
+                    desc: 'Büyük ve dikkat çekici ana başlık',
+                    data: { fontSize: 64, fontWeight: 'bold' as const },
+                  },
+                  {
+                    label: 'Alt Başlık (Subheading)',
+                    text: 'Profesyonel İçerik Üretimi',
+                    desc: 'Açıklayıcı alt metin katmanı',
+                    data: { fontSize: 40, fontWeight: '600' as const },
+                  },
+                  {
+                    label: 'Paragraf / Gövde (Body)',
+                    text: 'Tarayıcıda %100 yerel ve güvenli video kurgu deneyimi.',
+                    desc: 'Okunaklı gövde ve paragraf yazısı',
+                    data: { fontSize: 26, fontWeight: 'normal' as const, lineHeight: 1.4 },
+                  },
+                  {
+                    label: 'Vurgu / Callout',
+                    text: 'DİKKAT! ÖNEMLİ DETAY 🔥',
+                    desc: 'Renkli arkalık kutusuyla öne çıkan vurgu',
+                    data: {
+                      fontSize: 36,
+                      fontWeight: '800' as const,
+                      backgroundColor: 'rgba(99, 102, 241, 0.9)',
+                      backgroundOpacity: 0.9,
+                      paddingX: 20,
+                      paddingY: 10,
+                      borderRadius: 8,
+                    },
+                  },
+                  {
+                    label: 'Altyazı (Subtitle)',
+                    text: 'Videonun altındaki okunaklı altyazı metni.',
+                    desc: 'Siyah kontur ve yarı saydam zemin',
+                    data: {
+                      fontSize: 34,
+                      fontWeight: 'bold' as const,
+                      strokeColor: '#000000',
+                      strokeWidth: 4,
+                      backgroundColor: 'rgba(0,0,0,0.7)',
+                      backgroundOpacity: 0.7,
+                      paddingX: 18,
+                      paddingY: 8,
+                      borderRadius: 6,
+                    },
+                  },
+                  {
+                    label: 'Rozet / Etiket (Badge)',
+                    text: 'YENİ SÜRÜM v2.0',
+                    desc: 'Kompakt, yuvarlak köşeli etiket',
+                    data: {
+                      fontSize: 22,
+                      fontWeight: '900' as const,
+                      textTransform: 'uppercase' as const,
+                      letterSpacing: 1.5,
+                      backgroundColor: '#dc2626',
+                      backgroundOpacity: 0.95,
+                      paddingX: 16,
+                      paddingY: 6,
+                      borderRadius: 20,
+                    },
+                  },
+                ].map((tmpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      const targetTrackId = findTrack('text');
+                      onAddTextClip(targetTrackId, tmpl.text, currentTime, 4, tmpl.data);
+                    }}
+                    className="w-full text-left p-2.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all group"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300">
+                        {tmpl.label}
+                      </span>
+                      <span className="text-[10px] text-indigo-400 font-medium">+ Ekle</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 line-clamp-1">{tmpl.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 10 1-Click Style Presets */}
+            <div>
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                1-Tıkla Tasarım Stilleri (10 Hazır Stil)
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                {TEXT_STYLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      const targetTrackId = findTrack('text');
+                      onAddTextClip(
+                        targetTrackId,
+                        preset.name,
+                        currentTime,
+                        4,
+                        preset.data
+                      );
+                    }}
+                    className="p-2 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/60 transition-all text-left flex flex-col justify-between group"
+                    title={preset.description}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
+                        style={{ backgroundColor: preset.previewBg }}
+                      />
+                      <span className="text-[11px] font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                        {preset.name}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-gray-500 line-clamp-1">{preset.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -528,33 +642,47 @@ export const VideoEditorSidebar: React.FC<SidebarProps> = ({
         {/* 4. TRANSITIONS TAB */}
         {activeTab === 'transitions' && (
           <div className="space-y-3">
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              Klip Geçiş Efektleri (8 Çeşit)
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                Klip Geçiş Efektleri (13 Çeşit)
+              </h4>
+              <span className="text-[10px] text-indigo-400 font-mono">13 Geçiş</span>
+            </div>
             <p className="text-[11px] text-gray-400">
-              Bir klibe geçiş uygulamak için klibi zaman çizelgesinde seçip sağ panelden geçiş türünü belirleyebilirsiniz.
+              {selectedClipId
+                ? 'Seçili klibe geçiş uygulamak için aşağıdaki efektlerden birine tıklayın.'
+                : 'Bir klibe geçiş uygulamak için önce zaman çizelgesinden video veya görsel klibi seçin.'}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { type: 'crossfade', name: 'Çapraz Geçiş (Crossfade)', desc: 'Yumuşak karıştırma' },
-                { type: 'fade-black', name: 'Karararak Geçiş (Dip to Black)', desc: 'Sinematik siyah' },
-                { type: 'fade-white', name: 'Parlama Geçiş (Dip to White)', desc: 'Canlı beyaz flaş' },
-                { type: 'slide-left', name: 'Sola Kaydır (Slide Left)', desc: 'Dinamik kayma' },
-                { type: 'slide-right', name: 'Sağa Kaydır (Slide Right)', desc: 'Dinamik kayma' },
-                { type: 'zoom-in', name: 'Yakınlaşarak (Zoom In)', desc: 'Büyüyerek geçiş' },
-                { type: 'zoom-out', name: 'Uzaklaşarak (Zoom Out)', desc: 'Küçülerek geçiş' },
-                { type: 'cut', name: 'Sert Kesim (Cut)', desc: 'Anında geçiş' },
-              ].map((tr) => (
-                <div
-                  key={tr.type}
-                  className="p-2.5 rounded-lg bg-[#161b22] border border-[#30363d] hover:border-indigo-500/50 transition-all text-left"
+              {TRANSITION_DEFINITIONS.map((tr) => (
+                <button
+                  key={tr.id}
+                  type="button"
+                  onClick={() => {
+                    if (selectedClipId && onUpdateClip) {
+                      onUpdateClip(selectedClipId, {
+                        transitionIn: tr.id === 'cut' || tr.id === 'none' ? undefined : { type: tr.id, duration: 0.8 },
+                      });
+                    }
+                  }}
+                  className={`p-2 rounded-lg border text-left transition-all group ${
+                    selectedClipId
+                      ? 'bg-[#161b22] hover:bg-[#21262d] border-[#30363d] hover:border-indigo-500/60 cursor-pointer'
+                      : 'bg-[#161b22]/70 border-[#30363d]/70 opacity-80 cursor-default'
+                  }`}
+                  title={tr.description}
                 >
-                  <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-xs font-bold text-indigo-400">
-                    {tr.type.toUpperCase()}
+                  <div className="w-full h-8 rounded bg-[#0d1117] mb-1.5 flex items-center justify-center text-sm gap-1">
+                    <span>{tr.icon}</span>
+                    <span className="text-[10px] font-bold text-indigo-400 font-mono">
+                      {tr.id.toUpperCase()}
+                    </span>
                   </div>
-                  <p className="text-xs font-medium text-gray-200 truncate">{tr.name}</p>
-                  <p className="text-[10px] text-gray-500 truncate">{tr.desc}</p>
-                </div>
+                  <p className="text-xs font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                    {tr.name}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate">{tr.description}</p>
+                </button>
               ))}
             </div>
           </div>

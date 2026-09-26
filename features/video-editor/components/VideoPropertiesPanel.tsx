@@ -1,6 +1,20 @@
 import React from 'react';
-import { VideoProject, VideoClip, Transform2D, ClipEffects, Transition, TransitionType, TextLayerData } from '../types';
+import {
+  VideoProject,
+  VideoClip,
+  Transform2D,
+  ClipEffects,
+  Transition,
+  TransitionType,
+  TextLayerData,
+  TextInAnimationType,
+  TextLoopAnimationType,
+  TextOutAnimationType,
+  TextEasingType,
+} from '../types';
 import { COLOR_PRESETS } from '../engine/filterEngine';
+import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
+import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
 
 interface PropertiesPanelProps {
   project: VideoProject;
@@ -14,15 +28,26 @@ interface PropertiesPanelProps {
   onDetachAudio?: (clipId: string) => void;
 }
 
-const TRANSITION_OPTIONS: { value: TransitionType; label: string }[] = [
-  { value: 'cut', label: 'Yok / Sert Kesim (Cut)' },
-  { value: 'crossfade', label: 'Çapraz Geçiş (Crossfade)' },
-  { value: 'fade-black', label: 'Karararak Geçiş (Dip to Black)' },
-  { value: 'fade-white', label: 'Parlama Geçiş (Dip to White)' },
-  { value: 'slide-left', label: 'Sola Kaydır (Slide Left)' },
-  { value: 'slide-right', label: 'Sağa Kaydır (Slide Right)' },
-  { value: 'zoom-in', label: 'Yakınlaşarak (Zoom In)' },
-  { value: 'zoom-out', label: 'Uzaklaşarak (Zoom Out)' },
+const FONT_FAMILIES = [
+  { id: 'Plus Jakarta Sans, sans-serif', name: 'Plus Jakarta Sans (Modern)' },
+  { id: 'Inter, sans-serif', name: 'Inter (Temiz & Dengeli)' },
+  { id: 'Montserrat, sans-serif', name: 'Montserrat (Cesur & Geometrik)' },
+  { id: 'Roboto, sans-serif', name: 'Roboto (Nötr & Okunaklı)' },
+  { id: 'Poppins, sans-serif', name: 'Poppins (Sosyal Medya & Dinamik)' },
+  { id: 'Open Sans, sans-serif', name: 'Open Sans (Klasik & Sade)' },
+  { id: 'Playfair Display, serif', name: 'Playfair Display (Sinematik Serif)' },
+  { id: 'Oswald, sans-serif', name: 'Oswald (Manşet & Poster)' },
+  { id: 'Courier New, monospace', name: 'Courier New (Terminal & Daktilo)' },
+];
+
+const EASING_OPTIONS: { id: TextEasingType; name: string }[] = [
+  { id: 'ease-out', name: 'Yumuşak Bitiş (Ease Out)' },
+  { id: 'ease-in-out', name: 'Dengeli (Ease In-Out)' },
+  { id: 'ease-in', name: 'Hızlanan (Ease In)' },
+  { id: 'back', name: 'Geri Sekme (Back Pop)' },
+  { id: 'bounce', name: 'Yaylı Zıplama (Bounce)' },
+  { id: 'elastic', name: 'Elastik Titreşim (Elastic)' },
+  { id: 'linear', name: 'Doğrusal (Linear)' },
 ];
 
 export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -55,7 +80,8 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 Çözünürlük & En-Boy
               </label>
               <p className="text-gray-200 font-mono">
-                {project.resolution.width} x {project.resolution.height} ({project.resolution.width > project.resolution.height ? '16:9 Yatay' : '9:16 Dikey'})
+                {project.resolution.width} x {project.resolution.height} (
+                {project.resolution.width > project.resolution.height ? '16:9 Yatay' : '9:16 Dikey'})
               </p>
             </div>
 
@@ -97,18 +123,24 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
 
           <div className="p-4 rounded-lg bg-[#161b22]/40 border border-[#21262d] text-center text-gray-500 text-[11px]">
-            Düzenlemek istediğiniz klibi zaman çizelgesinden seçin.
+            Düzenlemek istediğiniz klibi zaman çizelgesinden veya önizleme tuvalinden seçin.
           </div>
         </div>
       </aside>
     );
   }
 
-  // Helper update callbacks
   const updateTransform = (partial: Partial<Transform2D>) => {
     onUpdateClip(selectedClip.id, {
       transform: {
-        ...(selectedClip.transform || { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 }),
+        ...(selectedClip.transform || {
+          x: 0,
+          y: 0,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0,
+          opacity: 1,
+        }),
         ...partial,
       },
     });
@@ -135,6 +167,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const transform = selectedClip.transform || { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 };
   const effects = selectedClip.effects || {};
+  const textData = selectedClip.textData;
 
   return (
     <aside className="w-80 bg-[#0d1117] border-l border-[#21262d] flex flex-col shrink-0 select-none z-10 overflow-y-auto text-xs">
@@ -163,78 +196,456 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
       </div>
 
       <div className="p-4 space-y-5">
-        {/* TEXT LAYER SECTION */}
-        {selectedClip.type === 'text' && selectedClip.textData && (
-          <div className="space-y-3 p-3 rounded-lg bg-[#161b22] border border-[#30363d]">
-            <h4 className="font-semibold text-indigo-400 text-[11px] uppercase tracking-wider">
-              Metin Ayarları (Türkçe Uyumlu)
-            </h4>
+        {/* ============================================================== */}
+        {/* ADVANCED TEXT LAYER SECTION                                    */}
+        {/* ============================================================== */}
+        {selectedClip.type === 'text' && textData && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-indigo-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <span>🔤</span>
+                <span>Metin & Tipografi</span>
+              </h4>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/40">
+                TR Karakter Uyumlu
+              </span>
+            </div>
 
+            {/* 10 1-Click Style Presets */}
+            <div className="space-y-1.5">
+              <label className="text-gray-400 text-[10px] block uppercase font-bold tracking-wider">
+                1-Tıkla Stil Şablonları (10 Hazır Stil)
+              </label>
+              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                {TEXT_STYLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => updateTextData(preset.data)}
+                    className="p-1.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] hover:border-indigo-500/70 text-left transition-all group flex flex-col justify-between"
+                    title={preset.description}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
+                        style={{ backgroundColor: preset.previewBg }}
+                      />
+                      <span className="text-[10px] font-semibold text-gray-200 group-hover:text-indigo-300 truncate">
+                        {preset.name}
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-gray-500 line-clamp-1">
+                      {preset.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Direct Text Editor Textarea */}
             <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Metin İçeriği</label>
+              <label className="text-gray-400 text-[10px] block mb-1">
+                Metin İçeriği (Tuvalde Çift Tıklayarak da Düzenleyebilirsiniz)
+              </label>
               <textarea
                 rows={3}
-                value={selectedClip.textData.text}
+                value={textData.text}
                 onChange={(e) => updateTextData({ text: e.target.value })}
-                className="w-full p-2 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none focus:border-indigo-500 text-xs"
+                placeholder="Metninizi yazın... (Türkçe karakterler desteklenir)"
+                className="w-full p-2.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none focus:border-indigo-500 text-xs font-medium leading-relaxed resize-y"
               />
             </div>
 
+            {/* Font Family Picker */}
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-1">Yazı Tipi (Font)</label>
+              <select
+                value={textData.fontFamily || 'Plus Jakarta Sans, sans-serif'}
+                onChange={(e) => updateTextData({ fontFamily: e.target.value })}
+                className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none focus:border-indigo-500 text-xs"
+              >
+                {FONT_FAMILIES.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Weight, Size, Spacing */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-gray-400 text-[10px] block mb-1">Font Boyutu ({selectedClip.textData.fontSize}px)</label>
+                <label className="text-gray-400 text-[10px] block mb-1">
+                  Boyut ({textData.fontSize || 54}px)
+                </label>
                 <input
                   type="range"
                   min="16"
-                  max="140"
-                  value={selectedClip.textData.fontSize}
-                  onChange={(e) => updateTextData({ fontSize: parseInt(e.target.value) })}
+                  max="160"
+                  value={textData.fontSize || 54}
+                  onChange={(e) => updateTextData({ fontSize: parseInt(e.target.value) || 54 })}
                   className="w-full accent-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-gray-400 text-[10px] block mb-1">Metin Rengi</label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={selectedClip.textData.fillColor || '#FFFFFF'}
-                    onChange={(e) => updateTextData({ fillColor: e.target.value })}
-                    className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer"
-                  />
-                  <span className="text-[11px] font-mono text-gray-300">
-                    {selectedClip.textData.fillColor || '#FFFFFF'}
-                  </span>
-                </div>
+                <label className="text-gray-400 text-[10px] block mb-1">Kalınlık (Weight)</label>
+                <select
+                  value={String(textData.fontWeight || 'bold')}
+                  onChange={(e) =>
+                    updateTextData({
+                      fontWeight: e.target.value as any,
+                    })
+                  }
+                  className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none text-xs"
+                >
+                  <option value="300">300 (İnce / Light)</option>
+                  <option value="400">400 (Normal / Regular)</option>
+                  <option value="500">500 (Orta / Medium)</option>
+                  <option value="600">600 (Yarı Kalın / Semi-Bold)</option>
+                  <option value="bold">700 (Kalın / Bold)</option>
+                  <option value="900">900 (Siyah / Black)</option>
+                </select>
               </div>
             </div>
 
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-1">Animasyon</label>
-              <select
-                value={selectedClip.textData.animation?.type || 'none'}
-                onChange={(e) =>
-                  updateTextData({
-                    animation: {
-                      type: e.target.value as 'none' | 'fade' | 'slide-up' | 'slide-down' | 'scale' | 'typewriter',
-                      duration: selectedClip.textData?.animation?.duration || 0.5,
-                    },
-                  })
-                }
-                className="w-full px-2 py-1.5 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none"
-              >
-                <option value="none">Animasyonsuz</option>
-                <option value="fade">Yumuşak Belirme (Fade)</option>
-                <option value="slide-up">Aşağıdan Yukarı Kayma (Slide Up)</option>
-                <option value="slide-down">Yukarıdan Aşağı Kayma (Slide Down)</option>
-                <option value="scale">Büyüyerek Belirme (Scale Pop)</option>
-                <option value="typewriter">Daktilo Yazısı (Typewriter)</option>
-              </select>
+            {/* Letter Spacing & Line Height */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1">
+                  Harf Aralığı ({textData.letterSpacing || 0}px)
+                </label>
+                <input
+                  type="range"
+                  min="-2"
+                  max="12"
+                  step="0.5"
+                  value={textData.letterSpacing || 0}
+                  onChange={(e) => updateTextData({ letterSpacing: parseFloat(e.target.value) || 0 })}
+                  className="w-full accent-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1">
+                  Satır Yüksekliği ({textData.lineHeight || 1.25}x)
+                </label>
+                <input
+                  type="range"
+                  min="0.9"
+                  max="2.0"
+                  step="0.05"
+                  value={textData.lineHeight || 1.25}
+                  onChange={(e) => updateTextData({ lineHeight: parseFloat(e.target.value) || 1.25 })}
+                  className="w-full accent-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Text Alignment & Transformations */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#21262d]">
+              {/* Alignment */}
+              <div className="flex items-center bg-[#161b22] p-0.5 rounded border border-[#30363d]">
+                {(['left', 'center', 'right'] as const).map((align) => (
+                  <button
+                    key={align}
+                    type="button"
+                    onClick={() => updateTextData({ textAlign: align, alignment: align })}
+                    className={`px-2 py-1 rounded text-xs transition-colors ${
+                      (textData.textAlign || textData.alignment || 'center') === align
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title={align === 'left' ? 'Sola Hizala' : align === 'center' ? 'Ortala' : 'Sağa Hizala'}
+                  >
+                    {align === 'left' ? '⇤' : align === 'center' ? '≡' : '⇥'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Text Transform */}
+              <div className="flex items-center bg-[#161b22] p-0.5 rounded border border-[#30363d]">
+                {[
+                  { id: 'none', label: 'Aa' },
+                  { id: 'uppercase', label: 'AA' },
+                  { id: 'lowercase', label: 'aa' },
+                ].map((tr) => (
+                  <button
+                    key={tr.id}
+                    type="button"
+                    onClick={() => updateTextData({ textTransform: tr.id as any })}
+                    className={`px-1.5 py-1 rounded text-[10px] font-mono transition-colors ${
+                      (textData.textTransform || 'none') === tr.id
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {tr.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Italic & Underline */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateTextData({
+                      fontStyle: textData.fontStyle === 'italic' ? 'normal' : 'italic',
+                    })
+                  }
+                  className={`w-7 h-7 rounded border text-xs italic font-serif flex items-center justify-center ${
+                    textData.fontStyle === 'italic'
+                      ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500'
+                      : 'border-[#30363d] text-gray-400 hover:text-white'
+                  }`}
+                  title="İtalik"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateTextData({ underline: !textData.underline })}
+                  className={`w-7 h-7 rounded border text-xs underline flex items-center justify-center ${
+                    textData.underline
+                      ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500'
+                      : 'border-[#30363d] text-gray-400 hover:text-white'
+                  }`}
+                  title="Altı Çizili"
+                >
+                  U
+                </button>
+              </div>
+            </div>
+
+            {/* Colors: Fill, Stroke, Box */}
+            <div className="space-y-2 pt-2 border-t border-[#21262d]">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-gray-400 text-[10px] block mb-1">Metin Rengi</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={textData.fillColor || textData.color || '#ffffff'}
+                      onChange={(e) => updateTextData({ fillColor: e.target.value, color: e.target.value })}
+                      className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer"
+                    />
+                    <span className="font-mono text-[10px] text-gray-300 uppercase">
+                      {textData.fillColor || textData.color || '#ffffff'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-gray-400 text-[10px] block mb-1">
+                    Dış Kontur ({textData.strokeWidth || 0}px)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={textData.strokeColor || '#000000'}
+                      onChange={(e) => updateTextData({ strokeColor: e.target.value })}
+                      className="w-7 h-7 rounded border border-[#30363d] bg-transparent cursor-pointer"
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="12"
+                      value={textData.strokeWidth || 0}
+                      onChange={(e) => updateTextData({ strokeWidth: parseInt(e.target.value) || 0 })}
+                      className="w-full accent-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Background Box (Pill) */}
+              <div className="p-2.5 rounded bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-gray-300">Arka Plan Kutusu (Pill)</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateTextData({
+                        backgroundColor: textData.backgroundColor ? undefined : 'rgba(0,0,0,0.7)',
+                        backgroundOpacity: textData.backgroundColor ? 0 : 0.7,
+                      })
+                    }
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300"
+                  >
+                    {textData.backgroundColor ? 'Kaldır' : '+ Kutu Ekle'}
+                  </button>
+                </div>
+
+                {textData.backgroundColor && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-gray-400 text-[9px] block mb-1">Kutu Rengi</label>
+                        <input
+                          type="color"
+                          value={textData.backgroundColor.startsWith('#') ? textData.backgroundColor : '#000000'}
+                          onChange={(e) => updateTextData({ backgroundColor: e.target.value, boxColor: e.target.value })}
+                          className="w-full h-6 rounded border border-[#30363d] bg-transparent cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[9px] block mb-1">
+                          Opaklık ({Math.round((textData.backgroundOpacity ?? 0.7) * 100)}%)
+                        </label>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1.0"
+                          step="0.05"
+                          value={textData.backgroundOpacity ?? 0.7}
+                          onChange={(e) => updateTextData({ backgroundOpacity: parseFloat(e.target.value) })}
+                          className="w-full accent-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-gray-400 text-[9px] block mb-1">
+                          Yatay Boşluk ({textData.paddingX ?? 20}px)
+                        </label>
+                        <input
+                          type="range"
+                          min="4"
+                          max="50"
+                          value={textData.paddingX ?? 20}
+                          onChange={(e) => updateTextData({ paddingX: parseInt(e.target.value) })}
+                          className="w-full accent-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 text-[9px] block mb-1">
+                          Köşe Yuvarlama ({textData.borderRadius ?? 8}px)
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="32"
+                          value={textData.borderRadius ?? 8}
+                          onChange={(e) => updateTextData({ borderRadius: parseInt(e.target.value) })}
+                          className="w-full accent-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Text Animations Sub-panel */}
+            <div className="p-2.5 rounded bg-[#161b22] border border-[#30363d] space-y-3">
+              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider block">
+                Metin Animasyonları
+              </span>
+
+              {/* In Animation */}
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1">Giriş Animasyonu (In)</label>
+                <div className="grid grid-cols-2 gap-2 mb-1.5">
+                  <select
+                    value={
+                      textData.inAnimation ||
+                      (typeof textData.animation === 'object' ? textData.animation.type : undefined) ||
+                      (typeof textData.animation === 'string' ? textData.animation : 'none')
+                    }
+                    onChange={(e) => {
+                      const type = e.target.value as TextInAnimationType;
+                      updateTextData({
+                        inAnimation: type,
+                        animation: {
+                          type,
+                          duration: textData.inDuration || 0.5,
+                        },
+                      });
+                    }}
+                    className="w-full px-2 py-1 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none text-xs"
+                  >
+                    <option value="none">Yok</option>
+                    <option value="fade">Belirme (Fade)</option>
+                    <option value="slide-up">Aşağıdan Yukarı (Slide Up)</option>
+                    <option value="slide-down">Yukarıdan Aşağı (Slide Down)</option>
+                    <option value="slide-left">Sağdan Sola (Slide Left)</option>
+                    <option value="slide-right">Soldan Sağa (Slide Right)</option>
+                    <option value="scale">Büyüyerek (Scale)</option>
+                    <option value="pop">Yaylı Patlama (Pop)</option>
+                    <option value="blur-in">Bulanıktan Netleşme (Blur In)</option>
+                    <option value="typewriter">Daktilo Yazısı (Typewriter)</option>
+                    <option value="word-by-word">Kelime Kelime</option>
+                    <option value="char-by-char">Harf Harf</option>
+                  </select>
+
+                  <select
+                    value={textData.inEasing || 'ease-out'}
+                    onChange={(e) => updateTextData({ inEasing: e.target.value as TextEasingType })}
+                    className="w-full px-2 py-1 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none text-xs"
+                  >
+                    {EASING_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-between text-gray-400 text-[9px] mb-0.5">
+                  <span>Giriş Süresi</span>
+                  <span className="font-mono">{textData.inDuration ?? 0.5}s</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="2.5"
+                  step="0.1"
+                  value={textData.inDuration ?? 0.5}
+                  onChange={(e) => updateTextData({ inDuration: parseFloat(e.target.value) })}
+                  className="w-full accent-indigo-500"
+                />
+              </div>
+
+              {/* Loop Animation */}
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1">Sürekli Döngü (Loop)</label>
+                <select
+                  value={textData.loopAnimation || 'none'}
+                  onChange={(e) => updateTextData({ loopAnimation: e.target.value as TextLoopAnimationType })}
+                  className="w-full px-2 py-1 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none text-xs mb-1.5"
+                >
+                  <option value="none">Döngü Yok (Sabit)</option>
+                  <option value="pulse">Nabız Atışı (Pulse)</option>
+                  <option value="heartbeat">Kalp Ritmi (Heartbeat)</option>
+                  <option value="float">Havada Süzülme (Float)</option>
+                  <option value="shimmer">Parıldama (Shimmer)</option>
+                </select>
+              </div>
+
+              {/* Out Animation */}
+              <div>
+                <label className="text-gray-400 text-[10px] block mb-1">Çıkış Animasyonu (Out)</label>
+                <select
+                  value={textData.outAnimation || 'none'}
+                  onChange={(e) => updateTextData({ outAnimation: e.target.value as TextOutAnimationType })}
+                  className="w-full px-2 py-1 rounded bg-[#0d1117] border border-[#30363d] text-white outline-none text-xs"
+                >
+                  <option value="none">Çıkış Yok (Sert Kesim)</option>
+                  <option value="fade">Kaybolma (Fade Out)</option>
+                  <option value="slide-down">Aşağı Kayarak Çıkış</option>
+                  <option value="slide-up">Yukarı Kayarak Çıkış</option>
+                  <option value="scale-down">Küçülerek Kaybolma</option>
+                  <option value="blur-out">Bulanıklaşarak Çıkış</option>
+                  <option value="typewriter-erase">Daktilo ile Silinme</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TRANSFORM SECTION */}
+        {/* ============================================================== */}
+        {/* TRANSFORM SECTION (VIDEO, IMAGE, TEXT, ETC.)                    */}
+        {/* ============================================================== */}
         <div className="space-y-3">
           <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
             Konum & Dönüşüm (Transform)
@@ -409,11 +820,14 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         )}
 
-        {/* TRANSITIONS SECTION */}
+        {/* ============================================================== */}
+        {/* TRANSITIONS SECTION (13 TRANSITIONS)                            */}
+        {/* ============================================================== */}
         {(selectedClip.type === 'video' || selectedClip.type === 'image') && (
           <div className="space-y-3">
-            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider">
-              Geçiş Efektleri (Transitions)
+            <h4 className="font-semibold text-gray-300 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <span>🔀</span>
+              <span>Geçiş Efektleri (13 Profesyonel Geçiş)</span>
             </h4>
 
             <div>
@@ -422,7 +836,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 value={selectedClip.transitionIn?.type || 'cut'}
                 onChange={(e) => {
                   const type = e.target.value as TransitionType;
-                  if (type === 'cut') {
+                  if (type === 'cut' || type === 'none') {
                     onUpdateClip(selectedClip.id, { transitionIn: undefined });
                   } else {
                     onUpdateClip(selectedClip.id, {
@@ -432,9 +846,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 }}
                 className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none"
               >
-                {TRANSITION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                {TRANSITION_DEFINITIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.icon} {o.name}
                   </option>
                 ))}
               </select>
@@ -446,7 +860,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 value={selectedClip.transitionOut?.type || 'cut'}
                 onChange={(e) => {
                   const type = e.target.value as TransitionType;
-                  if (type === 'cut') {
+                  if (type === 'cut' || type === 'none') {
                     onUpdateClip(selectedClip.id, { transitionOut: undefined });
                   } else {
                     onUpdateClip(selectedClip.id, {
@@ -456,9 +870,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 }}
                 className="w-full px-2 py-1.5 rounded bg-[#161b22] border border-[#30363d] text-white outline-none"
               >
-                {TRANSITION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                {TRANSITION_DEFINITIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.icon} {o.name}
                   </option>
                 ))}
               </select>

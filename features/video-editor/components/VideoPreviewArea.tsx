@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { VideoProject, VideoClip, Transform2D } from '../types';
-import { renderFrameToCanvas } from '../engine/previewRenderer';
+import { renderFrameToCanvas, registerRedrawCallback } from '../engine/previewRenderer';
 import { exportEngine } from '../engine/exportEngine';
 import { audioMixer } from '../engine/audioMixer';
+import { calculateClipBounds, isPointInClip } from '../engine/clipBounds';
 
 interface PreviewProps {
   project: VideoProject;
@@ -18,6 +19,8 @@ interface PreviewProps {
   onSetIsLooping: (loop: boolean) => void;
   selectedClip: VideoClip | null;
   onUpdateClipTransform: (clipId: string, transform: Partial<Transform2D>) => void;
+  onSelectClip?: (clipId: string | null) => void;
+  onUpdateClipText?: (clipId: string, text: string) => void;
 }
 
 export const VideoPreviewArea: React.FC<PreviewProps> = ({
@@ -34,15 +37,30 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   onSetIsLooping,
   selectedClip,
   onUpdateClipTransform,
+  onSelectClip,
+  onUpdateClipText,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [showSafeZones, setShowSafeZones] = useState(false);
   const [masterVolume, setMasterVolume] = useState(1.0);
   const [isMuted, setIsMuted] = useState(false);
   const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
   const dragStartPos = useRef<{ x: number; y: number; initialClipX: number; initialClipY: number } | null>(null);
+
+  // In-canvas Direct Text Editing
+  const [editingClipId, setEditingClipId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+
+  // Reactive subscription to video decoder ready / seeked events
+  const [renderVersion, setRenderVersion] = useState(0);
+  useEffect(() => {
+    return registerRedrawCallback(() => {
+      setRenderVersion((v) => (v + 1) % 1_000_000);
+    });
+  }, []);
 
   // Timecode formatter: HH:MM:SS:FF
   const formatTimecode = useCallback((seconds: number, fps = 30) => {
@@ -73,7 +91,15 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [project, currentTime, selectedClip, isPlaying]);
+  }, [project, currentTime, selectedClip, isPlaying, renderVersion]);
+
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (editingClipId && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [editingClipId]);
 
   // Handle PNG Snapshot
   const handleCaptureSnapshot = async () => {
@@ -94,21 +120,120 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     }
   };
 
-  // Canvas Mouse Down for interactive gizmo movement
+  // Commit inline text editing
+  const handleCommitInlineText = useCallback(() => {
+    if (editingClipId && onUpdateClipText) {
+      onUpdateClipText(editingClipId, editingText);
+    }
+    setEditingClipId(null);
+  }, [editingClipId, editingText, onUpdateClipText]);
+
+  // Canvas Mouse Down: hit test to select clip and start dragging
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!selectedClip || !canvasRef.current) return;
+    if (!canvasRef.current) return;
+
+    // If editing text, commit first
+    if (editingClipId) {
+      handleCommitInlineText();
+      return;
+    }
 
     const rect = canvasRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    setIsDraggingGizmo(true);
-    dragStartPos.current = {
-      x: clickX,
-      y: clickY,
-      initialClipX: selectedClip.transform?.x || 0,
-      initialClipY: selectedClip.transform?.y || 0,
-    };
+    const canvasX = (clickX / rect.width) * project.resolution.width;
+    const canvasY = (clickY / rect.height) * project.resolution.height;
+
+    // 1. Hit test foreground interactive clips (text, overlays) first
+    let clickedClip: VideoClip | null = null;
+
+    for (const track of project.tracks) {
+      if (track.muted || track.visible === false || track.type === 'video' || track.type === 'audio') continue;
+      for (const clip of track.clips) {
+        const start = clip.startTime ?? clip.start ?? 0;
+        if (currentTime >= start && currentTime <= start + clip.duration) {
+          const bounds = calculateClipBounds(clip, project.resolution.width, project.resolution.height);
+          if (isPointInClip(canvasX, canvasY, bounds)) {
+            clickedClip = clip;
+            break;
+          }
+        }
+      }
+      if (clickedClip) break;
+    }
+
+    if (clickedClip) {
+      onSelectClip?.(clickedClip.id);
+      setIsDraggingGizmo(true);
+      dragStartPos.current = {
+        x: clickX,
+        y: clickY,
+        initialClipX: clickedClip.transform?.x || 0,
+        initialClipY: clickedClip.transform?.y || 0,
+      };
+      return;
+    }
+
+    // 2. If already having a selected clip, check if clicked inside its bounds to drag
+    if (selectedClip) {
+      const bounds = calculateClipBounds(selectedClip, project.resolution.width, project.resolution.height);
+      if (isPointInClip(canvasX, canvasY, bounds)) {
+        setIsDraggingGizmo(true);
+        dragStartPos.current = {
+          x: clickX,
+          y: clickY,
+          initialClipX: selectedClip.transform?.x || 0,
+          initialClipY: selectedClip.transform?.y || 0,
+        };
+        return;
+      }
+    }
+
+    // 3. Clicked empty space outside active elements -> DESELECT ALL
+    onSelectClip?.(null);
+    setIsDraggingGizmo(false);
+    dragStartPos.current = null;
+  };
+
+  // Canvas Double Click: activate direct in-canvas text editing
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const canvasX = (clickX / rect.width) * project.resolution.width;
+    const canvasY = (clickY / rect.height) * project.resolution.height;
+
+    // Find clicked text clip
+    let textClip: VideoClip | null = null;
+
+    for (const track of project.tracks) {
+      if (track.type !== 'text' || track.muted || track.visible === false) continue;
+      for (const clip of track.clips) {
+        const start = clip.startTime ?? clip.start ?? 0;
+        if (currentTime >= start && currentTime <= start + clip.duration && clip.textData) {
+          const bounds = calculateClipBounds(clip, project.resolution.width, project.resolution.height);
+          if (isPointInClip(canvasX, canvasY, bounds)) {
+            textClip = clip;
+            break;
+          }
+        }
+      }
+      if (textClip) break;
+    }
+
+    if (!textClip && selectedClip?.type === 'text') {
+      textClip = selectedClip;
+    }
+
+    if (textClip && textClip.textData) {
+      onSelectClip?.(textClip.id);
+      setEditingClipId(textClip.id);
+      setEditingText(textClip.textData.text || '');
+    }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -135,22 +260,14 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     dragStartPos.current = null;
   };
 
-  // Volume toggle
-  const handleVolumeChange = (newVol: number) => {
-    setMasterVolume(newVol);
-    setIsMuted(newVol === 0);
-    audioMixer.setMasterVolume(newVol);
-  };
+  // Find active editing clip
+  const editingClip = editingClipId
+    ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === editingClipId)
+    : null;
 
-  const toggleMute = () => {
-    if (isMuted) {
-      setIsMuted(false);
-      audioMixer.setMasterVolume(masterVolume > 0 ? masterVolume : 1.0);
-    } else {
-      setIsMuted(true);
-      audioMixer.setMasterVolume(0);
-    }
-  };
+  const editingBounds = editingClip
+    ? calculateClipBounds(editingClip, project.resolution.width, project.resolution.height)
+    : null;
 
   const isVertical = project.resolution.height > project.resolution.width;
 
@@ -214,8 +331,68 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleCanvasMouseMove}
             onMouseUp={handleCanvasMouseUp}
-            className="w-full h-full object-contain cursor-crosshair"
+            onDoubleClick={handleCanvasDoubleClick}
+            className="w-full h-full object-contain cursor-default"
           />
+
+          {/* IN-CANVAS DIRECT TEXT EDITING OVERLAY */}
+          {editingClip && editingBounds && editingClip.textData && (
+            <div
+              className="absolute z-30 flex flex-col items-center"
+              style={{
+                left: `${(editingBounds.centerX / project.resolution.width) * 100}%`,
+                top: `${(editingBounds.centerY / project.resolution.height) * 100}%`,
+                transform: `translate(-50%, -50%) rotate(${editingBounds.rotation}deg)`,
+                width: `${Math.max(16, (editingBounds.width / project.resolution.width) * 100 * 1.1)}%`,
+                minWidth: '220px',
+              }}
+            >
+              {/* Floating Action Controls */}
+              <div className="flex items-center gap-1 mb-1.5 bg-[#0d1117]/95 px-2 py-1 rounded-md border border-indigo-500 shadow-xl text-[11px]">
+                <span className="text-indigo-400 font-semibold text-[10px] mr-1">Metni Düzenle:</span>
+                <button
+                  type="button"
+                  onClick={handleCommitInlineText}
+                  className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[10px] transition-colors flex items-center gap-1 shadow"
+                  title="Değişiklikleri Kaydet (Enter)"
+                >
+                  <span>✓</span>
+                  <span>Tamam</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingClipId(null)}
+                  className="px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10 text-[10px] transition-colors"
+                  title="İptal (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Editable Textarea Matching Canvas Text Appearance */}
+              <textarea
+                ref={textareaRef}
+                value={editingText}
+                onChange={(e) => setEditingText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleCommitInlineText();
+                  } else if (e.key === 'Escape') {
+                    setEditingClipId(null);
+                  }
+                }}
+                rows={Math.max(2, editingText.split('\n').length)}
+                className="w-full p-2.5 rounded-lg border-2 border-indigo-500 bg-[#0d1117]/95 text-white outline-none shadow-2xl resize-none font-medium transition-all"
+                style={{
+                  fontFamily: editingClip.textData.fontFamily || 'Plus Jakarta Sans, sans-serif',
+                  textAlign: editingClip.textData.textAlign || editingClip.textData.alignment || 'center',
+                  color: editingClip.textData.fillColor || editingClip.textData.color || '#ffffff',
+                }}
+                placeholder="Metin girin..."
+              />
+            </div>
+          )}
 
           {/* Safe Zones Guides Overlay */}
           {showSafeZones && (
@@ -302,50 +479,65 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
+
+          {/* Playback speed selector */}
+          <div className="flex items-center ml-2 border-l border-[#21262d] pl-2 gap-1 text-[11px]">
+            {[1, 1.5, 2].map((r) => (
+              <button
+                key={r}
+                onClick={() => onSetPlaybackRate(r)}
+                className={`px-1.5 py-0.5 rounded font-mono ${
+                  playbackRate === r ? 'bg-[#21262d] text-white font-bold' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {r}x
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Right: Speed & Volume */}
-        <div className="flex items-center gap-3">
-          {/* Speed Selector */}
-          <select
-            value={playbackRate}
-            onChange={(e) => onSetPlaybackRate(Number(e.target.value))}
-            className="bg-[#161b22] border border-[#30363d] text-gray-300 rounded px-1.5 py-1 text-[11px] outline-none"
+        {/* Right: Master Volume Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (isMuted) {
+                setIsMuted(false);
+                audioMixer.setMasterVolume(masterVolume > 0 ? masterVolume : 1.0);
+              } else {
+                setIsMuted(true);
+                audioMixer.setMasterVolume(0);
+              }
+            }}
+            className="text-gray-400 hover:text-white"
+            title={isMuted ? 'Sesi Aç' : 'Sesi Kapat'}
           >
-            <option value={0.5}>0.5x</option>
-            <option value={1}>1.0x</option>
-            <option value={1.5}>1.5x</option>
-            <option value={2}>2.0x</option>
-          </select>
+            {isMuted || masterVolume === 0 ? (
+              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+            )}
+          </button>
 
-          {/* Master Volume */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={toggleMute}
-              className="text-gray-400 hover:text-white"
-              title={isMuted ? 'Sesi Aç' : 'Sesi Kapat'}
-            >
-              {isMuted || masterVolume === 0 ? (
-                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-              )}
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : masterVolume}
-              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-              className="w-16 h-1 bg-[#21262d] accent-indigo-500 rounded cursor-pointer"
-            />
-          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isMuted ? 0 : masterVolume}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setMasterVolume(val);
+              setIsMuted(val === 0);
+              audioMixer.setMasterVolume(val);
+            }}
+            className="w-16 accent-indigo-500 h-1 cursor-pointer"
+            title={`Genel Ses: ${Math.round((isMuted ? 0 : masterVolume) * 100)}%`}
+          />
         </div>
       </div>
     </div>

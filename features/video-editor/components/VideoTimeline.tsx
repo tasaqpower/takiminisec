@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { VideoProject, TimelineTrack, VideoClip, TrackType } from '../types';
+import { VideoProject, TimelineTrack, VideoClip, TrackType, Transition } from '../types';
+import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 
 interface TimelineProps {
   project: VideoProject;
@@ -21,6 +22,7 @@ interface TimelineProps {
   onDetachAudio?: (clipId: string) => void;
   onUpdateClipSpeed?: (clipId: string, speed: number) => void;
   onToggleClipMute?: (clipId: string) => void;
+  onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
 }
 
 export const VideoTimeline: React.FC<TimelineProps> = ({
@@ -43,6 +45,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onDetachAudio,
   onUpdateClipSpeed,
   onToggleClipMute,
+  onUpdateClip,
 }) => {
   const [zoom, setZoom] = useState<number>(40); // pixels per second
   const [snapping, setSnapping] = useState<boolean>(true);
@@ -51,6 +54,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     y: number;
     clip: VideoClip;
     track: TimelineTrack;
+  } | null>(null);
+  const [transitionMenu, setTransitionMenu] = useState<{
+    clipId: string;
+    side: 'in' | 'out';
+    x: number;
+    y: number;
   } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -573,23 +582,45 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
                         {/* 2. Transition Badges */}
                         {clip.transitionIn && clip.transitionIn.type !== 'cut' && clip.transitionIn.type !== 'none' && (
-                          <div
-                            className="absolute left-3 top-1 z-20 px-1 py-0.2 rounded bg-amber-500/90 text-black text-[8px] font-extrabold flex items-center gap-0.5 shadow pointer-events-none uppercase tracking-tight"
-                            title={`Giriş: ${clip.transitionIn.type} (${clip.transitionIn.duration}s)`}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectClip(clip.id);
+                              setTransitionMenu({
+                                clipId: clip.id,
+                                side: 'in',
+                                x: Math.min(window.innerWidth - 290, e.clientX),
+                                y: Math.max(20, e.clientY - 220),
+                              });
+                            }}
+                            className="absolute left-3 top-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-extrabold flex items-center gap-0.5 shadow uppercase tracking-tight transition-transform active:scale-95 cursor-pointer"
+                            title={`Giriş: ${clip.transitionIn.type} (${clip.transitionIn.duration}s) — Değiştirmek için tıkla`}
                           >
                             <span>⚡</span>
                             <span>{clip.transitionIn.type}</span>
-                          </div>
+                          </button>
                         )}
 
                         {clip.transitionOut && clip.transitionOut.type !== 'cut' && clip.transitionOut.type !== 'none' && (
-                          <div
-                            className="absolute right-3 top-1 z-20 px-1 py-0.2 rounded bg-amber-500/90 text-black text-[8px] font-extrabold flex items-center gap-0.5 shadow pointer-events-none uppercase tracking-tight"
-                            title={`Çıkış: ${clip.transitionOut.type} (${clip.transitionOut.duration}s)`}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectClip(clip.id);
+                              setTransitionMenu({
+                                clipId: clip.id,
+                                side: 'out',
+                                x: Math.min(window.innerWidth - 290, e.clientX),
+                                y: Math.max(20, e.clientY - 220),
+                              });
+                            }}
+                            className="absolute right-3 top-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-extrabold flex items-center gap-0.5 shadow uppercase tracking-tight transition-transform active:scale-95 cursor-pointer"
+                            title={`Çıkış: ${clip.transitionOut.type} (${clip.transitionOut.duration}s) — Değiştirmek için tıkla`}
                           >
                             <span>{clip.transitionOut.type}</span>
                             <span>⚡</span>
-                          </div>
+                          </button>
                         )}
 
                         {/* Left Trim Handle */}
@@ -788,6 +819,66 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             </span>
             <kbd className="text-[10px] font-mono">Shift+Del</kbd>
           </button>
+        </div>
+      )}
+
+      {/* 3. Transition Quick Selector Popover */}
+      {transitionMenu && (
+        <div
+          style={{ left: `${transitionMenu.x}px`, top: `${transitionMenu.y}px` }}
+          className="fixed z-50 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-3 w-72 text-xs select-none backdrop-blur-md"
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-[#21262d] mb-2">
+            <span className="font-semibold text-white flex items-center gap-1.5">
+              <span>⚡</span>
+              <span>{transitionMenu.side === 'in' ? 'Giriş Geçişi (In)' : 'Çıkış Geçişi (Out)'}</span>
+            </span>
+            <button
+              onClick={() => setTransitionMenu(null)}
+              className="text-gray-400 hover:text-white p-0.5 rounded hover:bg-white/10"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-400 mb-2">
+            13 profesyonel geçiş arasından birini seçin veya kaldırın:
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 max-h-52 overflow-y-auto mb-2 pr-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (onUpdateClip) {
+                  const field = transitionMenu.side === 'in' ? 'transitionIn' : 'transitionOut';
+                  onUpdateClip(transitionMenu.clipId, { [field]: undefined });
+                }
+                setTransitionMenu(null);
+              }}
+              className="p-1.5 rounded bg-[#0d1117] hover:bg-red-950/40 text-red-400 border border-[#30363d] hover:border-red-500/50 text-left text-[10px] flex items-center gap-1.5 col-span-2 justify-center font-medium"
+            >
+              <span>✕</span>
+              <span>Geçişi Kaldır (Sert Kesim)</span>
+            </button>
+            {TRANSITION_DEFINITIONS.filter((t) => t.id !== 'cut' && t.id !== 'none').map((tr) => (
+              <button
+                key={tr.id}
+                type="button"
+                onClick={() => {
+                  if (onUpdateClip) {
+                    const field = transitionMenu.side === 'in' ? 'transitionIn' : 'transitionOut';
+                    onUpdateClip(transitionMenu.clipId, {
+                      [field]: { type: tr.id, duration: 0.8 },
+                    });
+                  }
+                  setTransitionMenu(null);
+                }}
+                className="p-1.5 rounded bg-[#0d1117] hover:bg-indigo-600/30 text-gray-200 border border-[#30363d] hover:border-indigo-500/50 text-left text-[10px] flex items-center gap-1.5 truncate transition-colors"
+                title={tr.description}
+              >
+                <span>{tr.icon}</span>
+                <span className="truncate">{tr.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
