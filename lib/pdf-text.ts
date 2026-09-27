@@ -321,6 +321,7 @@ export type ImageRemoval = {
   pixelWidth?: number;
   pixelHeight?: number;
   matrix?: number[];
+  contentHash?: string;
 };
 
 /**
@@ -775,6 +776,55 @@ export async function canRemovePdfImage(bytes: Uint8Array, removal: ImageRemoval
     if (doc) m.FPDF_CloseDocument(doc);
     free(input);
   }
+}
+
+/**
+ * Computes a deterministic SHA-256 fingerprint from raw pixel data and dimensions.
+ */
+export async function computeImageContentHash(
+  data: Uint8Array | Uint8ClampedArray | ArrayBuffer,
+  width?: number,
+  height?: number
+): Promise<string> {
+  const bytes = data instanceof Uint8Array
+    ? data
+    : data instanceof Uint8ClampedArray
+    ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    : new Uint8Array(data);
+
+  let toHash: Uint8Array = bytes;
+  if (typeof width === "number" && typeof height === "number") {
+    const header = new TextEncoder().encode(`${width}x${height}:`);
+    const combined = new Uint8Array(header.length + bytes.length);
+    combined.set(header, 0);
+    combined.set(bytes, header.length);
+    toHash = combined;
+  }
+
+  if (typeof crypto !== "undefined" && crypto?.subtle?.digest) {
+    try {
+      const hashBuf = await crypto.subtle.digest("SHA-256", toHash as any);
+      return Array.from(new Uint8Array(hashBuf))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    } catch {}
+  }
+
+  try {
+    const nodeCrypto = await import("node:crypto");
+    return nodeCrypto.createHash("sha256").update(toHash).digest("hex");
+  } catch {}
+
+  // Fallback FNV-1a 64-bit if no crypto
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < toHash.length; i++) {
+    const ch = toHash[i];
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 
 /**
@@ -1739,6 +1789,7 @@ export interface RasterWatermarkRemovalCandidate {
   pixelWidth?: number;
   pixelHeight?: number;
   matrix?: number[];
+  contentHash?: string;
 }
 
 export interface RasterWatermarkRemovalOptions {
@@ -2147,6 +2198,19 @@ export async function removePdfRasterWatermarks(
         reason: "Hedef görsel piksel verisi çıkarılamadı."
       });
       continue;
+    }
+
+    if (cand.contentHash) {
+      const actualHash = await computeImageContentHash(bmp.data, bmp.width, bmp.height);
+      if (actualHash !== cand.contentHash) {
+        candidateResults.push({
+          id: cand.id,
+          status: "blocked",
+          modifiedPixels: 0,
+          reason: `Görsel içerik hash uyuşmazlığı tespit edildi (beklenen: ${cand.contentHash.substring(0, 8)}..., bulunan: ${actualHash.substring(0, 8)}...). Hedef korundu.`
+        });
+        continue;
+      }
     }
 
     // Determine affine matrix: [a, b, c, d, e, f]

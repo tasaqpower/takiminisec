@@ -22,6 +22,7 @@ export interface PdfDetectedImage {
   parentFormRef?: string | number;
   isPlaceholder?: boolean;
   pixelExtractionFailed?: boolean;
+  contentHash?: string;
 }
 
 export interface PdfImageItem {
@@ -52,6 +53,7 @@ export interface PdfImageItem {
   parentFormRef?: string | number;
   isPlaceholder?: boolean;
   pixelExtractionFailed?: boolean;
+  contentHash?: string;
 }
 
 export type PdfImageEdit = PdfImageItem;

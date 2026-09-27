@@ -1,5 +1,5 @@
 import { loadPdf } from "../../lib/documents.ts";
-import { editablePageText, type EditableText, type ImageRemoval } from "../../lib/pdf-text.ts";
+import { editablePageText, extractPdfImageBitmap, computeImageContentHash, type EditableText, type ImageRemoval } from "../../lib/pdf-text.ts";
 import { detectImagesOnPage } from "../image-editor/imageDetector.ts";
 import type { WatermarkCandidate, WatermarkEvidenceType } from "./watermarkTypes.ts";
 import { PDFDocument } from "pdf-lib";
@@ -541,26 +541,54 @@ export async function detectWatermarks(
     }
 
     // 4. Image / Logo Watermark Analysis
+    // Ensure all detected images have a deterministic contentHash computed
+    for (const { page, images } of allPageImages) {
+      for (const img of images) {
+        if (!img.contentHash) {
+          try {
+            const bmp = await extractPdfImageBitmap(pdfBytes, {
+              page,
+              bounds: img.originalBounds,
+              imageIndex: img.imageIndex
+            });
+            if (bmp && bmp.data && bmp.width > 0 && bmp.height > 0) {
+              img.contentHash = await computeImageContentHash(bmp.data, bmp.width, bmp.height);
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // STRICT FINGERPRINT GROUPING:
+    // Group raster images strictly by deterministic content SHA-256 fingerprint (contentHash).
+    // NEVER group by dimensions or coordinates.
+    // If pixel extraction failed / hash is missing, isolate as unhashed:p{page}_{id} so it is never
+    // falsely combined across pages or awarded cross_page_hash_repeat.
     const imageSignatures = new Map<string, {
-      firstImg: any;
+      contentHash?: string;
+      images: any[];
       removals: ImageRemoval[];
       pages: Set<number>;
     }>();
 
     for (const { page, images } of allPageImages) {
       for (const img of images) {
-        // Form a signature based on aspect ratio, pixel size, or approximate bounding box
-        const sig = `${Math.round(img.w)}x${Math.round(img.h)}_${Math.round(img.x)}_${Math.round(img.y)}`;
+        const sig = img.contentHash
+          ? `hash:${img.contentHash}`
+          : `unhashed:p${page}_${img.id}`;
+
         let sigGroup = imageSignatures.get(sig);
         if (!sigGroup) {
           sigGroup = {
-            firstImg: img,
+            contentHash: img.contentHash,
+            images: [],
             removals: [],
             pages: new Set()
           };
           imageSignatures.set(sig, sigGroup);
         }
         sigGroup.pages.add(page);
+        sigGroup.images.push(img);
         sigGroup.removals.push({
           page,
           bounds: img.originalBounds,
@@ -569,7 +597,8 @@ export async function detectWatermarks(
           imageIndex: img.imageIndex,
           pixelWidth: img.pixelWidth,
           pixelHeight: img.pixelHeight,
-          matrix: img.matrix
+          matrix: img.matrix,
+          contentHash: img.contentHash
         });
       }
     }
@@ -578,7 +607,7 @@ export async function detectWatermarks(
 
     for (const [, group] of imageSignatures.entries()) {
       const pageCount = group.pages.size;
-      const img = group.firstImg;
+      const img = group.images[0];
       const pageDims = pageDimensions.get(img.page) || { width: 595.28, height: 841.89 };
       const coverageX = img.w / pageDims.width;
       const coverageY = img.h / pageDims.height;
@@ -613,13 +642,13 @@ export async function detectWatermarks(
       // 1. ocr_keyword: Explicit watermark keyword
       // 2. faint_opacity: True low opacity < 0.65
       // 3. diagonal_rotation: Physical transformation matrix rotation > 5 deg
-      // 4. cross_page_hash_repeat: Identical image repeating across pages at same position (non-header/logo)
+      // 4. cross_page_hash_repeat: Identical content SHA-256 fingerprint repeating across >= 2 pages (non-header/logo)
       // 5. background_contrast: Faint watermark tone or low contrast
       const evidence: WatermarkEvidenceType[] = [];
       if (hasWatermarkKeyword) evidence.push("ocr_keyword");
       if (isFaintOpacity) evidence.push("faint_opacity");
       if (hasRotation) evidence.push("diagonal_rotation");
-      if (pageCount >= 2 && !isLogoOrHeader && Boolean(img.objectRef || img.id)) {
+      if (Boolean(group.contentHash) && pageCount >= 2 && !isLogoOrHeader) {
         evidence.push("cross_page_hash_repeat");
       }
       if (img.colorHex) {
@@ -676,7 +705,7 @@ export async function detectWatermarks(
         // Confidence scoring
         let confidence = 25;
         let candidateText = ocrMatchedText || img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Görsel Filigran / Damga");
-        let candidateReason = `${pageCount} sayfada aynı konumda tekrarlanan görsel`;
+        let candidateReason = `${pageCount} sayfada aynı içerikle tekrarlanan görsel`;
 
         if (isDefiniteWatermark) {
           confidence = hasWatermarkKeyword ? 95 : (hasRotation || isFaintOpacity) ? 90 : 85;
@@ -685,7 +714,7 @@ export async function detectWatermarks(
             ocr_keyword: "Filigran anahtar kelimesi",
             faint_opacity: "Düşük opaklık / saydamlık",
             diagonal_rotation: "Çapraz / açılı yerleşim",
-            cross_page_hash_repeat: `${pageCount} sayfada eşleşen tekrar`,
+            cross_page_hash_repeat: `${pageCount} sayfada eşleşen içerik hash tekrarı`,
             background_contrast: "Soluk filigran tonu"
           };
           candidateReason = evidence.map((e) => evLabels[e] || e).join(" · ");
@@ -713,6 +742,7 @@ export async function detectWatermarks(
           confidence,
           isLogoOrHeader,
           evidence,
+          contentHash: group.contentHash,
           // RASTER INPAINTING: Definite raster watermark images use pixel_clean for surgical inpainting without deleting the underlying page/image structure
           strategy: isDefiniteWatermark ? "pixel_clean" : "object_remove",
           imageRemovals: group.removals
@@ -786,6 +816,7 @@ export async function detectWatermarks(
                     (Math.abs(im.x - vc.imageBounds!.x) < 30 && Math.abs(im.y - vc.imageBounds!.y) < 30)
                   );
                   if (matchingImg) {
+                    vc.contentHash = matchingImg.contentHash;
                     vc.imageRemovals = [{
                       page: pageIdx,
                       bounds: matchingImg.originalBounds,
@@ -794,7 +825,8 @@ export async function detectWatermarks(
                       imageIndex: matchingImg.imageIndex,
                       pixelWidth: matchingImg.pixelWidth,
                       pixelHeight: matchingImg.pixelHeight,
-                      matrix: matchingImg.matrix
+                      matrix: matchingImg.matrix,
+                      contentHash: matchingImg.contentHash
                     }];
                   }
                 }

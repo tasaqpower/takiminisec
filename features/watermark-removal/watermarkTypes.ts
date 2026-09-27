@@ -25,6 +25,7 @@ export interface WatermarkCandidate {
   imageBounds?: { x: number; y: number; w: number; h: number; pageWidth?: number; pageHeight?: number };
   isLogoOrHeader?: boolean;
   strategy?: "pixel_clean" | "object_remove" | "manual_cover";
+  contentHash?: string;
 }
 
 export interface WatermarkBox {

@@ -1,11 +1,29 @@
 import type { PdfImageItem } from "./imageTypes";
+import { computeImageContentHash } from "../../lib/pdf-text.ts";
+export { computeImageContentHash };
+
+async function createPlatformCanvas(width: number, height: number): Promise<any> {
+  if (typeof document !== "undefined" && typeof document.createElement === "function") {
+    const c = document.createElement("canvas");
+    c.width = width;
+    c.height = height;
+    return c;
+  }
+  try {
+    const pkg = "@napi-rs/canvas";
+    const { createCanvas } = await import(/* @vite-ignore */ pkg);
+    return createCanvas(width, height);
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Decodes raw PDF.js image data into a PNG data URL.
+ * Decodes raw PDF.js image data into a PNG data URL and computes its SHA-256 content hash.
  * Handles RGBA (32bpp), RGB (24bpp), Grayscale (8bpp), 1-bit masks, and ImageBitmap.
  */
-function convertImgDataToPng(imgData: any): string {
-  if (!imgData) return "";
+export async function convertImgDataToPng(imgData: any): Promise<{ dataUrl: string; contentHash?: string }> {
+  if (!imgData) return { dataUrl: "" };
 
   // If already an ImageBitmap or HTML element
   if (
@@ -18,25 +36,16 @@ function convertImgDataToPng(imgData: any): string {
       const source = imgData.bitmap || imgData;
       const cW = source.width || imgData.width;
       const cH = source.height || imgData.height;
-      let canvas: any;
-      if (typeof document !== "undefined" && typeof document.createElement === "function") {
-        canvas = document.createElement("canvas");
-      } else {
-        try {
-          const pkg = "@napi-rs/canvas";
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { createCanvas } = (0, eval)("require")(pkg);
-          canvas = createCanvas(cW, cH);
-        } catch {
-          return "";
+      const canvas = await createPlatformCanvas(cW, cH);
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx && canvas.width > 0 && canvas.height > 0) {
+          ctx.drawImage(source, 0, 0);
+          const imgD = ctx.getImageData(0, 0, cW, cH);
+          const contentHash = await computeImageContentHash(imgD.data, cW, cH);
+          const dataUrl = canvas.toDataURL ? canvas.toDataURL("image/png") : "";
+          return { dataUrl, contentHash };
         }
-      }
-      canvas.width = cW;
-      canvas.height = cH;
-      const ctx = canvas.getContext("2d");
-      if (ctx && canvas.width > 0 && canvas.height > 0) {
-        ctx.drawImage(source, 0, 0);
-        return canvas.toDataURL ? canvas.toDataURL("image/png") : "";
       }
     } catch (err) {
       console.warn("Could not draw ImageBitmap to canvas:", err);
@@ -45,27 +54,9 @@ function convertImgDataToPng(imgData: any): string {
 
   const width = imgData.width;
   const height = imgData.height;
-  if (!width || !height || !imgData.data) return "";
+  if (!width || !height || !imgData.data) return { dataUrl: "" };
 
   try {
-    let canvas: any;
-    if (typeof document !== "undefined" && typeof document.createElement === "function") {
-      canvas = document.createElement("canvas");
-    } else {
-      try {
-        const pkg = "@napi-rs/canvas";
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { createCanvas } = (0, eval)("require")(pkg);
-        canvas = createCanvas(width, height);
-      } catch {
-        return "";
-      }
-    }
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return "";
-
     const rawData = imgData.data;
     const totalPixels = width * height;
     let rgba: Uint8ClampedArray;
@@ -132,13 +123,23 @@ function convertImgDataToPng(imgData: any): string {
       }
     }
 
+    const contentHash = await computeImageContentHash(rgba, width, height);
+
+    const canvas = await createPlatformCanvas(width, height);
+    if (!canvas) return { dataUrl: "", contentHash };
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { dataUrl: "", contentHash };
+
     const imgClamped = ctx.createImageData(width, height);
     imgClamped.data.set(rgba);
     ctx.putImageData(imgClamped, 0, 0);
-    return canvas.toDataURL("image/png");
+    const dataUrl = canvas.toDataURL ? canvas.toDataURL("image/png") : "";
+
+    return { dataUrl, contentHash };
   } catch (err) {
     console.warn("Error converting image data to PNG:", err);
-    return "";
+    return { dataUrl: "" };
   }
 }
 
@@ -299,10 +300,13 @@ export async function detectImagesOnPage(
 
         if (vw > 5 && vh > 5) {
           let dataUrl = "";
+          let contentHash: string | undefined = undefined;
           try {
             const imgData = await fetchPdfJsImageObject(page, imgArg);
             if (imgData) {
-              dataUrl = convertImgDataToPng(imgData);
+              const res = await convertImgDataToPng(imgData);
+              dataUrl = res.dataUrl;
+              contentHash = res.contentHash;
             }
           } catch (err) {
             console.warn("Could not extract image object:", err);
@@ -353,6 +357,7 @@ export async function detectImagesOnPage(
             matrix: [...currentTransform],
             isPlaceholder,
             pixelExtractionFailed,
+            contentHash,
           });
         }
       }

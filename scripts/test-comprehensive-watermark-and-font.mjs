@@ -202,7 +202,7 @@ async function runAllTests() {
   console.log('========================================================================\n');
 
   let passedTests = 0;
-  let totalTests = 9;
+  let totalTests = 10;
 
   // ---------------------------------------------------------------------------
   // TEST A: Full-page pixel_clean candidate elimination check (Portrait, Landscape, Receipt)
@@ -245,6 +245,7 @@ async function runAllTests() {
       count: 1,
       pages: [0],
       confidence: 99,
+      contentHash: 'hash-mock-fullpage',
       strategy: 'pixel_clean',
       evidence: ['ocr_keyword', 'faint_opacity'],
       imageBounds: { x: 0, y: 0, w: 595.28, h: 841.89, pageWidth: 595.28, pageHeight: 841.89 }
@@ -256,6 +257,7 @@ async function runAllTests() {
       count: 1,
       pages: [0],
       confidence: 99,
+      contentHash: 'hash-mock-landscape',
       strategy: 'pixel_clean',
       evidence: ['ocr_keyword', 'faint_opacity'],
       imageBounds: { x: 20, y: 17, w: 800, h: 560, pageWidth: 841.89, pageHeight: 595.28 }
@@ -267,6 +269,7 @@ async function runAllTests() {
       count: 1,
       pages: [0],
       confidence: 99,
+      contentHash: 'hash-mock-receipt',
       strategy: 'pixel_clean',
       evidence: ['ocr_keyword', 'faint_opacity'],
       imageBounds: { x: 10, y: 10, w: 280, h: 580, pageWidth: 300, pageHeight: 600 }
@@ -905,6 +908,7 @@ async function runAllTests() {
         count: 1,
         pages: [0],
         confidence: 85,
+        contentHash: 'hash-mock-c2',
         strategy: 'pixel_clean',
         evidence: ['ocr_keyword', 'diagonal_rotation'],
         imageBounds: { x: 50, y: 50, w: 200, h: 80 }
@@ -916,6 +920,7 @@ async function runAllTests() {
         count: 2,
         pages: [0, 1],
         confidence: 75,
+        contentHash: 'hash-mock-c2-single',
         strategy: 'pixel_clean',
         evidence: ['cross_page_hash_repeat'],
         imageBounds: { x: 50, y: 50, w: 200, h: 80 }
@@ -937,6 +942,7 @@ async function runAllTests() {
         count: 1,
         pages: [0],
         confidence: 98,
+        contentHash: 'hash-mock-c4',
         strategy: 'pixel_clean',
         evidence: ['ocr_keyword', 'diagonal_rotation'],
         imageBounds: { x: 0, y: 0, w: 595, h: 842 }
@@ -948,6 +954,7 @@ async function runAllTests() {
         count: 1,
         pages: [0],
         confidence: 25,
+        contentHash: 'hash-mock-c5',
         isLogoOrHeader: true,
         strategy: 'object_remove',
         imageBounds: { x: 400, y: 750, width: 100, height: 40 }
@@ -1319,6 +1326,173 @@ async function runAllTests() {
     assert.ok(diffI4.changedPixels > 0, 'Page 4 must have watermark pixels removed');
 
     console.log('  ✅ PASS: Test I - All positive counter-tests verified: target residual === 0, clean removal.');
+    passedTests++;
+  }
+
+  // ---------------------------------------------------------------------------
+  // TEST J: Regression & Positive Control
+  // (Identical Bounds False-Grouping Regression & Cross-Page Positive Control)
+  // ---------------------------------------------------------------------------
+  console.log('\n>>> [TEST J] Regression & Positive Control (Identical bounds content hash separation)...');
+  {
+    clearPdfiumDocCache();
+    const docJ = await PDFDocument.create();
+    docJ.registerFontkit(fontkit);
+    const libRegular = await docJ.embedFont(fs.readFileSync('public/fonts/LiberationSans-Regular.ttf'));
+    const libBold = await docJ.embedFont(fs.readFileSync('public/fonts/LiberationSans-Bold.ttf'));
+
+    // --- REGRESSION FIXTURES (Pages 1 & 2) ---
+    // Both 300x100 at exact same coordinates (x: 147.64, y: 370.94)
+    // Page 1: Blue business chart containing raster text "DRAFT REPORT"
+    const cvsBlueDraft = createCanvas(300, 100);
+    const ctxBD = cvsBlueDraft.getContext('2d');
+    ctxBD.fillStyle = '#1e3a8a'; // Dark blue background
+    ctxBD.fillRect(0, 0, 300, 100);
+    ctxBD.fillStyle = '#3b82f6'; // Bright blue bar
+    ctxBD.fillRect(20, 20, 40, 60);
+    ctxBD.fillStyle = '#60a5fa'; // Light blue bar
+    ctxBD.fillRect(70, 35, 40, 45);
+    ctxBD.fillStyle = '#ffffff';
+    ctxBD.font = 'bold 20px sans-serif';
+    ctxBD.fillText('DRAFT REPORT', 130, 55);
+    const blueDraftPng = cvsBlueDraft.toBuffer('image/png');
+    const embeddedBlueDraft = await docJ.embedPng(blueDraftPng);
+
+    // Page 2: Green sales chart containing raster text "SALES CHART" (Completely different content & pixels!)
+    const cvsGreenSales = createCanvas(300, 100);
+    const ctxGS = cvsGreenSales.getContext('2d');
+    ctxGS.fillStyle = '#14532d'; // Dark green background
+    ctxGS.fillRect(0, 0, 300, 100);
+    ctxGS.fillStyle = '#22c55e'; // Bright green bar
+    ctxGS.fillRect(20, 15, 40, 70);
+    ctxGS.fillStyle = '#86efac'; // Light green bar
+    ctxGS.fillRect(70, 30, 40, 55);
+    ctxGS.fillStyle = '#ffffff';
+    ctxGS.font = 'bold 20px sans-serif';
+    ctxGS.fillText('SALES CHART', 135, 55);
+    const greenSalesPng = cvsGreenSales.toBuffer('image/png');
+    const embeddedGreenSales = await docJ.embedPng(greenSalesPng);
+
+    // --- POSITIVE CONTROL FIXTURES (Pages 3 & 4) ---
+    // Identical raster watermark placed across 2 pages at same position
+    const cvsWatermark = createCanvas(300, 100);
+    const ctxWM = cvsWatermark.getContext('2d');
+    ctxWM.fillStyle = '#ffffff';
+    ctxWM.fillRect(0, 0, 300, 100);
+    ctxWM.fillStyle = '#94a3b8'; // Slate watermark color
+    ctxWM.font = 'bold 30px sans-serif';
+    ctxWM.textAlign = 'center';
+    ctxWM.fillText('VERIFIED DRAFT', 150, 58);
+    const watermarkPng = cvsWatermark.toBuffer('image/png');
+    const embeddedWatermark = await docJ.embedPng(watermarkPng);
+
+    // Page 1: Blue Draft Chart
+    const pJ1 = docJ.addPage([595.28, 841.89]);
+    pJ1.drawText('Page 1: Project Overview', { x: 50, y: 780, size: 14, font: libBold });
+    pJ1.drawImage(embeddedBlueDraft, { x: 147.64, y: 370.94, width: 300, height: 100 });
+
+    // Page 2: Green Sales Chart (Identical position and size as Page 1!)
+    const pJ2 = docJ.addPage([595.28, 841.89]);
+    pJ2.drawText('Page 2: Quarterly Sales Metrics', { x: 50, y: 780, size: 14, font: libBold });
+    pJ2.drawImage(embeddedGreenSales, { x: 147.64, y: 370.94, width: 300, height: 100 });
+
+    // Page 3: Repeating Watermark Positive Control
+    const pJ3 = docJ.addPage([595.28, 841.89]);
+    pJ3.drawText('Page 3: Contract Section A', { x: 50, y: 780, size: 14, font: libBold });
+    pJ3.drawImage(embeddedWatermark, { x: 147.64, y: 370.94, width: 300, height: 100, opacity: 0.50 });
+
+    // Page 4: Repeating Watermark Positive Control (Same image & position)
+    const pJ4 = docJ.addPage([595.28, 841.89]);
+    pJ4.drawText('Page 4: Contract Section B', { x: 50, y: 780, size: 14, font: libBold });
+    pJ4.drawImage(embeddedWatermark, { x: 147.64, y: 370.94, width: 300, height: 100, opacity: 0.50 });
+
+    const bytesJ = await docJ.save();
+
+    // Render 300 DPI 'before' images for all 4 pages
+    console.log('    Rendering 300 DPI "before" images for all 4 test pages...');
+    const [j1Before, j2Before, j3Before, j4Before] = await Promise.all([
+      renderPageTo300Dpi(bytesJ, 1),
+      renderPageTo300Dpi(bytesJ, 2),
+      renderPageTo300Dpi(bytesJ, 3),
+      renderPageTo300Dpi(bytesJ, 4)
+    ]);
+
+    // Detect watermarks
+    console.log('    Scanning document candidates...');
+    const candidatesJ = await detectWatermarks(bytesJ, 'all');
+    console.log(`    Total detected candidates: ${candidatesJ.length}`);
+    for (const c of candidatesJ) {
+      console.log(`      - [${c.type}] "${c.text}" pages=[${c.pages.join(', ')}] conf=${c.confidence}% evidence=${JSON.stringify(c.evidence || [])} hash=${c.contentHash ? c.contentHash.substring(0, 12) + '...' : 'none'}`);
+    }
+
+    // --- REGRESSION VERIFICATIONS (Pages 1 & 2) ---
+    // 1. Blue Draft Chart and Green Sales Chart MUST NOT be merged into the same candidate!
+    const mergedCand = candidatesJ.find(c => c.pages.includes(0) && c.pages.includes(1));
+    assert.strictEqual(mergedCand, undefined, 'CRITICAL: Page 1 and Page 2 images MUST NOT be merged into a single candidate based on bounds!');
+
+    // 2. Cross-page hash repeat MUST NOT be awarded to Page 1 or Page 2
+    const page1Cand = candidatesJ.find(c => c.pages.includes(0));
+    if (page1Cand) {
+      assert.ok(!page1Cand.evidence?.includes('cross_page_hash_repeat'), 'Page 1 blue chart MUST NOT receive cross_page_hash_repeat');
+    }
+    const page2Cand = candidatesJ.find(c => c.pages.includes(1));
+    assert.strictEqual(page2Cand, undefined, 'Page 2 green sales chart MUST NOT be detected as a watermark candidate!');
+
+    // 3. For pages 1 & 2, safe auto-clean candidate selection MUST BE EMPTY!
+    const regressionCandidates = candidatesJ.filter(c => c.pages.every(p => p < 2));
+    const safeRegressionIds = buildSafeAutoCleanCandidateIds(regressionCandidates, 595.28, 841.89);
+    assert.deepStrictEqual(safeRegressionIds, [], 'Pages 1 & 2 safe auto-clean candidate IDs must be completely empty');
+
+    // --- POSITIVE CONTROL VERIFICATIONS (Pages 3 & 4) ---
+    // 4. Positive control identical watermark MUST be detected spanning pages [2, 3] (0-indexed)
+    const positiveCand = candidatesJ.find(c => c.pages.includes(2) && c.pages.includes(3));
+    assert.ok(positiveCand, 'Positive control watermark spanning pages 3 and 4 must be detected');
+    assert.ok(positiveCand.evidence?.includes('cross_page_hash_repeat'), 'Positive control must have cross_page_hash_repeat evidence');
+    assert.ok(positiveCand.contentHash, 'Positive control candidate must carry a verified contentHash');
+
+    // 5. Positive control MUST be selected for safe auto-clean
+    const allSafeIds = buildSafeAutoCleanCandidateIds(candidatesJ, 595.28, 841.89);
+    assert.ok(allSafeIds.includes(positiveCand.id), 'Positive control watermark must be selected for safe auto-clean');
+    // Ensure no Page 1 or Page 2 candidate is in allSafeIds
+    for (const safeId of allSafeIds) {
+      const cand = candidatesJ.find(c => c.id === safeId);
+      assert.ok(!cand.pages.includes(0) && !cand.pages.includes(1), `Candidate ${safeId} on pages [${cand.pages.join(', ')}] MUST NOT touch Page 1 or Page 2!`);
+    }
+
+    // --- EXECUTE REMOVAL ---
+    console.log('    Executing safe auto-clean watermark removal...');
+    const resultJ = await removeWatermarks(bytesJ, candidatesJ, {
+      candidateIds: allSafeIds,
+      pageScope: 'all'
+    });
+    assert.ok(resultJ.totalRemoved > 0, 'Positive control watermarks must be successfully removed');
+
+    // Render 300 DPI 'after' images for all 4 pages
+    console.log('    Rendering 300 DPI "after" images...');
+    const [j1After, j2After, j3After, j4After] = await Promise.all([
+      renderPageTo300Dpi(resultJ.pdfBytes, 1),
+      renderPageTo300Dpi(resultJ.pdfBytes, 2),
+      renderPageTo300Dpi(resultJ.pdfBytes, 3),
+      renderPageTo300Dpi(resultJ.pdfBytes, 4)
+    ]);
+
+    // Compute pixel diffs
+    const diffJ1 = await computeImageDiff(j1Before, j1After, path.join(FIXTURES_DIR, 'test_j_page1_diff.png'));
+    const diffJ2 = await computeImageDiff(j2Before, j2After, path.join(FIXTURES_DIR, 'test_j_page2_diff.png'));
+    const diffJ3 = await computeImageDiff(j3Before, j3After, path.join(FIXTURES_DIR, 'test_j_page3_diff.png'));
+    const diffJ4 = await computeImageDiff(j4Before, j4After, path.join(FIXTURES_DIR, 'test_j_page4_diff.png'));
+
+    console.log(`      Page 1 diff: ${diffJ1.changedPixels} pixels (Blue chart fully preserved: 0 pixels changed)`);
+    console.log(`      Page 2 diff: ${diffJ2.changedPixels} pixels (Green SALES CHART fully preserved: 0 pixels changed)`);
+    console.log(`      Page 3 diff: ${diffJ3.changedPixels} pixels (Positive control watermark removed)`);
+    console.log(`      Page 4 diff: ${diffJ4.changedPixels} pixels (Positive control watermark removed)`);
+
+    assert.strictEqual(diffJ1.changedPixels, 0, 'Page 1 blue chart MUST have ZERO pixels changed (bit-level preservation)');
+    assert.strictEqual(diffJ2.changedPixels, 0, 'Page 2 green SALES CHART MUST have ZERO pixels changed (zero collateral damage)');
+    assert.ok(diffJ3.changedPixels > 0, 'Page 3 positive control watermark must be removed');
+    assert.ok(diffJ4.changedPixels > 0, 'Page 4 positive control watermark must be removed');
+
+    console.log('  ✅ PASS: Test J - Regression (identical bounds separation) and Positive Control (content hash repeat) verified.');
     passedTests++;
   }
 

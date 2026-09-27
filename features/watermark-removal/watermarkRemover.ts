@@ -1,4 +1,4 @@
-import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, type TextRemoval, type ImageRemoval } from "../../lib/pdf-text.ts";
+import { removePdfText, removePdfTextObjects, removePdfRasterWatermarks, removePdfImages, editablePageText, extractPdfImageBitmap, computeImageContentHash, type TextRemoval, type ImageRemoval } from "../../lib/pdf-text.ts";
 import { loadPdf } from "../../lib/documents.ts";
 import { PDFDocument, rgb } from "pdf-lib";
 import { normalizeTurkish, reconstructPageLines } from "./watermarkDetector.ts";
@@ -83,6 +83,13 @@ export function buildSafeAutoCleanCandidateIds(
         }
         const textLower = (c.text || "").toLowerCase();
         if (/logo|antet|crest|imza|sign|amblem|brand/i.test(textLower)) {
+          return false;
+        }
+
+        // FAIL-CLOSED REQUIREMENT:
+        // Standalone image candidate MUST have a computed, non-empty contentHash.
+        // Images without pixel extraction or verified hash are NEVER auto-cleaned.
+        if (!c.contentHash || typeof c.contentHash !== "string" || c.contentHash.trim() === "") {
           return false;
         }
 
@@ -197,6 +204,8 @@ export async function removeWatermarks(
           id: c.id,
           page: rem.page,
           imageIndex: rem.imageIndex,
+          objectRef: rem.objectRef,
+          contentHash: rem.contentHash || c.contentHash,
           bounds: rem.bounds
             ? { x: rem.bounds.left, y: rem.bounds.bottom, w: rem.bounds.right - rem.bounds.left, h: rem.bounds.top - rem.bounds.bottom }
             : c.imageBounds,
@@ -208,18 +217,68 @@ export async function removeWatermarks(
       return c.pages.map(p => ({
         id: c.id,
         page: p,
-        bounds: c.imageBounds
+        contentHash: c.contentHash,
+        bounds: c.imageBounds,
+        imageIndex: undefined as number | undefined
       }));
     });
 
+  // Pre-execution verification: verify actual target image hash against expected candidate contentHash
+  const verifiedPixelCleanCandidates: typeof pixelCleanCandidates = [];
+  for (const cand of pixelCleanCandidates) {
+    if (!targetPages.has(cand.page)) continue;
+    if (cand.contentHash) {
+      try {
+        const bmp = await extractPdfImageBitmap(currentBytes, {
+          page: cand.page,
+          imageIndex: cand.imageIndex,
+          bounds: cand.bounds ? {
+            left: cand.bounds.x,
+            bottom: cand.bounds.y,
+            right: cand.bounds.x + cand.bounds.w,
+            top: cand.bounds.y + cand.bounds.h
+          } : undefined
+        });
+        if (!bmp || !bmp.data) {
+          candidateResults.push({
+            candidateId: cand.id,
+            status: "blocked",
+            strategy: "none",
+            reason: "Hedef görsel piksel verisi çıkarılamadı (fail-closed)."
+          });
+          continue;
+        }
+        const actualHash = await computeImageContentHash(bmp.data, bmp.width, bmp.height);
+        if (actualHash !== cand.contentHash) {
+          candidateResults.push({
+            candidateId: cand.id,
+            status: "blocked",
+            strategy: "none",
+            reason: "İçerik hash uyuşmazlığı: hedef görsel beklenen filigranla uyuşmuyor."
+          });
+          continue;
+        }
+      } catch {
+        candidateResults.push({
+          candidateId: cand.id,
+          status: "blocked",
+          strategy: "none",
+          reason: "Görsel hash doğrulama hatası (fail-closed)."
+        });
+        continue;
+      }
+    }
+    verifiedPixelCleanCandidates.push(cand);
+  }
+
   const cleanedImageCandidateIds = new Set<string>();
   let rasterRemovalCount = 0;
-  if (pixelCleanCandidates.length > 0) {
+  if (verifiedPixelCleanCandidates.length > 0) {
     try {
       const rasterResult = await removePdfRasterWatermarks(currentBytes, {
         targetPages: Array.from(targetPages),
         fillColor: options.fillColor,
-        candidates: pixelCleanCandidates
+        candidates: verifiedPixelCleanCandidates
       });
       if (rasterResult.removedCount > 0) {
         currentBytes = rasterResult.bytes;
@@ -269,7 +328,10 @@ export async function removeWatermarks(
       }
       for (const rem of cand.imageRemovals) {
         if (targetPages.has(rem.page)) {
-          imageRemovals.push(rem);
+          imageRemovals.push({
+            ...rem,
+            contentHash: rem.contentHash || cand.contentHash
+          });
         }
       }
     }
@@ -454,11 +516,56 @@ export async function removeWatermarks(
     }
   }
 
-  // 4. Apply Image Removals via PDFium WASM (ONLY for candidates designated for object_remove)
-  if (imageRemovals.length > 0) {
+  // 4. Pre-execution verification of Image Removals (ONLY for candidates designated for object_remove)
+  const verifiedImageRemovals: ImageRemoval[] = [];
+  for (const rem of imageRemovals) {
+    if (!targetPages.has(rem.page)) continue;
+    const parentCand = allCandidates.find(c => c.id === rem.imageId || c.imageRemovals?.some(r => r.imageId === rem.imageId && r.page === rem.page));
+    const expectedHash = rem.contentHash || parentCand?.contentHash;
+    if (expectedHash) {
+      try {
+        const bmp = await extractPdfImageBitmap(currentBytes, {
+          page: rem.page,
+          imageIndex: rem.imageIndex,
+          bounds: rem.bounds
+        });
+        if (!bmp || !bmp.data) {
+          candidateResults.push({
+            candidateId: parentCand?.id || rem.imageId || "unknown-candidate",
+            status: "blocked",
+            strategy: "none",
+            reason: "Görsel nesnesi piksel verisi okunamadı (fail-closed)."
+          });
+          continue;
+        }
+        const actualHash = await computeImageContentHash(bmp.data, bmp.width, bmp.height);
+        if (actualHash !== expectedHash) {
+          candidateResults.push({
+            candidateId: parentCand?.id || rem.imageId || "unknown-candidate",
+            status: "blocked",
+            strategy: "none",
+            reason: `İçerik hash uyuşmazlığı: hedef görsel beklenen filigranla uyuşmuyor.`
+          });
+          continue;
+        }
+      } catch {
+        candidateResults.push({
+          candidateId: parentCand?.id || rem.imageId || "unknown-candidate",
+          status: "blocked",
+          strategy: "none",
+          reason: "Görsel hash doğrulama hatası (fail-closed)."
+        });
+        continue;
+      }
+    }
+    verifiedImageRemovals.push(rem);
+  }
+
+  // Apply Image Removals via PDFium WASM (ONLY for verified candidates designated for object_remove)
+  if (verifiedImageRemovals.length > 0) {
     try {
-      const res = await removePdfImages(currentBytes, imageRemovals);
-      const actualCount = (res as any).removedCount !== undefined ? (res as any).removedCount : (res.length ? imageRemovals.length : 0);
+      const res = await removePdfImages(currentBytes, verifiedImageRemovals);
+      const actualCount = (res as any).removedCount !== undefined ? (res as any).removedCount : (res.length ? verifiedImageRemovals.length : 0);
       if (actualCount > 0) {
         currentBytes = (res as any).pdfBytes || (res as Uint8Array);
         removedImageCount += actualCount;

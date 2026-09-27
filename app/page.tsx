@@ -211,6 +211,12 @@ export default function Home() {
     }
   }
 
+  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+    (window as any).__formaOpenDoc = (file: File) => {
+      void open([file], "edit");
+    };
+  }
+
   function pick(action: string) {
     if (action === "enhancer") {
       void showEnhancer();

@@ -247,7 +247,7 @@ async function main() {
       env: { ...process.env, NEXT_PUBLIC_ENABLE_TEST_API: 'true' },
       stdio: 'ignore'
     });
-    await waitHttp(`http://localhost:${serverPort}/`, 15000);
+    await waitHttp(`http://localhost:${serverPort}/`, 45000);
     console.log(`✓ Dev server active on http://localhost:${serverPort}/`);
   } else {
     console.log(`✓ Dev server already active on http://localhost:${serverPort}/`);
@@ -337,8 +337,8 @@ async function main() {
   });
 
   // 4. Navigate & enter Document Editor mode
-  console.log('[Navigate] Loading editor...');
-  await cdp.send('Page.navigate', { url: `http://localhost:${serverPort}/` });
+  console.log('[Navigate] Loading editor in document mode...');
+  await cdp.send('Page.navigate', { url: `http://localhost:${serverPort}/?mode=document` });
   await new Promise((r) => setTimeout(r, 2000));
 
   const modeClicked = await cdp.eval(`
@@ -366,12 +366,16 @@ async function main() {
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const file = new File([bytes], "test_doc.pdf", { type: "application/pdf" });
-    const input = document.querySelector('input[type="file"]');
-    if (input) {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (typeof window.__formaOpenDoc === 'function') {
+      window.__formaOpenDoc(file);
+    } else {
+      const input = document.querySelector('input[type="file"]');
+      if (input) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
   `);
 
