@@ -30,20 +30,54 @@ export interface WatermarkRemovalResult {
  *  5. Any image, logo, header, crest, signature, or repeating corporate graphic
  *     strictly requires explicit manual user selection.
  */
-export function buildSafeAutoCleanCandidateIds(candidates: WatermarkCandidate[]): string[] {
+export function buildSafeAutoCleanCandidateIds(
+  candidates: WatermarkCandidate[],
+  pageWidth = 595.28,
+  pageHeight = 841.89
+): string[] {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
   return candidates
     .filter((c) => {
+      // 1. Strictly protect corporate logos, crests, letterheads, headers
       if (c.isLogoOrHeader) return false;
-      const conf = typeof c.confidence === "number" ? c.confidence : 0;
-      // 1. Text & Annotation watermarks with confidence >= 45%
-      if (c.type === "text" || c.type === "annotation") {
-        return conf >= 45;
+
+      // 2. Reject full-page or near-full-page candidates (>= 85% of both dimensions)
+      if (c.imageBounds) {
+        const isFullPage = (
+          (c.imageBounds.w >= 500 && c.imageBounds.h >= 700) ||
+          (c.imageBounds.w >= pageWidth * 0.85 && c.imageBounds.h >= pageHeight * 0.85)
+        );
+        if (isFullPage) return false;
       }
-      // 2. High-confidence standalone image watermarks (stamps/overlays/visual pixel clean)
-      if (c.type === "image" && (c.strategy === "object_remove" || c.strategy === "pixel_clean") && conf >= 60) {
+
+      // 3. Forbid unverified manual cover / white rectangles
+      if (c.strategy === "manual_cover" || (c.strategy as string) === "cover") {
+        return false;
+      }
+
+      const conf = typeof c.confidence === "number" ? c.confidence : 0;
+
+      // 4. Text & Annotation watermarks with confidence >= 50%
+      if (c.type === "text" || c.type === "annotation") {
+        return conf >= 50;
+      }
+
+      // 5. Standalone image / raster watermarks:
+      // Must be object_remove or pixel_clean, confidence >= 75%, and NOT in logo/header zone
+      if (c.type === "image") {
+        if (c.strategy !== "object_remove" && c.strategy !== "pixel_clean") {
+          return false;
+        }
+        if (conf < 75) {
+          return false;
+        }
+        const textLower = (c.text || "").toLowerCase();
+        if (/logo|antet|crest|imza|sign|amblem|brand/i.test(textLower)) {
+          return false;
+        }
         return true;
       }
+
       return false;
     })
     .map((c) => c.id);
@@ -143,7 +177,9 @@ export async function removeWatermarks(
           id: c.id,
           page: rem.page,
           imageIndex: rem.imageIndex,
-          bounds: c.imageBounds,
+          bounds: rem.bounds
+            ? { x: rem.bounds.left, y: rem.bounds.bottom, w: rem.bounds.right - rem.bounds.left, h: rem.bounds.top - rem.bounds.bottom }
+            : c.imageBounds,
           pixelWidth: rem.pixelWidth,
           pixelHeight: rem.pixelHeight,
           matrix: rem.matrix

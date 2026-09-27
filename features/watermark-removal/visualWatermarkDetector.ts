@@ -218,34 +218,42 @@ export async function detectVisualWatermarks(
         const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
 
         if (matchedKw.length > 0) {
-          const isTopBanner = line.bbox.y < height * 0.35;
-          const boxX = isTopBanner ? 0 : Math.max(0, line.bbox.x - 30);
-          const boxW = isTopBanner ? Math.min(width, width * 0.835) : Math.min(width - boxX, line.bbox.width + 60);
-          const boxY = Math.max(0, line.bbox.y - 35);
-          const boxH = Math.min(height - boxY, line.bbox.height + 70);
+          const pad = 12;
+          const boxX = Math.max(0, line.bbox.x - pad);
+          const boxY = Math.max(0, line.bbox.y - pad);
+          const boxW = Math.min(width - boxX, line.bbox.width + pad * 2);
+          const boxH = Math.min(height - boxY, line.bbox.height + pad * 2);
 
-          matchedBoxes.push({
-            text: line.text,
-            x: boxX,
-            y: boxY,
-            w: boxW,
-            h: boxH,
-            reason: `Görsel OCR ile tespit edildi: ${matchedKw.join(", ")}`,
-            confidence: 96
-          });
+          // Discard if bounding box is full-page or excessively large
+          if (boxW < width * 0.85 || boxH < height * 0.85) {
+            matchedBoxes.push({
+              text: line.text,
+              x: boxX,
+              y: boxY,
+              w: boxW,
+              h: boxH,
+              reason: `Görsel OCR ile tespit edildi: ${matchedKw.join(", ")}`,
+              confidence: 94
+            });
+          }
         } else {
           for (const w of line.words) {
             const normWord = normalizeTurkish(w.text);
             const wMatched = WATERMARK_KEYWORDS.filter((kw) => normWord.includes(kw));
             if (wMatched.length > 0) {
+              const pad = 8;
+              const boxX = Math.max(0, w.bbox.x - pad);
+              const boxY = Math.max(0, w.bbox.y - pad);
+              const boxW = Math.min(width - boxX, w.bbox.width + pad * 2);
+              const boxH = Math.min(height - boxY, w.bbox.height + pad * 2);
               matchedBoxes.push({
                 text: w.text,
-                x: Math.max(0, w.bbox.x - 15),
-                y: Math.max(0, w.bbox.y - 15),
-                w: Math.min(width - w.bbox.x + 15, w.bbox.width + 30),
-                h: Math.min(height - w.bbox.y + 15, w.bbox.height + 30),
+                x: boxX,
+                y: boxY,
+                w: boxW,
+                h: boxH,
                 reason: `Görsel OCR ile tespit edildi: ${wMatched.join(", ")}`,
-                confidence: 90
+                confidence: 88
               });
             }
           }
@@ -255,59 +263,44 @@ export async function detectVisualWatermarks(
       console.warn("Horizontal visual OCR warning:", ocrErr);
     }
 
-    // 2. High-speed Visual Pixel Color Cluster Detection
-    // Directly identifies diagonal watermark strokes, red stamps, and faint watermark patterns across the page canvas.
-    try {
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      const imgData = ctx?.getImageData(0, 0, width, height);
-      if (imgData) {
-        const data = imgData.data;
-        let redPixelCount = 0;
-        let faintPixelCount = 0;
-        let minX = width, maxX = 0, minY = height, maxY = 0;
-
-        for (let y = 0; y < height; y += 4) {
-          for (let x = 0; x < width; x += 4) {
-            // Exclude corporate header logo region (top-right corner: x >= 83.5% width, y <= 25% height)
-            if (x >= width * 0.835 && y <= height * 0.25) continue;
-
-            const idx = (y * width + x) * 4;
-            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            const isRed = (r - g >= 20 && r - b >= 20) || (r > 120 && r - Math.max(g, b) >= 12);
-            const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - b), Math.abs(g - b));
-            const isFaint = maxDiff <= 8 && lum >= 155 && lum <= 252;
-
-            if (isRed) redPixelCount++;
-            if (isFaint) faintPixelCount++;
-
-            if (isRed || isFaint) {
-              if (x < minX) minX = x;
-              if (x > maxX) maxX = x;
-              if (y < minY) minY = y;
-              if (y > maxY) maxY = y;
+    // 2. Rotated OCR for diagonal visual watermarks (e.g. -45°, 45°)
+    // Targets diagonal stamps/watermarks with tight OCR bounding boxes instead of full-page sweeps
+    if (matchedBoxes.length === 0) {
+      for (const angle of [-45, 45]) {
+        try {
+          const rotCanvas = createRotatedCanvas(canvas, angle);
+          const rotResult = await performOcrOnCanvas(rotCanvas, pageIndex + 1, undefined, undefined, "tur+eng");
+          for (const line of rotResult.lines) {
+            const normLine = normalizeTurkish(line.text);
+            const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
+            if (matchedKw.length > 0) {
+              const mapped = mapRotatedBBoxToSource(
+                line.bbox,
+                rotCanvas.width,
+                rotCanvas.height,
+                width,
+                height,
+                angle,
+                16
+              );
+              // Ensure tight bounds, strictly rejecting full page sweeps
+              if (mapped.w < width * 0.85 || mapped.h < height * 0.85) {
+                matchedBoxes.push({
+                  text: line.text,
+                  x: mapped.x,
+                  y: mapped.y,
+                  w: mapped.w,
+                  h: mapped.h,
+                  reason: `Çapraz görsel OCR (${angle}°) ile tespit edildi: ${matchedKw.join(", ")}`,
+                  confidence: 92
+                });
+              }
             }
           }
-        }
-
-        // If substantial watermark pixels exist across the document body
-        if (redPixelCount + faintPixelCount >= 200 && maxX > minX && maxY > minY) {
-          const hasDiagAlready = matchedBoxes.some(b => b.reason.includes("Çapraz") || b.text.includes("Çapraz"));
-          if (!hasDiagAlready) {
-            matchedBoxes.push({
-              text: "Çapraz Belge Filigranı (GEÇERSİZ / ÖRNEK BELGEDİR)",
-              x: 0,
-              y: 0,
-              w: width,
-              h: height,
-              reason: `Görsel renk analizi ile tespit edildi (${redPixelCount * 16} renkli/soluk filigran pikseli)`,
-              confidence: 98
-            });
-          }
+        } catch (rotErr) {
+          console.warn(`Diagonal OCR warning (${angle}°):`, rotErr);
         }
       }
-    } catch (pixelErr) {
-      console.warn("Pixel cluster detection warning:", pixelErr);
     }
 
     // Convert matchedBoxes to WatermarkCandidate with PDF coordinates
@@ -320,6 +313,15 @@ export async function detectVisualWatermarks(
       const pdfW = Math.min(pageWidth - pdfX, b.w * scaleX);
       const pdfH = Math.min(pageHeight, b.h * scaleY);
       const pdfY = Math.max(0, pageHeight - (b.y + b.h) * scaleY);
+
+      // STRICT SAFETY CHECK:
+      // Never emit full-page or near-full-page candidates (>= 85% of both dimensions)
+      if (pdfW >= pageWidth * 0.85 && pdfH >= pageHeight * 0.85) {
+        continue;
+      }
+      if (pdfW < 10 || pdfH < 10) {
+        continue;
+      }
 
       candidates.push({
         id: `wm-vis-${pageIndex}-${candIndex++}`,
@@ -393,25 +395,35 @@ export async function findVisualTextBounds(
         try {
           const rotCanvas = createRotatedCanvas(canvas, angle);
           const rotResult = await performOcrOnCanvas(rotCanvas, pageIndex + 1, undefined, undefined, "tur+eng");
-          let found = false;
-
+          let matchedLine: any = null;
           for (const line of rotResult.lines) {
             const normLine = normalizeTurkish(line.text);
             if (normLine.includes(searchNorm) || (searchWords.length > 0 && searchWords.some((sw) => normLine.includes(sw)))) {
-              found = true;
+              matchedLine = line;
               break;
             }
           }
 
-          if (found) {
-            // Target the center diagonal region of the page where the watermark is placed
-            const boxW = pageWidth * 0.8;
-            const boxH = pageHeight * 0.45;
+          if (matchedLine) {
+            const mapped = mapRotatedBBoxToSource(
+              matchedLine.bbox,
+              rotCanvas.width,
+              rotCanvas.height,
+              width,
+              height,
+              angle,
+              20
+            );
+            const pdfX = Math.max(0, mapped.x * scaleX);
+            const pdfW = Math.min(pageWidth - pdfX, mapped.w * scaleX);
+            const pdfH = Math.min(pageHeight, mapped.h * scaleY);
+            const pdfY = Math.max(0, pageHeight - (mapped.y + mapped.h) * scaleY);
+
             bounds.push({
-              x: Math.max(0, (pageWidth - boxW) / 2),
-              y: Math.max(0, (pageHeight - boxH) / 2),
-              w: boxW,
-              h: boxH
+              x: pdfX,
+              y: pdfY,
+              w: pdfW,
+              h: pdfH
             });
             break;
           }

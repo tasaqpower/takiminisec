@@ -28,9 +28,9 @@ export const WATERMARK_KEYWORDS = [
   "belge simulasyonudur", "simulasyonudur", "simulasyon", "simulasyondur",
   "hukumsuz", "hukumsuzdur", "hukuksuz", "gecersiz kilinmistir", "hukuken gecersizdir",
   // Turkish sample & preview
-  "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
+  "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek sozlesme",
   // Turkish draft
-  "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
+  "taslak", "taslaktir", "taslak belge", "on taslak", "calisma taslagi",
   // Turkish confidentiality & restricted
   "gizli", "gizlidir", "cok gizli", "ozeldir", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
   // Turkish copy & reproduction
@@ -362,7 +362,7 @@ export async function detectWatermarks(
       const avgFontSize = group.fontSizes.reduce((a, b) => a + b, 0) / group.fontSizes.length;
       const hasDiagonal = group.angles.some((a) => {
         const absA = Math.abs(a % 180);
-        return (absA >= 10 && absA <= 80) || (absA >= 100 && absA <= 170);
+        return (absA >= 15 && absA <= 75) || (absA >= 105 && absA <= 165);
       });
 
       // Analyze colors in the group
@@ -435,6 +435,12 @@ export async function detectWatermarks(
       // CRITICAL CONTENT PROTECTION SAFEGUARDS:
       // Real contract clauses, articles, headers, and regular sentences must NEVER be flagged as watermarks!
       const isContractClause = /^(?:madde|article|fıkra|fikra|bent|bentler|bölüm|bolum|kısım|kisim|ek|taraflar|konu|amaç|amac|hükümler|hukumler|sozlesme|protokol)\s*\d*[:.]?/i.test(normKey);
+      const isLegitimatePhrase = /^(?:taslak\s+(?:maddesi|metni|metin|dokumani)|kopya\s+(?:sayisi|adedi)|ornek\s+(?:olay|calisma|soru|uygulama)|deneme\s+(?:suresi|amaciyla)|test\s+(?:asamasi|asamasinda)|gizlilik\s+(?:sozlesmesi|politikasi|hukumleri|maddesi))/i.test(normKey) ||
+        /\b(?:taslak\s+maddesi|kopya\s+sayisi|ornek\s+olay)\b/i.test(normKey);
+      if (isLegitimatePhrase) {
+        continue;
+      }
+
       const wordCount = normKey.split(/\s+/).filter(Boolean).length;
       const isNormalHorizontalText = !hasDiagonal && avgFontSize <= 16;
 
@@ -461,7 +467,7 @@ export async function detectWatermarks(
 
       // SAFETY REQUIREMENT: At least TWO independent signals required for watermark candidate
       // 1. Repetition across multiple pages or tile pattern on same page
-      // 2. Significant diagonal angle (>= 10 deg)
+      // 2. Significant diagonal angle (> 15 deg)
       // 3. Large font size (>= 22pt)
       // 4. Faint/light watermark tone or distinctive stamp color
       // 5. Strong multi-word watermark phrase or strong unambiguous watermark indicator
@@ -566,7 +572,10 @@ export async function detectWatermarks(
       const nameLower = (img.name || "").toLowerCase();
       const hasWatermarkKeyword = /watermark|filigran|taslak|draft|sample|kopya|void|canc|geçersiz|gecersiz|gizli|ozel|ornek/i.test(nameLower);
       const isFaintOpacity = typeof img.opacity === "number" && img.opacity > 0 && img.opacity < 0.65;
-      const isLargeCentered = img.w > 220 && img.h > 220 && img.x > 60 && img.y > 100;
+      const isLargeCentered = (
+        (img.w >= 200 && img.h >= 100 && img.x >= 30 && (img.x + img.w <= 580)) ||
+        (img.w > 220 && img.h > 150 && img.x > 50 && img.y > 80)
+      );
       const hasRotation = Boolean(img.matrix && (Math.abs(img.matrix[1]) > 5 || Math.abs(img.matrix[2]) > 5));
       const isDefiniteWatermark = Boolean(img.isWatermark || hasWatermarkKeyword || isFaintOpacity || isLargeCentered || hasRotation);
 
@@ -581,7 +590,7 @@ export async function detectWatermarks(
         let candidateReason = `${pageCount} sayfada aynı konumda tekrarlanan görsel`;
 
         if (isDefiniteWatermark) {
-          confidence = hasWatermarkKeyword ? 95 : (hasRotation || isFaintOpacity) ? 90 : 80;
+          confidence = hasWatermarkKeyword ? 95 : (hasRotation || isFaintOpacity) ? 90 : 85;
           candidateText = img.name || (hasRotation ? "Açılı Filigran Görseli" : "Görsel Filigran / Damga");
           candidateReason = hasWatermarkKeyword
             ? `Filigran anahtar kelimesi tespit edilen görsel (${img.name})`
@@ -606,8 +615,8 @@ export async function detectWatermarks(
           reason: candidateReason,
           confidence,
           isLogoOrHeader,
-          // STRICT: All standalone image watermarks are surgically removed as objects!
-          strategy: "object_remove",
+          // RASTER INPAINTING: Definite raster watermark images use pixel_clean for surgical inpainting without deleting the underlying page/image structure
+          strategy: isDefiniteWatermark ? "pixel_clean" : "object_remove",
           imageRemovals: group.removals
         });
       }
@@ -651,19 +660,33 @@ export async function detectWatermarks(
       }
     } catch {}
 
-    // 4. If no vector text or image watermark candidates found, run local Visual OCR detector
-    if (candidates.length === 0 && (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1")) {
+    // 4. Scan all pages with Visual OCR detector unconditionally (for raster stamps, scanned watermarks)
+    if (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1") {
       try {
         const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
         const scanPages = pagesToScan;
         for (const pageIdx of scanPages) {
           const visualCands = await detectVisualWatermarks(pdfBytes, pageIdx);
           if (visualCands && visualCands.length > 0) {
-            candidates.push(...visualCands);
+            for (const vc of visualCands) {
+              // Deduplicate against existing candidates on the same page
+              const isDuplicate = candidates.some(existing =>
+                existing.pages.includes(pageIdx) &&
+                (
+                  (existing.type === "text" && normalizeTurkish(existing.text || "") === normalizeTurkish(vc.text || "")) ||
+                  (existing.imageBounds && vc.imageBounds &&
+                    Math.abs(existing.imageBounds.x - vc.imageBounds.x) < 25 &&
+                    Math.abs(existing.imageBounds.y - vc.imageBounds.y) < 25)
+                )
+              );
+              if (!isDuplicate) {
+                candidates.push(vc);
+              }
+            }
           }
         }
       } catch (visErr) {
-        console.warn("Visual watermark detection fallback error:", visErr);
+        console.warn("Visual watermark detection error:", visErr);
       }
     }
 

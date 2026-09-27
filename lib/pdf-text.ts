@@ -1273,42 +1273,87 @@ export interface PdfiumFontRun {
   isBold: boolean;
   isItalic: boolean;
   color?: string;
+  left?: number;
+  bottom?: number;
+  right?: number;
+  top?: number;
+  baseline?: number;
+}
+
+// Document-level cache for extracted font runs to avoid redundant WASM parsing
+const pdfiumFontRunsCache = new Map<string, { runs: PdfiumFontRun[]; timestamp: number }>();
+
+export function clearPdfiumDocCache(): void {
+  pdfiumFontRunsCache.clear();
+}
+
+function computeByteFingerprint(bytes: Uint8Array, pageIndex: number): string {
+  const len = bytes.length;
+  let hash = (len ^ (pageIndex * 2654435761)) | 0;
+  const sampleCount = Math.min(len, 64);
+  for (let i = 0; i < sampleCount; i++) {
+    hash = ((hash << 5) - hash + bytes[i]) | 0;
+  }
+  for (let i = Math.max(0, len - 64); i < len; i++) {
+    hash = ((hash << 5) - hash + bytes[i]) | 0;
+  }
+  return `${len}_${pageIndex}_${hash}`;
 }
 
 export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: number): Promise<PdfiumFontRun[]> {
+  const cacheKey = computeByteFingerprint(pdfBytes, pageIndex);
+  const cached = pdfiumFontRunsCache.get(cacheKey);
+  if (cached) {
+    return cached.runs.map((r) => ({ ...r }));
+  }
+
+  let input = 0;
+  let doc = 0;
+  let page = 0;
+  let textPage = 0;
+  let fontNamePtr = 0;
+  let flagsPtr = 0;
+  let rPtr = 0;
+  let gPtr = 0;
+  let bPtr = 0;
+  let aPtr = 0;
+  let boxPtr = 0;
+
   try {
     const m = await engine();
     const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
     const { malloc, free } = heap.wasmExports;
 
-    const input = malloc(pdfBytes.length);
+    input = malloc(pdfBytes.length);
     heap.HEAPU8.set(pdfBytes, input);
 
-    const doc = m.FPDF_LoadMemDocument(input, pdfBytes.length, "");
+    doc = m.FPDF_LoadMemDocument(input, pdfBytes.length, "");
     if (!doc) {
-      free(input);
       return [];
     }
 
-    const page = m.FPDF_LoadPage(doc, pageIndex);
+    page = m.FPDF_LoadPage(doc, pageIndex);
     if (!page) {
-      m.FPDF_CloseDocument(doc);
-      free(input);
       return [];
     }
 
-    const textPage = m.FPDFText_LoadPage(page);
+    textPage = m.FPDFText_LoadPage(page);
+    if (!textPage) {
+      return [];
+    }
+
     const charCount = m.FPDFText_CountChars(textPage);
     const runs: PdfiumFontRun[] = [];
     let cur: PdfiumFontRun | null = null;
 
     const bufSize = 256;
-    const fontNamePtr = malloc(bufSize);
-    const flagsPtr = malloc(4);
-    const rPtr = malloc(4);
-    const gPtr = malloc(4);
-    const bPtr = malloc(4);
-    const aPtr = malloc(4);
+    fontNamePtr = malloc(bufSize);
+    flagsPtr = malloc(4);
+    rPtr = malloc(4);
+    gPtr = malloc(4);
+    bPtr = malloc(4);
+    aPtr = malloc(4);
+    boxPtr = malloc(32); // 4 doubles: left, right, bottom, top
 
     for (let i = 0; i < charCount; i++) {
       const unicode = m.FPDFText_GetUnicode(textPage, i);
@@ -1317,6 +1362,14 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
 
       const fontSize = m.FPDFText_GetFontSize(textPage, i);
       const fontWeight = m.FPDFText_GetFontWeight(textPage, i);
+
+      let charLeft = 0, charRight = 0, charBottom = 0, charTop = 0;
+      if (m.FPDFText_GetCharBox && m.FPDFText_GetCharBox(textPage, i, boxPtr, boxPtr + 8, boxPtr + 16, boxPtr + 24)) {
+        charLeft = heap.getValue(boxPtr, "double");
+        charRight = heap.getValue(boxPtr + 8, "double");
+        charBottom = heap.getValue(boxPtr + 16, "double");
+        charTop = heap.getValue(boxPtr + 24, "double");
+      }
 
       const len = m.FPDFText_GetFontInfo(textPage, i, fontNamePtr, bufSize, flagsPtr);
       let fontName = "";
@@ -1344,7 +1397,20 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
       const isItalic = (flags & 64) !== 0 || /italic|oblique|slanted/i.test(fontName);
 
       if (!cur) {
-        cur = { text: char, fontName, fontSize, fontWeight, isBold, isItalic, color: charColor };
+        cur = {
+          text: char,
+          fontName,
+          fontSize,
+          fontWeight,
+          isBold,
+          isItalic,
+          color: charColor,
+          left: charLeft,
+          right: charRight,
+          bottom: charBottom,
+          top: charTop,
+          baseline: charBottom
+        };
       } else if (
         fontName !== cur.fontName ||
         isBold !== cur.isBold ||
@@ -1352,28 +1418,58 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
         (charColor && cur.color && charColor !== cur.color)
       ) {
         if (cur.text.trim().length > 0) runs.push({ ...cur });
-        cur = { text: char, fontName, fontSize, fontWeight, isBold, isItalic, color: charColor };
+        cur = {
+          text: char,
+          fontName,
+          fontSize,
+          fontWeight,
+          isBold,
+          isItalic,
+          color: charColor,
+          left: charLeft,
+          right: charRight,
+          bottom: charBottom,
+          top: charTop,
+          baseline: charBottom
+        };
       } else {
         cur.text += char;
+        if (char !== " " && char !== "\t") {
+          cur.left = Math.min(cur.left ?? charLeft, charLeft);
+          cur.right = Math.max(cur.right ?? charRight, charRight);
+          cur.bottom = Math.min(cur.bottom ?? charBottom, charBottom);
+          cur.top = Math.max(cur.top ?? charTop, charTop);
+        }
       }
     }
     if (cur && cur.text.trim().length > 0) runs.push({ ...cur });
 
-    free(fontNamePtr);
-    free(flagsPtr);
-    free(rPtr);
-    free(gPtr);
-    free(bPtr);
-    free(aPtr);
-    m.FPDFText_ClosePage(textPage);
-    m.FPDF_ClosePage(page);
-    m.FPDF_CloseDocument(doc);
-    free(input);
+    if (pdfiumFontRunsCache.size > 100) {
+      pdfiumFontRunsCache.clear();
+    }
+    pdfiumFontRunsCache.set(cacheKey, { runs: runs.map((r) => ({ ...r })), timestamp: Date.now() });
 
     return runs;
   } catch (err) {
     console.warn("extractPdfiumFontRuns error:", err);
     return [];
+  } finally {
+    try {
+      const m = await engine();
+      const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+      const { free } = heap.wasmExports;
+      if (boxPtr) free(boxPtr);
+      if (fontNamePtr) free(fontNamePtr);
+      if (flagsPtr) free(flagsPtr);
+      if (rPtr) free(rPtr);
+      if (gPtr) free(gPtr);
+      if (bPtr) free(bPtr);
+      if (aPtr) free(aPtr);
+      if (textPage) m.FPDFText_ClosePage(textPage);
+      if (page) m.FPDF_ClosePage(page);
+      if (doc) m.FPDF_CloseDocument(doc);
+      if (input) free(input);
+    } catch {}
   }
 }
 
@@ -1506,6 +1602,7 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
 
   const v = viewport.transform;
   let opIdx = 0;
+  const claimedRunIndices = new Set<number>();
   return content.items.flatMap((rawItem: any, index: number) => {
     const item = rawItem as unknown as PdfTextItem;
     if (!item.str?.trim() || !item.width || content.styles[item.fontName]?.vertical) return [];
@@ -1551,10 +1648,45 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
       }
     }
 
-    // Match with exact PDFium extracted font runs if available
-    const matchedRun = pdfiumRuns.length > 0
-      ? (pdfiumRuns.find(r => r.text.includes(str) || str.includes(r.text.trim())) || null)
-      : null;
+    // Match with exact PDFium extracted font runs using geometric proximity & reading order
+    let matchedRun: PdfiumFontRun | null = null;
+    if (pdfiumRuns.length > 0) {
+      const itemTx = Array.isArray(t) && t.length >= 6 ? t[4] : 0;
+      const itemTy = Array.isArray(t) && t.length >= 6 ? t[5] : 0;
+      const normStr = str.toLowerCase().trim();
+
+      let bestDist = Infinity;
+      let bestIdx = -1;
+
+      for (let rIdx = 0; rIdx < pdfiumRuns.length; rIdx++) {
+        if (claimedRunIndices.has(rIdx)) continue;
+        const run = pdfiumRuns[rIdx];
+        const runNorm = run.text.toLowerCase().trim();
+
+        const isMatch = (
+          runNorm === normStr ||
+          runNorm.includes(normStr) ||
+          normStr.includes(runNorm) ||
+          run.text.includes(str) ||
+          str.includes(run.text.trim())
+        );
+
+        if (isMatch) {
+          const runX = run.left ?? 0;
+          const runY = run.baseline ?? run.bottom ?? 0;
+          const dist = Math.hypot(runX - itemTx, runY - itemTy);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = rIdx;
+          }
+        }
+      }
+
+      if (bestIdx >= 0) {
+        matchedRun = pdfiumRuns[bestIdx];
+        claimedRunIndices.add(bestIdx);
+      }
+    }
 
     const bold = matchedRun ? matchedRun.isBold : fontInfo.bold;
     const italic = matchedRun ? matchedRun.isItalic : fontInfo.italic;
@@ -2165,47 +2297,78 @@ export async function removePdfRasterWatermarks(
     const isDocInk = new Uint8Array(bmp.width * bmp.height);
     const isWmCross = new Uint8Array(bmp.width * bmp.height);
     const isWmPaper = new Uint8Array(bmp.width * bmp.height);
-    const isBoxLine = new Uint8Array(bmp.width * bmp.height);
-    const isDividerLine = new Uint8Array(bmp.width * bmp.height);
+    const isStructuralLine = new Uint8Array(bmp.width * bmp.height);
 
-    // Structural line preservation:
-    // 1. Header divider line (#cbd5e1)
-    const divY1 = Math.round(bmp.height * (135 / 1684));
-    const divY2 = Math.round(bmp.height * (136 / 1684));
-    const divX1 = Math.round(bmp.width * (95 / 1191));
-    const divX2 = Math.round(bmp.width * (1094 / 1191));
-    for (let py = divY1; py <= divY2; py++) {
-      for (let px = divX1; px <= divX2; px++) {
-        isDividerLine[py * bmp.width + px] = 1;
-        isDocInk[py * bmp.width + px] = 1;
+    // Generic Structural Line & Box Preservation (100% dynamic, zero hardcoded ratios):
+    // 1. Horizontal lines: scan rows for continuous segments of neutral tone with length >= 20px
+    for (let py = 0; py < bmp.height; py++) {
+      let spanStart = -1;
+      for (let px = 0; px < bmp.width; px++) {
+        const idx = (py * bmp.width + px) * 4;
+        const r = cleanData[idx], g = cleanData[idx + 1], bVal = cleanData[idx + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
+        const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
+        const isLinePixel = maxDiff <= 25 && lum >= 80 && lum <= 235 && !(r >= 248 && g >= 246 && bVal >= 243);
+
+        if (isLinePixel) {
+          if (spanStart < 0) spanStart = px;
+        } else {
+          if (spanStart >= 0) {
+            const spanLen = px - spanStart;
+            if (spanLen >= 20) {
+              for (let x = spanStart; x < px; x++) {
+                const p = py * bmp.width + x;
+                isStructuralLine[p] = 1;
+                isDocInk[p] = 1;
+              }
+            }
+            spanStart = -1;
+          }
+        }
+      }
+      if (spanStart >= 0 && (bmp.width - spanStart) >= 20) {
+        for (let x = spanStart; x < bmp.width; x++) {
+          const p = py * bmp.width + x;
+          isStructuralLine[p] = 1;
+          isDocInk[p] = 1;
+        }
       }
     }
 
-    // 2. Signature boxes (#94a3b8)
-    const markBox = (x1Ratio: number, x2Ratio: number, y1Ratio: number, y2Ratio: number) => {
-      const minX = Math.round(bmp.width * x1Ratio);
-      const maxX = Math.round(bmp.width * x2Ratio);
-      const minY = Math.round(bmp.height * y1Ratio);
-      const maxY = Math.round(bmp.height * y2Ratio);
-      for (let px = minX; px <= maxX; px++) {
-        for (let d = 0; d <= 1; d++) {
-          isBoxLine[(minY + d) * bmp.width + px] = 1;
-          isDocInk[(minY + d) * bmp.width + px] = 1;
-          isBoxLine[(maxY - d) * bmp.width + px] = 1;
-          isDocInk[(maxY - d) * bmp.width + px] = 1;
+    // 2. Vertical lines: scan columns for continuous segments of neutral tone with length >= 20px
+    for (let px = 0; px < bmp.width; px++) {
+      let spanStart = -1;
+      for (let py = 0; py < bmp.height; py++) {
+        const idx = (py * bmp.width + px) * 4;
+        const r = cleanData[idx], g = cleanData[idx + 1], bVal = cleanData[idx + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
+        const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
+        const isLinePixel = maxDiff <= 25 && lum >= 80 && lum <= 235 && !(r >= 248 && g >= 246 && bVal >= 243);
+
+        if (isLinePixel) {
+          if (spanStart < 0) spanStart = py;
+        } else {
+          if (spanStart >= 0) {
+            const spanLen = py - spanStart;
+            if (spanLen >= 20) {
+              for (let y = spanStart; y < py; y++) {
+                const p = y * bmp.width + px;
+                isStructuralLine[p] = 1;
+                isDocInk[p] = 1;
+              }
+            }
+            spanStart = -1;
+          }
         }
       }
-      for (let py = minY; py <= maxY; py++) {
-        for (let d = 0; d <= 1; d++) {
-          isBoxLine[py * bmp.width + (minX + d)] = 1;
-          isDocInk[py * bmp.width + (minX + d)] = 1;
-          isBoxLine[py * bmp.width + (maxX - d)] = 1;
-          isDocInk[py * bmp.width + (maxX - d)] = 1;
+      if (spanStart >= 0 && (bmp.height - spanStart) >= 20) {
+        for (let y = spanStart; y < bmp.height; y++) {
+          const p = y * bmp.width + px;
+          isStructuralLine[p] = 1;
+          isDocInk[p] = 1;
         }
       }
-    };
-    markBox(95 / 1191, 565 / 1191, 723 / 1684, 864 / 1684);
-    markBox(624 / 1191, 1094 / 1191, 723 / 1684, 864 / 1684);
+    }
 
     const cb = cand.bounds || { x: 0, y: 0, w: Number.MAX_SAFE_INTEGER, h: Number.MAX_SAFE_INTEGER };
     const isPixelInRoi = (px: number, py: number): boolean => {
@@ -2344,27 +2507,15 @@ export async function removePdfRasterWatermarks(
         const pIdx = py * bmp.width + px;
         const idx = pIdx * 4;
 
-        // Case 1: Divider line reconstruction if crossed by watermark
-        if (isDividerLine[pIdx] === 1) {
-          const r = cleanData[idx], g = cleanData[idx+1], bVal = cleanData[idx+2];
-          const isCrossed = (r - g >= 14 || bVal - r >= 20 || Math.abs(r - 203) > 25);
+        // Case 1: Structural line reconstruction if crossed by watermark
+        if (isStructuralLine[pIdx] === 1) {
+          const r = cleanData[idx], g = cleanData[idx + 1], bVal = cleanData[idx + 2];
+          const isCrossed = (r - g >= 14 || bVal - r >= 14 || (r > 130 && r - Math.max(g, bVal) >= 10));
           if (isCrossed) {
-            cleanData[idx] = 203;
-            cleanData[idx + 1] = 213;
-            cleanData[idx + 2] = 225;
-            modifiedPixels++;
-          }
-          continue;
-        }
-
-        // Case 2: Box line reconstruction if crossed by watermark
-        if (isBoxLine[pIdx] === 1) {
-          const r = cleanData[idx], g = cleanData[idx+1], bVal = cleanData[idx+2];
-          const isCrossed = (r - g >= 14 || bVal - r >= 20 || Math.abs(r - 148) > 25);
-          if (isCrossed) {
-            cleanData[idx] = 148;
-            cleanData[idx + 1] = 163;
-            cleanData[idx + 2] = 184;
+            const lineLum = Math.max(120, Math.min(220, Math.round(0.299 * r + 0.587 * g + 0.114 * bVal)));
+            cleanData[idx] = lineLum;
+            cleanData[idx + 1] = lineLum;
+            cleanData[idx + 2] = lineLum;
             modifiedPixels++;
           }
           continue;

@@ -53,14 +53,24 @@ export function isFontCharacterSupported(
   if (isOcr) {
     return { supported: true, unsupportedChars: [] };
   }
+  const norm = (fontNameOrFamily || "").toLowerCase();
+
+  // Embedded TrueType fonts with native Turkish/Unicode support
+  const isUnicodeFont = (
+    norm.includes("liberation") ||
+    norm.includes("roboto") ||
+    norm.includes("lora") ||
+    norm.includes("couriernew")
+  );
+  if (isUnicodeFont) {
+    return { supported: true, unsupportedChars: [] };
+  }
+
+  // Pure Standard Type 1 14 Fonts (Helvetica, Times, Courier) only support WinAnsi
   const isStandardWinAnsiFont = (
-    !fontNameOrFamily ||
-    fontNameOrFamily.toLowerCase().includes("helvetica") ||
-    fontNameOrFamily.toLowerCase().includes("times") ||
-    fontNameOrFamily.toLowerCase().includes("courier") ||
-    fontNameOrFamily === "sans" ||
-    fontNameOrFamily === "serif" ||
-    fontNameOrFamily === "courier"
+    norm.includes("helvetica") ||
+    norm.includes("times") ||
+    (norm.includes("courier") && !norm.includes("couriernew"))
   );
   if (!isStandardWinAnsiFont) {
     return { supported: true, unsupportedChars: [] };
@@ -198,10 +208,13 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
        }
        continue;
      }
-     const isHelvetica = Boolean(
+     const isLiberation = Boolean(
+       m.originalFontName?.toLowerCase().includes("liberation") ||
+       m.fontName?.toLowerCase().includes("liberation")
+     );
+     const isHelvetica = !isLiberation && Boolean(
        m.originalFontName?.toLowerCase().includes("helvetica") ||
-       m.fontName?.toLowerCase().includes("helvetica") ||
-       (!isTimes && !isCourier && (m.font === "sans" || !m.font))
+       m.fontName?.toLowerCase().includes("helvetica")
      );
      if (isHelvetica && canEncodeWinAnsi(m.text || "")) {
        const stdName = isBold
@@ -282,12 +295,15 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
          ? (isItalic ? StandardFonts.CourierBoldOblique : StandardFonts.CourierBold)
          : (isItalic ? StandardFonts.CourierOblique : StandardFonts.Courier);
 
+       const isLiberation = Boolean(
+         m.originalFontName?.toLowerCase().includes("liberation") ||
+         m.fontName?.toLowerCase().includes("liberation")
+       );
        const isTimes = Boolean(m.originalFontName?.toLowerCase().includes("times") || m.fontName?.toLowerCase().includes("times"));
        const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
-       const isHelv = Boolean(
+       const isHelv = !isLiberation && Boolean(
          m.originalFontName?.toLowerCase().includes("helvetica") ||
-         m.fontName?.toLowerCase().includes("helvetica") ||
-         (!isTimes && !isCourier && (m.font === "sans" || !m.font))
+         m.fontName?.toLowerCase().includes("helvetica")
        );
 
        const isTimesAllowed = isTimes && canEncodeWinAnsi(m.text || "");

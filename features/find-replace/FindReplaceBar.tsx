@@ -30,6 +30,25 @@ interface FindReplaceBarProps {
   onNavigatePage: (pageIndex: number) => void;
 }
 
+function computeFontMatchQuality(
+  originalFontName: string | undefined,
+  fontVal: string,
+  text: string,
+  isOcr: boolean
+): string {
+  if (isOcr) return "görsel eşleştirme";
+  const origLower = (originalFontName || "").toLowerCase();
+  const isExact = (
+    (origLower.includes("liberation") && fontVal === "sans") ||
+    (origLower.includes("roboto") && fontVal === "roboto") ||
+    (origLower.includes("lora") && fontVal === "serif") ||
+    (origLower.includes("courier") && fontVal === "courier") ||
+    (origLower.includes("helvetica") && canEncodeWinAnsi(text)) ||
+    (origLower.includes("times") && canEncodeWinAnsi(text))
+  );
+  return isExact ? "aynı font korundu" : "yaklaşık eşleşme";
+}
+
 export function FindReplaceBar({
   open,
   onClose,
@@ -171,8 +190,7 @@ export function FindReplaceBar({
       const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
       const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
       const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const isUnicodeApprox = !canEncodeWinAnsi(newText);
-      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+      const fontMatchQuality = computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, newText, isOcr);
 
       const newRemoval = { id: et.id, page: et.page, quad: et.quad };
       let markX = et.x;
@@ -263,8 +281,7 @@ export function FindReplaceBar({
       const isItemBold = Boolean(first.bold || first.originalFontName?.toLowerCase().includes("bold") || first.fontName?.toLowerCase().includes("bold"));
       const isItemItalic = Boolean(first.italic || first.originalFontName?.toLowerCase().includes("italic") || first.originalFontName?.toLowerCase().includes("oblique"));
       const fontVal = first.fontFamily === 'serif' ? 'serif' : first.fontFamily === 'courier' ? 'courier' : first.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const isUnicodeApprox = !canEncodeWinAnsi(replacement);
-      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+      const fontMatchQuality = computeFontMatchQuality(first.originalFontName || first.fontName, fontVal, replacement, isOcr);
 
       const newMark = {
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -369,8 +386,7 @@ export function FindReplaceBar({
       const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
       const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
       const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const isUnicodeApprox = !canEncodeWinAnsi(text);
-      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+      const fontMatchQuality = computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, text, isOcr);
 
       newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
       let markX = et.x;
@@ -446,8 +462,7 @@ export function FindReplaceBar({
       const isItemBold = Boolean(first.bold || first.originalFontName?.toLowerCase().includes("bold") || first.fontName?.toLowerCase().includes("bold"));
       const isItemItalic = Boolean(first.italic || first.originalFontName?.toLowerCase().includes("italic") || first.originalFontName?.toLowerCase().includes("oblique"));
       const fontVal = first.fontFamily === 'serif' ? 'serif' : first.fontFamily === 'courier' ? 'courier' : first.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const isUnicodeApprox = !canEncodeWinAnsi(replacement);
-      const fontMatchQuality = isUnicodeApprox ? 'yaklaşık eşleşme' : (isOcr ? 'görsel eşleştirme' : 'aynı font korundu');
+      const fontMatchQuality = computeFontMatchQuality(first.originalFontName || first.fontName, fontVal, replacement, isOcr);
 
       newMarks.push({
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
