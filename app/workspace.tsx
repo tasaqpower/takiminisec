@@ -757,7 +757,7 @@ export default function Workspace({
         if (stopped) return;
         try {
           const page = await pdf.getPage(i + 1);
-          const items = await editablePageText(page);
+          const items = await editablePageText(page, bytes || undefined);
           const ocrItems = ocrItemsByPage[i] || [];
           all.push(...items, ...ocrItems);
         } catch {
@@ -1167,7 +1167,7 @@ export default function Workspace({
     setTextLoading(true);
     void pdf
       .getPage(current.index + 1)
-      .then(editablePageText)
+      .then((p: any) => editablePageText(p, bytes || undefined))
       .then((items: EditableText[]) => {
         if (!stopped) {
           const ocrItems = ocrItemsByPage[current.index] || [];
@@ -1522,8 +1522,18 @@ export default function Workspace({
     const isUnicodeApprox = updates.text !== undefined && !canEncodeWinAnsi(updates.text);
     // Taranmış PDF'de gerçek font bilgisi bulunmadığından daima "görsel eşleştirme" olarak adlandır
     const fontQuality = isOcr ? "görsel eşleştirme" : (isUnicodeApprox ? "yaklaşık eşleşme" : "aynı font korundu");
-    const isItemBold = Boolean(item.bold || item.originalFontName?.toLowerCase().includes("bold") || item.fontName?.toLowerCase().includes("bold"));
-    const isItemItalic = Boolean(item.italic || item.originalFontName?.toLowerCase().includes("italic") || item.originalFontName?.toLowerCase().includes("oblique"));
+    const isItemBold = Boolean(
+      item.bold ||
+      (typeof item.fontWeight === "number" && item.fontWeight >= 600) ||
+      (typeof item.fontWeight === "string" && /bold|700|800|900/i.test(item.fontWeight)) ||
+      /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(item.originalFontName || "") ||
+      /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(item.fontName || "")
+    );
+    const isItemItalic = Boolean(
+      item.italic ||
+      /italic|oblique|slanted/i.test(item.originalFontName || "") ||
+      /italic|oblique|slanted/i.test(item.fontName || "")
+    );
 
     const rawTargetText = updates.text !== undefined ? updates.text : item.text;
 
@@ -1594,29 +1604,31 @@ export default function Workspace({
     const baseMark: Mark = existing
       ? {
           ...existing,
+          x: updates.x ?? existing.x ?? markX,
+          y: updates.y ?? existing.y ?? markY,
+          w: updates.w ?? existing.w ?? markW,
+          size: updates.size ?? existing.size ?? Math.round(item.size * 10) / 10,
+          bold: updates.bold ?? existing.bold ?? isItemBold,
+          italic: updates.italic ?? existing.italic ?? isItemItalic,
+          font: updates.font ?? existing.font ?? fontVal,
+          color: updates.color ?? existing.color ?? item.color ?? "#1e293b",
+          originalFontName: existing.originalFontName || item.originalFontName || item.fontName,
+          fontMatchQuality: fontQuality,
           ...updates,
           ocrTextDirty: isTextDirty,
-          x: markX,
-          y: markY,
-          w: markW,
-          text: markText,
-          size: Math.round(item.size * 10) / 10,
-          bold: isItemBold,
-          italic: isItemItalic,
-          originalFontName: item.originalFontName || item.fontName,
-          fontMatchQuality: fontQuality
+          text: markText
         }
       : {
           id: crypto.randomUUID(),
           page: item.page,
           kind: "text",
-          y: markY,
+          y: updates.y ?? markY,
           h: item.h,
-          size: Math.round(item.size * 10) / 10,
-          color: item.color || "#1e293b",
-          font: fontVal,
-          bold: isItemBold,
-          italic: isItemItalic,
+          size: updates.size ?? Math.round(item.size * 10) / 10,
+          color: updates.color ?? item.color ?? "#1e293b",
+          font: updates.font ?? fontVal,
+          bold: updates.bold ?? isItemBold,
+          italic: updates.italic ?? isItemItalic,
           angle: item.angle,
           sourceId: item.id,
           bg: undefined,
@@ -1627,8 +1639,8 @@ export default function Workspace({
           originalFontName: item.originalFontName || item.fontName,
           fontMatchQuality: fontQuality,
           ...updates,
-          x: markX,
-          w: markW,
+          x: updates.x ?? markX,
+          w: updates.w ?? markW,
           text: markText
         };
 
@@ -3167,8 +3179,8 @@ export default function Workspace({
                                         minHeight: `${box.h + 4}px`,
                                         fontSize: `${item.size}px`,
                                         fontFamily: pdfFont(item.fontFamily as any).family,
-                                        fontWeight: item.bold ? 700 : 400,
-                                        fontStyle: item.italic ? "italic" : "normal",
+                                        fontWeight: (item.bold || /bold|black|heavy|demi|semibold|700|800|900/i.test(item.originalFontName || "") || (typeof item.fontWeight === "number" && item.fontWeight >= 600)) ? 700 : 400,
+                                        fontStyle: (item.italic || /italic|oblique|slanted/i.test(item.originalFontName || "")) ? "italic" : "normal",
                                         color: item.color || "#000000",
                                         lineHeight: 1.25,
                                         caretColor: "#6552df",

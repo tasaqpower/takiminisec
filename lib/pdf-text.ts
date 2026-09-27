@@ -1265,13 +1265,140 @@ function extractOpText(arg: any): string {
   }).join("");
 }
 
+export interface PdfiumFontRun {
+  text: string;
+  fontName: string;
+  fontSize: number;
+  fontWeight: number;
+  isBold: boolean;
+  isItalic: boolean;
+  color?: string;
+}
+
+export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: number): Promise<PdfiumFontRun[]> {
+  try {
+    const m = await engine();
+    const heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
+    const { malloc, free } = heap.wasmExports;
+
+    const input = malloc(pdfBytes.length);
+    heap.HEAPU8.set(pdfBytes, input);
+
+    const doc = m.FPDF_LoadMemDocument(input, pdfBytes.length, "");
+    if (!doc) {
+      free(input);
+      return [];
+    }
+
+    const page = m.FPDF_LoadPage(doc, pageIndex);
+    if (!page) {
+      m.FPDF_CloseDocument(doc);
+      free(input);
+      return [];
+    }
+
+    const textPage = m.FPDFText_LoadPage(page);
+    const charCount = m.FPDFText_CountChars(textPage);
+    const runs: PdfiumFontRun[] = [];
+    let cur: PdfiumFontRun | null = null;
+
+    const bufSize = 256;
+    const fontNamePtr = malloc(bufSize);
+    const flagsPtr = malloc(4);
+    const rPtr = malloc(4);
+    const gPtr = malloc(4);
+    const bPtr = malloc(4);
+    const aPtr = malloc(4);
+
+    for (let i = 0; i < charCount; i++) {
+      const unicode = m.FPDFText_GetUnicode(textPage, i);
+      const char = String.fromCharCode(unicode);
+      if (char === "\r" || char === "\n") continue;
+
+      const fontSize = m.FPDFText_GetFontSize(textPage, i);
+      const fontWeight = m.FPDFText_GetFontWeight(textPage, i);
+
+      const len = m.FPDFText_GetFontInfo(textPage, i, fontNamePtr, bufSize, flagsPtr);
+      let fontName = "";
+      if (len > 0) {
+        fontName = new TextDecoder("utf-8").decode(heap.HEAPU8.slice(fontNamePtr, fontNamePtr + len)).replace(/\0.*$/, "");
+      }
+
+      let charColor: string | undefined = undefined;
+      const okColor = m.FPDFText_GetFillColor(textPage, i, rPtr, gPtr, bPtr, aPtr);
+      if (okColor) {
+        const r = heap.getValue(rPtr, "i32");
+        const g = heap.getValue(gPtr, "i32");
+        const b = heap.getValue(bPtr, "i32");
+        const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+        charColor = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+
+      if (!fontName && (char === " " || char === "\t")) {
+        if (cur) cur.text += char;
+        continue;
+      }
+
+      const flags = heap.getValue(flagsPtr, "i32");
+      const isBold = fontWeight >= 600 || /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(fontName);
+      const isItalic = (flags & 64) !== 0 || /italic|oblique|slanted/i.test(fontName);
+
+      if (!cur) {
+        cur = { text: char, fontName, fontSize, fontWeight, isBold, isItalic, color: charColor };
+      } else if (
+        fontName !== cur.fontName ||
+        isBold !== cur.isBold ||
+        Math.abs(fontSize - cur.fontSize) > 0.5 ||
+        (charColor && cur.color && charColor !== cur.color)
+      ) {
+        if (cur.text.trim().length > 0) runs.push({ ...cur });
+        cur = { text: char, fontName, fontSize, fontWeight, isBold, isItalic, color: charColor };
+      } else {
+        cur.text += char;
+      }
+    }
+    if (cur && cur.text.trim().length > 0) runs.push({ ...cur });
+
+    free(fontNamePtr);
+    free(flagsPtr);
+    free(rPtr);
+    free(gPtr);
+    free(bPtr);
+    free(aPtr);
+    m.FPDFText_ClosePage(textPage);
+    m.FPDF_ClosePage(page);
+    m.FPDF_CloseDocument(doc);
+    free(input);
+
+    return runs;
+  } catch (err) {
+    console.warn("extractPdfiumFontRuns error:", err);
+    return [];
+  }
+}
+
 /** Use the renderer's own transforms, including CropBox, UserUnit, rotation, and extracts rich font/color styles. */
-export async function editablePageText(page: any): Promise<EditableText[]> {
+export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array): Promise<EditableText[]> {
   const viewport = page.getViewport({ scale: 1 });
   const [content, opList] = await Promise.all([
     page.getTextContent(),
     typeof page.getOperatorList === "function" ? page.getOperatorList().catch(() => null) : Promise.resolve(null)
   ]);
+
+  const pageIdx = (typeof page.pageNumber === "number" ? page.pageNumber - 1 : page._pageIndex) ?? 0;
+  const pdfBytes: Uint8Array | undefined =
+    optionalPdfBytes ||
+    page._sourceBytes ||
+    page._parentDoc?._sourceBytes ||
+    page._transport?._sourceBytes ||
+    page._transport?.loadingTask?._sourceBytes;
+
+  let pdfiumRuns: PdfiumFontRun[] = [];
+  if (pdfBytes) {
+    try {
+      pdfiumRuns = await extractPdfiumFontRuns(pdfBytes, pageIdx);
+    } catch {}
+  }
 
   // Extract font details (weight, bold, italic, font family)
   const fontDetailsMap = new Map<string, {
@@ -1424,6 +1551,31 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
       }
     }
 
+    // Match with exact PDFium extracted font runs if available
+    const matchedRun = pdfiumRuns.length > 0
+      ? (pdfiumRuns.find(r => r.text.includes(str) || str.includes(r.text.trim())) || null)
+      : null;
+
+    const bold = matchedRun ? matchedRun.isBold : fontInfo.bold;
+    const italic = matchedRun ? matchedRun.isItalic : fontInfo.italic;
+    const finalFontName = matchedRun?.fontName || fontInfo.originalFontName;
+    const finalFontWeight = matchedRun ? (matchedRun.isBold ? 700 : (matchedRun.fontWeight >= 600 ? matchedRun.fontWeight : 400)) : fontInfo.fontWeight;
+    const finalSize = (matchedRun && matchedRun.fontSize > 0) ? matchedRun.fontSize : size;
+    const finalColor = (matchedRun && matchedRun.color) ? matchedRun.color : itemColor;
+
+    let fontFamily = fontInfo.fontFamily;
+    if (finalFontName) {
+      if (/courier|monospace|typewriter|fixed|mono\b/i.test(finalFontName)) {
+        fontFamily = "courier";
+      } else if (/roboto/i.test(finalFontName)) {
+        fontFamily = "roboto";
+      } else if (/(?:times|georgia|garamond|minion|cambria|lora|\bserif\b)/i.test(finalFontName.replace(/sans[-_]?serif/gi, ""))) {
+        fontFamily = "serif";
+      } else if (/(?:sans[-_]?serif|helvetica|arial|liberation)/i.test(finalFontName)) {
+        fontFamily = "sans";
+      }
+    }
+
     return [{
       id: `original-${page.pageNumber-1}-${index}`,
       page: page.pageNumber-1,
@@ -1433,15 +1585,15 @@ export async function editablePageText(page: any): Promise<EditableText[]> {
       y: baseline - size,
       w,
       h: size * (ascent - descent),
-      size,
+      size: finalSize,
       angle: angle * 180 / Math.PI,
-      fontName: style.fontFamily || item.fontName,
-      fontFamily: fontInfo.fontFamily,
-      originalFontName: fontInfo.originalFontName,
-      fontWeight: fontInfo.fontWeight,
-      bold: fontInfo.bold,
-      italic: fontInfo.italic,
-      color: itemColor,
+      fontName: finalFontName || style.fontFamily || item.fontName,
+      fontFamily,
+      originalFontName: finalFontName,
+      fontWeight: finalFontWeight,
+      bold,
+      italic,
+      color: finalColor,
       transform: t
     }];
   });
@@ -2055,22 +2207,24 @@ export async function removePdfRasterWatermarks(
     markBox(95 / 1191, 565 / 1191, 723 / 1684, 864 / 1684);
     markBox(624 / 1191, 1094 / 1191, 723 / 1684, 864 / 1684);
 
+    const cb = cand.bounds || { x: 0, y: 0, w: Number.MAX_SAFE_INTEGER, h: Number.MAX_SAFE_INTEGER };
+    const isPixelInRoi = (px: number, py: number): boolean => {
+      const u = (px + 0.5) / bmp.width;
+      const v = 1 - (py + 0.5) / bmp.height;
+      const pdfX = a * u + c * v + e;
+      const pdfY = b * u + d * v + f;
+      return (
+        pdfX >= cb.x &&
+        pdfX <= cb.x + cb.w &&
+        pdfY >= cb.y &&
+        pdfY <= cb.y + cb.h
+      );
+    };
+
     // Pass 1: Strict Document Ink & Text Crossing Map
     for (let py = startY; py < endY; py++) {
       for (let px = startX; px < endX; px++) {
-        // Map pixel center to PDF space
-        const u = (px + 0.5) / bmp.width;
-        const v = 1 - (py + 0.5) / bmp.height;
-        const pdfX = a * u + c * v + e;
-        const pdfY = b * u + d * v + f;
-
-        const inRoi =
-          pdfX >= cand.bounds.x &&
-          pdfX <= cand.bounds.x + cand.bounds.w &&
-          pdfY >= cand.bounds.y &&
-          pdfY <= cand.bounds.y + cand.bounds.h;
-
-        if (!inRoi) continue;
+        if (!isPixelInRoi(px, py)) continue;
 
         const pIdx = py * bmp.width + px;
         if (isDocInk[pIdx] === 1) continue;
@@ -2111,9 +2265,11 @@ export async function removePdfRasterWatermarks(
       }
     }
 
-    // Pass 2: Detect all 4 watermarks on paper (strictly where isDocInk === 0)
+    // Pass 2: Detect all watermarks on paper (strictly where isDocInk === 0 and inside ROI)
     for (let py = startY; py < endY; py++) {
       for (let px = startX; px < endX; px++) {
+        if (!isPixelInRoi(px, py)) continue;
+
         const pIdx = py * bmp.width + px;
         if (isDocInk[pIdx] === 1) continue;
 
@@ -2127,17 +2283,18 @@ export async function removePdfRasterWatermarks(
         const lum = 0.299 * r + 0.587 * g + 0.114 * bVal;
 
         // 1. Red watermark (GİZLİDİR)
-        const isRed = (r - g >= 14 && r - bVal >= 14 && r > 115) || (r > 155 && r - Math.max(g, bVal) >= 10);
+        const isRed = (r - g >= 14 && r - bVal >= 14 && r > 105) || (r > 155 && r - Math.max(g, bVal) >= 10);
         // 2. Purple watermark (GEÇERSİZDİR)
-        const isPurple = (r > 100 && bVal > 105 && r - g >= 6 && bVal - g >= 8 && lum >= 115);
+        const isPurple = (r > 95 && bVal > 105 && r - g >= 6 && bVal - g >= 8 && lum >= 110);
         // 3. Blue watermark (ÖZELDİR)
-        const isBlue = (bVal - r >= 8 && bVal - g >= 6 && bVal >= 155 && lum >= 140) ||
-                       (bVal >= 190 && bVal - Math.max(r, g) >= 8) ||
-                       (bVal - r >= 5 && bVal - g >= 15 && lum >= 200);
-        // 4. Slate watermark (ÖRNEKTİR)
+        const isBlue = (bVal - r >= 8 && bVal - g >= 6 && bVal >= 135 && lum >= 125) ||
+                       (bVal >= 170 && bVal - Math.max(r, g) >= 8) ||
+                       (bVal - r >= 5 && bVal - g >= 10 && lum >= 180);
+        // 4. Slate / Faint watermark (ÖRNEKTİR / generic watermark tones)
+        const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal));
         const isSlate = (
           (r >= 168 && r <= 236 && g >= 171 && g <= 238 && bVal >= 175 && bVal <= 242 && bVal >= g && g >= r && (bVal - r >= 2 && bVal - r <= 14) && lum >= 168 && lum <= 238) ||
-          (lum >= 175 && lum <= 236 && Math.max(Math.abs(r - g), Math.abs(r - bVal), Math.abs(g - bVal)) <= 4 && py > bmp.height * 0.4)
+          (lum >= 150 && lum <= 245 && maxDiff <= 25)
         );
 
         if (isRed || isPurple || isBlue || isSlate) {
@@ -2147,7 +2304,7 @@ export async function removePdfRasterWatermarks(
     }
 
     // Pass 3: Dilation ONLY on faint paper pixels (lum >= 175) to sweep away antialiased edges
-    // 2 passes of dilation for clean ghost elimination
+    // 2 passes of dilation for clean ghost elimination (strictly within ROI)
     let isWmDilated = new Uint8Array(isWmPaper);
     for (let pass = 0; pass < 2; pass++) {
       const nextDilated = new Uint8Array(isWmDilated);
@@ -2159,6 +2316,7 @@ export async function removePdfRasterWatermarks(
               const ny = py + dy;
               for (let dx = -1; dx <= 1; dx++) {
                 const nx = px + dx;
+                if (!isPixelInRoi(nx, ny)) continue;
                 const nPIdx = ny * bmp.width + nx;
                 if (isDocInk[nPIdx] === 1 || nextDilated[nPIdx] === 1) continue;
 
@@ -2179,9 +2337,10 @@ export async function removePdfRasterWatermarks(
       isWmDilated = nextDilated;
     }
 
-    // Pass 4: Inpainting text crossings and background replacement
+    // Pass 4: Inpainting text crossings and background replacement (strictly inside ROI)
     for (let py = startY; py < endY; py++) {
       for (let px = startX; px < endX; px++) {
+        if (!isPixelInRoi(px, py)) continue;
         const pIdx = py * bmp.width + px;
         const idx = pIdx * 4;
 

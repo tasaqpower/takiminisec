@@ -79,6 +79,17 @@ export function isFontCharacterSupported(
 }
 export type PageItem = {index:number; rotation:number};
 export async function pdfRenderer() {
+  if (typeof Promise.withResolvers !== "function") {
+    (Promise as any).withResolvers = function <T>() {
+      let resolve!: (value: T | PromiseLike<T>) => void;
+      let reject!: (reason?: any) => void;
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+  }
   const isNode = typeof window === "undefined" || (typeof process !== "undefined" && Boolean(process?.versions?.node));
   if (isNode) {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -95,7 +106,31 @@ export async function pdfRenderer() {
   }
   return pdfjs;
 }
-export async function loadPdf(bytes:Uint8Array){if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") { if ((window as any).__dragTestCounters) (window as any).__dragTestCounters.loadPdfCount++; }const p=await pdfRenderer();const task=p.getDocument({data:bytes.slice(),cMapUrl:"/cmaps/",cMapPacked:true,standardFontDataUrl:"/standard_fonts/",wasmUrl:"/wasm/"});try{return await task.promise}catch(error){await task.destroy();throw error}}
+export async function loadPdf(bytes:Uint8Array){
+  if (typeof window !== "undefined" && import.meta.env?.DEV && process.env.NEXT_PUBLIC_ENABLE_TEST_API === "true") {
+    if ((window as any).__dragTestCounters) (window as any).__dragTestCounters.loadPdfCount++;
+  }
+  const p=await pdfRenderer();
+  const pureBytes = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const task=p.getDocument({data:pureBytes.slice(),cMapUrl:"/cmaps/",cMapPacked:true,standardFontDataUrl:"/standard_fonts/",wasmUrl:"/wasm/"});
+  try {
+    const doc = await task.promise;
+    (doc as any)._sourceBytes = pureBytes;
+    const origGetPage = doc.getPage.bind(doc);
+    doc.getPage = async (pageNumber: number) => {
+      const page = await origGetPage(pageNumber);
+      if (page) {
+        (page as any)._sourceBytes = pureBytes;
+        (page as any)._parentDoc = doc;
+      }
+      return page;
+    };
+    return doc;
+  } catch(error) {
+    await task.destroy();
+    throw error;
+  }
+}
 export function safeHtml(html:string){
  DOMPurify.addHook("uponSanitizeAttribute",(_node,data)=>{if(data.attrName==="src"&&!/^data:image\/(png|jpeg|jpg|gif);base64,/i.test(data.attrValue))data.keepAttr=false;if(data.attrName==="style"){const allowed=["font-weight","font-style","text-decoration","text-align","color","background-color"];data.attrValue=data.attrValue.split(";").filter(rule=>{const [key,value]=rule.split(":");return allowed.includes(key?.trim().toLowerCase())&&!!value&&/^[a-z0-9#(),.%\s-]+$/i.test(value)&&! /url|expression|var/i.test(value)}).join(";")}});
  try{return DOMPurify.sanitize(html,{USE_PROFILES:{html:true},FORBID_TAGS:["style","iframe","form","input","button","video","audio","link"],FORBID_ATTR:["srcset","background"]})}finally{DOMPurify.removeHook("uponSanitizeAttribute")}
@@ -128,8 +163,17 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
      if (m.ocrSourceCropDataUrl && !m.ocrTextDirty) {
        continue; // Rendered via PNG crop image
      }
-     const isBold = Boolean(m.bold || m.originalFontName?.toLowerCase().includes("bold") || m.fontName?.toLowerCase().includes("bold"));
-     const isItalic = Boolean(m.italic || m.originalFontName?.toLowerCase().includes("italic") || m.originalFontName?.toLowerCase().includes("oblique"));
+     const isBold = Boolean(
+       m.bold ||
+       (typeof (m as any).fontWeight === "number" && (m as any).fontWeight >= 600) ||
+       /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(m.originalFontName || "") ||
+       /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(m.fontName || "")
+     );
+     const isItalic = Boolean(
+       m.italic ||
+       /italic|oblique|slanted/i.test(m.originalFontName || "") ||
+       /italic|oblique|slanted/i.test(m.fontName || "")
+     );
 
      const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
      if (isCourier && canEncodeWinAnsi(m.text || "")) {
@@ -216,8 +260,17 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
          const a=point(m.x - 2, m.y - 1), b=point(m.x + m.w + 2, m.y + m.h + 1);
          page.drawRectangle({x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(a[0]-b[0]),height:Math.abs(a[1]-b[1]),color:col(m.bg),opacity:1});
        }
-       const isBold = Boolean(m.bold || m.originalFontName?.toLowerCase().includes("bold") || m.fontName?.toLowerCase().includes("bold"));
-       const isItalic = Boolean(m.italic || m.originalFontName?.toLowerCase().includes("italic") || m.originalFontName?.toLowerCase().includes("oblique"));
+       const isBold = Boolean(
+         m.bold ||
+         (typeof (m as any).fontWeight === "number" && (m as any).fontWeight >= 600) ||
+         /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(m.originalFontName || "") ||
+         /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(m.fontName || "")
+       );
+       const isItalic = Boolean(
+         m.italic ||
+         /italic|oblique|slanted/i.test(m.originalFontName || "") ||
+         /italic|oblique|slanted/i.test(m.fontName || "")
+       );
 
        const stdHelvName = isBold
          ? (isItalic ? StandardFonts.HelveticaBoldOblique : StandardFonts.HelveticaBold)

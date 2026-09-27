@@ -31,10 +31,10 @@ export const WATERMARK_KEYWORDS = [
   "ornek", "ornektir", "ornek belge", "ornek belgedir", "ornek dokuman", "ornek metin", "ornek sozlesme",
   // Turkish draft
   "taslak", "taslaktir", "taslak metin", "taslak belge", "on taslak", "calisma taslagi",
-  // Turkish confidentiality & restricted (standalone 'gizli' removed to protect normal sentences)
-  "gizlidir", "cok gizli", "ozeldir", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
-  // Turkish copy & reproduction (standalone 'kopya' kept only with copy indicators)
-  "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
+  // Turkish confidentiality & restricted
+  "gizli", "gizlidir", "cok gizli", "ozeldir", "hizmete ozel", "ozel evrak", "mahrem", "mahremiyet", "ticari sir",
+  // Turkish copy & reproduction
+  "kopya", "kopyadir", "belge kopyasi", "suret", "surettir", "onaysiz kopya", "kontrolsuz kopya", "fotokopi", "sureti",
   // Turkish cancellation & terminated
   "iptal", "iptal edilmistir", "feshedilmistir", "fesih", "ilga", "yururlukten kalkmistir",
   // Turkish trial & demo
@@ -52,7 +52,7 @@ export const WATERMARK_KEYWORDS = [
   // English & international indicators (standalone 'secret', 'private', 'copy', 'test' removed)
   "draft", "preliminary draft", "working draft",
   "confidential", "strictly confidential", "top secret", "restricted", "private and confidential", "privileged",
-  "do not copy", "duplicate", "replica", "reproduction",
+  "copy", "do not copy", "duplicate", "replica", "reproduction",
   "void", "invalid", "cancelled", "canceled", "null and void", "expired",
   "sample", "specimen", "evaluation copy", "trial version", "preview", "demo",
   "unofficial", "not for official use", "for review only", "for review", "for internal use only", "internal use only",
@@ -470,8 +470,17 @@ export async function detectWatermarks(
       if (hasDiagonal) signalCount++;
       if (isLargeFont) signalCount++;
       if (bestColor.isWatermarkColor) signalCount++;
-      const isStrongMultiWordPhrase = matchedKw.some(kw => kw.includes(" ") || ["gecersizdir", "hukumsuzdur", "taslaktir", "ornektir", "confidential", "filigran", "watermark"].includes(kw));
-      if (isStrongMultiWordPhrase) signalCount++;
+      const isStrongWatermarkKeyword = matchedKw.some(kw => {
+        const n = normalizeTurkish(kw);
+        return n.includes(" ") || [
+          "taslak", "taslaktir", "draft", "ornek", "ornektir", "sample",
+          "gecersiz", "gecersizdir", "hukumsuz", "hukumsuzdur", "iptal", "void",
+          "confidential", "gizli", "gizlidir", "ozeldir", "kopya", "kopyadir",
+          "filigran", "watermark", "demo", "deneme", "test", "numune", "preview", "onizleme",
+          "belge simulasyonudur", "simulasyonudur", "simulasyon"
+        ].includes(n);
+      });
+      if (isStrongWatermarkKeyword && wordCount <= 4) signalCount++;
 
       // A single keyword alone without other physical watermark attributes CANNOT condemn text!
       if (signalCount < 2) {
@@ -646,7 +655,7 @@ export async function detectWatermarks(
     if (candidates.length === 0 && (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1")) {
       try {
         const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
-        const scanPages = pagesToScan.slice(0, 3);
+        const scanPages = pagesToScan;
         for (const pageIdx of scanPages) {
           const visualCands = await detectVisualWatermarks(pdfBytes, pageIdx);
           if (visualCands && visualCands.length > 0) {

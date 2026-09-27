@@ -179,13 +179,15 @@ export function WatermarkRemovalModal({
 
         let finalCandidates = [...detected];
 
-        // If the active page has no candidates from vector/layer detection, run visual watermark detection for it
-        const hasActivePageCandidates = finalCandidates.some((c) => c.pages.includes(activePage - 1));
-        if (!hasActivePageCandidates && typeof window !== "undefined") {
+        // If no candidates found from vector/layer detection, scan all pages with visual OCR
+        if (finalCandidates.length === 0 && typeof window !== "undefined") {
           try {
-            const visual = await detectVisualWatermarks(pdfBytes, activePage - 1);
-            if (active && visual.length > 0) {
-              finalCandidates = [...finalCandidates, ...visual];
+            for (let pIdx = 0; pIdx < totalPages; pIdx++) {
+              if (!active) break;
+              const visual = await detectVisualWatermarks(pdfBytes, pIdx);
+              if (visual.length > 0) {
+                finalCandidates.push(...visual);
+              }
             }
           } catch (err) {
             console.warn("Visual OCR auto-detection error:", err);
@@ -725,13 +727,15 @@ export function WatermarkRemovalModal({
         activeCandidates = await detectWatermarks(pdfBytes);
       }
 
-      // 3. If STILL no candidates, run local visual OCR on current page
+      // 3. If STILL no candidates, run local visual OCR across ALL pages of the document
       if (activeCandidates.length === 0) {
-        toast.loading("Görsel yapay zeka ile taranıyor...", { id: toastId });
+        toast.loading("Görsel yapay zeka ile tüm sayfalar taranıyor...", { id: toastId });
         try {
-          const vis = await detectVisualWatermarks(pdfBytes, activePage - 1);
-          if (vis.length > 0) {
-            activeCandidates = vis;
+          for (let pIdx = 0; pIdx < totalPages; pIdx++) {
+            const vis = await detectVisualWatermarks(pdfBytes, pIdx);
+            if (vis && vis.length > 0) {
+              activeCandidates.push(...vis);
+            }
           }
         } catch (visErr) {
           console.warn("Visual OCR error:", visErr);

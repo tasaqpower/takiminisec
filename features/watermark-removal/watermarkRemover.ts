@@ -40,8 +40,8 @@ export function buildSafeAutoCleanCandidateIds(candidates: WatermarkCandidate[])
       if (c.type === "text" || c.type === "annotation") {
         return conf >= 45;
       }
-      // 2. High-confidence standalone image watermarks (stamps/overlays)
-      if (c.type === "image" && c.strategy === "object_remove" && conf >= 80) {
+      // 2. High-confidence standalone image watermarks (stamps/overlays/visual pixel clean)
+      if (c.type === "image" && (c.strategy === "object_remove" || c.strategy === "pixel_clean") && conf >= 60) {
         return true;
       }
       return false;
