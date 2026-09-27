@@ -216,6 +216,11 @@ class ExportEngine {
 
     if (mixedAudio) {
       const audioCtx = audioMixer.getAudioContext();
+      if (audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+        } catch (_) {}
+      }
       const destNode = audioCtx.createMediaStreamDestination();
       const audioSource = audioCtx.createBufferSource();
       audioSource.buffer = mixedAudio;
@@ -232,15 +237,20 @@ class ExportEngine {
     }
 
     // Determine MIME type
-    const mimeCandidates = [
-      options.format === 'mp4' ? 'video/mp4;codecs=avc1.42E01E,mp4a.40.2' : '',
-      options.format === 'mp4' ? 'video/mp4' : '',
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-    ].filter(Boolean);
+    const mimeCandidates = options.format === 'mp4'
+      ? [
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+          'video/mp4;codecs=avc1,opus',
+          'video/mp4;codecs=avc1',
+          'video/mp4',
+        ]
+      : [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+        ];
 
-    let selectedMime = 'video/webm';
+    let selectedMime = options.format === 'mp4' ? 'video/mp4' : 'video/webm';
     for (const mime of mimeCandidates) {
       if (MediaRecorder.isTypeSupported(mime)) {
         selectedMime = mime;
@@ -262,7 +272,7 @@ class ExportEngine {
       }
     };
 
-    recorder.start(100);
+    recorder.start();
 
     const startTime = performance.now();
 
@@ -290,8 +300,12 @@ class ExportEngine {
         statusText: `Kare işleniyor (${frameIndex + 1}/${totalFrames})...`,
       });
 
-      // Maintain pacing for captureStream
-      await new Promise((resolve) => setTimeout(resolve, Math.max(1, frameIntervalMs * 0.7)));
+      // Maintain exact 1:1 real-time pacing with captureStream & WebAudio
+      const targetWallClockMs = startTime + ((frameIndex + 1) * frameIntervalMs);
+      const remainingDelay = targetWallClockMs - performance.now();
+      if (remainingDelay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+      }
     }
 
     onProgress({

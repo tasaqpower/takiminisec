@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
 import { VideoProject } from '../types';
+import {
+  Undo2,
+  Redo2,
+  Download,
+  Sparkles,
+  Edit2,
+  Check,
+  Film,
+  Monitor,
+  Smartphone,
+  Square,
+  ArrowLeft,
+  Keyboard,
+} from 'lucide-react';
+import { IconButton } from './ui/IconButton';
 
 interface TopbarProps {
   project: VideoProject;
@@ -12,18 +27,18 @@ interface TopbarProps {
   onRedo: () => void;
   onOpenExport: () => void;
   onOpenAi: () => void;
-  onNavigateHome: () => void;
   onOpenShortcuts?: () => void;
-  isDirty: boolean;
+  onNavigateHome?: () => void;
+  isDirty?: boolean;
+  saveStatus?: 'saved' | 'saving' | 'error';
 }
 
 const RESOLUTION_PRESETS = [
-  { label: '1080p (16:9 Yatay)', width: 1920, height: 1080 },
-  { label: '720p (16:9 Yatay)', width: 1280, height: 720 },
-  { label: '4K UHD (16:9 Yatay)', width: 3840, height: 2160 },
-  { label: '9:16 Dikey (Reels / TikTok)', width: 1080, height: 1920 },
-  { label: '1:1 Kare (Instagram)', width: 1080, height: 1080 },
-  { label: '4:5 Dikey Gönderi', width: 1080, height: 1350 },
+  { label: '1080p Full HD (16:9)', width: 1920, height: 1080 },
+  { label: '720p HD (16:9)', width: 1280, height: 720 },
+  { label: '4K Ultra HD (16:9)', width: 3840, height: 2160 },
+  { label: '1080p Dikey Reels (9:16)', width: 1080, height: 1920 },
+  { label: '1080p Kare Post (1:1)', width: 1080, height: 1080 },
 ];
 
 export const VideoEditorTopbar: React.FC<TopbarProps> = ({
@@ -40,9 +55,11 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
   onOpenShortcuts,
   onNavigateHome,
   isDirty,
+  saveStatus,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(project.name);
+  const [viewScale, setViewScale] = useState<'fit' | '50' | '100'>('fit');
 
   const handleNameSubmit = () => {
     setIsEditingName(false);
@@ -56,145 +73,157 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
   const currentResKey = `${project.resolution.width}x${project.resolution.height}`;
 
   return (
-    <header className="h-14 bg-[#0d1117] border-b border-[#21262d] flex items-center justify-between px-4 select-none shrink-0 z-20">
-      {/* Left: Brand & Home & Name */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onNavigateHome}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#161b22] border border-[#30363d] transition-all"
-          title="Ana Sayfaya Dön"
-        >
-          <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span>Ana Sayfa</span>
-        </button>
-
-        <div className="h-5 w-[1px] bg-[#30363d]" />
-
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md">
-            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <span className="font-bold text-sm tracking-tight text-white">FORMA</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-300 font-medium border border-indigo-800/40">
-            VIDEO PRO
-          </span>
-        </div>
-
-        <div className="h-5 w-[1px] bg-[#30363d]" />
-
-        {/* Project Name */}
-        {isEditingName ? (
-          <input
-            type="text"
-            value={tempName}
-            onChange={(e) => setTempName(e.target.value)}
-            onBlur={handleNameSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleNameSubmit();
-              if (e.key === 'Escape') {
-                setIsEditingName(false);
-                setTempName(project.name);
-              }
-            }}
-            autoFocus
-            className="px-2 py-1 text-xs bg-[#161b22] text-white rounded border border-indigo-500 outline-none w-52"
-          />
-        ) : (
+    <header className="h-[46px] bg-[#0B0D10] border-b border-[#292F39] flex items-center justify-between px-3 select-none shrink-0 z-30 font-sans">
+      {/* 1. SOL BÖLÜM: Forma Logosu, Proje Adı, Kaydetme Durumu, Undo/Redo */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        {onNavigateHome && (
           <button
-            onClick={() => {
-              setTempName(project.name);
-              setIsEditingName(true);
-            }}
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-gray-200 hover:text-white hover:bg-[#161b22] group transition-colors"
-            title="Proje Adını Değiştir"
+            type="button"
+            onClick={onNavigateHome}
+            title="Ana Sayfaya Dön"
+            className="w-7 h-7 rounded-[3px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] flex items-center justify-center transition-colors"
           >
-            <span className="max-w-[180px] truncate">{project.name}</span>
-            {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Kaydedilmemiş değişiklik" />}
-            <svg className="w-3 h-3 text-gray-500 group-hover:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+            <ArrowLeft size={14} />
           </button>
         )}
+
+        {/* Forma Brand Logo & Title (PRO ROZETİ VE SLOGAN YOK) */}
+        <div className="flex items-center gap-1.5 pr-2 border-r border-[#292F39]">
+          <div className="w-5 h-5 rounded-[3px] bg-[#171B21] border border-[#292F39] flex items-center justify-center text-[#E7EAF0]">
+            <Film size={12} className="text-[#4f6bf5]" />
+          </div>
+          <span className="font-semibold text-xs tracking-tight text-[#E7EAF0]">FORMA</span>
+        </div>
+
+        {/* Proje Adı (Düzenlenebilir) */}
+        <div className="flex items-center gap-2 min-w-0">
+          {isEditingName ? (
+            <input
+              type="text"
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onBlur={handleNameSubmit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNameSubmit();
+                if (e.key === 'Escape') {
+                  setIsEditingName(false);
+                  setTempName(project.name);
+                }
+              }}
+              autoFocus
+              className="px-2 py-0.5 text-xs bg-[#171B21] text-[#E7EAF0] rounded-[3px] border border-[#4f6bf5] outline-none w-44 font-medium"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setTempName(project.name);
+                setIsEditingName(true);
+              }}
+              className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-[3px] text-xs font-medium text-[#E7EAF0] hover:bg-[#171B21] group transition-colors max-w-[180px]"
+              title="Proje Adını Düzenle"
+            >
+              <span className="truncate">{project.name}</span>
+              <Edit2 size={10} className="text-[#5A6270] group-hover:text-[#929AA8] opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )}
+
+          {/* Kaydetme Durumu (Minimal nokta + metin) */}
+          <div className="flex items-center gap-1 text-[10px] font-mono hidden sm:flex">
+            {(saveStatus || (isDirty ? 'saving' : 'saved')) === 'saving' ? (
+              <span data-testid="autosave-status" className="flex items-center gap-1 text-[#f59e0b]" title="Değişiklikler kaydediliyor...">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b] animate-pulse" />
+                <span className="text-[10px]">Kaydediliyor</span>
+              </span>
+            ) : (saveStatus || (isDirty ? 'saving' : 'saved')) === 'error' ? (
+              <span data-testid="autosave-status" className="flex items-center gap-1 text-rose-400" title="Kaydedilemedi!">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span className="text-[10px]">Kaydedilemedi</span>
+              </span>
+            ) : (
+              <span data-testid="autosave-status" className="flex items-center gap-1 text-[#10b981]" title="Tüm değişiklikler kaydedildi">
+                <Check size={11} className="text-[#10b981]" />
+                <span className="text-[10px] text-[#929AA8]">Kaydedildi</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Undo ve Redo Butonları */}
+        <div className="flex items-center ml-1 bg-[#111419] rounded-[3px] border border-[#292F39] p-0.5">
+          <IconButton
+            icon={<Undo2 size={12} />}
+            label="Geri Al"
+            shortcut="Ctrl+Z"
+            size="xs"
+            disabled={!canUndo}
+            onClick={onUndo}
+          />
+          <div className="w-[1px] h-3 bg-[#292F39]" />
+          <IconButton
+            icon={<Redo2 size={12} />}
+            label="Yinele"
+            shortcut="Ctrl+Y"
+            size="xs"
+            disabled={!canRedo}
+            onClick={onRedo}
+          />
+        </div>
       </div>
 
-      {/* Center: Undo / Redo & Presets */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center bg-[#161b22] rounded-lg border border-[#30363d] p-0.5">
+      {/* 2. ORTA BÖLÜM: En-boy Oranı, Çözünürlük, FPS, Görünüm Ölçeği */}
+      <div className="hidden lg:flex items-center gap-2">
+        {/* En-boy oranı hızlı seçim */}
+        <div className="flex items-center bg-[#111419] rounded-[3px] border border-[#292F39] p-0.5 gap-0.5">
           <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            className={`p-1.5 rounded hover:bg-[#21262d] transition-colors ${
-              canUndo ? 'text-gray-200' : 'text-gray-600 cursor-not-allowed'
-            }`}
-            title="Geri Al (Ctrl+Z)"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-          </button>
-          <button
-            onClick={onRedo}
-            disabled={!canRedo}
-            className={`p-1.5 rounded hover:bg-[#21262d] transition-colors ${
-              canRedo ? 'text-gray-200' : 'text-gray-600 cursor-not-allowed'
-            }`}
-            title="Yinele (Ctrl+Y)"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Quick Aspect Ratio Toggle Pills */}
-        <div className="flex items-center bg-[#161b22] rounded-lg border border-[#30363d] p-0.5 gap-0.5">
-          <button
+            type="button"
             onClick={() => onUpdateResolution(1920, 1080)}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
               project.resolution.width === 1920 && project.resolution.height === 1080
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+                ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
+                : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
-            title="16:9 Yatay Format (YouTube, Video)"
+            title="16:9 Yatay"
           >
-            📺 16:9
+            <Monitor size={10} />
+            <span>16:9</span>
           </button>
           <button
+            type="button"
             onClick={() => onUpdateResolution(1080, 1920)}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
               project.resolution.width === 1080 && project.resolution.height === 1920
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+                ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
+                : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
-            title="9:16 Dikey Format (Reels, TikTok, Shorts)"
+            title="9:16 Dikey"
           >
-            📱 9:16
+            <Smartphone size={10} />
+            <span>9:16</span>
           </button>
           <button
+            type="button"
             onClick={() => onUpdateResolution(1080, 1080)}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-all ${
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
               project.resolution.width === 1080 && project.resolution.height === 1080
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-[#21262d]'
+                ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
+                : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
-            title="1:1 Kare Format (Instagram Post)"
+            title="1:1 Kare"
           >
-            📷 1:1
+            <Square size={9} />
+            <span>1:1</span>
           </button>
         </div>
 
-        {/* Resolution selector */}
+        {/* Çözünürlük Seçici */}
         <select
           value={currentResKey}
           onChange={(e) => {
             const [w, h] = e.target.value.split('x').map(Number);
             onUpdateResolution(w, h);
           }}
-          className="bg-[#161b22] border border-[#30363d] text-gray-200 text-xs rounded-lg px-2.5 py-1.5 outline-none hover:border-gray-500 focus:border-indigo-500 cursor-pointer"
+          className="h-6 bg-[#111419] border border-[#292F39] text-[#E7EAF0] text-[11px] rounded-[3px] px-1.5 outline-none hover:border-[#3B4351] focus:border-[#4f6bf5] cursor-pointer"
         >
           {RESOLUTION_PRESETS.map((p) => (
             <option key={`${p.width}x${p.height}`} value={`${p.width}x${p.height}`}>
@@ -203,53 +232,65 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
           ))}
         </select>
 
-        {/* FPS selector */}
+        {/* FPS Seçici */}
         <select
           value={project.fps}
           onChange={(e) => onUpdateFps(Number(e.target.value))}
-          className="bg-[#161b22] border border-[#30363d] text-gray-200 text-xs rounded-lg px-2 py-1.5 outline-none hover:border-gray-500 focus:border-indigo-500 cursor-pointer"
+          className="h-6 bg-[#111419] border border-[#292F39] text-[#E7EAF0] text-[11px] font-mono rounded-[3px] px-1.5 outline-none hover:border-[#3B4351] focus:border-[#4f6bf5] cursor-pointer"
         >
-          <option value={24}>24 FPS</option>
-          <option value={30}>30 FPS</option>
-          <option value={60}>60 FPS</option>
+          <option value={24}>24 fps</option>
+          <option value={30}>30 fps</option>
+          <option value={60}>60 fps</option>
+        </select>
+
+        {/* Görünüm Ölçeği */}
+        <select
+          value={viewScale}
+          onChange={(e) => setViewScale(e.target.value as any)}
+          className="h-6 bg-[#111419] border border-[#292F39] text-[#929AA8] text-[10px] font-mono rounded-[3px] px-1.5 outline-none hover:border-[#3B4351] cursor-pointer"
+          title="Önizleme Tuvali Görünüm Ölçeği"
+        >
+          <option value="fit">Sığdır</option>
+          <option value="50">50%</option>
+          <option value="100">100%</option>
         </select>
       </div>
 
-      {/* Right: Shortcuts, Forma AI & Export Button */}
-      <div className="flex items-center gap-2.5">
-        {/* Shortcuts guide button */}
+      {/* 3. SAĞ BÖLÜM: Forma AI, Kısayollar, Dışa Aktar */}
+      <div className="flex items-center gap-1.5">
         {onOpenShortcuts && (
           <button
+            type="button"
             onClick={onOpenShortcuts}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#161b22] text-gray-300 hover:text-white hover:bg-[#21262d] border border-[#30363d] transition-all"
-            title="Klavye Kısayolları Rehberi"
+            className="flex items-center gap-1 h-6 px-2 rounded-[3px] text-[11px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] transition-colors"
+            title="Klavye Kısayolları (Ctrl+/)"
           >
-            <span className="w-4 h-4 rounded bg-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center text-[10px]">
-              ?
-            </span>
-            <span className="hidden sm:inline">Kısayollar</span>
+            <Keyboard size={12} />
+            <span className="hidden xl:inline">Kısayollar</span>
           </button>
         )}
 
-        {/* Forma AI button */}
+        {/* Forma AI Asistanı */}
         <button
+          type="button"
+          data-action="open-ai"
           onClick={onOpenAi}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-900/50 to-indigo-900/50 text-indigo-200 border border-indigo-700/50 hover:border-indigo-500 shadow-sm hover:shadow-indigo-500/10 transition-all"
+          className="flex items-center gap-1.5 h-6 px-2.5 rounded-[3px] text-[11px] font-medium bg-[#171B21] text-[#E7EAF0] hover:bg-[#202631] border border-[#292F39] transition-colors"
+          title="Forma AI Komut Paneli"
         >
-          <svg className="w-3.5 h-3.5 text-indigo-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+          <Sparkles size={11} className="text-[#4f6bf5]" />
           <span>Forma AI</span>
         </button>
 
-        {/* Export Button */}
+        {/* Dışa Aktar (Kompakt ana eylem butonu) */}
         <button
+          type="button"
+          data-action="open-export"
           onClick={onOpenExport}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 shadow-lg shadow-indigo-600/25 transition-all transform active:scale-95"
+          className="flex items-center gap-1.5 h-6 px-3 rounded-[3px] text-xs font-semibold text-white bg-[#4f6bf5] hover:bg-[#3b55d9] active:bg-[#2e47c7] border border-[#4f6bf5]/60 transition-colors select-none"
+          title="Videoyu Dışa Aktar"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
+          <Download size={12} strokeWidth={2.2} />
           <span>Dışa Aktar</span>
         </button>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useVideoProject } from '../hooks/useVideoProject';
 import { useVideoPlayback } from '../hooks/useVideoPlayback';
 import { useShortcuts } from '../hooks/useShortcuts';
@@ -14,12 +14,27 @@ import { VideoAiModal } from './VideoAiModal';
 import { VideoRecoveryModal } from './VideoRecoveryModal';
 import { VideoShortcutsModal } from './VideoShortcutsModal';
 import { EditorDragDropProvider } from '../context/DragDropContext';
+import { ResizableDivider } from './ui/ResizableDivider';
+import '../theme/video-editor.css';
 
 interface WorkspaceProps {
   onNavigateHome?: () => void;
 }
 
 export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome }) => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [sidebarDrawerWidth, setSidebarDrawerWidth] = useState(280);
+  const [inspectorWidth, setInspectorWidth] = useState(300);
+
+  useEffect(() => {
+    (window as any).__setSidebarDrawerWidth = (w: number) => setSidebarDrawerWidth(w);
+  }, []);
+  const [timelineHeight, setTimelineHeight] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerHeight) {
+      return Math.round(Math.max(240, Math.min(window.innerHeight * 0.55, window.innerHeight * 0.34)));
+    }
+    return 300;
+  });
   const {
     project,
     setProject,
@@ -31,6 +46,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     setSelectedTransitionId,
     setSelectedEffectSegmentId,
     isDirty,
+    saveStatus,
     canUndo,
     canRedo,
     undo,
@@ -84,6 +100,21 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     setPlaybackRate,
     setIsLooping,
   } = useVideoPlayback({ project });
+
+  useEffect(() => {
+    (window as any).__formaEditor = {
+      project,
+      setProject,
+      addClip,
+      updateClip,
+      addTimelineTransition,
+      seek,
+      play,
+      pause,
+      currentTime,
+      isPlaying,
+    };
+  }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying]);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -163,7 +194,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
 
   return (
     <EditorDragDropProvider>
-      <div className="flex flex-col h-screen w-screen bg-[#090d13] text-gray-100 overflow-hidden font-sans select-none">
+      <div className="forma-video-editor flex flex-col h-screen w-screen bg-[#0B0D10] text-[#E7EAF0] overflow-hidden font-sans select-none">
         {/* 1. TOPBAR */}
         <VideoEditorTopbar
           project={project}
@@ -179,12 +210,17 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
           onNavigateHome={handleHomeClick}
           isDirty={isDirty}
+          saveStatus={saveStatus}
         />
 
         {/* 2. MIDDLE AREA (Sidebar + Preview Canvas + Properties Inspector) */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0 relative">
           {/* Left Sidebar */}
           <VideoEditorSidebar
+            isOpen={isSidebarOpen}
+            onToggleOpen={() => setIsSidebarOpen((prev) => !prev)}
+            drawerWidth={sidebarDrawerWidth}
+            style={{ width: isSidebarOpen ? 46 + sidebarDrawerWidth : 46 }}
             project={project}
             onAddClip={addClip}
             onAddTextClip={addTextClip}
@@ -197,48 +233,68 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             onPreviewAnimation={handlePreviewAnimation}
             onUpdateClipEffects={(clipId, effects) => updateClip(clipId, { effects })}
             onUpdateClip={updateClip}
+            onAddTimelineTransition={addTimelineTransition}
+            onAddEffectSegment={addEffectSegment}
+            onAddTextAnimationSegment={addTextAnimationSegment}
           />
 
+          {isSidebarOpen && (
+            <ResizableDivider
+              direction="vertical"
+              onResize={(delta) => setSidebarDrawerWidth((prev) => Math.max(220, Math.min(480, prev + delta)))}
+              onReset={() => setSidebarDrawerWidth(280)}
+            />
+          )}
+
           {/* Center Preview Viewport */}
-          <VideoPreviewArea
-            project={project}
-            currentTime={currentTime}
-            isPlaying={isPlaying}
-            playbackRate={playbackRate}
-            isLooping={isLooping}
-            onTogglePlay={togglePlay}
-            onSeek={seek}
-            onStepForward={(s) => seekRelative(s)}
-            onStepBackward={(s) => seekRelative(-s)}
-            onSetPlaybackRate={setPlaybackRate}
-            onSetIsLooping={setIsLooping}
-            selectedClip={selectedClip}
-            onSelectClip={setSelectedClipId}
-            onAddClip={addClip}
-            onUpdateClip={updateClip}
-            onUpdateClipText={(clipId, text) => {
-              const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
-              if (clip && clip.textData) {
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <VideoPreviewArea
+              project={project}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              playbackRate={playbackRate}
+              isLooping={isLooping}
+              onTogglePlay={togglePlay}
+              onSeek={seek}
+              onStepForward={(s) => seekRelative(s)}
+              onStepBackward={(s) => seekRelative(-s)}
+              onSetPlaybackRate={setPlaybackRate}
+              onSetIsLooping={setIsLooping}
+              selectedClip={selectedClip}
+              onSelectClip={setSelectedClipId}
+              onAddClip={addClip}
+              onUpdateClip={updateClip}
+              onUpdateClipText={(clipId, text) => {
+                const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+                if (clip && clip.textData) {
+                  updateClip(clipId, {
+                    textData: {
+                      ...clip.textData,
+                      text,
+                    },
+                  });
+                }
+              }}
+              onUpdateClipTransform={(clipId, transform) => {
                 updateClip(clipId, {
-                  textData: {
-                    ...clip.textData,
-                    text,
+                  transform: {
+                    ...(selectedClip?.transform || { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 }),
+                    ...transform,
                   },
                 });
-              }
-            }}
-            onUpdateClipTransform={(clipId, transform) => {
-              updateClip(clipId, {
-                transform: {
-                  ...(selectedClip?.transform || { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 }),
-                  ...transform,
-                },
-              });
-            }}
+              }}
+            />
+          </div>
+
+          <ResizableDivider
+            direction="vertical"
+            onResize={(delta) => setInspectorWidth((prev) => Math.max(260, Math.min(380, prev - delta)))}
+            onReset={() => setInspectorWidth(300)}
           />
 
           {/* Right Inspector */}
           <VideoPropertiesPanel
+            style={{ width: inspectorWidth }}
             project={project}
             selectedClip={selectedClip}
             currentTime={currentTime}
@@ -262,8 +318,24 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           />
         </div>
 
+        {/* Resizer between middle area and timeline */}
+        <ResizableDivider
+          direction="horizontal"
+          onResize={(delta) =>
+            setTimelineHeight((prev) => {
+              const maxH = typeof window !== 'undefined' ? window.innerHeight * 0.55 : 520;
+              return Math.max(240, Math.min(maxH, prev - delta));
+            })
+          }
+          onReset={() => {
+            const defH = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.34) : 300;
+            setTimelineHeight(defH);
+          }}
+        />
+
         {/* 3. BOTTOM TIMELINE */}
         <VideoTimeline
+          style={{ height: timelineHeight }}
           project={project}
           currentTime={currentTime}
           selectedClipId={selectedClipId}

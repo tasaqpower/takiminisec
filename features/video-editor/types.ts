@@ -9,15 +9,18 @@ export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | 'custom';
 export type ResolutionPreset = '480p' | '720p' | '1080p' | '4K' | 'original' | 'custom';
 
 export type TransitionType =
-  // Temel (Basic)
+  // Temel (Basic - 8)
   | 'none'
   | 'cut'
   | 'crossfade'
   | 'fade-black'
   | 'fade-white'
-  | 'fade-through-blur'
-  | 'dissolve'
-  // Kaydırma ve İtme (Slide & Push)
+  | 'dip-color'
+  | 'additive-dissolve'
+  | 'soft-dissolve'
+  | 'luma-fade'
+  | 'dissolve' // alias for soft-dissolve
+  // Kaydırma ve İtme (Slide & Push - 12)
   | 'slide-left'
   | 'slide-right'
   | 'slide-up'
@@ -26,33 +29,48 @@ export type TransitionType =
   | 'push-right'
   | 'push-up'
   | 'push-down'
-  | 'whip-pan-left'
-  | 'whip-pan-right'
-  // Perde ve Maske (Wipe & Mask)
+  | 'split-open-horizontal'
+  | 'split-open-vertical'
+  | 'split-close-horizontal'
+  | 'split-close-vertical'
+  // Silme ve Maske (Wipe & Mask - 12)
   | 'wipe-left'
   | 'wipe-right'
   | 'wipe-up'
   | 'wipe-down'
   | 'diagonal-wipe'
   | 'circle-reveal'
-  | 'circle-close'
+  | 'iris-in'
+  | 'iris-out'
+  | 'radial-clock-wipe'
+  | 'venetian-blinds'
+  | 'checkerboard'
   | 'soft-mask-reveal'
-  // Kamera ve Hareket (Camera & Motion)
+  | 'circle-close' // alias for iris-in
+  // Kamera ve Hareket (Camera & Motion - 10)
   | 'zoom-in'
   | 'zoom-out'
-  | 'zoom-blur'
-  | 'spin'
+  | 'whip-pan-left'
+  | 'whip-pan-right'
+  | 'whip-pan-up'
+  | 'whip-pan-down'
+  | 'spin-cw'
+  | 'spin-ccw'
+  | 'spin' // alias for spin-cw
   | 'flip-horizontal'
   | 'flip-vertical'
-  // Stilize (Stylized)
-  | 'blur-dissolve'
-  | 'pixel-dissolve'
-  | 'rgb-split'
-  | 'glitch'
+  | 'zoom-blur'
+  // Sinematik ve Dijital (Cinematic & Digital - 10)
   | 'light-leak'
   | 'film-burn'
-  | 'flash'
-  | 'vhs-distortion';
+  | 'lens-flare'
+  | 'glitch'
+  | 'rgb-split'
+  | 'pixel-dissolve'
+  | 'vhs-distortion'
+  | 'blur-dissolve'
+  | 'prism-dissolve'
+  | 'flash';
 
 export interface Transition {
   type: TransitionType;
@@ -60,6 +78,8 @@ export interface Transition {
   easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
   intensity?: number;
   direction?: 'left' | 'right' | 'up' | 'down';
+  feather?: number;
+  color?: string;
 }
 
 export interface TimelineTransition {
@@ -74,6 +94,11 @@ export interface TimelineTransition {
   easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
   intensity?: number;
   direction?: 'left' | 'right' | 'up' | 'down';
+  feather?: number; // Edge softness (0 to 50px)
+  color?: string; // Color for dip-color, flash, etc.
+  audioCrossfade?: boolean; // Enable audio crossfade
+  audioCurve?: 'linear' | 'constant-power' | 'ease-in-out';
+  audioDuration?: number; // Independent audio duration
 }
 
 export interface EffectSegment {

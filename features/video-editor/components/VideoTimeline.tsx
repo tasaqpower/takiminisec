@@ -14,6 +14,35 @@ import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
 import { generateSfxBlob } from '../engine/sfxGenerator';
 import { saveAssetBlob } from '../db';
+import {
+  Scissors,
+  Trash2,
+  Copy,
+  Plus,
+  Magnet,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Volume2,
+  VolumeX,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  Video,
+  Music,
+  Type,
+  MessageSquare,
+  Sparkles,
+  Zap,
+  Palette,
+  Shuffle,
+  X,
+  Layers,
+  ArrowLeftRight,
+  ChevronDown,
+} from 'lucide-react';
+import { TimelineTrackHeader } from './ui/TimelineTrackHeader';
 
 interface TimelineProps {
   project: VideoProject;
@@ -52,6 +81,8 @@ interface TimelineProps {
   onAddTextAnimationSegment?: (clipId: string, segment: Omit<TextAnimationSegment, 'id'>) => TextAnimationSegment;
   onUpdateTextAnimationSegment?: (clipId: string, segmentId: string, updates: Partial<TextAnimationSegment>) => void;
   onDeleteTextAnimationSegment?: (clipId: string, segmentId: string) => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export const VideoTimeline: React.FC<TimelineProps> = ({
@@ -91,9 +122,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onAddTextAnimationSegment,
   onUpdateTextAnimationSegment,
   onDeleteTextAnimationSegment,
+  className,
+  style,
 }) => {
   const [zoom, setZoom] = useState<number>(40); // pixels per second
   const [snapping, setSnapping] = useState<boolean>(true);
+  const [isAddTrackMenuOpen, setIsAddTrackMenuOpen] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -109,6 +143,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+
+  // Synchronize vertical scrolling between track headers and timeline lanes
+  const handleTimelineScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (headerScrollRef.current && headerScrollRef.current.scrollTop !== e.currentTarget.scrollTop) {
+      headerScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  }, []);
+
+  const handleHeaderScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop !== e.currentTarget.scrollTop) {
+      scrollContainerRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  }, []);
 
   // Dragging state
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -731,141 +779,168 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   return (
     <div
       ref={containerRef}
-      className="h-72 bg-[#090d13] border-t border-[#21262d] flex flex-col select-none shrink-0 z-10"
+      data-testid="video-timeline"
+      style={style}
+      className={`bg-[#0a0c10] border-t border-[#191d26] flex flex-col select-none shrink-0 z-10 ${
+        className || 'h-72'
+      }`}
     >
       {/* Timeline Action Toolbar */}
-      <div className="h-10 px-4 border-b border-[#21262d] bg-[#0d1117] flex items-center justify-between text-xs">
+      <div className="h-[34px] px-3 border-b border-[#292F39] bg-[#111419] flex items-center justify-between text-xs shrink-0 select-none">
         {/* Left operations */}
         <div className="flex items-center gap-1.5">
           {/* Split / Böl Button */}
           <button
+            type="button"
             onClick={() => {
               if (selectedClipId) {
                 onSplitClip(selectedClipId, currentTime);
               }
             }}
             disabled={!selectedClipId}
-            className={`px-2.5 py-1 rounded flex items-center gap-1.5 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               selectedClipId
-                ? 'bg-[#161b22] text-gray-200 border-[#30363d] hover:border-indigo-500 hover:text-white'
-                : 'text-gray-600 border-transparent cursor-not-allowed'
+                ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#4f6bf5] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
             title="Klibi Oynatma Çizgisinden İkiye Böl (S)"
           >
-            <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
-            </svg>
+            <Scissors size={12} className="text-[#4f6bf5]" />
             <span className="font-semibold text-xs">Böl (S)</span>
-          </button>
-
-          {/* Delete Button */}
-          <button
-            onClick={() => {
-              if (selectedClipId) onDeleteClip(selectedClipId);
-            }}
-            disabled={!selectedClipId}
-            className={`p-1.5 rounded border transition-colors ${
-              selectedClipId
-                ? 'bg-[#161b22] text-gray-300 border-[#30363d] hover:border-red-500 hover:text-red-400'
-                : 'text-gray-600 border-transparent cursor-not-allowed'
-            }`}
-            title="Seçili Klibi Sil (Delete)"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
           </button>
 
           {/* Ripple Delete Button */}
           <button
+            type="button"
             onClick={() => {
               if (selectedClipId) onRippleDeleteClip(selectedClipId);
             }}
             disabled={!selectedClipId}
-            className={`px-2 py-1 rounded flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               selectedClipId
-                ? 'bg-[#161b22] text-amber-300 border-[#30363d] hover:border-amber-500'
-                : 'text-gray-600 border-transparent cursor-not-allowed'
+                ? 'bg-[#171B21] text-[#f59e0b] border-[#f59e0b]/40 hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
             title="Boşluksuz Sil (Shift+Delete)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+            <ArrowLeftRight size={12} className="text-[#f59e0b]" />
             <span className="text-[11px] font-medium">Boşluksuz Sil</span>
+          </button>
+
+          {/* Delete Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedClipId) onDeleteClip(selectedClipId);
+            }}
+            disabled={!selectedClipId}
+            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
+              selectedClipId
+                ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#f87171] hover:text-[#f87171] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Seçili Klibi Sil (Delete)"
+          >
+            <Trash2 size={12} />
           </button>
 
           {/* Duplicate Button */}
           <button
+            type="button"
             onClick={() => {
               if (selectedClipId) onDuplicateClip(selectedClipId);
             }}
             disabled={!selectedClipId}
-            className={`p-1.5 rounded border transition-colors ${
+            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
               selectedClipId
-                ? 'bg-[#161b22] text-gray-300 border-[#30363d] hover:border-indigo-500 hover:text-white'
-                : 'text-gray-600 border-transparent cursor-not-allowed'
+                ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
             title="Kopyasını Oluştur (Ctrl+D)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            <Copy size={12} />
           </button>
 
-          <div className="h-4 w-[1px] bg-[#30363d] mx-1" />
+          <div className="h-4 w-[1px] bg-[#292F39] mx-1" />
 
-          {/* Add Track dropdown */}
-          <div className="flex items-center gap-1">
+          {/* Add Track Dropdown */}
+          <div className="relative">
             <button
-              onClick={() => onAddTrack('video')}
-              className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#161b22] text-gray-300 hover:text-white border border-[#30363d] hover:border-gray-500 transition-colors"
+              type="button"
+              onClick={() => setIsAddTrackMenuOpen((prev) => !prev)}
+              className="h-6 px-2 rounded-[3px] text-[11px] font-medium bg-[#171B21] text-[#E7EAF0] hover:bg-[#202631] border border-[#292F39] hover:border-[#4f6bf5] transition-colors flex items-center gap-1"
             >
-              + Video Kanalı
+              <Plus size={12} className="text-[#4f6bf5]" />
+              <span>Kanal Ekle</span>
+              <ChevronDown size={10} className="text-[#929AA8]" />
             </button>
-            <button
-              onClick={() => onAddTrack('audio')}
-              className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#161b22] text-gray-300 hover:text-white border border-[#30363d] hover:border-gray-500 transition-colors"
-            >
-              + Ses Kanalı
-            </button>
-            <button
-              onClick={() => onAddTrack('text')}
-              className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#161b22] text-gray-300 hover:text-white border border-[#30363d] hover:border-gray-500 transition-colors"
-            >
-              + Metin Kanalı
-            </button>
+
+            {isAddTrackMenuOpen && (
+              <div className="absolute left-0 bottom-full mb-1 w-36 bg-[#171B21] border border-[#292F39] rounded-[3px] shadow-2xl py-1 z-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddTrack('video');
+                    setIsAddTrackMenuOpen(false);
+                  }}
+                  className="w-full px-2.5 py-1.5 text-left text-xs text-[#E7EAF0] hover:bg-[#202631] flex items-center gap-2 transition-colors"
+                >
+                  <Video size={12} className="text-[#6ba1df]" />
+                  <span>Video Kanalı</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddTrack('audio');
+                    setIsAddTrackMenuOpen(false);
+                  }}
+                  className="w-full px-2.5 py-1.5 text-left text-xs text-[#E7EAF0] hover:bg-[#202631] flex items-center gap-2 transition-colors"
+                >
+                  <Music size={12} className="text-[#4ade94]" />
+                  <span>Ses Kanalı</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddTrack('text');
+                    setIsAddTrackMenuOpen(false);
+                  }}
+                  className="w-full px-2.5 py-1.5 text-left text-xs text-[#E7EAF0] hover:bg-[#202631] flex items-center gap-2 transition-colors"
+                >
+                  <Type size={12} className="text-[#c084fc]" />
+                  <span>Metin Kanalı</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right operations: Snapping & Zoom */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Snapping */}
           <button
+            type="button"
             onClick={() => setSnapping(!snapping)}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors ${
+            className={`h-6 flex items-center gap-1.5 px-2 rounded-[3px] text-[11px] font-medium border transition-colors ${
               snapping
-                ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50'
-                : 'text-gray-500 border-transparent hover:text-gray-300'
+                ? 'bg-[#202631] text-[#E7EAF0] border-[#4f6bf5]'
+                : 'text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0] bg-[#171B21]'
             }`}
-            title="Mıknatıs / Yapışma (Snapping)"
+            title="Mıknatıs / Yapışma (N)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <Magnet size={12} className={snapping ? 'text-[#4f6bf5]' : 'text-[#929AA8]'} />
             <span>Mıknatıs</span>
           </button>
 
           {/* Zoom controls */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={() => setZoom((z) => Math.max(15, z - 10))}
-              className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#161b22]"
+              className="w-6 h-6 rounded-[3px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] flex items-center justify-center transition-colors"
               title="Uzaklaş (-)"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-              </svg>
+              <ZoomOut size={12} />
             </button>
             <input
               type="range"
@@ -873,16 +948,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               max="150"
               value={zoom}
               onChange={(e) => setZoom(parseInt(e.target.value))}
-              className="w-20 h-1 bg-[#21262d] accent-indigo-500 rounded cursor-pointer"
+              className="w-20 h-1 bg-[#1C212A] accent-[#4f6bf5] rounded cursor-pointer"
             />
             <button
+              type="button"
               onClick={() => setZoom((z) => Math.min(150, z + 10))}
-              className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#161b22]"
+              className="w-6 h-6 rounded-[3px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] flex items-center justify-center transition-colors"
               title="Yakınlaş (+)"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <ZoomIn size={12} />
             </button>
           </div>
         </div>
@@ -890,78 +964,41 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
       {/* Main Multi-track area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Fixed: Track Headers */}
-        <div className="w-48 bg-[#0d1117] border-r border-[#21262d] flex flex-col shrink-0">
+        {/* Left Fixed: Track Headers (160px Desktop NLE standard) */}
+        <div className="w-[160px] bg-[#111419] border-r border-[#292F39] flex flex-col shrink-0 select-none">
           {/* Header spacer corresponding to ruler */}
-          <div className="h-6 border-b border-[#21262d] bg-[#161b22]/50 px-2 flex items-center justify-between text-[10px] text-gray-400 font-semibold uppercase">
-            <span>Kanallar</span>
-            <span>{project.tracks.length}</span>
+          <div className="h-6 border-b border-[#292F39] bg-[#111419] px-2.5 flex items-center justify-between text-[10px] text-[#929AA8] font-semibold uppercase">
+            <div className="flex items-center gap-1.5">
+              <Layers size={11} className="text-[#929AA8]" />
+              <span>Kanallar</span>
+            </div>
+            <span className="font-mono text-[#929AA8] bg-[#171B21] px-1 rounded-[2px] text-[9px]">
+              {project.tracks.length}
+            </span>
           </div>
 
           {/* Track Headers List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            {project.tracks.map((track) => (
-              <div
+          <div
+            ref={headerScrollRef}
+            onScroll={handleHeaderScroll}
+            className="flex-1 overflow-y-auto no-scrollbar"
+          >
+            {project.tracks.map((track, index) => (
+              <TimelineTrackHeader
                 key={track.id}
-                className="h-16 px-2.5 border-b border-[#21262d] bg-[#0d1117] flex items-center justify-between group hover:bg-[#161b22]/60 transition-colors"
-              >
-                <div className="min-w-0 flex-1 mr-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-xs">
-                      {track.type === 'video'
-                        ? '📹'
-                        : track.type === 'audio'
-                        ? '🎵'
-                        : track.type === 'subtitle'
-                        ? '💬'
-                        : '🔤'}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-200 truncate">{track.name}</span>
-                  </div>
-                  <span className="text-[10px] text-gray-500 uppercase font-mono tracking-tight">
-                    {track.clips.length} Klip
-                  </span>
-                </div>
-
-                {/* Track controls: Mute, Lock, Hide, Delete */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => onToggleTrackMute(track.id)}
-                    className={`p-1 rounded transition-colors ${
-                      track.muted ? 'text-red-400 bg-red-950/40' : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                    title={track.muted ? 'Sesi Aç' : 'Sessize Al'}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    </svg>
-                  </button>
-
-                  <button
-                    onClick={() => onToggleTrackLock(track.id)}
-                    className={`p-1 rounded transition-colors ${
-                      track.locked ? 'text-amber-400 bg-amber-950/40' : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                    title={track.locked ? 'Kilidi Aç' : 'Kanalı Kilitle'}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </button>
-
-                  {project.tracks.length > 1 && (
-                    <button
-                      onClick={() => onDeleteTrack(track.id)}
-                      className="p-1 rounded text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Kanalı Sil"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
+                id={track.id}
+                name={track.name}
+                type={track.type}
+                index={index}
+                isMuted={track.muted}
+                isLocked={track.locked}
+                isHidden={track.isHidden ?? false}
+                clipCount={track.clips.length}
+                onToggleMute={() => onToggleTrackMute(track.id)}
+                onToggleLock={() => onToggleTrackLock(track.id)}
+                onToggleVisibility={() => onToggleTrackVisibility(track.id)}
+                onDeleteTrack={() => onDeleteTrack(track.id)}
+              />
             ))}
           </div>
         </div>
@@ -1062,6 +1099,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               setHoveredClipId(null);
             }
           }}
+          onScroll={handleTimelineScroll}
           className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#090d13]"
         >
           <div style={{ width: totalWidth }} className="relative min-h-full">
@@ -1090,21 +1128,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                       : 'bg-emerald-400 shadow-emerald-400/80'
                   }`}
                 />
-                <div className="absolute top-7 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#161b22] border border-gray-600 text-[10px] font-mono font-bold text-white shadow-xl flex items-center gap-1 whitespace-nowrap">
-                  <span>{hoveredCutPoint ? '⚡ Kesim Noktası' : `${dropHoverTime.toFixed(2)}s`}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Cut Point Snap Highlight */}
-            {isDragging && hoveredCutPoint && activePayload?.type === 'transition' && (
-              <div
-                style={{ left: `${hoveredCutPoint.cutTime * zoom}px` }}
-                className="absolute top-6 bottom-0 w-8 -translate-x-1/2 flex items-center justify-center pointer-events-none z-50 animate-pulse"
-              >
-                <div className="px-2 py-1 rounded bg-amber-500 text-black text-[10px] font-extrabold shadow-2xl flex items-center gap-1 border-2 border-white">
-                  <span>⚡</span>
-                  <span>BURAYA BIRAKIN</span>
+                <div className="absolute top-7 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#13161c] border border-[#202531] text-[10px] font-mono font-medium text-white shadow-xl flex items-center gap-1.5 whitespace-nowrap">
+                  {hoveredCutPoint ? (
+                    <>
+                      <Zap className="w-3 h-3 text-amber-400" />
+                      <span>Kesim Noktası</span>
+                    </>
+                  ) : (
+                    <span>{dropHoverTime.toFixed(2)}s</span>
+                  )}
                 </div>
               </div>
             )}
@@ -1124,17 +1156,23 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                   {/* Clips on this track */}
                   {track.clips.map((clip) => {
                     const isSelected = clip.id === selectedClipId;
+                    const isAdjacentToHoveredCut = Boolean(
+                      isDragging &&
+                      activePayload?.type === 'transition' &&
+                      hoveredCutPoint &&
+                      (hoveredCutPoint.leftClipId === clip.id || hoveredCutPoint.rightClipId === clip.id)
+                    );
                     const left = clip.startTime * zoom;
                     const width = Math.max(20, clip.duration * zoom);
 
-                    // Dynamic colors based on clip type
-                    let bgStyle = 'bg-blue-600/30 border-blue-500/70 text-blue-200';
+                    // Desaturated Desktop NLE Track Colors
+                    let bgStyle = 'bg-[#141c27] border-[#25364e] text-[#93c5fd]';
                     if (clip.type === 'audio') {
-                      bgStyle = 'bg-emerald-600/30 border-emerald-500/70 text-emerald-200';
-                    } else if (clip.type === 'text') {
-                      bgStyle = 'bg-purple-600/30 border-purple-500/70 text-purple-200';
+                      bgStyle = 'bg-[#12241b] border-[#1d4430] text-[#86efac]';
+                    } else if (clip.type === 'text' || clip.type === 'subtitle') {
+                      bgStyle = 'bg-[#211626] border-[#42254e] text-[#d8b4fe]';
                     } else if (clip.type === 'image') {
-                      bgStyle = 'bg-amber-600/30 border-amber-500/70 text-amber-200';
+                      bgStyle = 'bg-[#1c1d24] border-[#2f3340] text-[#cbd5e1]';
                     }
 
                     return (
@@ -1173,17 +1211,19 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           left: `${left}px`,
                           width: `${width}px`,
                         }}
-                        className={`absolute top-1.5 bottom-1.5 rounded-md border flex items-center justify-between px-2 cursor-grab active:cursor-grabbing overflow-hidden group select-none transition-shadow ${bgStyle} ${
+                        className={`absolute top-1.5 bottom-1.5 rounded-[3px] border flex items-center justify-between px-2 cursor-grab active:cursor-grabbing overflow-hidden group select-none transition-shadow ${bgStyle} ${
                           isSelected
-                            ? 'ring-2 ring-white border-white shadow-lg shadow-indigo-500/30 z-20'
+                            ? 'ring-1 ring-[#4f6bf5] border-[#4f6bf5] shadow-md z-20'
+                            : isAdjacentToHoveredCut
+                            ? 'ring-2 ring-amber-400 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)] z-20 brightness-110'
                             : 'hover:brightness-110 z-10'
                         }`}
                       >
-                        {/* 1. Background Visuals: Audio Waveform or Video Filmstrip */}
+                        {/* 1. Background Visuals: Audio Waveform, Video Filmstrip, or Text Preview */}
                         {clip.type === 'audio' && (
-                          <div className="absolute inset-0 opacity-40 pointer-events-none flex items-center overflow-hidden px-1 z-0">
+                          <div className="absolute inset-0 opacity-45 pointer-events-none flex items-center overflow-hidden px-1 z-0">
                             <svg className="w-full h-8" preserveAspectRatio="none" viewBox="0 0 100 32">
-                              {Array.from({ length: 40 }).map((_, i) => {
+                              {Array.from({ length: 48 }).map((_, i) => {
                                 const seed = (clip.id.charCodeAt(clip.id.length - 1) || 1) * 31 + i * 17;
                                 const heightRatio = 0.2 + 0.8 * Math.abs(Math.sin(seed * 0.45));
                                 const barH = Math.max(3, heightRatio * 28);
@@ -1191,11 +1231,11 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 return (
                                   <rect
                                     key={i}
-                                    x={i * 2.5}
+                                    x={i * 2.08}
                                     y={y}
-                                    width={1.6}
+                                    width={1.4}
                                     height={barH}
-                                    rx={0.8}
+                                    rx={0.6}
                                     fill="#34d399"
                                   />
                                 );
@@ -1204,22 +1244,46 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           </div>
                         )}
 
-                        {clip.type === 'video' && clip.sourceUrl && (
-                          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden flex z-0">
-                            {Array.from({ length: Math.max(1, Math.ceil(width / 70)) }).map((_, i) => (
-                              <div
-                                key={i}
-                                className="h-full w-[70px] shrink-0 bg-cover bg-center border-r border-black/30"
-                                style={{
-                                  backgroundImage: `url(${clip.sourceUrl})`,
-                                  backgroundColor: '#1e293b',
-                                }}
-                              />
-                            ))}
+                        {clip.type === 'video' && (
+                          <>
+                            {/* Filmstrip Sprockets Top & Bottom */}
+                            <div className="absolute top-0 left-0 right-0 h-[5px] forma-filmstrip-sprockets opacity-40 z-10 pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 right-0 h-[5px] forma-filmstrip-sprockets opacity-40 z-10 pointer-events-none" />
+
+                            {/* Repeated Thumbnail Cards */}
+                            {clip.sourceUrl ? (
+                              <div className="absolute inset-0 opacity-25 pointer-events-none overflow-hidden flex z-0">
+                                {Array.from({ length: Math.max(1, Math.ceil(width / 64)) }).map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="h-full w-[64px] shrink-0 bg-cover bg-center border-r border-black/40"
+                                    style={{
+                                      backgroundImage: `url(${clip.sourceUrl})`,
+                                      backgroundColor: '#0f172a',
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden flex z-0">
+                                {Array.from({ length: Math.max(1, Math.ceil(width / 64)) }).map((_, i) => (
+                                  <div key={i} className="h-full w-[64px] shrink-0 border-r border-[#25364e]" />
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {/* Text Preview Snippet */}
+                        {(clip.type === 'text' || clip.type === 'subtitle') && clip.textData?.text && (
+                          <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center px-3 z-0 overflow-hidden">
+                            <span className="text-[10px] font-sans italic truncate text-[#d8b4fe]">
+                              &ldquo;{clip.textData.text}&rdquo;
+                            </span>
                           </div>
                         )}
 
-                        {/* 2. Transition Badges */}
+                        {/* 2. Transition Badges (Compact Corner Indicators) */}
                         {clip.transitionIn && clip.transitionIn.type !== 'cut' && clip.transitionIn.type !== 'none' && (
                           <button
                             type="button"
@@ -1233,11 +1297,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 y: Math.max(20, e.clientY - 220),
                               });
                             }}
-                            className="absolute left-3 top-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-extrabold flex items-center gap-0.5 shadow uppercase tracking-tight transition-transform active:scale-95 cursor-pointer"
-                            title={`Giriş: ${clip.transitionIn.type} (${clip.transitionIn.duration}s) — Değiştirmek için tıkla`}
+                            className="absolute left-1 top-1 z-20 w-4 h-4 rounded-[2px] bg-amber-500/80 hover:bg-amber-400 text-black flex items-center justify-center shadow transition-transform active:scale-95 cursor-pointer"
+                            title={`Giriş: ${clip.transitionIn.type} (${clip.transitionIn.duration}s)`}
                           >
-                            <span>⚡</span>
-                            <span>{clip.transitionIn.type}</span>
+                            <Shuffle className="w-2.5 h-2.5 text-black" />
                           </button>
                         )}
 
@@ -1254,11 +1317,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 y: Math.max(20, e.clientY - 220),
                               });
                             }}
-                            className="absolute right-3 top-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-extrabold flex items-center gap-0.5 shadow uppercase tracking-tight transition-transform active:scale-95 cursor-pointer"
-                            title={`Çıkış: ${clip.transitionOut.type} (${clip.transitionOut.duration}s) — Değiştirmek için tıkla`}
+                            className="absolute right-1 top-1 z-20 w-4 h-4 rounded-[2px] bg-amber-500/80 hover:bg-amber-400 text-black flex items-center justify-center shadow transition-transform active:scale-95 cursor-pointer"
+                            title={`Çıkış: ${clip.transitionOut.type} (${clip.transitionOut.duration}s)`}
                           >
-                            <span>{clip.transitionOut.type}</span>
-                            <span>⚡</span>
+                            <Shuffle className="w-2.5 h-2.5 text-black" />
                           </button>
                         )}
 
@@ -1278,19 +1340,23 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               });
                             }
                           }}
-                          className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center z-10"
+                          className="absolute left-0 top-0 bottom-0 w-2 hover:bg-white/30 cursor-ew-resize flex items-center justify-center z-20 group/handle"
                           title="Başlangıcı Kırp"
                         >
-                          <div className="w-[2px] h-3 bg-white/70" />
+                          <div className="w-[1.5px] h-3.5 bg-white/40 group-hover/handle:bg-white/90 rounded-[0.5px]" />
                         </div>
 
                         {/* Clip Content Label & Visuals */}
                         <div className="flex-1 min-w-0 mx-2 pointer-events-none flex flex-col justify-center relative z-10">
-                          <p className="text-xs font-semibold truncate text-white drop-shadow-sm flex items-center gap-1">
-                            {clip.muted && <span className="text-[10px]" title="Sessize Alındı">🔇</span>}
+                          <p className="text-xs font-semibold truncate text-[#E7EAF0] drop-shadow-sm flex items-center gap-1">
+                            {clip.muted && (
+                              <span title="Sessize Alındı" className="inline-flex items-center">
+                                <VolumeX className="w-3 h-3 text-red-400 shrink-0" />
+                              </span>
+                            )}
                             <span>{clip.name}</span>
                           </p>
-                          <p className="text-[9px] opacity-75 font-mono truncate">
+                          <p className="text-[9px] text-[#929AA8] font-mono truncate">
                             {clip.duration.toFixed(1)} sn
                             {clip.speed && clip.speed !== 1 ? ` • ${clip.speed}x` : ''}
                           </p>
@@ -1301,7 +1367,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               {clip.animationSegments.map((anim) => (
                                 <span
                                   key={anim.id}
-                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-0.5 shadow-sm border ${
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-1 shadow-sm border ${
                                     anim.type === 'in'
                                       ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60'
                                       : anim.type === 'loop'
@@ -1310,7 +1376,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                   }`}
                                   title={`${anim.type.toUpperCase()}: ${anim.animationName}`}
                                 >
-                                  <span>{anim.type === 'in' ? '🟢' : anim.type === 'loop' ? '🔵' : '🟠'}</span>
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                      anim.type === 'in'
+                                        ? 'bg-emerald-400'
+                                        : anim.type === 'loop'
+                                        ? 'bg-cyan-400'
+                                        : 'bg-amber-400'
+                                    }`}
+                                  />
                                   <span className="truncate max-w-[45px]">{anim.animationName}</span>
                                   <button
                                     type="button"
@@ -1321,7 +1395,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                     className="hover:text-red-400 ml-0.5 cursor-pointer font-bold"
                                     title="Animasyonu Kaldır"
                                   >
-                                    ✕
+                                    <X className="w-2.5 h-2.5" />
                                   </button>
                                 </span>
                               ))}
@@ -1338,12 +1412,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                     e.stopPropagation();
                                     onSelectEffectSegment?.(eff.id);
                                   }}
-                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-0.5 shadow-sm border bg-indigo-950/80 text-indigo-300 border-indigo-500/60 cursor-pointer hover:bg-indigo-900 ${
+                                  className={`px-1 py-0.2 rounded text-[8px] font-bold flex items-center gap-1 shadow-sm border bg-indigo-950/80 text-indigo-300 border-indigo-500/60 cursor-pointer hover:bg-indigo-900 ${
                                     selectedEffectSegmentId === eff.id ? 'ring-1 ring-white' : ''
                                   }`}
                                   title={`Efekt: ${eff.name} — Tıkla: Düzenle`}
                                 >
-                                  <span>🎨</span>
+                                  <Palette className="w-2.5 h-2.5 text-indigo-300 shrink-0" />
                                   <span className="truncate max-w-[45px]">{eff.name}</span>
                                   <button
                                     type="button"
@@ -1354,7 +1428,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                     className="hover:text-red-400 ml-0.5 cursor-pointer font-bold"
                                     title="Efekti Kaldır"
                                   >
-                                    ✕
+                                    <X className="w-2.5 h-2.5" />
                                   </button>
                                 </span>
                               ))}
@@ -1399,10 +1473,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               });
                             }
                           }}
-                          className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/20 hover:bg-white/60 cursor-ew-resize flex items-center justify-center z-10"
+                          className="absolute right-0 top-0 bottom-0 w-2 hover:bg-white/30 cursor-ew-resize flex items-center justify-center z-20 group/handle"
                           title="Bitişi Kırp"
                         >
-                          <div className="w-[2px] h-3 bg-white/70" />
+                          <div className="w-[1.5px] h-3.5 bg-white/40 group-hover/handle:bg-white/90 rounded-[0.5px]" />
                         </div>
                       </div>
                     );
@@ -1410,6 +1484,44 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 </div>
               ))}
             </div>
+
+            {/* 2.4 Cut Point Snap Highlight on Drag */}
+            {isDragging && hoveredCutPoint && activePayload?.type === 'transition' && (
+              <div className="absolute inset-0 pointer-events-none z-40">
+                {/* Semi-transparent duration box preview */}
+                <div
+                  style={{
+                    left: `${(hoveredCutPoint.cutTime - (activePayload.duration || 1.0) / 2) * zoom}px`,
+                    width: `${(activePayload.duration || 1.0) * zoom}px`,
+                  }}
+                  className="absolute top-6 bottom-0 bg-amber-500/25 border-x-2 border-dashed border-amber-400 pointer-events-none z-40 flex items-center justify-center backdrop-blur-[1px]"
+                >
+                  <span className="text-[10px] font-mono font-bold text-amber-200 bg-black/90 px-2 py-0.5 rounded border border-amber-400 shadow-xl">
+                    {(activePayload.duration || 1.0).toFixed(1)}s
+                  </span>
+                </div>
+
+                {/* Glowing vertical cut line */}
+                <div
+                  style={{ left: `${hoveredCutPoint.cutTime * zoom}px` }}
+                  className="absolute top-6 bottom-0 w-0.5 -translate-x-1/2 bg-amber-400 shadow-[0_0_16px_#f59e0b] pointer-events-none z-50"
+                />
+
+                {/* Snap Badge */}
+                <div
+                  style={{
+                    left: `${hoveredCutPoint.cutTime * zoom}px`,
+                    top: '32px',
+                  }}
+                  className="absolute w-28 -translate-x-1/2 flex items-center justify-center pointer-events-none z-50"
+                >
+                  <div className="px-2.5 py-1 rounded bg-amber-500 text-black text-[10px] font-extrabold shadow-2xl flex items-center gap-1.5 border border-amber-300 ring-2 ring-black/40">
+                    <Zap className="w-3.5 h-3.5 fill-black text-black" />
+                    <span>BURAYA BIRAKIN</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 2.5 Bowtie / Butterfly Transitions Layer */}
             {project.transitions && project.transitions.length > 0 && (
@@ -1446,30 +1558,27 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                       }`}
                       title={`${trDef?.name || tr.type} (${tr.duration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
                     >
-                      {/* Bowtie / Butterfly SVG shape */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <svg
-                          viewBox="0 0 40 24"
-                          preserveAspectRatio="none"
-                          className="w-full h-full drop-shadow-md"
-                        >
-                          <defs>
-                            <linearGradient id={`bowtie-grad-${tr.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.9" />
-                              <stop offset="50%" stopColor="#d97706" stopOpacity="0.75" />
-                              <stop offset="100%" stopColor="#b45309" stopOpacity="0.9" />
-                            </linearGradient>
-                          </defs>
-                          <polygon points="0,2 18,12 0,22" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="1" />
-                          <polygon points="40,2 22,12 40,22" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="1" />
-                          <line x1="20" y1="0" x2="20" y2="24" stroke="#ffffff" strokeWidth="2" strokeDasharray="2 2" />
-                        </svg>
-                      </div>
+                      {/* Duration Region Overlay */}
+                      <div className="absolute inset-0 bg-amber-500/10 border-t border-b border-amber-500/30 rounded-[2px] pointer-events-none" />
 
-                      {/* Center Badge label */}
-                      <div className="relative z-10 px-1.5 py-0.5 rounded bg-black/70 border border-amber-400/80 text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow-sm backdrop-blur-sm pointer-events-none truncate max-w-full">
-                        <span>{trDef?.icon || '⚡'}</span>
-                        <span className="truncate">{trDef?.name || tr.type}</span>
+                      {/* Compact Center Bowtie (24x22 px) */}
+                      <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none">
+                        <div className="w-6 h-4 relative flex items-center justify-center">
+                          <svg viewBox="0 0 24 14" className="w-6 h-3.5 drop-shadow">
+                            <defs>
+                              <linearGradient id={`bowtie-grad-${tr.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
+                                <stop offset="100%" stopColor="#d97706" stopOpacity="0.95" />
+                              </linearGradient>
+                            </defs>
+                            <polygon points="0,1 11,7 0,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
+                            <polygon points="24,1 13,7 24,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
+                            <line x1="12" y1="0" x2="12" y2="14" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="1 1" />
+                          </svg>
+                        </div>
+                        <span className="text-[8px] font-mono text-amber-300 font-bold px-1 py-0 bg-black/80 rounded leading-none border border-amber-500/40 shadow-sm mt-0.5">
+                          {tr.duration.toFixed(1)} sn
+                        </span>
                       </div>
 
                       {/* Left Duration Handle */}
@@ -1483,7 +1592,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             edge: 'left',
                           });
                         }}
-                        className="absolute left-0 top-0 bottom-0 w-2 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        className="absolute left-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-l"
                         title="Geçiş süresini ayarla (Sol)"
                       />
 
@@ -1498,7 +1607,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             edge: 'right',
                           });
                         }}
-                        className="absolute right-0 top-0 bottom-0 w-2 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        className="absolute right-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-r"
                         title="Geçiş süresini ayarla (Sağ)"
                       />
 
@@ -1512,7 +1621,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                         className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity z-30"
                         title="Geçişi Sil"
                       >
-                        ✕
+                        <X className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   );
@@ -1550,7 +1659,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                       title={`Efekt: ${eff.name} — Tıkla: Düzenle`}
                     >
                       <span className="truncate flex items-center gap-1">
-                        <span>🎨</span>
+                        <Palette className="w-2.5 h-2.5 text-indigo-200 shrink-0" />
                         <span className="font-semibold">{eff.name}</span>
                       </span>
                       <button
@@ -1562,7 +1671,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                         className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 ml-1 font-bold"
                         title="Efekti Sil"
                       >
-                        ✕
+                        <X className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   );
@@ -1592,10 +1701,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       {contextMenu && (
         <div
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 min-w-[210px] bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-1.5 text-xs text-gray-200 select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 min-w-[210px] bg-[#0e1014] border border-[#202531] rounded-lg shadow-2xl p-1 text-xs text-gray-200 select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 border-b border-[#21262d] uppercase truncate mb-1">
+          <div className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 border-b border-[#191d26] uppercase truncate mb-1">
             {contextMenu.clip.name}
           </div>
 
@@ -1604,10 +1713,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               onSplitClip(contextMenu.clip.id, currentTime);
               setContextMenu(null);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
           >
             <span className="flex items-center gap-2">
-              <span>✂️</span>
+              <Scissors className="w-3.5 h-3.5 text-indigo-400" />
               <span>Buradan Böl</span>
             </span>
             <kbd className="text-[10px] text-gray-400 font-mono">S</kbd>
@@ -1618,10 +1727,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               onDuplicateClip(contextMenu.clip.id);
               setContextMenu(null);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
           >
             <span className="flex items-center gap-2">
-              <span>📋</span>
+              <Copy className="w-3.5 h-3.5 text-indigo-400" />
               <span>Kopyasını Oluştur</span>
             </span>
             <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+D</kbd>
@@ -1633,9 +1742,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 onDetachAudio(contextMenu.clip.id);
                 setContextMenu(null);
               }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-indigo-300 text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-emerald-400 text-left"
             >
-              <span>🎵</span>
+              <Music className="w-3.5 h-3.5" />
               <span>Sesi Videodan Ayır</span>
             </button>
           )}
@@ -1646,15 +1755,24 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 onToggleClipMute(contextMenu.clip.id);
                 setContextMenu(null);
               }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
             >
-              <span>{contextMenu.clip.muted ? '🔊' : '🔇'}</span>
-              <span>{contextMenu.clip.muted ? 'Sesi Aç' : 'Sessize Al'}</span>
+              {contextMenu.clip.muted ? (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-gray-400" />
+                  <span>Sesi Aç</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                  <span>Sessize Al</span>
+                </>
+              )}
             </button>
           )}
 
           {contextMenu.clip.type === 'video' && onUpdateClipSpeed && (
-            <div className="px-2.5 py-1.5 border-t border-b border-[#21262d] my-1">
+            <div className="px-2.5 py-1.5 border-t border-b border-[#191d26] my-1">
               <span className="text-[10px] text-gray-400 block mb-1">Oynatma Hızı</span>
               <div className="flex items-center gap-1">
                 {[0.5, 1.0, 1.5, 2.0].map((s) => (
@@ -1667,7 +1785,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                     className={`flex-1 py-0.5 rounded text-[10px] font-mono border ${
                       (contextMenu.clip.speed || 1) === s
                         ? 'bg-indigo-600 text-white border-indigo-500'
-                        : 'bg-[#0d1117] text-gray-300 border-[#30363d] hover:bg-[#21262d]'
+                        : 'bg-[#13161c] text-gray-300 border-[#202531] hover:bg-[#181c24]'
                     }`}
                   >
                     {s}x
@@ -1682,10 +1800,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               onDeleteClip(contextMenu.clip.id);
               setContextMenu(null);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-red-600 hover:text-white text-red-400 transition-colors text-left"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-red-950/40 hover:text-white text-red-400 transition-colors text-left"
           >
             <span className="flex items-center gap-2">
-              <span>🗑️</span>
+              <Trash2 className="w-3.5 h-3.5" />
               <span>Klibi Sil</span>
             </span>
             <kbd className="text-[10px] font-mono">Del</kbd>
@@ -1696,10 +1814,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               onRippleDeleteClip(contextMenu.clip.id);
               setContextMenu(null);
             }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-red-600 hover:text-white text-red-400 transition-colors text-left"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-red-950/40 hover:text-white text-red-400 transition-colors text-left"
           >
             <span className="flex items-center gap-2">
-              <span>⏩</span>
+              <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
               <span>Boşluğu Kapatıp Sil</span>
             </span>
             <kbd className="text-[10px] font-mono">Shift+Del</kbd>
@@ -1711,24 +1829,24 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       {transitionMenu && (
         <div
           style={{ left: `${transitionMenu.x}px`, top: `${transitionMenu.y}px` }}
-          className="fixed z-50 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-3 w-72 text-xs select-none backdrop-blur-md"
+          className="fixed z-50 bg-[#0e1014] border border-[#202531] rounded-lg shadow-2xl p-3 w-72 text-xs select-none backdrop-blur-md"
         >
-          <div className="flex items-center justify-between pb-2 border-b border-[#21262d] mb-2">
+          <div className="flex items-center justify-between pb-2 border-b border-[#191d26] mb-2">
             <span className="font-semibold text-white flex items-center gap-1.5">
-              <span>⚡</span>
+              <Shuffle className="w-3.5 h-3.5 text-indigo-400" />
               <span>{transitionMenu.side === 'in' ? 'Giriş Geçişi (In)' : 'Çıkış Geçişi (Out)'}</span>
             </span>
             <button
               onClick={() => setTransitionMenu(null)}
               className="text-gray-400 hover:text-white p-0.5 rounded hover:bg-white/10"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <p className="text-[10px] text-gray-400 mb-2">
             13 profesyonel geçiş arasından birini seçin veya kaldırın:
           </p>
-          <div className="grid grid-cols-2 gap-1.5 max-h-52 overflow-y-auto mb-2 pr-1">
+          <div className="grid grid-cols-2 gap-1.5 max-h-52 overflow-y-auto mb-2 pr-1 custom-scrollbar">
             <button
               type="button"
               onClick={() => {
@@ -1738,9 +1856,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 }
                 setTransitionMenu(null);
               }}
-              className="p-1.5 rounded bg-[#0d1117] hover:bg-red-950/40 text-red-400 border border-[#30363d] hover:border-red-500/50 text-left text-[10px] flex items-center gap-1.5 col-span-2 justify-center font-medium"
+              className="p-1.5 rounded-md bg-[#13161c] hover:bg-red-950/40 text-red-400 border border-[#202531] hover:border-red-500/50 text-left text-[10px] flex items-center gap-1.5 col-span-2 justify-center font-medium transition-colors"
             >
-              <span>✕</span>
+              <X className="w-3 h-3" />
               <span>Geçişi Kaldır (Sert Kesim)</span>
             </button>
             {TRANSITION_DEFINITIONS.filter((t) => t.id !== 'cut' && t.id !== 'none').map((tr) => (
@@ -1756,10 +1874,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                   }
                   setTransitionMenu(null);
                 }}
-                className="p-1.5 rounded bg-[#0d1117] hover:bg-indigo-600/30 text-gray-200 border border-[#30363d] hover:border-indigo-500/50 text-left text-[10px] flex items-center gap-1.5 truncate transition-colors"
+                className="p-1.5 rounded-md bg-[#13161c] hover:bg-indigo-600/20 text-gray-200 border border-[#202531] hover:border-indigo-500/50 text-left text-[10px] flex items-center gap-1.5 truncate transition-colors"
                 title={tr.description}
               >
-                <span>{tr.icon}</span>
+                <Shuffle className="w-3 h-3 text-indigo-400 shrink-0" />
                 <span className="truncate">{tr.name}</span>
               </button>
             ))}

@@ -101,6 +101,7 @@ export function useVideoProject() {
   const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
   const [selectedEffectSegmentId, setSelectedEffectSegmentId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [hasAutosavePrompt, setHasAutosavePrompt] = useState(false);
   const [recoveredProject, setRecoveredProject] = useState<VideoProject | null>(null);
 
@@ -136,12 +137,22 @@ export function useVideoProject() {
       return;
     }
 
+    setSaveStatus('saving');
+    setIsDirty(true);
+
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
     }
 
-    autosaveTimerRef.current = setTimeout(() => {
-      saveProjectMetadata(project).catch((err) => console.warn('Autosave failed:', err));
+    autosaveTimerRef.current = setTimeout(async () => {
+      try {
+        await saveProjectMetadata(project);
+        setSaveStatus('saved');
+        setIsDirty(false);
+      } catch (err) {
+        console.warn('Autosave failed:', err);
+        setSaveStatus('error');
+      }
     }, 1000);
 
     return () => {
@@ -1259,8 +1270,15 @@ export function useVideoProject() {
 
   // Save / Recovery
   const saveProjectNow = useCallback(async () => {
-    await saveProjectMetadata(project);
-    setIsDirty(false);
+    setSaveStatus('saving');
+    try {
+      await saveProjectMetadata(project);
+      setSaveStatus('saved');
+      setIsDirty(false);
+    } catch (err) {
+      console.warn('Manual save failed:', err);
+      setSaveStatus('error');
+    }
   }, [project]);
 
   const acceptRecovery = useCallback(() => {
@@ -1288,6 +1306,7 @@ export function useVideoProject() {
     undoStackRef.current = [];
     redoStackRef.current = [];
     setIsDirty(false);
+    setSaveStatus('saved');
   }, []);
 
   return {
@@ -1303,6 +1322,7 @@ export function useVideoProject() {
     setSelectedTransitionId,
     setSelectedEffectSegmentId,
     isDirty,
+    saveStatus,
     canUndo: undoStackRef.current.length > 0,
     canRedo: redoStackRef.current.length > 0,
     undo,

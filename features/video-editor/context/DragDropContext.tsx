@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { Ban, Shuffle, Layers, Clock, MapPin, Check } from 'lucide-react';
 import type { DragPayload, DragPayloadType } from '../types';
 export type { DragPayload, DragPayloadType };
 
@@ -247,6 +248,7 @@ export const EditorDragDropProvider: React.FC<{ children: React.ReactNode }> = (
       {/* Floating Drag Ghost / Preview */}
       {isDragging && activePayload && (
         <div
+          data-testid="drag-ghost"
           style={{
             position: 'fixed',
             left: `${pointerPos.x + 14}px`,
@@ -262,19 +264,35 @@ export const EditorDragDropProvider: React.FC<{ children: React.ReactNode }> = (
               : 'bg-[#161b22]/95 border-2 border-indigo-500 text-white'
           }`}
         >
-          <span className="text-base leading-none">
-            {targetInfo?.isValid === false ? '🚫' : activePayload.icon || '📦'}
+          <span className="flex items-center justify-center w-6 h-6 rounded-md bg-white/10 shrink-0">
+            {targetInfo?.isValid === true ? (
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+            ) : targetInfo?.isValid === false ? (
+              <Ban className="w-3.5 h-3.5 text-rose-400" />
+            ) : activePayload.type === 'transition' ? (
+              <Shuffle className="w-3.5 h-3.5 text-amber-300" />
+            ) : (
+              <Layers className="w-3.5 h-3.5 text-indigo-300" />
+            )}
           </span>
-          <div className="flex flex-col">
-            <span className="leading-tight font-bold">{activePayload.name}</span>
-            <div className="flex items-center gap-1.5 text-[10px] opacity-90 font-mono mt-0.5">
-              {activePayload.duration && <span>⏱️ {activePayload.duration}s</span>}
-              {targetInfo?.time !== undefined && (
-                <span className="bg-black/50 px-1 py-0.5 rounded font-mono text-amber-300 font-bold">
-                  📍 {formatTimecode(targetInfo.time)}
+          <div className="flex flex-col min-w-0">
+            <span className="leading-tight font-bold text-white text-xs truncate max-w-[180px]">
+              {activePayload.name}
+            </span>
+            <div className="flex items-center gap-1.5 text-[10px] opacity-90 font-mono mt-0.5 text-slate-300">
+              {activePayload.duration && (
+                <span className="flex items-center gap-0.5 text-amber-300">
+                  <Clock className="w-2.5 h-2.5" />
+                  {activePayload.duration.toFixed(1)} sn
                 </span>
               )}
-              {targetInfo?.label && <span className="text-gray-200 font-medium">• {targetInfo.label}</span>}
+              {targetInfo?.time !== undefined && (
+                <span className="bg-black/60 px-1 py-0.5 rounded font-mono text-amber-300 font-bold flex items-center gap-0.5">
+                  <MapPin className="w-2.5 h-2.5" />
+                  {formatTimecode(targetInfo.time)}
+                </span>
+              )}
+              {targetInfo?.label && <span className="text-gray-200 font-medium truncate">• {targetInfo.label}</span>}
             </div>
           </div>
         </div>

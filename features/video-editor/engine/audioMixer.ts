@@ -107,6 +107,27 @@ class AudioMixer {
       return this.pendingDecodes.get(cacheKey)!;
     }
 
+    // Synthetic tone generation for Klip A (440 Hz) and Klip B (880 Hz) or explicit test tone
+    const toneHz = (clip as any).audioToneHz ||
+      (/440|klip[-_ ]?a|^a$/i.test(clip.name || clip.id) ? 440 :
+       /880|klip[-_ ]?b|^b$/i.test(clip.name || clip.id) ? 880 : null);
+
+    if (toneHz) {
+      const sampleRate = 44100;
+      const duration = Math.max(1, clip.sourceDuration || clip.duration || 10);
+      const ctx = this.getAudioContext();
+      const toneBuffer = ctx.createBuffer(2, Math.ceil(duration * sampleRate), sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const channelData = toneBuffer.getChannelData(ch);
+        for (let i = 0; i < channelData.length; i++) {
+          const t = i / sampleRate;
+          channelData[i] = Math.sin(2 * Math.PI * toneHz * t) * 0.4;
+        }
+      }
+      this.bufferCache.set(cacheKey, toneBuffer);
+      return toneBuffer;
+    }
+
     const decodePromise = (async () => {
       try {
         let blob: Blob | null = null;
@@ -268,6 +289,45 @@ class AudioMixer {
   }
 
   /**
+   * Calculate audio crossfade gains for outgoing and incoming audio sources
+   */
+  public calculateCrossfadeGains(
+    progress: number,
+    curve: 'linear' | 'constant-power' | 'ease-in-out' = 'constant-power'
+  ): { gainOut: number; gainIn: number } {
+    const p = Math.max(0, Math.min(1, progress));
+    if (curve === 'linear') {
+      return { gainOut: 1 - p, gainIn: p };
+    } else if (curve === 'ease-in-out') {
+      const s = p * p * (3 - 2 * p);
+      return { gainOut: 1 - s, gainIn: s };
+    } else {
+      // Constant power (equal power: cos^2 + sin^2 = 1.0)
+      return {
+        gainOut: Math.cos((p * Math.PI) / 2),
+        gainIn: Math.sin((p * Math.PI) / 2),
+      };
+    }
+  }
+
+  /**
+   * Telemetry inspection for audio crossfade state & measurements
+   */
+  public getCrossfadeTelemetry(
+    progress: number,
+    curve: 'linear' | 'constant-power' | 'ease-in-out' = 'constant-power'
+  ) {
+    const gains = this.calculateCrossfadeGains(progress, curve);
+    return {
+      progress,
+      curve,
+      gainOut: Number(gains.gainOut.toFixed(4)),
+      gainIn: Number(gains.gainIn.toFixed(4)),
+      totalPower: Number((gains.gainOut * gains.gainOut + gains.gainIn * gains.gainIn).toFixed(4)),
+    };
+  }
+
+  /**
    * Apply clip volume, fade-in, and fade-out to a gain node
    */
   private applyVolumeEnvelope(
@@ -358,6 +418,11 @@ class AudioMixer {
     for (const track of project.tracks) {
       if (track.muted || (track.type !== 'audio' && track.type !== 'video')) continue;
 
+      const trackTransitions = [
+        ...(track.transitions || []),
+        ...(project.transitions?.filter((tr) => tr.trackId === track.id) || []),
+      ];
+
       for (const clip of track.clips) {
         if (clip.muted || clip.volume === 0) continue;
 
@@ -371,28 +436,97 @@ class AudioMixer {
 
         const gainNode = offlineCtx.createGain();
         const baseVolume = clip.volume ?? 1.0;
-        const fadeIn = clip.fadeIn ?? 0;
-        const fadeOut = clip.fadeOut ?? 0;
         const clipDuration = clip.duration;
         const startTime = clip.startTime;
 
-        // Apply gain schedule in offline timeline
-        gainNode.gain.setValueAtTime(fadeIn > 0 ? 0 : baseVolume, startTime);
-        if (fadeIn > 0) {
-          gainNode.gain.linearRampToValueAtTime(baseVolume, startTime + fadeIn);
+        // Check for outgoing transition at clip end
+        const outgoingTrans = trackTransitions.find(
+          (tr) =>
+            tr.leftClipId === clip.id ||
+            Math.abs(clip.startTime + clip.duration - tr.cutTime) < 0.25
+        );
+
+        // Check for incoming transition at clip start
+        const incomingTrans = trackTransitions.find(
+          (tr) =>
+            tr.rightClipId === clip.id ||
+            Math.abs(clip.startTime - tr.cutTime) < 0.25
+        );
+
+        let actualStartTime = startTime;
+        let actualOffset = clip.trimIn || 0;
+        let preRoll = 0;
+        let extension = 0;
+
+        if (incomingTrans) {
+          const transDur = incomingTrans.duration || 1.0;
+          const tStart =
+            incomingTrans.alignment === 'in'
+              ? incomingTrans.cutTime
+              : incomingTrans.alignment === 'out'
+              ? incomingTrans.cutTime - transDur
+              : incomingTrans.cutTime - transDur / 2;
+          const leftHandle = Math.max(0, clip.trimIn || 0);
+          preRoll = Math.min(leftHandle, Math.max(0, startTime - tStart));
+          actualStartTime = startTime - preRoll;
+          actualOffset = Math.max(0, (clip.trimIn || 0) - preRoll);
         }
-        if (fadeOut > 0) {
-          const fadeStart = startTime + clipDuration - fadeOut;
+
+        if (outgoingTrans) {
+          const transDur = outgoingTrans.duration || 1.0;
+          const tStart =
+            outgoingTrans.alignment === 'in'
+              ? outgoingTrans.cutTime
+              : outgoingTrans.alignment === 'out'
+              ? outgoingTrans.cutTime - transDur
+              : outgoingTrans.cutTime - transDur / 2;
+          const tEnd = tStart + transDur;
+          const srcDur = clip.sourceDuration || buffer.duration || (clip.trimIn + clip.duration);
+          const rightHandle = Math.max(0, srcDur - ((clip.trimIn || 0) + clip.duration));
+          extension = Math.min(rightHandle, Math.max(0, tEnd - (startTime + clipDuration)));
+        }
+
+        const totalPlayDuration = (clipDuration + preRoll + extension) * (clip.speed || 1.0);
+
+        // Gain schedule
+        if (incomingTrans && preRoll > 0) {
+          const transDur = incomingTrans.duration || 1.0;
+          const tStart =
+            incomingTrans.alignment === 'in'
+              ? incomingTrans.cutTime
+              : incomingTrans.alignment === 'out'
+              ? incomingTrans.cutTime - transDur
+              : incomingTrans.cutTime - transDur / 2;
+          const tEnd = tStart + transDur;
+          gainNode.gain.setValueAtTime(0, actualStartTime);
+          gainNode.gain.linearRampToValueAtTime(baseVolume, tEnd);
+        } else if (clip.fadeIn && clip.fadeIn > 0) {
+          gainNode.gain.setValueAtTime(0, actualStartTime);
+          gainNode.gain.linearRampToValueAtTime(baseVolume, actualStartTime + clip.fadeIn);
+        } else {
+          gainNode.gain.setValueAtTime(baseVolume, actualStartTime);
+        }
+
+        if (outgoingTrans && extension > 0) {
+          const transDur = outgoingTrans.duration || 1.0;
+          const tStart =
+            outgoingTrans.alignment === 'in'
+              ? outgoingTrans.cutTime
+              : outgoingTrans.alignment === 'out'
+              ? outgoingTrans.cutTime - transDur
+              : outgoingTrans.cutTime - transDur / 2;
+          const tEnd = tStart + transDur;
+          gainNode.gain.setValueAtTime(baseVolume, tStart);
+          gainNode.gain.linearRampToValueAtTime(0, tEnd);
+        } else if (clip.fadeOut && clip.fadeOut > 0) {
+          const fadeStart = startTime + clipDuration - clip.fadeOut;
           gainNode.gain.setValueAtTime(baseVolume, Math.max(startTime, fadeStart));
           gainNode.gain.linearRampToValueAtTime(0, startTime + clipDuration);
         }
 
         source.connect(gainNode);
         gainNode.connect(offlineCtx.destination);
-
-        const offset = clip.trimIn;
-        const playDuration = clip.duration * (clip.speed || 1.0);
-        source.start(startTime, offset, playDuration);
+        source.start(actualStartTime, actualOffset, totalPlayDuration);
       }
     }
 

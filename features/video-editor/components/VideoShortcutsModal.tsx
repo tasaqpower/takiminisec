@@ -1,4 +1,5 @@
 import React from 'react';
+import { Keyboard, Play, Scissors, Undo2, Lightbulb, X } from 'lucide-react';
 
 interface ShortcutsModalProps {
   isOpen: boolean;
@@ -10,7 +11,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
 
   const SHORTCUT_GROUPS = [
     {
-      title: '🎬 Oynatma & Gezinme',
+      title: 'Oynatma & Gezinme',
+      icon: <Play className="w-3.5 h-3.5 text-blue-400" />,
       items: [
         { keys: ['Boşluk'], desc: 'Videoyu Oynat / Duraklat' },
         { keys: ['←', '→'], desc: '1 Kare Geri / İleri Git' },
@@ -20,7 +22,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
       ],
     },
     {
-      title: '✂️ Kurgu & Klip İşlemleri',
+      title: 'Kurgu & Klip İşlemleri',
+      icon: <Scissors className="w-3.5 h-3.5 text-amber-400" />,
       items: [
         { keys: ['S'], desc: 'Seçili Klibi Oynatma Çizgisinden Böl (Split)' },
         { keys: ['Delete'], desc: 'Seçili Klibi Zaman Çizelgesinden Sil' },
@@ -30,7 +33,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
       ],
     },
     {
-      title: '↩️ Geçmiş & Düzenleme',
+      title: 'Geçmiş & Düzenleme',
+      icon: <Undo2 className="w-3.5 h-3.5 text-purple-400" />,
       items: [
         { keys: ['Ctrl', 'Z'], desc: 'Son Yapılan Değişikliği Geri Al (Undo)' },
         { keys: ['Ctrl', 'Y'], desc: 'Geri Alınan Değişikliği Yinele (Redo)' },
@@ -38,7 +42,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
       ],
     },
     {
-      title: '💡 Profesyonel İpuçları',
+      title: 'Profesyonel İpuçları',
+      icon: <Lightbulb className="w-3.5 h-3.5 text-emerald-400" />,
       items: [
         { keys: ['Sağ Tık'], desc: 'Klip üzerinde: Hızlı bölme, ses ayırma, hız ve silme menüsü' },
         { keys: ['Sürükle'], desc: 'Klibin sol ve sağ kenarından tutup çekerek kırpma yapın' },
@@ -49,49 +54,48 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-[#0e1014] border border-[#202531] rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-4 px-6 border-b border-[#21262d] flex items-center justify-between bg-[#161b22]/50">
+        <div className="p-4 px-5 border-b border-[#191d26] flex items-center justify-between bg-[#13161c]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold">
-              ⌨️
+            <div className="w-7 h-7 rounded-md bg-[#1c212c] border border-[#2b3342] flex items-center justify-center text-indigo-400">
+              <Keyboard className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm">Klavye Kısayolları & Hızlı İşlemler</h3>
+              <h3 className="font-semibold text-white text-sm">Klavye Kısayolları & Hızlı İşlemler</h3>
               <p className="text-[11px] text-gray-400">
-                Kurgu hızınızı artırmak için tasarlanmış profesyonel kısayollar
+                Kurgu hızınızı artırmak için tasarlanmış profesyonel masaüstü kısayollar
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#21262d] transition-colors"
+            className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#1c212c] transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+        <div className="p-5 max-h-[70vh] overflow-y-auto space-y-5 custom-scrollbar">
           {SHORTCUT_GROUPS.map((group, gIdx) => (
-            <div key={gIdx} className="space-y-2.5">
-              <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-                {group.title}
+            <div key={gIdx} className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                {group.icon}
+                <span>{group.title}</span>
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {group.items.map((item, iIdx) => (
                   <div
                     key={iIdx}
-                    className="p-2.5 rounded-lg bg-[#161b22] border border-[#30363d]/70 flex items-center justify-between gap-3"
+                    className="p-2 rounded-md bg-[#13161c] border border-[#202531] flex items-center justify-between gap-3"
                   >
                     <span className="text-xs text-gray-300 font-medium">{item.desc}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       {item.keys.map((k, kIdx) => (
                         <kbd
                           key={kIdx}
-                          className="px-2 py-0.5 rounded bg-[#090d13] border border-[#30363d] text-[11px] font-mono font-semibold text-indigo-300 shadow-sm"
+                          className="px-1.5 py-0.5 rounded bg-[#0a0c10] border border-[#202531] text-[10px] font-mono font-medium text-indigo-300 shadow-sm"
                         >
                           {k}
                         </kbd>
@@ -105,11 +109,11 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
         </div>
 
         {/* Footer */}
-        <div className="p-3 px-6 border-t border-[#21262d] bg-[#161b22]/30 flex items-center justify-between text-xs text-gray-400">
+        <div className="p-3 px-5 border-t border-[#191d26] bg-[#13161c] flex items-center justify-between text-xs text-gray-400">
           <span>Forma Video Studio • %100 Yerel Tarayıcı Kurgusu</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-colors"
+            className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-colors"
           >
             Anladım
           </button>

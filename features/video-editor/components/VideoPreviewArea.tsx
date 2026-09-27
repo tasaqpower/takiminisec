@@ -6,6 +6,21 @@ import { audioMixer } from '../engine/audioMixer';
 import { calculateClipBounds, isPointInClip, getGizmoHandleAt, GizmoHandleType } from '../engine/clipBounds';
 import { preloadPopularFonts } from '../engine/fontCatalog';
 import { useEditorDragDrop, DragPayload } from '../context/DragDropContext';
+import {
+  SkipBack,
+  SkipForward,
+  Play,
+  Pause,
+  Repeat,
+  Volume2,
+  VolumeX,
+  Grid,
+  Camera,
+  Maximize2,
+  Sparkles,
+  Check,
+  X,
+} from 'lucide-react';
 
 interface PreviewProps {
   project: VideoProject;
@@ -506,56 +521,53 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   const isVertical = project.resolution.height > project.resolution.width;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#090d13] overflow-hidden relative select-none">
-      {/* Top Preview Bar */}
-      <div className="h-9 px-4 flex items-center justify-between border-b border-[#21262d] bg-[#0d1117]/80 text-xs text-gray-400 shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex items-center gap-1.5 font-bold text-gray-200 shrink-0">
-            <span className="text-indigo-400 text-sm">🖥️</span>
-            <span className="text-xs text-gray-300">Tuval:</span>
-            <span className="text-white font-semibold truncate max-w-[180px]" title={project.name}>
-              {project.name}
-            </span>
-          </div>
-          <span className="text-gray-600 shrink-0">•</span>
-          <span className="font-mono text-gray-300 shrink-0">
-            {project.resolution.width} x {project.resolution.height}
+    <div className="flex-1 flex flex-col bg-[#0B0D10] overflow-hidden relative select-none">
+      {/* Top Preview Status Bar (Compact 30px) */}
+      <div className="h-7.5 px-3 flex items-center justify-between border-b border-[#292F39] bg-[#111419] text-xs text-[#929AA8] shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono forma-tnum text-[11px] text-[#E7EAF0] font-medium">
+            {project.resolution.width} × {project.resolution.height}
           </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161b22] text-gray-300 border border-[#30363d] font-medium shrink-0">
-            {isVertical ? 'Dikey (9:16)' : 'Yatay (16:9)'}
+          <span className="text-[#5A6270] text-[10px]">•</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-[#171B21] text-[#929AA8] border border-[#292F39] font-mono forma-tnum">
+            {project.fps} fps
+          </span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-[#171B21] text-[#929AA8] border border-[#292F39] font-mono">
+            {isVertical ? '9:16 Dikey' : '16:9 Yatay'}
           </span>
           {selectedClip && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/40 font-semibold flex items-center gap-1.5 shrink-0 truncate max-w-[220px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="truncate">Seçili: {selectedClip.name}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-[2px] bg-[#171B21] text-[#E7EAF0] border border-[#292F39] font-medium flex items-center gap-1.5 truncate max-w-[200px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4f6bf5]" />
+              <span className="truncate">{selectedClip.name}</span>
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Safe Zones Toggle */}
           <button
+            type="button"
             onClick={() => setShowSafeZones(!showSafeZones)}
-            className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-medium border transition-colors ${
               showSafeZones
-                ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50'
-                : 'text-gray-400 hover:text-gray-200 border-[#30363d]'
+                ? 'bg-[#202631] text-[#E7EAF0] border-[#4f6bf5]'
+                : 'text-[#929AA8] hover:text-[#E7EAF0] border-[#292F39] hover:bg-[#171B21]'
             }`}
-            title="Güvenli Alan Kılavuzları (Action & Title Safe)"
+            title="Güvenli Alan Kılavuzları"
           >
-            Güvenli Alan
+            <Grid size={11} />
+            <span className="hidden sm:inline">Kılavuz</span>
           </button>
 
           {/* Quick Snapshot */}
           <button
+            type="button"
             onClick={handleCaptureSnapshot}
-            className="px-2 py-0.5 rounded text-[11px] font-medium text-gray-300 hover:text-white hover:bg-[#21262d] border border-[#30363d] flex items-center gap-1 transition-colors"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-medium text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] border border-[#292F39] transition-colors"
             title="Mevcut Kareyi PNG Olarak Kaydet"
           >
-            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            </svg>
-            <span>Kareyi Al</span>
+            <Camera size={11} />
+            <span className="hidden sm:inline">Kareyi Al</span>
           </button>
         </div>
       </div>
@@ -605,6 +617,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
         >
           <canvas
             ref={canvasRef}
+            data-testid="main-preview-canvas"
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleCanvasMouseMove}
             onMouseUp={handleCanvasMouseUp}
@@ -614,9 +627,9 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
 
           {/* Drag Overlay Indicator */}
           {isDragOverCanvas && (
-            <div className="absolute inset-0 border-2 border-dashed border-indigo-400 bg-indigo-500/10 pointer-events-none flex items-center justify-center z-40">
-              <div className="px-3 py-1.5 rounded-lg bg-[#0d1117]/90 border border-indigo-500 text-indigo-200 text-xs font-bold shadow-2xl flex items-center gap-1.5 backdrop-blur-sm">
-                <span>✨</span>
+            <div className="absolute inset-0 border-2 border-dashed border-[#4f6bf5] bg-[#4f6bf5]/10 pointer-events-none flex items-center justify-center z-40">
+              <div className="px-3 py-1.5 rounded-[3px] bg-[#111419]/95 border border-[#4f6bf5] text-[#E7EAF0] text-xs font-semibold shadow-2xl flex items-center gap-1.5">
+                <Sparkles size={13} className="text-[#4f6bf5]" />
                 <span>Öğeyi Bu Konuma Bırak</span>
               </div>
             </div>
@@ -635,24 +648,24 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               }}
             >
               {/* Floating Action Controls */}
-              <div className="flex items-center gap-1 mb-1.5 bg-[#0d1117]/95 px-2 py-1 rounded-md border border-indigo-500 shadow-xl text-[11px]">
-                <span className="text-indigo-400 font-semibold text-[10px] mr-1">Metni Düzenle:</span>
+              <div className="flex items-center gap-1 mb-1.5 bg-[#111419]/95 px-2 py-1 rounded-[3px] border border-[#4f6bf5] shadow-xl text-[11px]">
+                <span className="text-[#4f6bf5] font-semibold text-[10px] mr-1">Metni Düzenle:</span>
                 <button
                   type="button"
                   onClick={handleCommitInlineText}
-                  className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[10px] transition-colors flex items-center gap-1 shadow"
+                  className="px-2 py-0.5 rounded-[2px] bg-[#4f6bf5] hover:bg-[#3b55d9] text-white font-medium text-[10px] transition-colors flex items-center gap-1 shadow"
                   title="Değişiklikleri Kaydet (Enter)"
                 >
-                  <span>✓</span>
+                  <Check size={10} />
                   <span>Tamam</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingClipId(null)}
-                  className="px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10 text-[10px] transition-colors"
+                  className="p-1 rounded-[2px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] transition-colors"
                   title="İptal (Esc)"
                 >
-                  ✕
+                  <X size={11} />
                 </button>
               </div>
 
@@ -704,77 +717,76 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
         </div>
       </div>
 
-      {/* Playback Controls Footer */}
-      <div className="h-12 bg-[#0d1117] border-t border-[#21262d] px-4 flex items-center justify-between text-xs text-gray-300">
-        {/* Left: Timecode */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="text-white font-semibold">{formatTimecode(currentTime, project.fps)}</span>
-          <span className="text-gray-500">/</span>
-          <span className="text-gray-400">{formatTimecode(project.duration, project.fps)}</span>
+      {/* Playback Controls Footer (Compact 34px NLE bar) */}
+      <div className="h-[34px] bg-[#111419] border-t border-[#292F39] px-3 flex items-center justify-between text-xs text-[#929AA8] shrink-0">
+        {/* Left: Timecode in Monospace Tabular Format */}
+        <div className="flex items-center gap-1.5 font-mono forma-tnum text-xs select-text">
+          <span className="text-[#E7EAF0] font-semibold">{formatTimecode(currentTime, project.fps)}</span>
+          <span className="text-[#5A6270]">/</span>
+          <span className="text-[#929AA8]">{formatTimecode(project.duration, project.fps)}</span>
         </div>
 
-        {/* Center: Controls */}
-        <div className="flex items-center gap-2">
+        {/* Center: Desktop Playback Controls */}
+        <div className="flex items-center gap-1">
           {/* Step Back 1 Frame */}
           <button
+            type="button"
             onClick={() => onStepBackward(1 / project.fps)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#161b22] transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-[3px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] transition-colors"
             title="1 Kare Geri (Sol Ok)"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" />
-            </svg>
+            <SkipBack size={12} />
           </button>
 
-          {/* Play / Pause Primary Button */}
+          {/* Play / Pause Button */}
           <button
+            type="button"
             onClick={onTogglePlay}
-            className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-transform active:scale-95"
-            title="Oynat / Duraklat (Boşluk Tuşu)"
+            className={`w-7 h-7 rounded-[3px] flex items-center justify-center transition-colors select-none ${
+              isPlaying
+                ? 'bg-[#202631] text-[#f59e0b] border border-[#f59e0b]/40 hover:bg-[#283040]'
+                : 'bg-[#4f6bf5] text-white hover:bg-[#3b55d9] border border-[#4f6bf5]/60 shadow-sm'
+            }`}
+            title="Oynat / Duraklat (Boşluk)"
           >
-            {isPlaying ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-            )}
+            {isPlaying ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" className="ml-0.5" />}
           </button>
 
           {/* Step Forward 1 Frame */}
           <button
+            type="button"
             onClick={() => onStepForward(1 / project.fps)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#161b22] transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-[3px] text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21] transition-colors"
             title="1 Kare İleri (Sağ Ok)"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z" />
-            </svg>
+            <SkipForward size={12} />
           </button>
 
           {/* Loop toggle */}
           <button
+            type="button"
             onClick={() => onSetIsLooping(!isLooping)}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isLooping ? 'text-indigo-400 bg-indigo-950/50' : 'text-gray-500 hover:text-gray-300'
+            className={`w-6 h-6 flex items-center justify-center rounded-[3px] transition-colors ${
+              isLooping
+                ? 'text-[#4f6bf5] bg-[#171B21] border border-[#4f6bf5]/40'
+                : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
             title="Döngü (Loop)"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <Repeat size={12} />
           </button>
 
           {/* Playback speed selector */}
-          <div className="flex items-center ml-2 border-l border-[#21262d] pl-2 gap-1 text-[11px]">
+          <div className="flex items-center ml-2 border-l border-[#292F39] pl-2 gap-0.5 font-mono text-[10px]">
             {[1, 1.5, 2].map((r) => (
               <button
                 key={r}
+                type="button"
                 onClick={() => onSetPlaybackRate(r)}
-                className={`px-1.5 py-0.5 rounded font-mono ${
-                  playbackRate === r ? 'bg-[#21262d] text-white font-bold' : 'text-gray-500 hover:text-gray-300'
+                className={`px-1.5 py-0.5 rounded-[2px] transition-colors ${
+                  playbackRate === r
+                    ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
+                    : 'text-[#5A6270] hover:text-[#929AA8]'
                 }`}
               >
                 {r}x
@@ -784,8 +796,9 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
         </div>
 
         {/* Right: Master Volume Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
+            type="button"
             onClick={() => {
               if (isMuted) {
                 setIsMuted(false);
@@ -795,18 +808,13 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
                 audioMixer.setMasterVolume(0);
               }
             }}
-            className="text-gray-400 hover:text-white"
+            className="w-6 h-6 flex items-center justify-center text-[#929AA8] hover:text-[#E7EAF0] transition-colors"
             title={isMuted ? 'Sesi Aç' : 'Sesi Kapat'}
           >
             {isMuted || masterVolume === 0 ? (
-              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
+              <VolumeX size={13} className="text-red-400" />
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
+              <Volume2 size={13} />
             )}
           </button>
 
@@ -822,7 +830,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               setIsMuted(val === 0);
               audioMixer.setMasterVolume(val);
             }}
-            className="w-16 accent-indigo-500 h-1 cursor-pointer"
+            className="w-14 accent-[#4f6bf5] h-1 cursor-pointer"
             title={`Genel Ses: ${Math.round((isMuted ? 0 : masterVolume) * 100)}%`}
           />
         </div>

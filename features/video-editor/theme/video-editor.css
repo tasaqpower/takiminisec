@@ -1,0 +1,106 @@
+/* Forma Video Editor - Scoped Desktop NLE Stylesheet */
+
+.forma-video-editor {
+  color-scheme: dark;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Pro Dark Scrollbars - 4px slim, non-intrusive */
+.forma-video-editor ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.forma-video-editor ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.forma-video-editor ::-webkit-scrollbar-thumb {
+  background: #292F39;
+  border-radius: 2px;
+}
+
+.forma-video-editor ::-webkit-scrollbar-thumb:hover {
+  background: #3B4351;
+}
+
+.forma-video-editor * {
+  scrollbar-width: thin;
+  scrollbar-color: #292F39 transparent;
+}
+
+/* Tabular numbers for all timecode, coordinates, frames */
+.forma-tnum {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Hide Spin Buttons on number inputs for clean inspector fields */
+.forma-video-editor input[type='number']::-webkit-inner-spin-button,
+.forma-video-editor input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.forma-video-editor input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Custom Compact Range Slider */
+.forma-video-editor input[type='range'] {
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+.forma-video-editor input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 10px;
+  width: 10px;
+  border-radius: 2px;
+  background: #E7EAF0;
+  border: 1px solid #4f6bf5;
+  cursor: pointer;
+  margin-top: -3px;
+  transition: transform 0.08s ease;
+}
+
+.forma-video-editor input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.forma-video-editor input[type='range']::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: #1C212A;
+  border-radius: 2px;
+  border: 1px solid #292F39;
+}
+
+/* Resizing Active Overlays */
+.forma-editor-resizing-active {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.forma-editor-resizing-active-v {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+/* Filmstrip Sprockets effect for Video Tracks */
+.forma-filmstrip-sprockets {
+  background-image: radial-gradient(#0B0D10 35%, transparent 40%);
+  background-size: 8px 6px;
+  background-repeat: repeat-x;
+}
+
+/* Bowtie Transition Cut Icon helper */
+.forma-bowtie-left {
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.forma-bowtie-right {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { VideoProject, ExportFormat, ExportOptions } from '../types';
 import { exportEngine, ExportProgress } from '../engine/exportEngine';
+import { Download, Film, Check, Loader2, X, Clock, Sparkles } from 'lucide-react';
 
 interface ExportModalProps {
   project: VideoProject;
@@ -77,28 +78,24 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
-      <div className="w-full max-w-lg bg-[#0d1117] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden text-xs text-gray-300 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-lg bg-[#0e1014] border border-[#202531] rounded-xl shadow-2xl overflow-hidden text-xs text-gray-300 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="p-4 border-b border-[#21262d] bg-[#161b22]/50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+        <div className="p-4 px-5 border-b border-[#191d26] bg-[#13161c] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-md bg-[#1c212c] border border-[#2b3342] flex items-center justify-center text-indigo-400">
+              <Download className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Videoyu Dışa Aktar</h3>
-              <p className="text-[11px] text-gray-500">Cihazınızda 100% yerel olarak işlenir</p>
+              <h3 className="text-sm font-semibold text-white">Videoyu Dışa Aktar</h3>
+              <p className="text-[11px] text-gray-400">Cihazınızda 100% yerel olarak işlenir</p>
             </div>
           </div>
           {!isExporting && (
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#21262d]"
+              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#1c212c] transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -107,7 +104,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
         <div className="p-5 space-y-4">
           {/* Format selection */}
           <div>
-            <label className="block text-gray-400 font-semibold mb-1.5 uppercase text-[10px]">
+            <label className="block text-gray-400 font-semibold mb-1.5 uppercase text-[10px] tracking-wider">
               Dışa Aktarma Formatı
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -123,13 +120,13 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                   key={f.id}
                   disabled={isExporting}
                   onClick={() => setFormat(f.id as ExportFormat)}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
+                  className={`p-2 rounded-md border text-left transition-all ${
                     format === f.id
                       ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm'
-                      : 'bg-[#161b22] border-[#30363d] text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                      : 'bg-[#13161c] border-[#202531] text-gray-400 hover:border-gray-600 hover:text-gray-200'
                   }`}
                 >
-                  <p className="font-bold text-xs">{f.label}</p>
+                  <p className="font-semibold text-xs text-gray-200">{f.label}</p>
                   <p className="text-[10px] text-gray-500 mt-0.5 truncate">{f.desc}</p>
                 </button>
               ))}
@@ -140,7 +137,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
           {(format === 'mp4' || format === 'webm' || format === 'png') && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px]">
+                <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px] tracking-wider">
                   Çözünürlük
                 </label>
                 <select
@@ -150,7 +147,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                     const [w, h] = e.target.value.split('x').map(Number);
                     setResolution({ width: w, height: h });
                   }}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-white outline-none focus:border-indigo-500"
+                  className="w-full px-2.5 py-1.5 rounded-md bg-[#13161c] border border-[#202531] text-white outline-none focus:border-indigo-500 text-xs"
                 >
                   <option value="1920x1080">Full HD (1080p 16:9)</option>
                   <option value="1280x720">HD (720p 16:9)</option>
@@ -161,14 +158,14 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px]">
+                <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px] tracking-wider">
                   Kare Hızı (FPS)
                 </label>
                 <select
                   disabled={isExporting}
                   value={fps}
                   onChange={(e) => setFps(Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-white outline-none focus:border-indigo-500"
+                  className="w-full px-2.5 py-1.5 rounded-md bg-[#13161c] border border-[#202531] text-white outline-none focus:border-indigo-500 text-xs"
                 >
                   <option value={24}>24 FPS (Sinematik)</option>
                   <option value={30}>30 FPS (Standart)</option>
@@ -181,7 +178,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
           {/* Quality preset */}
           {(format === 'mp4' || format === 'webm') && (
             <div>
-              <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px]">
+              <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px] tracking-wider">
                 Kalite & Bit Hızı
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -194,14 +191,14 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                     key={q.id}
                     disabled={isExporting}
                     onClick={() => setQuality(q.id as 'standard' | 'high' | 'ultra')}
-                    className={`p-2 rounded-lg border text-left transition-all ${
+                    className={`p-2 rounded-md border text-left transition-all ${
                       quality === q.id
                         ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                        : 'bg-[#161b22] border-[#30363d] text-gray-400'
+                        : 'bg-[#13161c] border-[#202531] text-gray-400 hover:border-gray-600'
                     }`}
                   >
-                    <p className="font-semibold text-xs">{q.label}</p>
-                    <p className="text-[10px] text-gray-500">{q.desc}</p>
+                    <p className="font-medium text-xs text-gray-200">{q.label}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{q.desc}</p>
                   </button>
                 ))}
               </div>
@@ -210,31 +207,34 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
 
           {/* Filename */}
           <div>
-            <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px]">
+            <label className="block text-gray-400 font-semibold mb-1 uppercase text-[10px] tracking-wider">
               Dosya Adı
             </label>
-            <div className="flex items-center rounded-lg bg-[#161b22] border border-[#30363d] px-2.5 py-1">
+            <div className="flex items-center rounded-md bg-[#13161c] border border-[#202531] px-2.5 py-1.5">
               <input
                 type="text"
                 disabled={isExporting}
                 value={filename}
                 onChange={(e) => setFilename(e.target.value)}
-                className="w-full bg-transparent text-white outline-none"
+                className="w-full bg-transparent text-white outline-none text-xs font-mono"
               />
-              <span className="text-gray-500 font-mono">.{format}</span>
+              <span className="text-gray-500 font-mono text-xs">.{format}</span>
             </div>
           </div>
 
           {/* Exporting Progress display */}
           {isExporting && progress && (
-            <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/50 space-y-2">
+            <div className="p-3.5 rounded-md bg-[#13161c] border border-indigo-500/30 space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-indigo-300 font-semibold">{progress.statusText}</span>
+                <span className="text-indigo-300 font-medium flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{progress.statusText}</span>
+                </span>
                 <span className="text-white font-mono font-bold">{progress.percent}%</span>
               </div>
-              <div className="w-full h-2 rounded-full bg-[#161b22] overflow-hidden">
+              <div className="w-full h-1.5 rounded-full bg-[#0a0c10] overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-150 rounded-full"
+                  className="h-full bg-indigo-500 transition-all duration-150 rounded-full"
                   style={{ width: `${progress.percent}%` }}
                 />
               </div>
@@ -249,11 +249,11 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-[#21262d] bg-[#161b22]/40 flex items-center justify-end gap-2">
+        <div className="p-4 border-t border-[#191d26] bg-[#13161c] flex items-center justify-end gap-2">
           {isExporting ? (
             <button
               onClick={handleCancelExport}
-              className="px-4 py-2 rounded-lg bg-red-950/40 text-red-300 border border-red-800/50 hover:bg-red-950/60 font-semibold transition-colors"
+              className="px-4 py-1.5 rounded-md bg-red-950/40 text-red-300 border border-red-800/50 hover:bg-red-950/60 font-medium text-xs transition-colors"
             >
               İptal Et
             </button>
@@ -261,17 +261,15 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
             <>
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#21262d] font-semibold transition-colors"
+                className="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-[#1c212c] font-medium text-xs transition-colors"
               >
                 Vazgeç
               </button>
               <button
                 onClick={handleStartExport}
-                className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-sm transition-all flex items-center gap-1.5"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
+                <Download className="w-3.5 h-3.5" />
                 <span>Dışa Aktarımı Başlat</span>
               </button>
             </>
