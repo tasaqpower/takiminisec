@@ -1,7 +1,7 @@
 import { loadPdf } from "../../lib/documents.ts";
 import { editablePageText, type EditableText, type ImageRemoval } from "../../lib/pdf-text.ts";
 import { detectImagesOnPage } from "../image-editor/imageDetector.ts";
-import type { WatermarkCandidate } from "./watermarkTypes.ts";
+import type { WatermarkCandidate, WatermarkEvidenceType } from "./watermarkTypes.ts";
 import { PDFDocument } from "pdf-lib";
 export { buildSafeAutoCleanCandidateIds } from "./watermarkRemover.ts";
 
@@ -248,13 +248,16 @@ export async function detectWatermarks(
       for (let i = 0; i < numPages; i++) pagesToScan.push(i);
     }
 
-    // 1. Extract all text and image items per page
+    // 1. Extract all text and image items per page with dynamic page dimensions
+    const pageDimensions = new Map<number, { width: number; height: number }>();
     const allPageTexts: { page: number; items: EditableText[] }[] = [];
     const allPageImages: { page: number; images: any[] }[] = [];
     for (const pIdx of pagesToScan) {
       if (pIdx < 0 || pIdx >= numPages) continue;
       try {
         const page = await doc.getPage(pIdx + 1);
+        const viewport = page.getViewport({ scale: 1.0 });
+        pageDimensions.set(pIdx, { width: viewport.width, height: viewport.height });
         const [items, imgs] = await Promise.all([
           editablePageText(page).catch(() => []),
           detectImagesOnPage(page, pIdx).catch(() => [])
@@ -512,6 +515,12 @@ export async function detectWatermarks(
           }
         }
 
+        const evText: WatermarkEvidenceType[] = [];
+        if (keywordMatched) evText.push("ocr_keyword");
+        if (hasDiagonal) evText.push("diagonal_rotation");
+        if (repeatsOnMultiplePages) evText.push("cross_page_hash_repeat");
+        if (bestColor.isWatermarkColor) evText.push("background_contrast");
+
         candidates.push({
           id: `wm-text-${candidateIndex++}`,
           type: "text",
@@ -523,6 +532,7 @@ export async function detectWatermarks(
           color: Array.from(group.colors)[0] || "#222222",
           reason: reasons.join(" · "),
           confidence: Math.min(99, Math.max(confidence, keywordMatched ? 95 : 75)),
+          evidence: evText,
           textRemovals: removals,
           // CRITICAL: imageBounds is undefined for vector text candidates!
           // PDFium removePdfText removes glyphs at the byte level with ZERO opaque rectangles.
@@ -564,44 +574,124 @@ export async function detectWatermarks(
       }
     }
 
+    const pageCanvasCache = new Map<number, { canvas: any; paper: any; scale: number }>();
+
     for (const [, group] of imageSignatures.entries()) {
       const pageCount = group.pages.size;
       const img = group.firstImg;
-      const isFullPageScan = (img.w >= 500 && img.h >= 700); // Exclude full document page scans
+      const pageDims = pageDimensions.get(img.page) || { width: 595.28, height: 841.89 };
+      const coverageX = img.w / pageDims.width;
+      const coverageY = img.h / pageDims.height;
+      const areaCoverage = (img.w * img.h) / (pageDims.width * pageDims.height);
+      const isFullPageScan = (coverageX >= 0.82 && coverageY >= 0.82) || areaCoverage >= 0.70;
+
+      // Full document page scans or large backgrounds must NEVER be treated as watermarks!
+      if (isFullPageScan) {
+        continue;
+      }
       
       const nameLower = (img.name || "").toLowerCase();
-      const hasWatermarkKeyword = /watermark|filigran|taslak|draft|sample|kopya|void|canc|geçersiz|gecersiz|gizli|ozel|ornek/i.test(nameLower);
+      const normName = normalizeTurkish(nameLower);
+      const normNameSpaceless = normName.replace(/\s+/g, "");
+      let hasWatermarkKeyword = WATERMARK_KEYWORDS.some((kw) => matchesWatermarkKeyword(normName, normNameSpaceless, kw));
       const isFaintOpacity = typeof img.opacity === "number" && img.opacity > 0 && img.opacity < 0.65;
-      const isLargeCentered = (
-        (img.w >= 200 && img.h >= 100 && img.x >= 30 && (img.x + img.w <= 580)) ||
-        (img.w > 220 && img.h > 150 && img.x > 50 && img.y > 80)
+      let hasRotation = Boolean(
+        img.matrix && (
+          Math.abs(img.matrix[1]) > 5 || Math.abs(img.matrix[2]) > 5 ||
+          (Math.abs(img.matrix[1]) > 0.05 && Math.abs(img.matrix[2]) > 0.05)
+        )
       );
-      const hasRotation = Boolean(img.matrix && (Math.abs(img.matrix[1]) > 5 || Math.abs(img.matrix[2]) > 5));
-      const isDefiniteWatermark = Boolean(img.isWatermark || hasWatermarkKeyword || isFaintOpacity || isLargeCentered || hasRotation);
 
-      if (!isFullPageScan && (pageCount >= 2 || isDefiniteWatermark)) {
-        // Position & size check for corporate logos, school crests, letterheads, or signatures
-        const isHeaderOrFooter = !hasRotation && (img.y <= 135 || (img.y + img.h) >= 680) && img.w <= 300 && img.h <= 150;
-        const isLogoOrHeader = !isDefiniteWatermark && (isHeaderOrFooter || /logo|antet|crest|imza|sign|amblem|brand/i.test(nameLower));
+      // Position & size check for corporate logos, school crests, letterheads, or signatures
+      const isHeaderOrFooter = !hasRotation && (
+        img.y <= pageDims.height * 0.16 || (img.y + img.h) >= pageDims.height * 0.81
+      ) && img.w <= pageDims.width * 0.55 && img.h <= pageDims.height * 0.22;
+      const isExplicitLogoName = /logo|antet|crest|imza|sign|amblem|brand/i.test(nameLower);
+      const isLogoOrHeader = isHeaderOrFooter || isExplicitLogoName;
 
+      // Gather independent evidence signals:
+      // 1. ocr_keyword: Explicit watermark keyword
+      // 2. faint_opacity: True low opacity < 0.65
+      // 3. diagonal_rotation: Physical transformation matrix rotation > 5 deg
+      // 4. cross_page_hash_repeat: Identical image repeating across pages at same position (non-header/logo)
+      // 5. background_contrast: Faint watermark tone or low contrast
+      const evidence: WatermarkEvidenceType[] = [];
+      if (hasWatermarkKeyword) evidence.push("ocr_keyword");
+      if (isFaintOpacity) evidence.push("faint_opacity");
+      if (hasRotation) evidence.push("diagonal_rotation");
+      if (pageCount >= 2 && !isLogoOrHeader && Boolean(img.objectRef || img.id)) {
+        evidence.push("cross_page_hash_repeat");
+      }
+      if (img.colorHex) {
+        const colorAnal = analyzeWatermarkColor(img.colorHex);
+        if (colorAnal.isWatermarkColor || colorAnal.isFaint) {
+          evidence.push("background_contrast");
+        }
+      }
+
+      // Targeted crop OCR on candidate image to check for rasterized watermark text
+      let ocrMatchedText = "";
+      if (!isLogoOrHeader && evidence.length < 2 && (typeof window !== "undefined" || Boolean(process.versions?.node))) {
+        try {
+          const { renderPdfPageToCanvas, detectPageBackgroundColor, inspectImageCropWatermark } = await import("./visualWatermarkDetector");
+          let pageCanvData = pageCanvasCache.get(img.page);
+          if (!pageCanvData) {
+            const rendered = await renderPdfPageToCanvas(pdfBytes, img.page, 1.5);
+            const paper = detectPageBackgroundColor(rendered.canvas);
+            pageCanvData = { canvas: rendered.canvas, paper, scale: rendered.width / pageDims.width };
+            pageCanvasCache.set(img.page, pageCanvData);
+          }
+          const cropBox = {
+            x: img.x * pageCanvData.scale,
+            y: img.y * pageCanvData.scale,
+            w: img.w * pageCanvData.scale,
+            h: img.h * pageCanvData.scale
+          };
+          const cropRes = await inspectImageCropWatermark(pageCanvData.canvas, cropBox, img.page, pageCanvData.paper);
+          if (cropRes) {
+            hasWatermarkKeyword = true;
+            ocrMatchedText = cropRes.matchedText;
+            for (const ev of cropRes.evidence) {
+              if (!evidence.includes(ev)) evidence.push(ev);
+            }
+            if (cropRes.angle !== 0) {
+              hasRotation = true;
+            }
+          }
+        } catch (cropErr) {
+          console.warn("Image crop visual OCR error:", cropErr);
+        }
+      }
+
+      // CRITICAL: isLargeCentered is COMPLETELY REMOVED!
+      // An image is ONLY a definite watermark if:
+      // NOT a logo/header AND has at least 2 independent verified evidence signals!
+      // (or explicit watermark keyword + rotation/opacity/contrast)
+      const isDefiniteWatermark = !isLogoOrHeader && (
+        evidence.length >= 2 ||
+        (hasWatermarkKeyword && (hasRotation || isFaintOpacity))
+      );
+
+      if (pageCount >= 2 || isDefiniteWatermark) {
         // Confidence scoring
         let confidence = 25;
-        let candidateText = img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Görsel Filigran / Damga");
+        let candidateText = ocrMatchedText || img.name || (isLogoOrHeader ? "Kurumsal Logo / Antet" : "Görsel Filigran / Damga");
         let candidateReason = `${pageCount} sayfada aynı konumda tekrarlanan görsel`;
 
         if (isDefiniteWatermark) {
           confidence = hasWatermarkKeyword ? 95 : (hasRotation || isFaintOpacity) ? 90 : 85;
-          candidateText = img.name || (hasRotation ? "Açılı Filigran Görseli" : "Görsel Filigran / Damga");
-          candidateReason = hasWatermarkKeyword
-            ? `Filigran anahtar kelimesi tespit edilen görsel (${img.name})`
-            : hasRotation
-            ? `Çapraz/açılı yerleştirilmiş filigran görseli`
-            : isFaintOpacity
-            ? `Saydam/soluk arka plan filigran görseli`
-            : `Büyük boyutlu merkezi filigran görseli`;
+          candidateText = ocrMatchedText || img.name || (hasRotation ? "Açılı Filigran Görseli" : "Görsel Filigran / Damga");
+          const evLabels: Record<string, string> = {
+            ocr_keyword: "Filigran anahtar kelimesi",
+            faint_opacity: "Düşük opaklık / saydamlık",
+            diagonal_rotation: "Çapraz / açılı yerleşim",
+            cross_page_hash_repeat: `${pageCount} sayfada eşleşen tekrar`,
+            background_contrast: "Soluk filigran tonu"
+          };
+          candidateReason = evidence.map((e) => evLabels[e] || e).join(" · ");
         } else if (isLogoOrHeader) {
           confidence = 25; // Strict low confidence: Repetition alone must NOT generate high confidence!
-          candidateReason = `${pageCount} sayfada tekrarlanan kurumsal logo/antet (Silinmesi önerilmez)`;
+          candidateReason = `${pageCount} sayfada tekrarlanan kurumsal logo/antet/grafik (Silinmesi önerilmez)`;
         }
 
         candidates.push({
@@ -610,11 +700,19 @@ export async function detectWatermarks(
           text: candidateText,
           count: group.removals.length,
           pages: Array.from(group.pages).sort((a, b) => a - b),
-          imageBounds: { x: img.x, y: img.y, w: img.w, h: img.h },
+          imageBounds: {
+            x: img.originalBounds?.left ?? img.x,
+            y: img.originalBounds?.bottom ?? (pageDims.height - img.y - img.h),
+            w: img.w,
+            h: img.h,
+            pageWidth: pageDims.width,
+            pageHeight: pageDims.height
+          },
           imagePreviewUrl: img.previewUrl || img.dataUrl,
           reason: candidateReason,
           confidence,
           isLogoOrHeader,
+          evidence,
           // RASTER INPAINTING: Definite raster watermark images use pixel_clean for surgical inpainting without deleting the underlying page/image structure
           strategy: isDefiniteWatermark ? "pixel_clean" : "object_remove",
           imageRemovals: group.removals
@@ -661,7 +759,7 @@ export async function detectWatermarks(
     } catch {}
 
     // 4. Scan all pages with Visual OCR detector unconditionally (for raster stamps, scanned watermarks)
-    if (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1") {
+    if (typeof window !== "undefined" || process.env.ENABLE_NODE_VISUAL_OCR === "1" || Boolean(process.versions?.node)) {
       try {
         const { detectVisualWatermarks } = await import("./visualWatermarkDetector");
         const scanPages = pagesToScan;
@@ -680,6 +778,26 @@ export async function detectWatermarks(
                 )
               );
               if (!isDuplicate) {
+                // Link matching image from page if present
+                if (vc.imageBounds) {
+                  const pageImgs = allPageImages.find(p => p.page === pageIdx)?.images || [];
+                  const matchingImg = pageImgs.find(im =>
+                    (im.originalBounds && Math.abs(im.originalBounds.left - vc.imageBounds!.x) < 30 && Math.abs(im.originalBounds.bottom - vc.imageBounds!.y) < 30) ||
+                    (Math.abs(im.x - vc.imageBounds!.x) < 30 && Math.abs(im.y - vc.imageBounds!.y) < 30)
+                  );
+                  if (matchingImg) {
+                    vc.imageRemovals = [{
+                      page: pageIdx,
+                      bounds: matchingImg.originalBounds,
+                      imageId: matchingImg.id,
+                      objectRef: matchingImg.objectRef,
+                      imageIndex: matchingImg.imageIndex,
+                      pixelWidth: matchingImg.pixelWidth,
+                      pixelHeight: matchingImg.pixelHeight,
+                      matrix: matchingImg.matrix
+                    }];
+                  }
+                }
                 candidates.push(vc);
               }
             }

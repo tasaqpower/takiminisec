@@ -1,5 +1,12 @@
 import type { ImageRemoval } from "@/lib/pdf-text";
 
+export type WatermarkEvidenceType =
+  | "ocr_keyword"
+  | "faint_opacity"
+  | "diagonal_rotation"
+  | "cross_page_hash_repeat"
+  | "background_contrast";
+
 export interface WatermarkCandidate {
   id: string;
   type: "text" | "image" | "annotation";
@@ -11,10 +18,11 @@ export interface WatermarkCandidate {
   color?: string;
   reason: string;
   confidence: number; // 0 - 100
+  evidence?: WatermarkEvidenceType[];
   textRemovals?: { id: string; page: number; quad: number[] }[];
   imageRemovals?: ImageRemoval[];
   imagePreviewUrl?: string;
-  imageBounds?: { x: number; y: number; w: number; h: number };
+  imageBounds?: { x: number; y: number; w: number; h: number; pageWidth?: number; pageHeight?: number };
   isLogoOrHeader?: boolean;
   strategy?: "pixel_clean" | "object_remove" | "manual_cover";
 }

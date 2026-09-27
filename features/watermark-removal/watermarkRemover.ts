@@ -22,18 +22,22 @@ export interface WatermarkRemovalResult {
 
 /**
  * Safely filters watermark candidates for 1-click automatic clean.
- * STRICT SAFETY RULES (V7):
- *  1. ONLY processes type === "text" or safe type === "annotation".
- *  2. NEVER processes type === "image" automatically.
- *  3. NEVER processes isLogoOrHeader === true candidates.
- *  4. Only selects candidates meeting or exceeding confidence threshold (>= 45%).
- *  5. Any image, logo, header, crest, signature, or repeating corporate graphic
- *     strictly requires explicit manual user selection.
+ * STRICT SAFETY GUARANTEES:
+ *  1. Strictly protects corporate logos, crests, letterheads, signatures (isLogoOrHeader === true).
+ *  2. Full-page scan protection with dynamic page dimension calculation:
+ *     Rejects any candidate with coverageX >= 0.82 && coverageY >= 0.82 or areaCoverage >= 0.70.
+ *     Supports Portrait A4, Landscape A4, Letter, Legal, square, 300x600 receipt scans.
+ *  3. Prohibits manual covers / destructive white rectangles.
+ *  4. Vector text and annotation watermarks require confidence >= 50%.
+ *  5. Image candidates REQUIRE multi-evidence verification:
+ *     Must carry at least TWO independent verified evidence signals from:
+ *     ('ocr_keyword', 'faint_opacity', 'diagonal_rotation', 'cross_page_hash_repeat', 'background_contrast').
+ *     Size, position, or repetition alone is STRICTLY INSUFFICIENT for automatic cleaning.
  */
 export function buildSafeAutoCleanCandidateIds(
   candidates: WatermarkCandidate[],
-  pageWidth = 595.28,
-  pageHeight = 841.89
+  defaultPageWidth = 595.28,
+  defaultPageHeight = 841.89
 ): string[] {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
   return candidates
@@ -41,13 +45,19 @@ export function buildSafeAutoCleanCandidateIds(
       // 1. Strictly protect corporate logos, crests, letterheads, headers
       if (c.isLogoOrHeader) return false;
 
-      // 2. Reject full-page or near-full-page candidates (>= 85% of both dimensions)
+      // 2. Dynamic Full-Page / Scanned Document Protection
+      // Evaluates dynamically using candidate-specific page dimensions or defaults.
+      // Supports Landscape A4, Letter, Legal, square, 300x600 receipt scans.
       if (c.imageBounds) {
-        const isFullPage = (
-          (c.imageBounds.w >= 500 && c.imageBounds.h >= 700) ||
-          (c.imageBounds.w >= pageWidth * 0.85 && c.imageBounds.h >= pageHeight * 0.85)
-        );
-        if (isFullPage) return false;
+        const pw = c.imageBounds.pageWidth || defaultPageWidth;
+        const ph = c.imageBounds.pageHeight || defaultPageHeight;
+        const coverageX = c.imageBounds.w / pw;
+        const coverageY = c.imageBounds.h / ph;
+        const areaCoverage = (c.imageBounds.w * c.imageBounds.h) / (pw * ph);
+
+        if ((coverageX >= 0.82 && coverageY >= 0.82) || areaCoverage >= 0.70) {
+          return false; // ASLA otomatik seçme!
+        }
       }
 
       // 3. Forbid unverified manual cover / white rectangles
@@ -63,18 +73,28 @@ export function buildSafeAutoCleanCandidateIds(
       }
 
       // 5. Standalone image / raster watermarks:
-      // Must be object_remove or pixel_clean, confidence >= 75%, and NOT in logo/header zone
+      // Must be object_remove or pixel_clean, confidence >= 70%, and NOT in logo/header zone
       if (c.type === "image") {
         if (c.strategy !== "object_remove" && c.strategy !== "pixel_clean") {
           return false;
         }
-        if (conf < 75) {
+        if (conf < 70) {
           return false;
         }
         const textLower = (c.text || "").toLowerCase();
         if (/logo|antet|crest|imza|sign|amblem|brand/i.test(textLower)) {
           return false;
         }
+
+        // MANDATORY MULTI-EVIDENCE REQUIREMENT:
+        // Image candidates require a verified combination of at least TWO independent signals:
+        // 'ocr_keyword' | 'faint_opacity' | 'diagonal_rotation' | 'cross_page_hash_repeat' | 'background_contrast'
+        // Size, centeredness, or repetition alone is STRICTLY INSUFFICIENT for auto-cleaning!
+        const ev = new Set(c.evidence || []);
+        if (ev.size < 2) {
+          return false;
+        }
+
         return true;
       }
 

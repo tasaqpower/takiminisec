@@ -202,12 +202,12 @@ async function runAllTests() {
   console.log('========================================================================\n');
 
   let passedTests = 0;
-  let totalTests = 7;
+  let totalTests = 9;
 
   // ---------------------------------------------------------------------------
-  // TEST A: Full-page pixel_clean candidate elimination check
+  // TEST A: Full-page pixel_clean candidate elimination check (Portrait, Landscape, Receipt)
   // ---------------------------------------------------------------------------
-  console.log('>>> [TEST A] Full-page pixel_clean candidate safety check...');
+  console.log('>>> [TEST A] Full-page pixel_clean candidate safety check (Portrait, Landscape, Receipt)...');
   {
     // Create a PDF with random faint pixels scattered, testing that no full page candidate is produced
     const docA = await PDFDocument.create();
@@ -218,16 +218,18 @@ async function runAllTests() {
     const visualCands = await detectVisualWatermarks(bytesA, 0);
     console.log(`    Detected visual candidates on clean/scattered page: ${visualCands.length}`);
 
-    // Verification 1: No candidate spans >= 85% of both page dimensions
+    // Verification 1: No candidate spans >= 82% of both page dimensions or >= 70% area
     for (const c of visualCands) {
       if (c.imageBounds) {
-        const isFullPage = (c.imageBounds.w >= 595.28 * 0.85 && c.imageBounds.h >= 841.89 * 0.85);
+        const isFullPage = (c.imageBounds.w >= 595.28 * 0.82 && c.imageBounds.h >= 841.89 * 0.82) ||
+          ((c.imageBounds.w * c.imageBounds.h) / (595.28 * 841.89) >= 0.70);
         assert.ok(!isFullPage, `Candidate ${c.id} must NOT have full page bounds (${c.imageBounds.w}x${c.imageBounds.h})`);
       }
     }
 
-    // Verification 2: Directly inject a full-page pixel_clean candidate into candidate list,
-    // and prove that buildSafeAutoCleanCandidateIds rejects it unconditionally!
+    // Verification 2: Directly inject full-page pixel_clean candidates into candidate list
+    // for Portrait A4, Landscape A4, and 300x600 Receipt scans,
+    // and prove that buildSafeAutoCleanCandidateIds rejects all of them unconditionally!
     const mockLegitCand = {
       id: 'legit-wm-1',
       type: 'text',
@@ -244,15 +246,47 @@ async function runAllTests() {
       pages: [0],
       confidence: 99,
       strategy: 'pixel_clean',
-      imageBounds: { x: 0, y: 0, w: 595.28, h: 841.89 }
+      evidence: ['ocr_keyword', 'faint_opacity'],
+      imageBounds: { x: 0, y: 0, w: 595.28, h: 841.89, pageWidth: 595.28, pageHeight: 841.89 }
     };
-    const safeIds = buildSafeAutoCleanCandidateIds([mockLegitCand, mockFullPageCand], 595.28, 841.89);
-    console.log(`    Injected candidates test: Total=2, Selected=${JSON.stringify(safeIds)}`);
+    const mockLandscapeFullPageCand = {
+      id: 'injected-landscape-full-scan',
+      type: 'image',
+      text: 'Landscape 842x595 Scan',
+      count: 1,
+      pages: [0],
+      confidence: 99,
+      strategy: 'pixel_clean',
+      evidence: ['ocr_keyword', 'faint_opacity'],
+      imageBounds: { x: 20, y: 17, w: 800, h: 560, pageWidth: 841.89, pageHeight: 595.28 }
+    };
+    const mockReceiptFullPageCand = {
+      id: 'injected-receipt-full-scan',
+      type: 'image',
+      text: 'Receipt 300x600 Scan',
+      count: 1,
+      pages: [0],
+      confidence: 99,
+      strategy: 'pixel_clean',
+      evidence: ['ocr_keyword', 'faint_opacity'],
+      imageBounds: { x: 10, y: 10, w: 280, h: 580, pageWidth: 300, pageHeight: 600 }
+    };
+
+    const injectedCandidates = [
+      mockLegitCand,
+      mockFullPageCand,
+      mockLandscapeFullPageCand,
+      mockReceiptFullPageCand
+    ];
+    const safeIds = buildSafeAutoCleanCandidateIds(injectedCandidates, 595.28, 841.89);
+    console.log(`    Injected candidates test: Total=${injectedCandidates.length}, Selected=${JSON.stringify(safeIds)}`);
     assert.ok(safeIds.includes('legit-wm-1'), 'Legitimate watermark candidate must be accepted');
-    assert.ok(!safeIds.includes('injected-full-page-pixel-clean'), 'Directly injected full-page pixel_clean candidate MUST be strictly rejected!');
+    assert.ok(!safeIds.includes('injected-full-page-pixel-clean'), 'Directly injected Portrait full-page pixel_clean candidate MUST be strictly rejected!');
+    assert.ok(!safeIds.includes('injected-landscape-full-scan'), 'Directly injected Landscape 842x595 scan candidate MUST be strictly rejected!');
+    assert.ok(!safeIds.includes('injected-receipt-full-scan'), 'Directly injected Receipt 300x600 scan candidate MUST be strictly rejected!');
     assert.strictEqual(safeIds.length, 1, 'Only the legitimate candidate must be selected');
 
-    console.log('  ✅ PASS: Test A - Full-page pixel_clean candidate completely eliminated and blocked.');
+    console.log('  ✅ PASS: Test A - Full-page pixel_clean candidates completely eliminated and blocked across all aspect ratios.');
     passedTests++;
   }
 
@@ -872,6 +906,18 @@ async function runAllTests() {
         pages: [0],
         confidence: 85,
         strategy: 'pixel_clean',
+        evidence: ['ocr_keyword', 'diagonal_rotation'],
+        imageBounds: { x: 50, y: 50, w: 200, h: 80 }
+      },
+      {
+        id: 'c2-single',
+        type: 'image',
+        text: 'Single Evidence Image',
+        count: 2,
+        pages: [0, 1],
+        confidence: 75,
+        strategy: 'pixel_clean',
+        evidence: ['cross_page_hash_repeat'],
         imageBounds: { x: 50, y: 50, w: 200, h: 80 }
       },
       {
@@ -892,6 +938,7 @@ async function runAllTests() {
         pages: [0],
         confidence: 98,
         strategy: 'pixel_clean',
+        evidence: ['ocr_keyword', 'diagonal_rotation'],
         imageBounds: { x: 0, y: 0, w: 595, h: 842 }
       },
       {
@@ -921,26 +968,357 @@ async function runAllTests() {
     assert.strictEqual(candidatesG[0].type, 'text');
     assert.ok(safeIdsG.includes('c1'), 'c1 (vector text, object_remove) must be auto-selected');
 
-    // 2. Tight raster candidate c2
+    // 2. Multi-evidence raster candidate c2
     assert.strictEqual(candidatesG[1].id, 'c2');
     assert.strictEqual(candidatesG[1].type, 'image');
     assert.strictEqual(candidatesG[1].strategy, 'pixel_clean');
-    assert.ok(safeIdsG.includes('c2'), 'c2 (tight raster watermark, pixel_clean) must be auto-selected');
+    assert.ok(safeIdsG.includes('c2'), 'c2 (multi-evidence raster watermark, pixel_clean) must be auto-selected');
 
-    // 3. Manual cover candidate c3-cover
-    assert.strictEqual(candidatesG[2].strategy, 'manual_cover');
+    // 3. Single-evidence raster candidate c2-single MUST be rejected
+    assert.ok(!safeIdsG.includes('c2-single'), 'c2-single (only 1 evidence signal) MUST NOT be auto-selected');
+
+    // 4. Manual cover candidate c3-cover
+    assert.strictEqual(candidatesG[3].strategy, 'manual_cover');
     assert.ok(!safeIdsG.includes('c3-cover'), 'c3-cover (manual_cover white rectangle) MUST NOT be auto-selected');
 
-    // 4. Full-page candidate c4-fullpage
-    const isFullPageG = candidatesG[3].imageBounds && (candidatesG[3].imageBounds.w >= 595 * 0.85 && candidatesG[3].imageBounds.h >= 842 * 0.85);
+    // 5. Full-page candidate c4-fullpage
+    const isFullPageG = candidatesG[4].imageBounds && (candidatesG[4].imageBounds.w >= 595 * 0.82 && candidatesG[4].imageBounds.h >= 842 * 0.82);
     assert.ok(isFullPageG, 'c4-fullpage candidate must have full-page bounds');
     assert.ok(!safeIdsG.includes('c4-fullpage'), 'c4-fullpage (full-page imageBounds) MUST NOT be auto-selected');
 
-    // 5. Corporate logo candidate c5-logo
-    assert.strictEqual(candidatesG[4].isLogoOrHeader, true);
+    // 6. Corporate logo candidate c5-logo
+    assert.strictEqual(candidatesG[5].isLogoOrHeader, true);
     assert.ok(!safeIdsG.includes('c5-logo'), 'c5-logo (corporate logo) MUST NOT be auto-selected');
 
     console.log('  ✅ PASS: Test G - Strategy tests confirmed: pixel_clean, object_remove, manual_cover, full-page, and logo individually verified.');
+    passedTests++;
+  }
+
+  // ---------------------------------------------------------------------------
+  // TEST H: Negative Counter-Tests (Normal graphic, photo, landscape scan, receipt scan, 12pt phrase, copyright, logo, table)
+  // ---------------------------------------------------------------------------
+  console.log('\n>>> [TEST H] Negative counter-tests (Strict rejection of non-watermark fixtures)...');
+  {
+    clearPdfiumDocCache();
+    const docH = await PDFDocument.create();
+    docH.registerFontkit(fontkit);
+    const libRegular = await docH.embedFont(fs.readFileSync('public/fonts/LiberationSans-Regular.ttf'));
+    const libBold = await docH.embedFont(fs.readFileSync('public/fonts/LiberationSans-Bold.ttf'));
+
+    // Fixture 1: Centered 320x180 business graphic / chart
+    const cvsChart = createCanvas(320, 180);
+    const ctxChart = cvsChart.getContext('2d');
+    ctxChart.fillStyle = '#ffffff';
+    ctxChart.fillRect(0, 0, 320, 180);
+    ctxChart.fillStyle = '#1e3a8a';
+    ctxChart.fillRect(30, 60, 40, 90);
+    ctxChart.fillStyle = '#3b82f6';
+    ctxChart.fillRect(90, 40, 40, 110);
+    ctxChart.fillStyle = '#60a5fa';
+    ctxChart.fillRect(150, 20, 40, 130);
+    ctxChart.fillStyle = '#93c5fd';
+    ctxChart.fillRect(210, 80, 40, 70);
+    ctxChart.fillStyle = '#111827';
+    ctxChart.font = 'bold 14px sans-serif';
+    ctxChart.fillText('Çeyrek Satış Raporu Grafiği', 40, 25);
+    const chartPng = cvsChart.toBuffer('image/png');
+    const embeddedChart = await docH.embedPng(chartPng);
+
+    // Fixture 2: Centered large photo 360x260
+    const cvsPhoto = createCanvas(360, 260);
+    const ctxPhoto = cvsPhoto.getContext('2d');
+    const grad = ctxPhoto.createLinearGradient(0, 0, 360, 260);
+    grad.addColorStop(0, '#059669');
+    grad.addColorStop(0.5, '#0284c7');
+    grad.addColorStop(1, '#4f46e5');
+    ctxPhoto.fillStyle = grad;
+    ctxPhoto.fillRect(0, 0, 360, 260);
+    ctxPhoto.fillStyle = '#ffffff';
+    ctxPhoto.font = 'bold 16px sans-serif';
+    ctxPhoto.fillText('Doğa Manzarası Fotoğrafı', 80, 130);
+    const photoPng = cvsPhoto.toBuffer('image/png');
+    const embeddedPhoto = await docH.embedPng(photoPng);
+
+    // Fixture 3: Corporate logo
+    const cvsLogo = createCanvas(120, 40);
+    const ctxLogo = cvsLogo.getContext('2d');
+    ctxLogo.fillStyle = '#dc2626';
+    ctxLogo.fillRect(0, 0, 120, 40);
+    ctxLogo.fillStyle = '#ffffff';
+    ctxLogo.font = 'bold 14px sans-serif';
+    ctxLogo.fillText('ŞİRKET LOGO', 10, 25);
+    const logoPng = cvsLogo.toBuffer('image/png');
+    const embeddedLogo = await docH.embedPng(logoPng);
+
+    // Fixture 4: Scanned circular blue seal & signature
+    const cvsSeal = createCanvas(80, 80);
+    const ctxSeal = cvsSeal.getContext('2d');
+    ctxSeal.strokeStyle = '#1d4ed8';
+    ctxSeal.lineWidth = 3;
+    ctxSeal.beginPath();
+    ctxSeal.arc(40, 40, 35, 0, Math.PI * 2);
+    ctxSeal.stroke();
+    ctxSeal.fillStyle = '#1d4ed8';
+    ctxSeal.font = 'bold 10px sans-serif';
+    ctxSeal.textAlign = 'center';
+    ctxSeal.fillText('RESMİ MÜHÜR', 40, 44);
+    const sealPng = cvsSeal.toBuffer('image/png');
+    const embeddedSeal = await docH.embedPng(sealPng);
+
+    // Fixture 5: Full landscape scan 800x560
+    const cvsLandScan = createCanvas(800, 560);
+    const ctxLandScan = cvsLandScan.getContext('2d');
+    ctxLandScan.fillStyle = '#f8fafc';
+    ctxLandScan.fillRect(0, 0, 800, 560);
+    ctxLandScan.fillStyle = '#334155';
+    ctxLandScan.font = '16px sans-serif';
+    ctxLandScan.fillText('Taranmış Yatay Proje Planı Dokümanı Sayfası', 50, 50);
+    const landScanPng = cvsLandScan.toBuffer('image/png');
+    const embeddedLandScan = await docH.embedPng(landScanPng);
+
+    // Fixture 6: Full receipt scan 280x580
+    const cvsReceiptScan = createCanvas(280, 580);
+    const ctxReceiptScan = cvsReceiptScan.getContext('2d');
+    ctxReceiptScan.fillStyle = '#fefce8';
+    ctxReceiptScan.fillRect(0, 0, 280, 580);
+    ctxReceiptScan.fillStyle = '#1c1917';
+    ctxReceiptScan.font = '14px sans-serif';
+    ctxReceiptScan.fillText('KASA SATIŞ MAKBUZU', 40, 40);
+    const receiptScanPng = cvsReceiptScan.toBuffer('image/png');
+    const embeddedReceiptScan = await docH.embedPng(receiptScanPng);
+
+    // Page 1: Centered 320x180 business chart + 12pt "TASLAK proje planı" + "Copyright 2026"
+    const pH1 = docH.addPage([595.28, 841.89]);
+    pH1.drawText('MADDE 1: PROJE YÖNETİMİ', { x: 50, y: 780, size: 14, font: libBold });
+    pH1.drawText('Proje yönetimi taslak proje planı doğrultusunda yürütülecektir.', { x: 50, y: 750, size: 12, font: libRegular });
+    pH1.drawText('Copyright 2026 Tüm Hakları Saklıdır', { x: 50, y: 720, size: 10, font: libRegular, color: rgb(0.3, 0.3, 0.3) });
+    pH1.drawImage(embeddedChart, { x: 137, y: 330, width: 320, height: 180 });
+
+    // Page 2: Centered large photo 360x260 + Gray table lines + Corporate logo + Seal + Signature
+    const pH2 = docH.addPage([595.28, 841.89]);
+    pH2.drawImage(embeddedLogo, { x: 420, y: 760, width: 120, height: 40 });
+    pH2.drawText('MADDE 2: GÖRSEL MATERYALLER VE ONAYLAR', { x: 50, y: 780, size: 14, font: libBold });
+    pH2.drawImage(embeddedPhoto, { x: 117, y: 440, width: 360, height: 260 });
+    // Gray table lines
+    pH2.drawRectangle({ x: 50, y: 260, width: 495, height: 120, color: rgb(1, 1, 1), borderColor: rgb(0.8, 0.83, 0.88), borderWidth: 1 });
+    pH2.drawLine({ start: { x: 50, y: 320 }, end: { x: 545, y: 320 }, color: rgb(0.8, 0.83, 0.88), thickness: 1 });
+    pH2.drawLine({ start: { x: 250, y: 260 }, end: { x: 250, y: 380 }, color: rgb(0.8, 0.83, 0.88), thickness: 1 });
+    pH2.drawText('Açıklama', { x: 60, y: 340, size: 11, font: libBold });
+    pH2.drawText('Tutar', { x: 260, y: 340, size: 11, font: libBold });
+    // Seal and signature
+    pH2.drawImage(embeddedSeal, { x: 100, y: 140, width: 80, height: 80 });
+    pH2.drawLine({ start: { x: 320, y: 160 }, end: { x: 480, y: 160 }, color: rgb(0.2, 0.2, 0.2), thickness: 1.5 });
+    pH2.drawText('Yetkili İmza', { x: 360, y: 140, size: 11, font: libRegular });
+
+    // Page 3: Landscape A4 scan (841.89 x 595.28)
+    const pH3 = docH.addPage([841.89, 595.28]);
+    pH3.drawImage(embeddedLandScan, { x: 20, y: 17, width: 800, height: 560 });
+
+    // Page 4: Receipt scan (300 x 600)
+    const pH4 = docH.addPage([300, 600]);
+    pH4.drawImage(embeddedReceiptScan, { x: 10, y: 10, width: 280, height: 580 });
+
+    const bytesH = await docH.save();
+
+    // Render 300 DPI before images
+    console.log('    Rendering 300 DPI "before" images for all 4 negative test pages...');
+    const [h1Before, h2Before, h3Before, h4Before] = await Promise.all([
+      renderPageTo300Dpi(bytesH, 1),
+      renderPageTo300Dpi(bytesH, 2),
+      renderPageTo300Dpi(bytesH, 3),
+      renderPageTo300Dpi(bytesH, 4)
+    ]);
+
+    // Detect watermarks on negative fixtures
+    console.log('    Scanning negative fixtures across all pages...');
+    const candidatesH = await detectWatermarks(bytesH, 'all');
+    console.log(`    Detected candidates on negative fixtures: ${candidatesH.length}`);
+    for (const c of candidatesH) {
+      console.log(`      - [${c.type}] "${c.text}" conf=${c.confidence}% isLogo=${Boolean(c.isLogoOrHeader)} evidence=${JSON.stringify(c.evidence || [])}`);
+    }
+
+    // Run buildSafeAutoCleanCandidateIds
+    const safeIdsH = buildSafeAutoCleanCandidateIds(candidatesH, 595.28, 841.89);
+    console.log(`    Safe auto-clean selected candidates: ${safeIdsH.length} -> ${JSON.stringify(safeIdsH)}`);
+
+    // STRICT NEGATIVE ASSERTION: ZERO negative fixtures may be auto-selected!
+    assert.strictEqual(safeIdsH.length, 0, 'ZERO negative fixtures may be auto-selected for cleaning!');
+
+    // Execute removal with safeIdsH (which is empty)
+    const resultH = await removeWatermarks(bytesH, candidatesH, {
+      candidateIds: safeIdsH,
+      pageScope: 'all'
+    });
+    assert.strictEqual(resultH.totalRemoved, 0, 'Zero items must be removed from negative fixtures');
+
+    // Render 300 DPI after images
+    console.log('    Rendering 300 DPI "after" images for negative test pages...');
+    const [h1After, h2After, h3After, h4After] = await Promise.all([
+      renderPageTo300Dpi(resultH.pdfBytes, 1),
+      renderPageTo300Dpi(resultH.pdfBytes, 2),
+      renderPageTo300Dpi(resultH.pdfBytes, 3),
+      renderPageTo300Dpi(resultH.pdfBytes, 4)
+    ]);
+
+    // Compute pixel diffs for all 4 pages
+    console.log('    Verifying EXACTLY 0 pixel diffs across all negative pages...');
+    const diffH1 = await computeImageDiff(h1Before, h1After, path.join(FIXTURES_DIR, 'test_h_page1_diff.png'));
+    const diffH2 = await computeImageDiff(h2Before, h2After, path.join(FIXTURES_DIR, 'test_h_page2_diff.png'));
+    const diffH3 = await computeImageDiff(h3Before, h3After, path.join(FIXTURES_DIR, 'test_h_page3_diff.png'));
+    const diffH4 = await computeImageDiff(h4Before, h4After, path.join(FIXTURES_DIR, 'test_h_page4_diff.png'));
+
+    console.log(`      Page 1 diff: ${diffH1.changedPixels} pixels (Centered chart + 12pt taslak + copyright)`);
+    console.log(`      Page 2 diff: ${diffH2.changedPixels} pixels (Large photo + gray table + logo + seal + signature)`);
+    console.log(`      Page 3 diff: ${diffH3.changedPixels} pixels (Landscape 842x595 scan)`);
+    console.log(`      Page 4 diff: ${diffH4.changedPixels} pixels (Receipt 300x600 scan)`);
+
+    assert.strictEqual(diffH1.changedPixels, 0, 'Page 1 negative fixtures MUST have exactly 0 pixel diff!');
+    assert.strictEqual(diffH2.changedPixels, 0, 'Page 2 negative fixtures MUST have exactly 0 pixel diff!');
+    assert.strictEqual(diffH3.changedPixels, 0, 'Page 3 landscape scan MUST have exactly 0 pixel diff!');
+    assert.strictEqual(diffH4.changedPixels, 0, 'Page 4 receipt scan MUST have exactly 0 pixel diff!');
+
+    console.log('  ✅ PASS: Test H - All negative counter-tests verified: autoSelected === false, totalRemoved === 0, changedPixels === 0.');
+    passedTests++;
+  }
+
+  // ---------------------------------------------------------------------------
+  // TEST I: Positive Counter-Tests (48pt diagonal vector TASLAK, low-opacity raster diagonal DRAFT, cross-page repeating watermark)
+  // ---------------------------------------------------------------------------
+  console.log('\n>>> [TEST I] Positive counter-tests (Strict detection & removal of confirmed watermarks)...');
+  {
+    clearPdfiumDocCache();
+    const docI = await PDFDocument.create();
+    docI.registerFontkit(fontkit);
+    const libRegular = await docI.embedFont(fs.readFileSync('public/fonts/LiberationSans-Regular.ttf'));
+    const libBold = await docI.embedFont(fs.readFileSync('public/fonts/LiberationSans-Bold.ttf'));
+
+    // Repeating cross-page watermark image (faint slate CONFIDENTIAL)
+    const cvsConf = createCanvas(300, 100);
+    const ctxConf = cvsConf.getContext('2d');
+    ctxConf.fillStyle = '#ffffff';
+    ctxConf.fillRect(0, 0, 300, 100);
+    ctxConf.fillStyle = '#cbd5e1';
+    ctxConf.font = 'bold 36px sans-serif';
+    ctxConf.textAlign = 'center';
+    ctxConf.fillText('CONFIDENTIAL', 150, 58);
+    const confPng = cvsConf.toBuffer('image/png');
+    const embeddedConf = await docI.embedPng(confPng);
+
+    // Raster diagonal DRAFT watermark (rotated at 30°, faint opacity 0.55)
+    const cvsDraft = createCanvas(360, 180);
+    const ctxDraft = cvsDraft.getContext('2d');
+    ctxDraft.fillStyle = '#ffffff';
+    ctxDraft.fillRect(0, 0, 360, 180);
+    ctxDraft.fillStyle = '#cbd5e1';
+    ctxDraft.font = 'bold 48px sans-serif';
+    ctxDraft.save();
+    ctxDraft.translate(180, 90);
+    ctxDraft.rotate(30 * Math.PI / 180);
+    ctxDraft.textAlign = 'center';
+    ctxDraft.fillText('DRAFT', 0, 14);
+    ctxDraft.restore();
+    const draftPng = cvsDraft.toBuffer('image/png');
+    const embeddedDraft = await docI.embedPng(draftPng);
+
+    // Page 1: 48pt diagonal vector TASLAK
+    const pI1 = docI.addPage([595.28, 841.89]);
+    pI1.drawText('MADDE 1: HİZMET KAPSAMI', { x: 50, y: 780, size: 14, font: libBold });
+    pI1.drawText('Bu sayfa birinci sözleşme maddesini içerir.', { x: 50, y: 750, size: 11, font: libRegular });
+    pI1.drawText('TASLAK', {
+      x: 180,
+      y: 420,
+      size: 48,
+      font: libBold,
+      color: rgb(0.82, 0.82, 0.82),
+      rotate: degrees(45)
+    });
+
+    // Page 2: Low-opacity raster diagonal DRAFT
+    const pI2 = docI.addPage([595.28, 841.89]);
+    pI2.drawText('MADDE 2: ÖDEME PLANI', { x: 50, y: 780, size: 14, font: libBold });
+    pI2.drawText('Bu sayfa ikinci sözleşme maddesini içerir.', { x: 50, y: 750, size: 11, font: libRegular });
+    pI2.drawImage(embeddedDraft, { x: 120, y: 320, width: 360, height: 180, opacity: 0.55 });
+
+    // Page 3: Cross-page repeating watermark
+    const pI3 = docI.addPage([595.28, 841.89]);
+    pI3.drawText('MADDE 3: GİZLİLİK HÜKÜMLERİ', { x: 50, y: 780, size: 14, font: libBold });
+    pI3.drawText('Bu sayfa üçüncü sözleşme maddesini içerir.', { x: 50, y: 750, size: 11, font: libRegular });
+    pI3.drawImage(embeddedConf, { x: 150, y: 370, width: 300, height: 100, opacity: 0.50 });
+
+    // Page 4: Cross-page repeating watermark (same position as Page 3)
+    const pI4 = docI.addPage([595.28, 841.89]);
+    pI4.drawText('MADDE 4: SON HÜKÜMLER', { x: 50, y: 780, size: 14, font: libBold });
+    pI4.drawText('Bu sayfa dördüncü sözleşme maddesini içerir.', { x: 50, y: 750, size: 11, font: libRegular });
+    pI4.drawImage(embeddedConf, { x: 150, y: 370, width: 300, height: 100, opacity: 0.50 });
+
+    const bytesI = await docI.save();
+
+    // Render 300 DPI before images
+    console.log('    Rendering 300 DPI "before" images for all 4 positive test pages...');
+    const [i1Before, i2Before, i3Before, i4Before] = await Promise.all([
+      renderPageTo300Dpi(bytesI, 1),
+      renderPageTo300Dpi(bytesI, 2),
+      renderPageTo300Dpi(bytesI, 3),
+      renderPageTo300Dpi(bytesI, 4)
+    ]);
+
+    // Detect watermarks
+    console.log('    Scanning positive fixtures across all pages...');
+    const candidatesI = await detectWatermarks(bytesI, 'all');
+    console.log(`    Detected candidates on positive fixtures: ${candidatesI.length}`);
+    for (const c of candidatesI) {
+      console.log(`      - [${c.type}] "${c.text}" on pages [${c.pages.join(', ')}] conf=${c.confidence}% evidence=${JSON.stringify(c.evidence || [])}`);
+    }
+
+    const safeIdsI = buildSafeAutoCleanCandidateIds(candidatesI, 595.28, 841.89);
+    console.log(`    Safe auto-clean selected candidates: ${safeIdsI.length} -> ${JSON.stringify(safeIdsI)}`);
+
+    // Verify each positive watermark is selected
+    const candVector = candidatesI.find(c => c.pages.includes(0) && c.text?.includes('TASLAK'));
+    assert.ok(candVector, 'Page 1 48pt diagonal vector TASLAK must be detected');
+    assert.ok(safeIdsI.includes(candVector.id), 'Page 1 vector TASLAK must be auto-selected');
+
+    const candDraft = candidatesI.find(c => c.pages.includes(1) && (c.text?.includes('DRAFT') || c.strategy === 'pixel_clean'));
+    assert.ok(candDraft, 'Page 2 low-opacity raster diagonal DRAFT must be detected');
+    assert.ok(safeIdsI.includes(candDraft.id), 'Page 2 raster DRAFT must be auto-selected');
+
+    const candRepeating = candidatesI.find(c => c.pages.length >= 2);
+    assert.ok(candRepeating, 'Cross-page repeating watermark must be detected');
+    assert.ok(safeIdsI.includes(candRepeating.id), 'Cross-page repeating watermark must be auto-selected');
+
+    // Execute removal
+    const resultI = await removeWatermarks(bytesI, candidatesI, {
+      candidateIds: safeIdsI,
+      pageScope: 'all'
+    });
+    assert.ok(resultI.totalRemoved > 0, 'Watermarks must be removed');
+
+    // Render 300 DPI after images
+    console.log('    Rendering 300 DPI "after" images for positive test pages...');
+    const [i1After, i2After, i3After, i4After] = await Promise.all([
+      renderPageTo300Dpi(resultI.pdfBytes, 1),
+      renderPageTo300Dpi(resultI.pdfBytes, 2),
+      renderPageTo300Dpi(resultI.pdfBytes, 3),
+      renderPageTo300Dpi(resultI.pdfBytes, 4)
+    ]);
+
+    // Compute pixel diffs
+    const diffI1 = await computeImageDiff(i1Before, i1After, path.join(FIXTURES_DIR, 'test_i_page1_diff.png'));
+    const diffI2 = await computeImageDiff(i2Before, i2After, path.join(FIXTURES_DIR, 'test_i_page2_diff.png'));
+    const diffI3 = await computeImageDiff(i3Before, i3After, path.join(FIXTURES_DIR, 'test_i_page3_diff.png'));
+    const diffI4 = await computeImageDiff(i4Before, i4After, path.join(FIXTURES_DIR, 'test_i_page4_diff.png'));
+
+    console.log(`      Page 1 diff: ${diffI1.changedPixels} pixels (vector TASLAK removed)`);
+    console.log(`      Page 2 diff: ${diffI2.changedPixels} pixels (raster diagonal DRAFT removed)`);
+    console.log(`      Page 3 diff: ${diffI3.changedPixels} pixels (repeating CONFIDENTIAL removed)`);
+    console.log(`      Page 4 diff: ${diffI4.changedPixels} pixels (repeating CONFIDENTIAL removed)`);
+
+    assert.ok(diffI1.changedPixels > 0, 'Page 1 must have watermark pixels removed');
+    assert.ok(diffI2.changedPixels > 0, 'Page 2 must have watermark pixels removed');
+    assert.ok(diffI3.changedPixels > 0, 'Page 3 must have watermark pixels removed');
+    assert.ok(diffI4.changedPixels > 0, 'Page 4 must have watermark pixels removed');
+
+    console.log('  ✅ PASS: Test I - All positive counter-tests verified: target residual === 0, clean removal.');
     passedTests++;
   }
 

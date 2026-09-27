@@ -1,7 +1,126 @@
+if (typeof ArrayBuffer !== "undefined") {
+  if (!ArrayBuffer.prototype.transferToFixedLength) {
+    ArrayBuffer.prototype.transferToFixedLength = function (newByteLength) {
+      const len = newByteLength !== undefined ? newByteLength : this.byteLength;
+      const newBuf = new ArrayBuffer(len);
+      const copyLen = Math.min(this.byteLength, len);
+      new Uint8Array(newBuf).set(new Uint8Array(this, 0, copyLen));
+      return newBuf;
+    };
+  }
+  if (!ArrayBuffer.prototype.transfer) {
+    ArrayBuffer.prototype.transfer = function (newByteLength) {
+      const len = newByteLength !== undefined ? newByteLength : this.byteLength;
+      const newBuf = new ArrayBuffer(len);
+      const copyLen = Math.min(this.byteLength, len);
+      new Uint8Array(newBuf).set(new Uint8Array(this, 0, copyLen));
+      return newBuf;
+    };
+  }
+}
+
 import { performOcrOnCanvas } from "../ocr/ocrEngine.ts";
 import { loadPdf } from "../../lib/documents.ts";
 import { normalizeTurkish, WATERMARK_KEYWORDS } from "./watermarkDetector.ts";
-import type { WatermarkCandidate } from "./watermarkTypes.ts";
+import type { WatermarkCandidate, WatermarkEvidenceType } from "./watermarkTypes.ts";
+
+/**
+ * Unicode-aware watermark keyword matcher with strict word boundary enforcement
+ * and comprehensive exclusion of legitimate contract/document terminology.
+ */
+export function matchVisualWatermarkKeyword(text: string): { matchedKeywords: string[]; isLegitimatePhrase: boolean } {
+  if (!text) return { matchedKeywords: [], isLegitimatePhrase: false };
+  const norm = normalizeTurkish(text);
+  if (!norm) return { matchedKeywords: [], isLegitimatePhrase: false };
+
+  // Explicit exclusion of legitimate phrases & normal document terms:
+  // "taslak proje planı", "taslak metni", "taslak maddesi", "taslak dokümanı",
+  // "gizli bilgilerin korunması", "gizlilik politikası", "gizlilik sözleşmesi",
+  // "kopya sayısı", "kopya adedi", "örnek olay", "örnek soru", "örnek çalışma",
+  // "copyright 2026", "tüm hakları saklıdır", "ticari sır", "şahıslarla paylaşamaz"
+  const isLegit = (
+    /(?:taslak\s+(?:proje|plan|plani|maddesi|metni|metin|dokumani)|gizli\s+(?:bilgi|bilgilerin|belgelerin|korunmasi)|kopya\s+(?:sayisi|adedi)|ornek\s+(?:olay|calisma|soru|proje)|copyright\s+\d{4}|tum\s+haklari\s+saklidir|ticari\s+sir|ticari\s+sirri|sahislarla\s+paylasamaz|yururluk\s+ve\s+imza)/i.test(norm) ||
+    /^(?:madde|article|fikra|fıkra|bent)\s*\d+/i.test(norm)
+  );
+  if (isLegit) {
+    return { matchedKeywords: [], isLegitimatePhrase: true };
+  }
+
+  // Any regular sentence with 4+ words that is not an explicit multi-word watermark phrase is normal text!
+  const wordCount = norm.split(/\s+/).filter(Boolean).length;
+  if (wordCount >= 4) {
+    const isExplicitMultiWord = [
+      "gecersiz belge", "gecersiz ornek", "belge simulasyonudur", "onaysiz kopya",
+      "kontrolsuz kopya", "asli gibidir", "camscanner ile tarandi", "scanned with camscanner",
+      "do not copy", "strictly confidential", "private and confidential", "not for official use",
+      "for review only", "all rights reserved"
+    ].some((ph) => norm.includes(ph));
+    if (!isExplicitMultiWord) {
+      return { matchedKeywords: [], isLegitimatePhrase: true };
+    }
+  }
+
+  const matchedKeywords: string[] = [];
+  for (const kw of WATERMARK_KEYWORDS) {
+    const kwNorm = normalizeTurkish(kw);
+    if (!kwNorm) continue;
+
+    // Use Unicode-aware regex with word boundaries: (?<![a-z0-9çğıöşü])kw(?![a-z0-9çğıöşü])
+    const kwPattern = kwNorm.replace(/\s+/g, "\\s+");
+    const regex = new RegExp(`(?<![a-z0-9çğıöşü])${kwPattern}(?![a-z0-9çğıöşü])`, "i");
+    if (regex.test(norm)) {
+      matchedKeywords.push(kw);
+    }
+  }
+
+  return { matchedKeywords, isLegitimatePhrase: false };
+}
+
+/**
+ * Samples text region pixels against detected paper color to evaluate brightness/contrast.
+ * Watermarks have faint contrast (slate, light gray, pale pink) whereas legitimate text is dark.
+ */
+export function analyzeBBoxContrast(
+  canvas: HTMLCanvasElement,
+  bbox: { x: number; y: number; width?: number; height?: number; w?: number; h?: number },
+  paperColor: { r: number; g: number; b: number }
+): { isFaint: boolean; contrastRatio: number; lum: number } {
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return { isFaint: false, contrastRatio: 10, lum: 0 };
+    const bx = Math.max(0, Math.floor(bbox.x));
+    const by = Math.max(0, Math.floor(bbox.y));
+    const bw = Math.min(canvas.width - bx, Math.ceil(bbox.width ?? bbox.w ?? 0));
+    const bh = Math.min(canvas.height - by, Math.ceil(bbox.height ?? bbox.h ?? 0));
+    if (bw <= 0 || bh <= 0) return { isFaint: false, contrastRatio: 10, lum: 0 };
+
+    const imgData = ctx.getImageData(bx, by, bw, bh);
+    const data = imgData.data;
+    let textPixelCount = 0;
+    let lumSum = 0;
+    const paperLum = 0.299 * (paperColor.r * 255) + 0.587 * (paperColor.g * 255) + 0.114 * (paperColor.b * 255);
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      // If noticeably darker than paper, it's ink/text
+      if (paperLum - lum > 15) {
+        textPixelCount++;
+        lumSum += lum;
+      }
+    }
+
+    if (textPixelCount === 0) return { isFaint: true, contrastRatio: 1, lum: paperLum };
+    const avgLum = lumSum / textPixelCount;
+    const contrastRatio = (paperLum + 0.05) / (avgLum + 0.05);
+    const isFaint = contrastRatio < 3.2 || (avgLum >= 120 && avgLum <= 245);
+    return { isFaint, contrastRatio, lum: avgLum };
+  } catch {
+    return { isFaint: false, contrastRatio: 10, lum: 0 };
+  }
+}
 
 /**
  * Render a page of a PDF to an HTMLCanvasElement
@@ -111,9 +230,27 @@ export function detectPageBackgroundColor(canvas: HTMLCanvasElement): { r: numbe
 }
 
 /**
+ * Creates a blank canvas with the given dimensions using the environment's canvas constructor
+ */
+export function createCanvasHelper(sourceCanvas: HTMLCanvasElement, w: number, h: number): HTMLCanvasElement {
+  if (typeof document !== "undefined" && typeof document.createElement === "function") {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+  if ((sourceCanvas as any)?.constructor) {
+    try {
+      return new (sourceCanvas as any).constructor(w, h);
+    } catch {}
+  }
+  throw new Error("Cannot create canvas");
+}
+
+/**
  * Creates a rotated canvas to detect diagonal watermarks (e.g. 45 degrees)
  */
-function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number): HTMLCanvasElement {
+export function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number): HTMLCanvasElement {
   const rad = (angleDeg * Math.PI) / 180;
   const sin = Math.abs(Math.sin(rad));
   const cos = Math.abs(Math.cos(rad));
@@ -122,21 +259,20 @@ function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number):
   const rotW = Math.floor(w * cos + h * sin);
   const rotH = Math.floor(h * cos + w * sin);
 
-  let rotCanvas: any;
+  let rotCanvas: any = null;
   if (typeof document !== "undefined" && typeof document.createElement === "function") {
     rotCanvas = document.createElement("canvas");
     rotCanvas.width = rotW;
     rotCanvas.height = rotH;
-  } else {
+  } else if ((sourceCanvas as any).constructor) {
     try {
-      const pkg = "@napi-rs/canvas";
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createCanvas } = (0, eval)("require")(pkg);
-      rotCanvas = createCanvas(rotW, rotH);
+      rotCanvas = new (sourceCanvas as any).constructor(rotW, rotH);
     } catch {
-      return sourceCanvas;
+      rotCanvas = null;
     }
   }
+
+  if (!rotCanvas) return sourceCanvas;
 
   const ctx = rotCanvas.getContext("2d");
   if (!ctx) return sourceCanvas;
@@ -147,6 +283,76 @@ function createRotatedCanvas(sourceCanvas: HTMLCanvasElement, angleDeg: number):
   ctx.rotate(rad);
   ctx.drawImage(sourceCanvas, -w / 2, -h / 2);
   return rotCanvas;
+}
+
+/**
+ * Inspects a cropped image region for watermarks at multiple angles (0°, -25°, 25°, -45°, 45°).
+ * Cropping to the image bounding box prevents unrelated contract body text from interfering with OCR.
+ */
+export async function inspectImageCropWatermark(
+  canvas: HTMLCanvasElement,
+  bbox: { x: number; y: number; w: number; h: number },
+  pageIndex: number,
+  paperColor?: { r: number; g: number; b: number }
+): Promise<{
+  matchedText: string;
+  matchedKeywords: string[];
+  angle: number;
+  evidence: WatermarkEvidenceType[];
+  isFaint: boolean;
+} | null> {
+  try {
+    const cropX = Math.max(0, Math.floor(bbox.x));
+    const cropY = Math.max(0, Math.floor(bbox.y));
+    const cropW = Math.min(canvas.width - cropX, Math.ceil(bbox.w));
+    const cropH = Math.min(canvas.height - cropY, Math.ceil(bbox.h));
+
+    if (cropW < 20 || cropH < 20) return null;
+
+    const cropCanvas = createCanvasHelper(canvas, cropW, cropH);
+    const cropCtx = cropCanvas.getContext("2d");
+    if (!cropCtx) return null;
+
+    cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+    const effectivePaperColor = paperColor || { r: 1, g: 1, b: 1 };
+
+    // Test angles: horizontal, diagonal stamps (-25°, 25°, -45°, 45°)
+    for (const angle of [0, -25, 25, -45, 45]) {
+      const rotCanvas = createRotatedCanvas(cropCanvas, angle);
+      const rotResult = await performOcrOnCanvas(rotCanvas, pageIndex + 1, undefined, undefined, "tur+eng");
+
+      for (const line of rotResult.lines) {
+        const { matchedKeywords, isLegitimatePhrase } = matchVisualWatermarkKeyword(line.text);
+        if (isLegitimatePhrase || matchedKeywords.length === 0) continue;
+
+        const contrast = analyzeBBoxContrast(
+          canvas,
+          { x: cropX, y: cropY, width: cropW, height: cropH },
+          effectivePaperColor
+        );
+
+        const ev: WatermarkEvidenceType[] = ["ocr_keyword"];
+        if (angle !== 0) {
+          ev.push("diagonal_rotation");
+        }
+        if (contrast.isFaint) {
+          ev.push("background_contrast");
+        }
+
+        return {
+          matchedText: line.text,
+          matchedKeywords,
+          angle,
+          evidence: ev,
+          isFaint: contrast.isFaint
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("inspectImageCropWatermark error:", err);
+  }
+  return null;
 }
 
 function mapRotatedBBoxToSource(
@@ -206,97 +412,162 @@ export async function detectVisualWatermarks(
 ): Promise<WatermarkCandidate[]> {
   try {
     const { canvas, width, height, pageWidth, pageHeight } = await renderPdfPageToCanvas(pdfBytes, pageIndex, 1.5);
+    const paperColor = detectPageBackgroundColor(canvas);
     const candidates: WatermarkCandidate[] = [];
 
-    const matchedBoxes: { text: string; x: number; y: number; w: number; h: number; reason: string; confidence: number }[] = [];
+    const matchedBoxes: {
+      text: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      reason: string;
+      confidence: number;
+      evidence: WatermarkEvidenceType[];
+    }[] = [];
 
     // 1. Run standard horizontal OCR for banners / stamps / text
     try {
       const ocrResult = await performOcrOnCanvas(canvas, pageIndex + 1, undefined, undefined, "tur+eng");
       for (const line of ocrResult.lines) {
-        const normLine = normalizeTurkish(line.text);
-        const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
+        const { matchedKeywords, isLegitimatePhrase } = matchVisualWatermarkKeyword(line.text);
+        if (isLegitimatePhrase || matchedKeywords.length === 0) continue;
 
-        if (matchedKw.length > 0) {
-          const pad = 12;
-          const boxX = Math.max(0, line.bbox.x - pad);
-          const boxY = Math.max(0, line.bbox.y - pad);
-          const boxW = Math.min(width - boxX, line.bbox.width + pad * 2);
-          const boxH = Math.min(height - boxY, line.bbox.height + pad * 2);
+        // PHYSICAL SIGNAL REQUIREMENT:
+        // Pure horizontal text MUST have a physical watermark indicator (large size >= 24pt or faint contrast/tone)
+        // Normal 12pt dark text or contract sentences are NEVER treated as watermarks!
+        const contrast = analyzeBBoxContrast(canvas, line.bbox, paperColor);
+        const isLargeFont = line.bbox.height >= 32; // >= 21pt at scale 1.5
+        const isFaintContrast = contrast.isFaint;
 
-          // Discard if bounding box is full-page or excessively large
-          if (boxW < width * 0.85 || boxH < height * 0.85) {
-            matchedBoxes.push({
-              text: line.text,
-              x: boxX,
-              y: boxY,
-              w: boxW,
-              h: boxH,
-              reason: `Görsel OCR ile tespit edildi: ${matchedKw.join(", ")}`,
-              confidence: 94
-            });
-          }
-        } else {
-          for (const w of line.words) {
-            const normWord = normalizeTurkish(w.text);
-            const wMatched = WATERMARK_KEYWORDS.filter((kw) => normWord.includes(kw));
-            if (wMatched.length > 0) {
-              const pad = 8;
-              const boxX = Math.max(0, w.bbox.x - pad);
-              const boxY = Math.max(0, w.bbox.y - pad);
-              const boxW = Math.min(width - boxX, w.bbox.width + pad * 2);
-              const boxH = Math.min(height - boxY, w.bbox.height + pad * 2);
-              matchedBoxes.push({
-                text: w.text,
-                x: boxX,
-                y: boxY,
-                w: boxW,
-                h: boxH,
-                reason: `Görsel OCR ile tespit edildi: ${wMatched.join(", ")}`,
-                confidence: 88
-              });
-            }
-          }
+        if (!isLargeFont && !isFaintContrast) {
+          // Zero physical watermark signal: regular document sentence containing a keyword (e.g. "taslak")
+          continue;
+        }
+
+        const pad = 12;
+        const boxX = Math.max(0, line.bbox.x - pad);
+        const boxY = Math.max(0, line.bbox.y - pad);
+        const boxW = Math.min(width - boxX, line.bbox.width + pad * 2);
+        const boxH = Math.min(height - boxY, line.bbox.height + pad * 2);
+
+        // Discard if bounding box is full-page or excessively large
+        if (boxW < width * 0.82 || boxH < height * 0.82) {
+          const ev: WatermarkEvidenceType[] = ["ocr_keyword"];
+          if (isFaintContrast) ev.push("background_contrast");
+
+          matchedBoxes.push({
+            text: line.text,
+            x: boxX,
+            y: boxY,
+            w: boxW,
+            h: boxH,
+            reason: `Görsel OCR ile tespit edildi: ${matchedKeywords.join(", ")}`,
+            confidence: isFaintContrast ? 92 : 80,
+            evidence: ev
+          });
         }
       }
     } catch (ocrErr) {
       console.warn("Horizontal visual OCR warning:", ocrErr);
     }
 
-    // 2. Rotated OCR for diagonal visual watermarks (e.g. -45°, 45°)
+    // 2. Targeted crop OCR on candidate images (isolates watermark from unrelated contract body text)
+    if (matchedBoxes.length === 0) {
+      try {
+        const doc = await loadPdf(pdfBytes);
+        const page = await doc.getPage(pageIndex + 1);
+        const { detectImagesOnPage } = await import("../image-editor/imageDetector.ts");
+        const pageImages = await detectImagesOnPage(page, pageIndex);
+        await doc.loadingTask.destroy();
+
+        for (const img of pageImages) {
+          const covX = img.w / pageWidth;
+          const covY = img.h / pageHeight;
+          const areaCov = (img.w * img.h) / (pageWidth * pageHeight);
+          if ((covX >= 0.82 && covY >= 0.82) || areaCov >= 0.70) continue;
+
+          // Exclude header / footer logos
+          const isHeaderOrFooter = (img.y <= pageHeight * 0.16 || (img.y + img.h) >= pageHeight * 0.81) &&
+            img.w <= pageWidth * 0.55 && img.h <= pageHeight * 0.22;
+          if (isHeaderOrFooter) continue;
+
+          const scale = width / pageWidth;
+          const cropBox = {
+            x: img.x * scale,
+            y: img.y * scale,
+            w: img.w * scale,
+            h: img.h * scale
+          };
+
+          const cropRes = await inspectImageCropWatermark(canvas, cropBox, pageIndex, paperColor);
+          if (cropRes && cropRes.evidence.length >= 2) {
+            matchedBoxes.push({
+              text: cropRes.matchedText,
+              x: cropBox.x,
+              y: cropBox.y,
+              w: cropBox.w,
+              h: cropBox.h,
+              reason: `${cropRes.angle !== 0 ? `Çapraz (${cropRes.angle}°)` : "Görsel"} OCR ile tespit edildi: ${cropRes.matchedKeywords.join(", ")}`,
+              confidence: 95,
+              evidence: cropRes.evidence
+            });
+            break;
+          }
+        }
+      } catch (cropErr) {
+        console.warn("Targeted crop OCR warning:", cropErr);
+      }
+    }
+
+    // 3. Rotated OCR for diagonal visual watermarks (e.g. -45°, -25°, 25°, 45°)
     // Targets diagonal stamps/watermarks with tight OCR bounding boxes instead of full-page sweeps
     if (matchedBoxes.length === 0) {
-      for (const angle of [-45, 45]) {
+      for (const angle of [-45, -25, 25, 45]) {
         try {
           const rotCanvas = createRotatedCanvas(canvas, angle);
           const rotResult = await performOcrOnCanvas(rotCanvas, pageIndex + 1, undefined, undefined, "tur+eng");
           for (const line of rotResult.lines) {
-            const normLine = normalizeTurkish(line.text);
-            const matchedKw = WATERMARK_KEYWORDS.filter((kw) => normLine.includes(kw));
-            if (matchedKw.length > 0) {
-              const mapped = mapRotatedBBoxToSource(
-                line.bbox,
-                rotCanvas.width,
-                rotCanvas.height,
-                width,
-                height,
-                angle,
-                16
-              );
-              // Ensure tight bounds, strictly rejecting full page sweeps
-              if (mapped.w < width * 0.85 || mapped.h < height * 0.85) {
-                matchedBoxes.push({
-                  text: line.text,
-                  x: mapped.x,
-                  y: mapped.y,
-                  w: mapped.w,
-                  h: mapped.h,
-                  reason: `Çapraz görsel OCR (${angle}°) ile tespit edildi: ${matchedKw.join(", ")}`,
-                  confidence: 92
-                });
-              }
+            const { matchedKeywords, isLegitimatePhrase } = matchVisualWatermarkKeyword(line.text);
+            if (isLegitimatePhrase || matchedKeywords.length === 0) continue;
+
+            const mapped = mapRotatedBBoxToSource(
+              line.bbox,
+              rotCanvas.width,
+              rotCanvas.height,
+              width,
+              height,
+              angle,
+              16
+            );
+
+            // Dynamic coverage check on canvas
+            const covX = mapped.w / width;
+            const covY = mapped.h / height;
+            const areaCov = (mapped.w * mapped.h) / (width * height);
+            if ((covX >= 0.82 && covY >= 0.82) || areaCov >= 0.70) {
+              continue;
             }
+
+            const contrast = analyzeBBoxContrast(canvas, mapped, paperColor);
+            const ev: WatermarkEvidenceType[] = ["ocr_keyword", "diagonal_rotation"];
+            if (contrast.isFaint) {
+              ev.push("background_contrast");
+            }
+
+            matchedBoxes.push({
+              text: line.text,
+              x: mapped.x,
+              y: mapped.y,
+              w: mapped.w,
+              h: mapped.h,
+              reason: `Çapraz görsel OCR (${angle}°) ile tespit edildi: ${matchedKeywords.join(", ")}`,
+              confidence: 94,
+              evidence: ev
+            });
+            break; // Found primary diagonal watermark at this angle
           }
+          if (matchedBoxes.length > 0) break;
         } catch (rotErr) {
           console.warn(`Diagonal OCR warning (${angle}°):`, rotErr);
         }
@@ -315,8 +586,11 @@ export async function detectVisualWatermarks(
       const pdfY = Math.max(0, pageHeight - (b.y + b.h) * scaleY);
 
       // STRICT SAFETY CHECK:
-      // Never emit full-page or near-full-page candidates (>= 85% of both dimensions)
-      if (pdfW >= pageWidth * 0.85 && pdfH >= pageHeight * 0.85) {
+      // Never emit full-page or near-full-page candidates (>= 82% of both dimensions or >= 70% area)
+      const covX = pdfW / pageWidth;
+      const covY = pdfH / pageHeight;
+      const areaCov = (pdfW * pdfH) / (pageWidth * pageHeight);
+      if ((covX >= 0.82 && covY >= 0.82) || areaCov >= 0.70) {
         continue;
       }
       if (pdfW < 10 || pdfH < 10) {
@@ -331,11 +605,14 @@ export async function detectVisualWatermarks(
         pages: [pageIndex],
         confidence: b.confidence,
         reason: b.reason,
+        evidence: b.evidence,
         imageBounds: {
           x: pdfX,
           y: pdfY,
           w: pdfW,
-          h: pdfH
+          h: pdfH,
+          pageWidth,
+          pageHeight
         },
         strategy: "pixel_clean"
       });
