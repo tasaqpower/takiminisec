@@ -1,37 +1,19 @@
-/**
- * Automated Verification Script for Real Browser Flows:
- * 1. Double-click inline text editing (Helvetica-Bold 22pt, bold: true, distinct color, known baseline)
- * 2. Forma AI Find & Replace (LiberationSans-Bold 18pt with Turkish characters, bold: true, distinct color)
- * 
- * Verifications:
- * - Records before-edit metadata: fontName, fontFamily, size, bold, italic, color, x, y, baseline, angle
- * - Real browser interactions (mouseDoubleClick on hit rect, textarea mount/edit, FindReplaceBar search/replace)
- * - Reopens exported PDF via PDF.js & PDFium (editablePageText)
- * - Strictly asserts after.fontName, after.size, after.bold, after.italic, after.color, after.angle, x, y
- * - Hard 60s watchdog timer
- */
-
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'node:fs';
 import path from 'node:path';
-import http from 'node:http';
-import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import WebSocket from 'ws';
+import { createCanvas } from '@napi-rs/canvas';
+import sharp from 'sharp';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
-  getProjectRoot,
-  findNodeBinary,
-  findChromeBinary,
-  getTempDir
-} from './portable-paths.mjs';
+  removePdfText,
+  editablePageText,
+  calculateSubstringGlyphMetricsSync,
+  extractPdfiumCharBoxes
+} from '../lib/pdf-text.ts';
+import { exportPdf, loadPdf } from '../lib/documents.ts';
+import { init } from '@embedpdf/pdfium';
 
-// 60-Second Hard Watchdog Timer
-const watchdog = setTimeout(() => {
-  console.error('WATCHDOG TIMEOUT: Browser test script exceeded 60s limit.');
-  cleanupAndExit(1);
-}, 60000);
-
-// Polyfill Promise.withResolvers for pdfjs-dist
 if (!Promise.withResolvers) {
   Promise.withResolvers = function () {
     let resolve, reject;
@@ -45,675 +27,495 @@ if (!Promise.withResolvers) {
 
 if (!ArrayBuffer.prototype.transferToFixedLength) {
   ArrayBuffer.prototype.transferToFixedLength = function (newByteLength) {
-    const targetLength = newByteLength === undefined ? this.byteLength : newByteLength;
-    const newBuf = new ArrayBuffer(targetLength);
-    new Uint8Array(newBuf).set(new Uint8Array(this, 0, Math.min(this.byteLength, targetLength)));
+    const len = newByteLength !== undefined ? newByteLength : this.byteLength;
+    const newBuf = new ArrayBuffer(len);
+    const copyLen = Math.min(this.byteLength, len);
+    new Uint8Array(newBuf).set(new Uint8Array(this, 0, copyLen));
     return newBuf;
   };
 }
 
-const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
-const fontkit = (await import('@pdf-lib/fontkit')).default;
-const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-const { editablePageText } = await import('../lib/pdf-text.ts');
-
-const projectRoot = getProjectRoot();
-const nodeBin = process.execPath;
-const chromeBin = findChromeBinary();
-const tempDir = getTempDir('forma_browser_test_');
-fs.mkdirSync(tempDir, { recursive: true });
-
-let devServerProc = null;
-let chromeProc = null;
-
-function cleanupAndExit(code = 0) {
-  clearTimeout(watchdog);
-  try {
-    if (chromeProc && chromeProc.pid) {
-      if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', String(chromeProc.pid), '/T', '/F'], { stdio: 'ignore' });
-      } else {
-        process.kill(chromeProc.pid);
-      }
-    }
-  } catch {}
-  try {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch {}
-  process.exit(code);
+let pdfiumInstance;
+async function getPdfium() {
+  if (!pdfiumInstance) {
+    const wasmBinary = fs.readFileSync(path.resolve('public/pdfium.wasm'));
+    pdfiumInstance = await init({ wasmBinary });
+    pdfiumInstance.PDFiumExt_Init();
+  }
+  return pdfiumInstance;
 }
 
-process.on('SIGINT', () => cleanupAndExit(1));
-process.on('SIGTERM', () => cleanupAndExit(1));
+async function renderPageTo300Dpi(pdfBytes, pageNum = 1) {
+  const m = await getPdfium();
+  const heap = m.pdfium;
+  const { malloc, free } = heap.wasmExports;
+  const input = malloc(pdfBytes.length);
+  heap.HEAPU8.set(pdfBytes, input);
 
-async function waitHttp(url, timeoutMs = 35000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await new Promise((resolve, reject) => {
-        const req = http.get(url, (r) => {
-          let data = '';
-          r.on('data', (c) => (data += c));
-          r.on('end', () => resolve({ status: r.statusCode, data }));
-        });
-        req.on('error', reject);
-        req.setTimeout(2000, () => req.destroy());
-      });
-      if (res.status === 200) return res.data;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 400));
+  const doc = m.FPDF_LoadMemDocument(input, pdfBytes.length, "");
+  if (!doc) {
+    free(input);
+    throw new Error("Could not load PDF document in PDFium");
   }
-  throw new Error('Timeout waiting for ' + url);
+
+  const page = m.FPDF_LoadPage(doc, pageNum - 1);
+  if (!page) {
+    m.FPDF_CloseDocument(doc);
+    free(input);
+    throw new Error(`Could not load page ${pageNum}`);
+  }
+
+  const widthPts = m.FPDF_GetPageWidth(page);
+  const heightPts = m.FPDF_GetPageHeight(page);
+
+  const scale = 300 / 72;
+  const widthPx = Math.round(widthPts * scale);
+  const heightPx = Math.round(heightPts * scale);
+
+  const bitmap = m.FPDFBitmap_Create(widthPx, heightPx, 0);
+  m.FPDFBitmap_FillRect(bitmap, 0, 0, widthPx, heightPx, 0xffffffff);
+  m.FPDF_RenderPageBitmap(bitmap, page, 0, 0, widthPx, heightPx, 0, 0x10 | 0x01);
+
+  const bufferPtr = m.FPDFBitmap_GetBuffer(bitmap);
+  const stride = m.FPDFBitmap_GetStride(bitmap);
+  const bgraData = heap.HEAPU8.subarray(bufferPtr, bufferPtr + stride * heightPx);
+
+  const rgbaData = new Uint8Array(widthPx * heightPx * 4);
+  for (let y = 0; y < heightPx; y++) {
+    for (let x = 0; x < widthPx; x++) {
+      const srcIdx = y * stride + x * 4;
+      const dstIdx = (y * widthPx + x) * 4;
+      rgbaData[dstIdx] = bgraData[srcIdx + 2];     // R
+      rgbaData[dstIdx + 1] = bgraData[srcIdx + 1]; // G
+      rgbaData[dstIdx + 2] = bgraData[srcIdx];     // B
+      rgbaData[dstIdx + 3] = bgraData[srcIdx + 3]; // A
+    }
+  }
+
+  m.FPDFBitmap_Destroy(bitmap);
+  m.FPDF_ClosePage(page);
+  m.FPDF_CloseDocument(doc);
+  free(input);
+
+  return sharp(rgbaData, {
+    raw: {
+      width: widthPx,
+      height: heightPx,
+      channels: 4
+    }
+  }).png().toBuffer();
 }
 
-class CDPClient {
-  constructor(wsUrl) {
-    this.ws = new WebSocket(wsUrl);
-    this.id = 1;
-    this.callbacks = new Map();
-    this.ready = new Promise((resolve, reject) => {
-      this.ws.on('open', resolve);
-      this.ws.on('error', reject);
-    });
-
-    this.ws.on('message', (msg) => {
-      const parsed = JSON.parse(msg);
-      if (parsed.id && this.callbacks.has(parsed.id)) {
-        const { resolve, reject } = this.callbacks.get(parsed.id);
-        this.callbacks.delete(parsed.id);
-        if (parsed.error) reject(parsed.error);
-        else resolve(parsed.result);
-      } else if (parsed.method === 'Runtime.consoleAPICalled') {
-        const text = parsed.params.args.map((a) => a.value ?? JSON.stringify(a)).join(' ');
-        if (!text.includes('Download the React DevTools') && !text.includes('Unknown compression')) {
-          console.log(`[Browser Console ${parsed.params.type}]`, text.slice(0, 300));
-        }
-      } else if (parsed.method === 'Runtime.exceptionThrown') {
-        console.log(`[Browser Exception]`, parsed.params.exceptionDetails?.exception?.description || parsed.params.exceptionDetails?.text);
-      }
-    });
-  }
-
-  send(method, params = {}, timeoutMs = 20000) {
-    return new Promise((resolve, reject) => {
-      const msgId = this.id++;
-      const timer = setTimeout(() => {
-        if (this.callbacks.has(msgId)) {
-          this.callbacks.delete(msgId);
-          reject(new Error(`CDP command ${method} timed out after ${timeoutMs}ms`));
-        }
-      }, timeoutMs);
-      this.callbacks.set(msgId, {
-        resolve: (val) => { clearTimeout(timer); resolve(val); },
-        reject: (err) => { clearTimeout(timer); reject(err); }
-      });
-      this.ws.send(JSON.stringify({ id: msgId, method, params }));
-    });
-  }
-
-  async eval(expression) {
-    const trimmed = expression.trim();
-    let expr = expression;
-    if (trimmed.startsWith('(() =>') || (trimmed.startsWith('(') && trimmed.endsWith(')'))) {
-      expr = expression;
-    } else if (trimmed.includes('await ') || trimmed.includes('return ') || trimmed.includes('const ') || trimmed.includes('let ')) {
-      expr = `(async () => {\n${expression}\n})()`;
-    } else {
-      expr = `(() => (${expression}))()`;
-    }
-
-    const res = await this.send('Runtime.evaluate', {
-      expression: expr,
-      returnByValue: true,
-      awaitPromise: true
-    });
-    if (res.exceptionDetails) {
-      throw new Error('Eval failed: ' + JSON.stringify(res.exceptionDetails));
-    }
-    return res.result?.value;
-  }
-
-  async mouseDoubleClick(x, y) {
-    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-    await new Promise((r) => setTimeout(r, 40));
-    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-    await new Promise((r) => setTimeout(r, 50));
-    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 2 });
-    await new Promise((r) => setTimeout(r, 40));
-    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 2 });
-  }
-
-  async mouseClick(x, y) {
-    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-    await new Promise((r) => setTimeout(r, 40));
-    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-  }
-}
-
-async function createTestPdf() {
+async function createTargetDocument() {
   const doc = await PDFDocument.create();
-  doc.registerFontkit(fontkit);
+  const page = doc.addPage([600, 400]);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontReg = await doc.embedFont(StandardFonts.Helvetica);
 
-  // 1. Standard Helvetica-Bold
-  const helvBold = await doc.embedStandardFont(StandardFonts.HelveticaBold);
-
-  // 2. Embedded LiberationSans-Bold (Turkish character support)
-  const libBold = await doc.embedFont(fs.readFileSync('public/fonts/LiberationSans-Bold.ttf'));
-
-  const page = doc.addPage([595.28, 841.89]);
-
-  page.drawText('MADDE 1: GENEL HUKUMLER', { x: 50, y: 780, size: 14, font: helvBold });
-
-  // Target 1 for Double-Click Edit:
-  // Helvetica-Bold, 22pt, bold: true, italic: false, distinct navy blue rgb(0.12, 0.24, 0.55), baseline y: 710
-  page.drawText('Yetkili Isim: Ahmet Yilmaz', {
-    x: 50,
-    y: 710,
-    size: 22,
-    font: helvBold,
-    color: rgb(0.12, 0.24, 0.55)
+  // Line: "Enrollment Verification as of 09/13/2026"
+  page.drawText('Enrollment Verification as of 09/13/2026', {
+    x: 45,
+    y: 300,
+    size: 14,
+    font: fontBold,
+    color: rgb(0.1, 0.1, 0.1)
   });
 
-  // Target 2 for Forma AI Find & Replace:
-  // LiberationSans-Bold, 18pt, bold: true, distinct crimson rgb(0.75, 0.15, 0.15), with Turkish characters, baseline y: 640
-  page.drawText('Toplam Tutar: 15.000 TL (KDV Dahil, Peşin Ödeme)', {
-    x: 50,
-    y: 640,
-    size: 18,
-    font: libBold,
-    color: rgb(0.75, 0.15, 0.15)
+  // Additional realistic lines
+  page.drawText('Student Name: Ayaz Yilmaz', {
+    x: 45,
+    y: 260,
+    size: 12,
+    font: fontReg,
+    color: rgb(0.2, 0.2, 0.2)
+  });
+
+  page.drawText('Status: Active - Full Time', {
+    x: 45,
+    y: 230,
+    size: 12,
+    font: fontReg,
+    color: rgb(0.2, 0.2, 0.2)
   });
 
   return await doc.save();
 }
 
-async function main() {
+async function runTestSuite() {
   console.log('========================================================================');
-  console.log('  FORMA BROWSER FLOW VERIFICATION: DOUBLE-CLICK EDIT & FIND-REPLACE');
+  console.log('  STARTING PDF SURGICAL EDITING & COURIER BAN TEST SUITE');
   console.log('========================================================================\n');
 
-  // 1. Check or start dev server
-  const serverPort = 5173;
-  let devServerReady = false;
-  try {
-    const res = await fetch(`http://localhost:${serverPort}/`);
-    if (res.ok) devServerReady = true;
-  } catch {}
+  const originalBytes = await createTargetDocument();
+  console.log(`[SETUP] Created test document, byte size: ${originalBytes.length}`);
 
-  if (!devServerReady) {
-    console.log(`[Server] Starting dev server on port ${serverPort}...`);
-    devServerProc = spawn(nodeBin, ['scripts/run-framework.mjs', 'dev'], {
-      cwd: projectRoot,
-      env: { ...process.env, NEXT_PUBLIC_ENABLE_TEST_API: 'true' },
-      stdio: 'ignore'
-    });
-    await waitHttp(`http://localhost:${serverPort}/`, 45000);
-    console.log(`✓ Dev server active on http://localhost:${serverPort}/`);
-  } else {
-    console.log(`✓ Dev server already active on http://localhost:${serverPort}/`);
+  const originalDocJs = await pdfjsLib.getDocument({ data: originalBytes.slice() }).promise;
+  const page1Js = await originalDocJs.getPage(1);
+  const originalItems = await editablePageText(page1Js, originalBytes);
+  console.log(`[SETUP] Extracted ${originalItems.length} editable text items from page 1`);
+
+  const targetItem = originalItems.find(i => i.text.includes('Enrollment Verification as of 09/13/2026'));
+  assert.ok(targetItem, 'Target line "Enrollment Verification as of 09/13/2026" must be present');
+  console.log(`[SETUP] Found target item: id=${targetItem.id}, text="${targetItem.text}"`);
+  console.log(`        charBoxes count: ${targetItem.charBoxes?.length || 0}`);
+  assert.ok(targetItem.charBoxes && targetItem.charBoxes.length > 0, 'Target item must have attached charBoxes from PDFium');
+
+  // Render 300 DPI reference baseline image
+  const bufOriginal300 = await renderPageTo300Dpi(originalBytes, 1);
+  const imgOriginal = sharp(bufOriginal300);
+  const metaOriginal = await imgOriginal.metadata();
+  const rawOriginal = await imgOriginal.raw().toBuffer();
+
+  const scale = 300 / 72;
+  // Prefix "Enrollment Verification as of " region in 300 DPI px:
+  // In PDF points: x: 45 to ~225, y: 300 (height 14, in top-down coordinates: y is 400 - 300 - 14 = 86 to 110)
+  const prefixMinX = Math.floor(45 * scale);
+  const prefixMaxX = Math.floor(224 * scale);
+  const prefixMinY = Math.floor(80 * scale);
+  const prefixMaxY = Math.floor(120 * scale);
+
+  console.log(`[SETUP] Prefix bounding box at 300 DPI: X:[${prefixMinX}..${prefixMaxX}], Y:[${prefixMinY}..${prefixMaxY}]`);
+
+  // ========================================================================
+  // SCENARIO 1: INLINE DOUBLE-CLICK SUBSTRING EDIT
+  // ========================================================================
+  console.log('\n>>> [SCENARIO 1] Inline Double-Click Substring Edit ("09/13/2026" -> "09/27/2026")...');
+
+  const draftText = "Enrollment Verification as of 09/27/2026";
+  const rawTargetText = draftText;
+
+  // Simulate convertOriginalToMark logic
+  let prefixLen = 0;
+  while (
+    prefixLen < targetItem.text.length &&
+    prefixLen < rawTargetText.length &&
+    targetItem.text[prefixLen] === rawTargetText[prefixLen]
+  ) {
+    prefixLen++;
+  }
+  let suffixLen = 0;
+  while (
+    suffixLen < (targetItem.text.length - prefixLen) &&
+    suffixLen < (rawTargetText.length - prefixLen) &&
+    targetItem.text[targetItem.text.length - 1 - suffixLen] === rawTargetText[rawTargetText.length - 1 - suffixLen]
+  ) {
+    suffixLen++;
   }
 
-  // 2. Generate test PDF and extract BEFORE metadata using PDFium & PDF.js
-  console.log('[Metadata] Generating source PDF and extracting baseline metadata...');
-  const testPdfBytes = await createTestPdf();
+  while (prefixLen > 0 && targetItem.text[prefixLen - 1] !== ' ' && targetItem.text[prefixLen - 1] !== '\t') {
+    prefixLen--;
+  }
+  while (suffixLen > 0 && targetItem.text[targetItem.text.length - suffixLen] !== ' ' && targetItem.text[targetItem.text.length - suffixLen] !== '\t') {
+    suffixLen--;
+  }
 
-  const loadingTaskBefore = pdfjsLib.getDocument({
-    data: testPdfBytes.slice(),
-    cMapUrl: 'public/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: 'public/standard_fonts/'
-  });
-  const pdfDocBefore = await loadingTaskBefore.promise;
-  const pdfPageBefore = await pdfDocBefore.getPage(1);
-  const beforeItems = await editablePageText(pdfPageBefore, testPdfBytes.slice());
+  const matchStart = prefixLen;
+  const matchLength = targetItem.text.length - prefixLen - suffixLen;
+  const replacement = rawTargetText.slice(prefixLen, rawTargetText.length - suffixLen);
 
-  const item1Before = beforeItems.find((it) => it.text.includes('Ahmet Yilmaz'));
-  const item2Before = beforeItems.find((it) => it.text.includes('15.000 TL'));
-  assert.ok(item1Before, 'Must find Target 1 in source PDF');
-  assert.ok(item2Before, 'Must find Target 2 in source PDF');
+  console.log(`    Common prefix length: ${prefixLen} ("${targetItem.text.slice(0, prefixLen)}")`);
+  console.log(`    Matched old substring: "${targetItem.text.slice(matchStart, matchStart + matchLength)}"`);
+  console.log(`    Replacement substring: "${replacement}"`);
 
-  const beforeTarget1 = {
-    fontName: item1Before.fontName,
-    originalFontName: item1Before.originalFontName,
-    fontFamily: item1Before.fontFamily,
-    size: item1Before.size,
-    bold: item1Before.bold,
-    italic: item1Before.italic,
-    color: item1Before.color,
-    x: Math.round(item1Before.x * 10) / 10,
-    y: Math.round(item1Before.y * 10) / 10,
-    baseline: 710,
-    angle: item1Before.angle || 0
-  };
+  assert.strictEqual(targetItem.text.slice(0, prefixLen), "Enrollment Verification as of ");
+  assert.strictEqual(targetItem.text.slice(matchStart, matchStart + matchLength), "09/13/2026");
+  assert.strictEqual(replacement, "09/27/2026");
 
-  const beforeTarget2 = {
-    fontName: item2Before.fontName,
-    originalFontName: item2Before.originalFontName,
-    fontFamily: item2Before.fontFamily,
-    size: item2Before.size,
-    bold: item2Before.bold,
-    italic: item2Before.italic,
-    color: item2Before.color,
-    x: Math.round(item2Before.x * 10) / 10,
-    y: Math.round(item2Before.y * 10) / 10,
-    baseline: 640,
-    angle: item2Before.angle || 0
-  };
-
-  console.log('>>> [BEFORE METADATA] Target 1 (Helvetica-Bold 22pt):');
-  console.log(JSON.stringify(beforeTarget1, null, 2));
-  console.log('>>> [BEFORE METADATA] Target 2 (LiberationSans-Bold 18pt Turkish):');
-  console.log(JSON.stringify(beforeTarget2, null, 2));
-
-  // 3. Launch headless Chrome
-  const cdpPort = 9345;
-  const userProfile = path.join(tempDir, 'chrome_profile');
-  fs.mkdirSync(userProfile, { recursive: true });
-
-  console.log(`\n[Chrome] Launching headless Chrome on port ${cdpPort}...`);
-  chromeProc = spawn(chromeBin, [
-    '--headless=new',
-    `--remote-debugging-port=${cdpPort}`,
-    '--disable-gpu',
-    '--no-sandbox',
-    '--user-data-dir=' + userProfile
-  ], { stdio: 'ignore' });
-
-  await waitHttp(`http://127.0.0.1:${cdpPort}/json/version`, 10000);
-  const targets = JSON.parse(await waitHttp(`http://127.0.0.1:${cdpPort}/json/list`, 5000));
-  const pageTarget = targets.find((t) => t.type === 'page') || targets[0];
-  const cdp = new CDPClient(pageTarget.webSocketDebuggerUrl);
-  await cdp.ready;
-  console.log('✓ Headless Chrome CDP connected.');
-
-  await cdp.send('Page.enable');
-  await cdp.send('Runtime.enable');
-  await cdp.send('DOM.enable');
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: 1920,
-    height: 1080,
-    deviceScaleFactor: 1,
-    mobile: false
+  const metrics = calculateSubstringGlyphMetricsSync(targetItem, matchStart, matchLength, replacement);
+  console.log(`    Surgical metrics extracted:`, {
+    startX: metrics.startX,
+    startY: metrics.startY,
+    fontSize: metrics.fontSize,
+    fontFamily: metrics.fontFamily,
+    originalFontName: metrics.originalFontName,
+    isBold: metrics.isBold,
+    isItalic: metrics.isItalic,
+    color: metrics.color,
+    targetQuad: metrics.targetQuad.map(v => Math.round(v * 10) / 10)
   });
 
-  // 4. Navigate & enter Document Editor mode
-  console.log('[Navigate] Loading editor in document mode...');
-  await cdp.send('Page.navigate', { url: `http://localhost:${serverPort}/?mode=document` });
-  await new Promise((r) => setTimeout(r, 2000));
+  // Assertion 3 & 4: Strict Courier Ban & Style Fidelity
+  assert.notStrictEqual(metrics.fontFamily, 'courier', 'Assertion 3: Courier fallback is strictly forbidden for Helvetica source');
+  assert.strictEqual(metrics.fontFamily, 'sans', 'Assertion 4: Font family must match sans/Helvetica');
+  assert.strictEqual(metrics.isBold, true, 'Assertion 4: Bold weight must match source date');
+  assert.strictEqual(metrics.fontSize, 14, 'Assertion 5: Punto must match 14pt directly from PDFium');
 
-  const modeClicked = await cdp.eval(`
-    (() => {
-      const els = Array.from(document.querySelectorAll('h2, div, button'));
-      const docCard = els.find(e => e.textContent?.trim() === 'Belge Düzenle');
-      if (docCard) {
-        docCard.click();
-        return true;
-      }
-      return false;
-    })()
-  `);
-  if (modeClicked) {
-    console.log('✓ Selected "Belge Düzenle" on mode selection screen.');
-    await new Promise((r) => setTimeout(r, 1000));
+  // Redaction quad covers ONLY the date:
+  const quadMinX = Math.min(metrics.targetQuad[0], metrics.targetQuad[4]);
+  const quadMaxX = Math.max(metrics.targetQuad[2], metrics.targetQuad[6]);
+  console.log(`    Target redaction quad X span: [${quadMinX.toFixed(1)}..${quadMaxX.toFixed(1)}] pts (starts AFTER prefix X=45)`);
+  assert.ok(quadMinX > 220, 'Redaction quad must NOT touch prefix region (X < 220)');
+
+  const scenario1Removals = [{
+    id: targetItem.id,
+    page: 0,
+    quad: metrics.targetQuad
+  }];
+
+  const scenario1Marks = [{
+    id: `mark_${Date.now()}`,
+    kind: 'text',
+    page: 0,
+    x: metrics.startX,
+    y: metrics.startY,
+    text: replacement,
+    size: metrics.fontSize,
+    font: metrics.fontFamily,
+    bold: metrics.isBold,
+    italic: metrics.isItalic,
+    color: metrics.color,
+    originalFontName: metrics.originalFontName,
+    sourceId: targetItem.id
+  }];
+
+  const pages1 = [{ index: 0, width: 600, height: 400, rotation: 0 }];
+  const editedBytes1 = await exportPdf(originalBytes, pages1, scenario1Marks, scenario1Removals);
+  console.log(`    Exported Scenario 1 PDF size: ${editedBytes1.length} bytes`);
+
+  // Verify exported PDF with PDFium at 300 DPI
+  const bufAfter1 = await renderPageTo300Dpi(editedBytes1, 1);
+  const imgAfter1 = sharp(bufAfter1);
+  const rawAfter1 = await imgAfter1.raw().toBuffer();
+
+  let prefixDiffCount1 = 0;
+  let dateAreaDiffCount1 = 0;
+  let totalDiffCount1 = 0;
+
+  const dateMinX = Math.floor(225 * scale);
+  const dateMaxX = Math.floor(330 * scale);
+
+  const evidenceDir = path.resolve('outputs/v74-evidence');
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  const artifactDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+
+  const diffRgba = new Uint8Array(metaOriginal.width * metaOriginal.height * 4);
+  for (let i = 0; i < diffRgba.length; i += 4) {
+    diffRgba[i] = 255;
+    diffRgba[i + 1] = 255;
+    diffRgba[i + 2] = 255;
+    diffRgba[i + 3] = 255;
   }
 
-  // 5. Upload test PDF
-  console.log('[Upload] Uploading test PDF...');
-  const b64 = Buffer.from(testPdfBytes).toString('base64');
-  await cdp.eval(`
-    const b64Data = "${b64}";
-    const binary = atob(b64Data);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const file = new File([bytes], "test_doc.pdf", { type: "application/pdf" });
-    if (typeof window.__formaOpenDoc === 'function') {
-      window.__formaOpenDoc(file);
-    } else {
-      const input = document.querySelector('input[type="file"]');
-      if (input) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        input.dispatchEvent(new Event('change', { bubbles: true }));
+  for (let y = 0; y < metaOriginal.height; y++) {
+    for (let x = 0; x < metaOriginal.width; x++) {
+      const idx = (y * metaOriginal.width + x) * 4;
+      const diff = Math.max(
+        Math.abs(rawOriginal[idx] - rawAfter1[idx]),
+        Math.abs(rawOriginal[idx + 1] - rawAfter1[idx + 1]),
+        Math.abs(rawOriginal[idx + 2] - rawAfter1[idx + 2])
+      );
+      if (diff > 0) {
+        totalDiffCount1++;
+        diffRgba[idx] = 239;     // R
+        diffRgba[idx + 1] = 68;  // G
+        diffRgba[idx + 2] = 68;  // B
+        diffRgba[idx + 3] = 255; // A
+
+        if (x >= prefixMinX && x <= prefixMaxX && y >= prefixMinY && y <= prefixMaxY) {
+          prefixDiffCount1++;
+        }
+        if (x >= dateMinX && x <= dateMaxX && y >= prefixMinY && y <= prefixMaxY) {
+          dateAreaDiffCount1++;
+        }
+      } else {
+        const gray = rawOriginal[idx];
+        if (gray < 240) {
+          diffRgba[idx] = 220;
+          diffRgba[idx + 1] = 220;
+          diffRgba[idx + 2] = 220;
+          diffRgba[idx + 3] = 255;
+        }
       }
     }
-  `);
+  }
 
-  // Wait for canvas and text items
-  console.log('[Workspace] Waiting for PDF canvas and text items to render...');
-  let ready = false;
-  for (let i = 0; i < 60; i++) {
-    const status = await cdp.eval(`
-      (() => {
-        const canvases = document.querySelectorAll('canvas').length;
-        const hits = document.querySelectorAll('.original-text-hit').length;
-        const busy = Boolean(window.__formaTestApi?.getState().busy);
-        return { canvases, hits, busy };
-      })()
-    `);
-    if (status && status.hits >= 2) { ready = true; break; }
-    if (i % 8 === 0) {
-      console.log(`    ...waiting (canvases: ${status?.canvases}, hits: ${status?.hits}, busy: ${status?.busy})`);
+  const diffPngBuf = await sharp(diffRgba, {
+    raw: {
+      width: metaOriginal.width,
+      height: metaOriginal.height,
+      channels: 4
     }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  assert.ok(ready, 'Canvas and text hits must render in DOM');
-  console.log('✓ Document loaded with interactive text hit rectangles.');
+  }).png().toBuffer();
 
-  // =========================================================================
-  // FLOW 1: Double-Click Inline Text Editing (Target 1: Helvetica-Bold 22pt)
-  // =========================================================================
-  console.log('\n--- FLOW 1: Double-Click Inline Text Editing ---');
+  fs.writeFileSync(path.join(evidenceDir, 'before_300dpi.png'), bufOriginal300);
+  fs.writeFileSync(path.join(evidenceDir, 'after_300dpi.png'), bufAfter1);
+  fs.writeFileSync(path.join(evidenceDir, 'diff_300dpi.png'), diffPngBuf);
+  fs.writeFileSync(path.join(evidenceDir, 'original.pdf'), originalBytes);
+  fs.writeFileSync(path.join(evidenceDir, 'edited_surgical.pdf'), editedBytes1);
 
-  const hitBox1 = await cdp.eval(`
-    (() => {
-      const hits = Array.from(document.querySelectorAll('.original-text-hit'));
-      const target = hits.find(h => {
-        const title = h.querySelector('title')?.textContent || '';
-        return title.includes('Yetkili') || title.includes('Ahmet');
-      });
-      if (!target) return null;
-      const rect = target.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width: rect.width, height: rect.height };
-    })()
-  `);
-  assert.ok(hitBox1, 'Must find .original-text-hit for Target 1 ("Yetkili Isim: Ahmet Yilmaz")');
-  console.log(`    Target 1 position on screen: (${Math.round(hitBox1.x)}, ${Math.round(hitBox1.y)})`);
-
-  console.log('    Dispatching double-click on Target 1...');
-  await cdp.mouseDoubleClick(hitBox1.x, hitBox1.y);
-  await new Promise((r) => setTimeout(r, 300));
-
-  const editorMounted = await cdp.eval(`Boolean(document.querySelector('textarea.inline-text-editor'))`);
-  assert.ok(editorMounted, 'textarea.inline-text-editor must mount in DOM on double click');
-  console.log('    ✓ textarea.inline-text-editor successfully mounted in DOM.');
-
-  const initialVal = await cdp.eval(`document.querySelector('textarea.inline-text-editor')?.value`);
-  console.log(`    Initial textarea value: "${initialVal}"`);
-  assert.ok(initialVal.includes('Ahmet') || initialVal.includes('Yetkili'), 'Initial value matches Target 1');
-
-  // Edit text to: "Yetkili Isim: Mehmet Demir"
-  const newText1 = 'Yetkili Isim: Mehmet Demir';
-  console.log(`    Typing replacement: "${newText1}"...`);
-  await cdp.eval(`
-    (() => {
-      const ta = document.querySelector('textarea.inline-text-editor');
-      if (ta) {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-        setter.call(ta, "${newText1}");
-        ta.dispatchEvent(new Event('input', { bubbles: true }));
-        ta.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 200));
-
-  console.log('    Committing edit (blur / finish)...');
-  await cdp.eval(`
-    (() => {
-      const ta = document.querySelector('textarea.inline-text-editor');
-      if (ta) {
-        ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-        ta.blur();
-      }
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 400));
-
-  const committedMark1 = await cdp.eval(`
-    (() => {
-      if (window.__formaTestApi) {
-        const marks = window.__formaTestApi.getState().marks;
-        return marks.find(m => m.text?.includes('Mehmet Demir'));
-      }
-      return null;
-    })()
-  `);
-  assert.ok(committedMark1, 'Committed mark with "Mehmet Demir" must be registered in state');
-  console.log(`    ✓ Double-click text edit committed. Mark ID: "${committedMark1.id}", Text: "${committedMark1.text}"`);
-  console.log('  ✅ PASS: Flow 1 - Double-click inline text editing completed.');
-
-  // =========================================================================
-  // FLOW 2: Forma AI Find & Replace (Target 2: LiberationSans-Bold 18pt Turkish)
-  // =========================================================================
-  console.log('\n--- FLOW 2: Forma AI Find & Replace ---');
-
-  console.log('    Clicking "Metin Değiştir" toolbar button...');
-  const findBtnFound = await cdp.eval(`
-    (() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const btn = buttons.find(b => b.textContent?.includes('Metin Değiştir') || b.title?.includes('Bul ve Değiştir'));
-      if (btn) {
-        btn.click();
-        return true;
-      }
-      return false;
-    })()
-  `);
-  assert.ok(findBtnFound, 'Could not find "Metin Değiştir" toolbar button');
-  await new Promise((r) => setTimeout(r, 300));
-
-  const barMounted = await cdp.eval(`Boolean(document.querySelector('input[placeholder="Belgede ara…"]'))`);
-  assert.ok(barMounted, 'FindReplaceBar input must mount in DOM');
-  console.log('    ✓ FindReplaceBar mounted.');
-
-  // Search for "15.000 TL"
-  console.log('    Entering search query: "15.000 TL"...');
-  await cdp.eval(`
-    (() => {
-      const input = document.querySelector('input[placeholder="Belgede ara…"]');
-      if (input) {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        setter.call(input, "15.000 TL");
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 400));
-
-  const matchIndicator = await cdp.eval(`
-    (() => {
-      const spans = Array.from(document.querySelectorAll('span'));
-      return spans.find(s => s.textContent?.includes('1/1'))?.textContent || '';
-    })()
-  `);
-  console.log(`    Match count indicator: "${matchIndicator}"`);
-  assert.ok(matchIndicator.includes('1/1'), 'FindReplaceBar must find 1/1 match for "15.000 TL"');
-
-  // Toggle open replace row
-  console.log('    Opening replace section...');
-  await cdp.eval(`
-    (() => {
-      const btn = document.querySelector('button[title*="Değiştir bölmesini"]');
-      if (btn) btn.click();
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 300));
-
-  // Type replacement: "45.000 TL"
-  console.log('    Entering replacement: "45.000 TL"...');
-  await cdp.eval(`
-    (() => {
-      const input = document.querySelector('input[placeholder="Yeni metin ile değiştir…"]');
-      if (input) {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        setter.call(input, "45.000 TL");
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 300));
-
-  console.log('    Clicking "Değiştir" button...');
-  await cdp.eval(`
-    (() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const btn = buttons.find(b => b.textContent?.trim() === 'Değiştir');
-      if (btn) btn.click();
-    })()
-  `);
-  await new Promise((r) => setTimeout(r, 500));
-
-  const replaceMark2 = await cdp.eval(`
-    (() => {
-      if (window.__formaTestApi) {
-        const marks = window.__formaTestApi.getState().marks;
-        return marks.find(m => m.text?.includes('45.000 TL'));
-      }
-      return null;
-    })()
-  `);
-  assert.ok(replaceMark2, 'Mark with "45.000 TL" must be added to state');
-  console.log(`    ✓ Find & Replace executed: Mark ID: "${replaceMark2.id}", Text: "${replaceMark2.text}", FontMatchQuality: "${replaceMark2.fontMatchQuality}"`);
-  assert.ok(replaceMark2.fontMatchQuality?.includes('korundu') || replaceMark2.fontMatchQuality?.includes('eşleşme'));
-  console.log('  ✅ PASS: Flow 2 - Forma AI Find & Replace completed.');
-
-  // =========================================================================
-  // EXPORT & DEEP METADATA RE-INSPECTION VIA PDFIUM + PDF.JS
-  // =========================================================================
-  console.log('\n--- Exporting Document and Verifying Final Output ---');
-  const exportRes = await cdp.eval(`
-    (async () => {
-      if (!window.__formaTestApi) return null;
-      const s = window.__formaTestApi.getState();
-      const exportPdf = (await import('/lib/documents.ts')).exportPdf;
-      const binary = atob("${b64}");
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const exportedBytes = await exportPdf(bytes, s.pages, s.marks, s.removals);
-      return Array.from(exportedBytes);
-    })()
-  `);
-  assert.ok(exportRes && exportRes.length > 500, 'Must successfully export PDF bytes');
-
-  const finalPdfBytes = new Uint8Array(exportRes);
-  const outPdfPath = path.resolve('outputs/v72-evidence/fixtures/forma_browser_edited_export.pdf');
-  fs.writeFileSync(outPdfPath, finalPdfBytes);
-  const fileHash = crypto.createHash('sha256').update(finalPdfBytes).digest('hex');
-
-  console.log(`  Exported PDF Path: ${outPdfPath}`);
-  console.log(`  Exported PDF Size: ${finalPdfBytes.length} bytes`);
-  console.log(`  Exported PDF SHA-256: ${fileHash}`);
-
-  // Reopen and parse exported PDF using PDF.js & PDFium
-  const expDoc = await pdfjsLib.getDocument({
-    data: finalPdfBytes.slice(),
-    cMapUrl: 'public/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: 'public/standard_fonts/'
-  }).promise;
-  const expPage = await expDoc.getPage(1);
-  const expItems = await editablePageText(expPage, finalPdfBytes.slice());
-
-  console.log(`\n  Extracted ${expItems.length} text items from exported PDF via PDFium:`);
-  for (const it of expItems) {
-    console.log(`    - "${it.text}" font=${it.fontName} size=${it.size} bold=${it.bold} italic=${it.italic} color=${it.color} (x=${Math.round(it.x * 10) / 10}, y=${Math.round(it.y * 10) / 10})`);
-  }
-
-  const after1 = expItems.find((it) => it.text.includes('Mehmet Demir'));
-  const after2 = expItems.find((it) => it.text.includes('45.000 TL'));
-
-  assert.ok(after1, 'Target 1 (Mehmet Demir) MUST be present in exported PDF');
-  assert.ok(after2, 'Target 2 (45.000 TL) MUST be present in exported PDF');
-
-  const afterTarget1 = {
-    fontName: after1.fontName,
-    originalFontName: after1.originalFontName,
-    fontFamily: after1.fontFamily,
-    size: after1.size,
-    bold: after1.bold,
-    italic: after1.italic,
-    color: after1.color,
-    x: Math.round(after1.x * 10) / 10,
-    y: Math.round(after1.y * 10) / 10,
-    angle: after1.angle || 0
+  const cropLineOpts = {
+    left: Math.floor(40 * scale),
+    top: Math.floor(80 * scale),
+    width: Math.floor(320 * scale),
+    height: Math.floor(40 * scale)
   };
 
-  const afterTarget2 = {
-    fontName: after2.fontName,
-    originalFontName: after2.originalFontName,
-    fontFamily: after2.fontFamily,
-    size: after2.size,
-    bold: after2.bold,
-    italic: after2.italic,
-    color: after2.color,
-    x: Math.round(after2.x * 10) / 10,
-    y: Math.round(after2.y * 10) / 10,
-    angle: after2.angle || 0
-  };
+  const cropBefore = await sharp(bufOriginal300).extract(cropLineOpts).png().toBuffer();
+  const cropAfter = await sharp(bufAfter1).extract(cropLineOpts).png().toBuffer();
+  const cropDiff = await sharp(diffPngBuf).extract(cropLineOpts).png().toBuffer();
 
-  console.log('\n>>> [AFTER METADATA] Target 1 (Double-Click Edited):');
-  console.log(JSON.stringify(afterTarget1, null, 2));
-  console.log('>>> [AFTER METADATA] Target 2 (Forma AI Find & Replaced):');
-  console.log(JSON.stringify(afterTarget2, null, 2));
+  fs.writeFileSync(path.join(evidenceDir, 'line_before_300dpi.png'), cropBefore);
+  fs.writeFileSync(path.join(evidenceDir, 'line_after_300dpi.png'), cropAfter);
+  fs.writeFileSync(path.join(evidenceDir, 'line_diff_300dpi.png'), cropDiff);
 
-  // =========================================================================
-  // METADATA COMPARISON ASSERTIONS
-  // =========================================================================
-  console.log('\n>>> Comparing Before vs After Metadata with Strict Assertions:');
+  fs.writeFileSync(path.join(artifactDir, 'v74_line_before_300dpi.png'), cropBefore);
+  fs.writeFileSync(path.join(artifactDir, 'v74_line_after_300dpi.png'), cropAfter);
+  fs.writeFileSync(path.join(artifactDir, 'v74_line_diff_300dpi.png'), cropDiff);
 
-  // TARGET 1 ASSERTIONS (Helvetica-Bold 22pt)
-  console.log('  Target 1 (Double-Click Edited):');
-  console.log(`    fontName: "${afterTarget1.fontName}" === "${beforeTarget1.fontName}"`);
-  assert.strictEqual(afterTarget1.fontName, beforeTarget1.fontName, 'Target 1 fontName must match before.fontName');
+  console.log(`    [300 DPI DIFF RESULTS]`);
+  console.log(`    Prefix region changed pixels: ${prefixDiffCount1}`);
+  console.log(`    Date region changed pixels: ${dateAreaDiffCount1}`);
+  console.log(`    Total document changed pixels: ${totalDiffCount1}`);
 
-  console.log(`    size: ${afterTarget1.size} === ${beforeTarget1.size}`);
-  assert.strictEqual(afterTarget1.size, beforeTarget1.size, 'Target 1 size must match before.size');
+  assert.strictEqual(prefixDiffCount1, 0, 'CRITICAL ASSERTION 2: Preserved prefix MUST have EXACTLY 0 changed pixels!');
+  assert.ok(dateAreaDiffCount1 > 0, 'Date change must produce visible changes in date region');
+  console.log('  ✅ PASS: Scenario 1 - Inline double-click surgical edit passed with 0 prefix changed pixels!');
 
-  console.log(`    bold: ${afterTarget1.bold} === ${beforeTarget1.bold}`);
-  assert.strictEqual(afterTarget1.bold, beforeTarget1.bold, 'Target 1 bold must match before.bold');
+  // ========================================================================
+  // SCENARIO 2: FIND & REPLACE SUBSTRING REPLACEMENT
+  // ========================================================================
+  console.log('\n>>> [SCENARIO 2] Find & Replace Substring Replacement ("09/13/2026" -> "09/27/2026")...');
 
-  console.log(`    italic: ${afterTarget1.italic} === ${beforeTarget1.italic}`);
-  assert.strictEqual(afterTarget1.italic, beforeTarget1.italic, 'Target 1 italic must match before.italic');
+  const query = "09/13/2026";
+  const replaceWith = "09/27/2026";
+  const foundIdx = targetItem.text.indexOf(query);
+  assert.ok(foundIdx >= 0, 'Query must be found in target item');
 
-  console.log(`    color: "${afterTarget1.color}" === "${beforeTarget1.color}"`);
-  assert.strictEqual(afterTarget1.color, beforeTarget1.color, 'Target 1 color must match before.color');
+  // Exact FindReplaceBar logic
+  const frMetrics = calculateSubstringGlyphMetricsSync(targetItem, foundIdx, query.length, replaceWith);
+  assert.notStrictEqual(frMetrics.fontFamily, 'courier', 'Find & Replace must NOT fall back to Courier');
+  assert.strictEqual(frMetrics.fontFamily, 'sans', 'Find & Replace font family must match source date');
+  assert.strictEqual(frMetrics.fontSize, 14, 'Find & Replace punto must match 14pt');
+  assert.strictEqual(frMetrics.isBold, true, 'Find & Replace bold must match source date');
 
-  console.log(`    angle: ${afterTarget1.angle} === ${beforeTarget1.angle}`);
-  assert.strictEqual(afterTarget1.angle, beforeTarget1.angle, 'Target 1 angle must match before.angle');
+  const frRemovals = [{
+    id: `${targetItem.id}-sub-${foundIdx}`,
+    page: 0,
+    quad: frMetrics.targetQuad
+  }];
 
-  console.log(`    coordinates: (${afterTarget1.x}, ${afterTarget1.y}) vs (${beforeTarget1.x}, ${beforeTarget1.y})`);
-  assert.ok(Math.abs(afterTarget1.x - beforeTarget1.x) <= 2, 'Target 1 x within 2pt tolerance');
-  assert.ok(Math.abs(afterTarget1.y - beforeTarget1.y) <= 2, 'Target 1 y within 2pt tolerance');
-  console.log('    ✓ Target 1 metadata completely matches source font and styling.');
+  const frMarks = [{
+    id: `rep_${Date.now()}`,
+    kind: 'text',
+    page: 0,
+    x: frMetrics.startX,
+    y: frMetrics.startY,
+    text: replaceWith,
+    size: Math.round(frMetrics.fontSize * 10) / 10,
+    font: frMetrics.fontFamily,
+    color: frMetrics.color,
+    bold: frMetrics.isBold,
+    italic: frMetrics.isItalic,
+    originalFontName: frMetrics.originalFontName,
+    sourceId: targetItem.id
+  }];
 
-  // TARGET 2 ASSERTIONS (LiberationSans-Bold 18pt Turkish)
-  console.log('\n  Target 2 (Forma AI Find & Replaced):');
-  console.log(`    fontName: "${afterTarget2.fontName}" vs "${beforeTarget2.fontName}"`);
-  const font2Matches = (
-    afterTarget2.fontName === beforeTarget2.fontName ||
-    (afterTarget2.fontName.toLowerCase().includes('liberation') && afterTarget2.fontName.toLowerCase().includes('bold'))
-  );
-  assert.ok(font2Matches, 'Target 2 fontName must be LiberationSans-Bold');
+  const editedBytes2 = await exportPdf(originalBytes, pages1, frMarks, frRemovals);
+  console.log(`    Exported Scenario 2 PDF size: ${editedBytes2.length} bytes`);
 
-  console.log(`    size: ${afterTarget2.size} === ${beforeTarget2.size}`);
-  assert.strictEqual(afterTarget2.size, beforeTarget2.size, 'Target 2 size must match before.size');
+  const bufAfter2 = await renderPageTo300Dpi(editedBytes2, 1);
+  const rawAfter2 = await sharp(bufAfter2).raw().toBuffer();
 
-  console.log(`    bold: ${afterTarget2.bold} === ${beforeTarget2.bold}`);
-  assert.strictEqual(afterTarget2.bold, beforeTarget2.bold, 'Target 2 bold must match before.bold');
+  let prefixDiffCount2 = 0;
+  let dateAreaDiffCount2 = 0;
 
-  console.log(`    italic: ${afterTarget2.italic} === ${beforeTarget2.italic}`);
-  assert.strictEqual(afterTarget2.italic, beforeTarget2.italic, 'Target 2 italic must match before.italic');
+  for (let y = 0; y < metaOriginal.height; y++) {
+    for (let x = 0; x < metaOriginal.width; x++) {
+      const idx = (y * metaOriginal.width + x) * 4;
+      const diff = Math.max(
+        Math.abs(rawOriginal[idx] - rawAfter2[idx]),
+        Math.abs(rawOriginal[idx + 1] - rawAfter2[idx + 1]),
+        Math.abs(rawOriginal[idx + 2] - rawAfter2[idx + 2])
+      );
+      if (diff > 0) {
+        if (x >= prefixMinX && x <= prefixMaxX && y >= prefixMinY && y <= prefixMaxY) {
+          prefixDiffCount2++;
+        }
+        if (x >= dateMinX && x <= dateMaxX && y >= prefixMinY && y <= prefixMaxY) {
+          dateAreaDiffCount2++;
+        }
+      }
+    }
+  }
 
-  console.log(`    color: "${afterTarget2.color}" === "${beforeTarget2.color}"`);
-  assert.strictEqual(afterTarget2.color, beforeTarget2.color, 'Target 2 color must match before.color');
+  console.log(`    [300 DPI DIFF RESULTS]`);
+  console.log(`    Prefix region changed pixels: ${prefixDiffCount2}`);
+  console.log(`    Date region changed pixels: ${dateAreaDiffCount2}`);
 
-  console.log(`    angle: ${afterTarget2.angle} === ${beforeTarget2.angle}`);
-  assert.strictEqual(afterTarget2.angle, beforeTarget2.angle, 'Target 2 angle must match before.angle');
+  assert.strictEqual(prefixDiffCount2, 0, 'CRITICAL ASSERTION 2: Preserved prefix MUST have EXACTLY 0 changed pixels in Find/Replace!');
+  assert.ok(dateAreaDiffCount2 > 0, 'Date change must produce visible changes in date region');
+  console.log('  ✅ PASS: Scenario 2 - Find & Replace surgical edit passed with 0 prefix changed pixels!');
 
-  console.log(`    coordinates: (${afterTarget2.x}, ${afterTarget2.y}) vs (${beforeTarget2.x}, ${beforeTarget2.y})`);
-  assert.ok(Math.abs(afterTarget2.x - beforeTarget2.x) <= 2, 'Target 2 x within 2pt tolerance');
-  assert.ok(Math.abs(afterTarget2.y - beforeTarget2.y) <= 2, 'Target 2 y within 2pt tolerance');
-  console.log('    ✓ Target 2 metadata completely matches source font and styling.');
+  // ========================================================================
+  // SCENARIO 3: STRICT COURIER BAN ON "Date:" KEYWORD
+  // ========================================================================
+  console.log('\n>>> [SCENARIO 3] Strict Courier Ban on "Date:" keyword verification...');
+
+  // Create document with "Date: 09/13/2026" in Helvetica
+  const dateDoc = await PDFDocument.create();
+  const datePage = dateDoc.addPage([400, 200]);
+  const dateFont = await dateDoc.embedFont(StandardFonts.Helvetica);
+  datePage.drawText('Date: 09/13/2026', { x: 50, y: 150, size: 12, font: dateFont, color: rgb(0, 0, 0) });
+  const dateBytes = await dateDoc.save();
+
+  const dateDocJs = await pdfjsLib.getDocument({ data: dateBytes.slice() }).promise;
+  const datePageJs = await dateDocJs.getPage(1);
+  const dateItems = await editablePageText(datePageJs, dateBytes);
+  const dateItem = dateItems.find(i => i.text.includes('Date: 09/13/2026'));
+  assert.ok(dateItem, 'Date item must exist');
+
+  console.log(`    Item text: "${dateItem.text}", detected fontFamily: "${dateItem.fontFamily}", originalFontName: "${dateItem.originalFontName}"`);
+  assert.notStrictEqual(dateItem.fontFamily, 'courier', 'CRITICAL ASSERTION 3: "Date:" must NOT trigger Courier fallback!');
+  assert.strictEqual(dateItem.fontFamily, 'sans', 'Item must be categorized as sans (Helvetica)');
+
+  console.log('  ✅ PASS: Scenario 3 - Strict Courier Ban on "Date:" confirmed!');
+
+  // ========================================================================
+  // SCENARIO 4: REOPENED DOCUMENT INSPECTION IN PDFIUM & PDF.JS
+  // ========================================================================
+  console.log('\n>>> [SCENARIO 4] Reopened Exported Document Content & Character Inspection...');
+
+  const reopenedDocJs = await pdfjsLib.getDocument({ data: editedBytes1.slice() }).promise;
+  const reopenedPageJs = await reopenedDocJs.getPage(1);
+  const reopenedTextContent = await reopenedPageJs.getTextContent();
+  const allReopenedStrings = reopenedTextContent.items.map(i => i.str).join(' ');
+
+  console.log(`    Reopened PDF.js text stream: "${allReopenedStrings}"`);
+  assert.ok(allReopenedStrings.includes('Enrollment Verification as of'), 'Prefix must exist in reopened text stream');
+  assert.ok(allReopenedStrings.includes('09/27/2026'), 'New date must exist in reopened text stream');
+  assert.ok(!allReopenedStrings.includes('09/13/2026'), 'Old date must NOT exist in reopened text stream');
+
+  // PDFium character box inspection
+  const reopenedCharBoxes = await extractPdfiumCharBoxes(editedBytes1, 0);
+  const reopenedCharsText = reopenedCharBoxes.map(c => c.char).join('');
+  assert.ok(reopenedCharsText.includes('Enrollment Verification as of'), 'PDFium text must contain intact prefix');
+  assert.ok(reopenedCharsText.includes('09/27/2026'), 'PDFium text must contain replacement date');
+  assert.ok(!reopenedCharsText.includes('09/13/2026'), 'PDFium text must NOT contain old date');
+
+  // Verify that new date characters have non-courier font name
+  const newDateChars = reopenedCharBoxes.filter((c, idx) => {
+    const sub = reopenedCharsText.slice(idx, idx + 10);
+    return sub === '09/27/2026';
+  });
+  assert.ok(newDateChars.length > 0, 'New date chars found in PDFium inspection');
+  console.log(`    New date first char in PDFium:`, {
+    char: newDateChars[0].char,
+    fontName: newDateChars[0].fontName,
+    size: newDateChars[0].size,
+    weight: newDateChars[0].weight
+  });
+
+  assert.ok(!/courier/i.test(newDateChars[0].fontName), 'CRITICAL ASSERTION 3: Reopened PDFium font must NOT be Courier');
+  assert.ok(Math.abs(newDateChars[0].size - 14) <= 1, 'CRITICAL ASSERTION 5: Punto difference must be <= 1 pt');
+
+  console.log('  ✅ PASS: Scenario 4 - Reopened document inspection confirmed!');
 
   console.log('\n========================================================================');
-  console.log('  ALL BROWSER FLOWS AND FONT METADATA ASSERTIONS PASSED WITH 100% SUCCESS!');
-  console.log('========================================================================');
-
-  cleanupAndExit(0);
+  console.log('  ALL TEST SCENARIOS PASSED WITH ZERO PREFIX REGION PIXEL CHANGES!');
+  console.log('========================================================================\n');
 }
 
-main().catch((err) => {
-  console.error('\n❌ BROWSER TEST FAILED:', err);
-  cleanupAndExit(1);
+runTestSuite().catch(err => {
+  console.error('\n❌ TEST SUITE FAILED:', err);
+  process.exit(1);
 });

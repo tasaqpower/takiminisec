@@ -70,7 +70,7 @@ import {
   type Mark,
   type PageItem
 } from "@/lib/documents";
-import { editablePageText, removePdfText, removePdfImages, canRemovePdfImage, type EditableText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
+import { editablePageText, removePdfText, removePdfImages, canRemovePdfImage, calculateSubstringGlyphMetricsSync, calculateSubstringGlyphMetrics, type EditableText, type TextRemoval, type ImageRemoval } from "@/lib/pdf-text";
 import { PDF_FONTS, pdfFont, type PdfFont } from "@/lib/pdf-fonts";
 import { useAutosave } from "@/features/autosave/useAutosave";
 import { AutosaveIndicator } from "@/features/autosave/AutosaveIndicator";
@@ -527,7 +527,7 @@ export default function Workspace({
           const segH = seg.bbox.height * scaleY;
 
           const segStyle = (seg as any).style || line.style;
-          const fontCat = segStyle?.fontCategory || (/^(Name|Date|ID|No|Ref|Sign|Tarih|Adı|Soyadı|Tc|Sicil)[:\s]/i.test(seg.text) ? "courier" : "sans");
+          const fontCat = segStyle?.fontCategory || "sans";
           const isBold = Boolean(segStyle?.bold);
           const isItalic = Boolean(segStyle?.italic);
           const textColor = segStyle?.textColor || "#000000";
@@ -1517,7 +1517,7 @@ export default function Workspace({
       : "sans";
 
     // Whole item is targeted: remove entire original item quad to prevent prefix duplication ("Name: Name:")
-    const removalQuad = item.quad;
+    let removalQuad = item.quad;
 
     const isUnicodeApprox = updates.text !== undefined && !canEncodeWinAnsi(updates.text);
     // Taranmış PDF'de gerçek font bilgisi bulunmadığından daima "görsel eşleştirme" olarak adlandır
@@ -1536,6 +1536,67 @@ export default function Workspace({
     );
 
     const rawTargetText = updates.text !== undefined ? updates.text : item.text;
+
+    let isSurgical = false;
+    let surgicalMarkX = item.x;
+    let surgicalMarkY = item.y;
+    let surgicalMarkW = item.w;
+    let surgicalMarkText = rawTargetText;
+    let surgicalFontSize = Math.round(item.size * 10) / 10;
+    let surgicalFont: PdfFont = fontVal;
+    let surgicalBold = isItemBold;
+    let surgicalItalic = isItemItalic;
+    let surgicalColor = item.color || "#1e293b";
+    let surgicalOriginalFontName = item.originalFontName || item.fontName;
+
+    if (!isOcr && updates.text !== undefined && updates.text !== item.text) {
+      let prefixLen = 0;
+      while (
+        prefixLen < item.text.length &&
+        prefixLen < rawTargetText.length &&
+        item.text[prefixLen] === rawTargetText[prefixLen]
+      ) {
+        prefixLen++;
+      }
+
+      let suffixLen = 0;
+      while (
+        suffixLen < (item.text.length - prefixLen) &&
+        suffixLen < (rawTargetText.length - prefixLen) &&
+        item.text[item.text.length - 1 - suffixLen] === rawTargetText[rawTargetText.length - 1 - suffixLen]
+      ) {
+        suffixLen++;
+      }
+
+      // Snap to token/word boundary so whole words/tokens (like dates) are replaced together
+      // rather than splitting inside a word/number:
+      while (prefixLen > 0 && item.text[prefixLen - 1] !== ' ' && item.text[prefixLen - 1] !== '\t') {
+        prefixLen--;
+      }
+      while (suffixLen > 0 && item.text[item.text.length - suffixLen] !== ' ' && item.text[item.text.length - suffixLen] !== '\t') {
+        suffixLen--;
+      }
+
+      const matchStart = prefixLen;
+      const matchLength = item.text.length - prefixLen - suffixLen;
+      const replacement = rawTargetText.slice(prefixLen, rawTargetText.length - suffixLen);
+
+      if ((prefixLen > 0 || suffixLen > 0) && matchLength > 0) {
+        const metrics = calculateSubstringGlyphMetricsSync(item, matchStart, matchLength, replacement);
+        removalQuad = metrics.targetQuad;
+        surgicalMarkX = metrics.startX;
+        surgicalMarkY = metrics.startY;
+        surgicalMarkW = metrics.width;
+        surgicalMarkText = replacement;
+        surgicalFontSize = Math.round(metrics.fontSize * 10) / 10;
+        surgicalFont = metrics.fontFamily;
+        surgicalBold = metrics.isBold;
+        surgicalItalic = metrics.isItalic;
+        surgicalColor = metrics.color;
+        surgicalOriginalFontName = metrics.originalFontName;
+        isSurgical = true;
+      }
+    }
 
     // Detect preserved label prefix in OCR items (e.g. "Name: ", "Adı: ", "Tarih: ")
     let preservedPrefix = "";
@@ -1585,10 +1646,16 @@ export default function Workspace({
       }
     }
 
-    const markX = isOcr && preservedPrefix ? (item.x + prefixWidth) : item.x;
-    const markW = isOcr && preservedPrefix ? Math.max(10, item.w - prefixWidth) : Math.max(10, item.w);
-    const markText = isOcr && preservedPrefix ? effectiveTargetText : rawTargetText;
-    const markY = isOcr ? (origBounds.y + origBounds.h - item.size) : item.y;
+    const markX = isSurgical ? surgicalMarkX : (isOcr && preservedPrefix ? (item.x + prefixWidth) : item.x);
+    const markW = isSurgical ? surgicalMarkW : (isOcr && preservedPrefix ? Math.max(10, item.w - prefixWidth) : Math.max(10, item.w));
+    const markText = isSurgical ? surgicalMarkText : (isOcr && preservedPrefix ? effectiveTargetText : rawTargetText);
+    const markY = isSurgical ? surgicalMarkY : (isOcr ? (origBounds.y + origBounds.h - item.size) : item.y);
+    const markSize = isSurgical ? surgicalFontSize : (updates.size ?? Math.round(item.size * 10) / 10);
+    const markFont = isSurgical ? surgicalFont : (updates.font ?? fontVal);
+    const markBold = isSurgical ? surgicalBold : (updates.bold ?? isItemBold);
+    const markItalic = isSurgical ? surgicalItalic : (updates.italic ?? isItemItalic);
+    const markColor = isSurgical ? surgicalColor : (updates.color ?? item.color ?? "#1e293b");
+    const markOrigFontName = isSurgical ? surgicalOriginalFontName : (item.originalFontName || item.fontName);
 
     const removals = state.removals.some(r => r.id === item.id)
       ? state.removals.map(r => r.id === item.id ? { ...r, quad: removalQuad } : r)
@@ -1604,18 +1671,19 @@ export default function Workspace({
     const baseMark: Mark = existing
       ? {
           ...existing,
+          ...updates,
           x: updates.x ?? existing.x ?? markX,
           y: updates.y ?? existing.y ?? markY,
           w: updates.w ?? existing.w ?? markW,
-          size: updates.size ?? existing.size ?? Math.round(item.size * 10) / 10,
-          bold: updates.bold ?? existing.bold ?? isItemBold,
-          italic: updates.italic ?? existing.italic ?? isItemItalic,
-          font: updates.font ?? existing.font ?? fontVal,
-          color: updates.color ?? existing.color ?? item.color ?? "#1e293b",
-          originalFontName: existing.originalFontName || item.originalFontName || item.fontName,
+          size: updates.size ?? existing.size ?? markSize,
+          bold: updates.bold ?? existing.bold ?? markBold,
+          italic: updates.italic ?? existing.italic ?? markItalic,
+          font: updates.font ?? existing.font ?? markFont,
+          color: updates.color ?? existing.color ?? markColor,
+          originalFontName: existing.originalFontName || markOrigFontName,
           fontMatchQuality: fontQuality,
-          ...updates,
           ocrTextDirty: isTextDirty,
+          originalText: (existing as any).originalText || item.text,
           text: markText
         }
       : {
@@ -1624,11 +1692,11 @@ export default function Workspace({
           kind: "text",
           y: updates.y ?? markY,
           h: item.h,
-          size: updates.size ?? Math.round(item.size * 10) / 10,
-          color: updates.color ?? item.color ?? "#1e293b",
-          font: updates.font ?? fontVal,
-          bold: updates.bold ?? isItemBold,
-          italic: updates.italic ?? isItemItalic,
+          size: markSize,
+          color: markColor,
+          font: markFont,
+          bold: markBold,
+          italic: markItalic,
           angle: item.angle,
           sourceId: item.id,
           bg: undefined,
@@ -1636,8 +1704,9 @@ export default function Workspace({
           ocrOriginalBounds: origBounds,
           ocrTextDirty: isTextDirty,
           ocrBackgroundColor: item.ocrBackgroundColor || "#f8f6f0",
-          originalFontName: item.originalFontName || item.fontName,
+          originalFontName: markOrigFontName,
           fontMatchQuality: fontQuality,
+          originalText: item.text,
           ...updates,
           x: updates.x ?? markX,
           w: updates.w ?? markW,
@@ -1710,8 +1779,9 @@ export default function Workspace({
 
   function finishInlineEditOriginal() {
     const orig = editingOriginalRef.current || editingOriginal;
-    const draftText = editingOriginalDraftText;
-    const isDirty = editingOriginalDirty && orig && draftText !== orig.text;
+    const domVal = inlineTextareaRef.current?.value;
+    const draftText = (domVal !== undefined && domVal !== "") ? domVal : editingOriginalDraftText;
+    const isDirty = Boolean((editingOriginalDirty || (domVal !== undefined && orig && domVal !== orig.text)) && orig && draftText !== orig.text);
 
     editingOriginalRef.current = null;
     editingIdRef.current = null;
@@ -3121,6 +3191,7 @@ export default function Workspace({
                 onClose={() => setShowFindReplace(false)}
                 marks={state.marks}
                 originalTexts={allOriginalTexts}
+                pdfBytes={bytes}
                 currentPage={active}
                 onNavigatePage={(pIdx) => setActive(pIdx)}
                 onUpdateMarks={(newMarks) => change({ ...state, marks: newMarks })}
@@ -3153,7 +3224,7 @@ export default function Workspace({
                         !rendering &&
                         !previewError &&
                         textItems
-                          .filter(item => !state.removals.some(r => r.id === item.id))
+                          .filter(item => !state.removals.some(r => r.id === item.id || (typeof r.id === "string" && r.id.startsWith(`${item.id}-sub-`))))
                           .map(item => {
                             const isSel = selectedOriginal?.id === item.id;
                             const box = {

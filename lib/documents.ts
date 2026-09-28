@@ -1,7 +1,7 @@
 import { PDFDocument, degrees, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import DOMPurify from "dompurify";
-import { removePdfText, removePdfImages, type TextRemoval } from "./pdf-text.ts";
+import { removePdfText, applyPdfTextReplacements, type PdfTextReplacement, removePdfImages, type TextRemoval } from "./pdf-text.ts";
 import { fontFile, type PdfFont } from "./pdf-fonts.ts";
 
 export type Mark = {
@@ -32,6 +32,7 @@ export type Mark = {
   originalFontName?: string;
   fontName?: string;
   fontMatchQuality?: string;
+  originalText?: string;
 };
 
 export function canEncodeWinAnsi(str: string): boolean {
@@ -151,7 +152,39 @@ export async function imagePdf(files:File[]){const out=await PDFDocument.create(
 export async function mergePdf(files:File[]){const out=await PDFDocument.create();for(const file of files){const doc=await PDFDocument.load(await file.arrayBuffer());for(const page of await out.copyPages(doc,doc.getPageIndices()))out.addPage(page)}return out.save()}
 function col(hex:string){const n=parseInt(hex.replace("#",""),16);return rgb(((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255)}
 export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],removals:TextRemoval[]=[],images:any[]=[]){
- bytes=await removePdfText(bytes,removals.filter(r=>!r.id.startsWith("ocr-")&&pages.some(p=>p.index===r.page)));
+  const pageRemovals = removals.filter(r=>!r.id.startsWith("ocr-")&&pages.some(p=>p.index===r.page));
+  const replacements: PdfTextReplacement[] = [];
+  for (const m of marks) {
+    if (m.kind === "text" && m.sourceId) {
+      const rem = pageRemovals.find(r => r.id === m.sourceId && r.page === m.page);
+      if (rem && Array.isArray(rem.quad) && rem.quad.length === 8 && rem.quad.every(Number.isFinite)) {
+        replacements.push({
+          markId: m.id,
+          sourceId: m.sourceId,
+          page: rem.page,
+          quad: rem.quad,
+          text: m.text || "",
+          originalText: (m as any).originalText || (m as any).ocrOriginalText || (m as any).initialText,
+          size: m.size,
+          font: m.font,
+          originalFontName: m.originalFontName,
+          fontName: (m as any).fontName,
+          bold: m.bold,
+          italic: m.italic,
+          color: m.color,
+          bg: (m as any).bg
+        });
+      }
+    }
+  }
+
+  const { bytes: updatedBytes, appliedMarkIds } = await applyPdfTextReplacements(
+    bytes,
+    pageRemovals,
+    replacements
+  );
+  bytes = updatedBytes;
+  marks = marks.filter(m => !appliedMarkIds.includes(m.id));
  const imageRemovals = images
    .filter(img => (img.deleted || img.isModified) && img.isOriginal && img.originalBounds)
      .map(img => ({
@@ -185,7 +218,11 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
        /italic|oblique|slanted/i.test(m.fontName || "")
      );
 
-     const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
+     const isCourier = Boolean(
+       (m.originalFontName && /courier|couriernew/i.test(m.originalFontName)) ||
+       (m.fontName && /courier|couriernew/i.test(m.fontName)) ||
+       (m.font === "courier" && (!m.originalFontName || /courier|couriernew/i.test(m.originalFontName)))
+     );
      if (isCourier && canEncodeWinAnsi(m.text || "")) {
        const stdName = isBold
          ? (isItalic ? StandardFonts.CourierBoldOblique : StandardFonts.CourierBold)
@@ -300,7 +337,11 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
          m.fontName?.toLowerCase().includes("liberation")
        );
        const isTimes = Boolean(m.originalFontName?.toLowerCase().includes("times") || m.fontName?.toLowerCase().includes("times"));
-       const isCourier = Boolean(m.font === "courier" || m.originalFontName?.toLowerCase().includes("courier") || m.fontName?.toLowerCase().includes("courier"));
+       const isCourier = Boolean(
+        (m.originalFontName && /courier|couriernew/i.test(m.originalFontName)) ||
+        (m.fontName && /courier|couriernew/i.test(m.fontName)) ||
+        (m.font === "courier" && (!m.originalFontName || /courier|couriernew/i.test(m.originalFontName)))
+      );
        const isHelv = !isLiberation && Boolean(
          m.originalFontName?.toLowerCase().includes("helvetica") ||
          m.fontName?.toLowerCase().includes("helvetica")
@@ -371,7 +412,7 @@ export async function exportPdf(bytes:Uint8Array,pages:PageItem[],marks:Mark[],r
      }
     }
    }
-   page.setRotation(degrees((originalRotation+item.rotation)%360));
+   page.setRotation(degrees((originalRotation+(item.rotation||0))%360));
   }
   return await out.save();
  }finally{await renderer?.loadingTask.destroy()}

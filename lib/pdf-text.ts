@@ -3,6 +3,23 @@ import { PDFDocument, PDFName, PDFDict, PDFRef } from "pdf-lib";
 import pako from "pako";
 
 export type TextRemoval = { id: string; page: number; quad: number[] };
+
+export interface CharBox {
+  char: string;
+  left: number;
+  right: number;
+  bottom: number;
+  top: number;
+  size: number;
+  weight: number;
+  fontName: string;
+  color: string;
+  isBold: boolean;
+  isItalic: boolean;
+  originX?: number;
+  originY?: number;
+}
+
 export type EditableText = TextRemoval & {
   text: string;
   x: number;
@@ -21,6 +38,7 @@ export type EditableText = TextRemoval & {
   letterSpacing?: number;
   lineHeight?: number;
   transform?: number[];
+  charBoxes?: CharBox[];
   isOcr?: boolean;
   ocrSourceCropDataUrl?: string;
   ocrOriginalBounds?: { x: number; y: number; w: number; h: number };
@@ -54,31 +72,736 @@ type ExtendedPdfiumRuntime = PdfiumRuntimeMethods & {
   HEAPU8: Uint8Array;
 };
 
-/** Rewrites text content streams. No opaque rectangles or rasterized pages. */
-export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) {
+function parseHexColor(hex?: string): { r: number; g: number; b: number } {
+  if (!hex) return { r: 0, g: 0, b: 0 };
+  const clean = hex.replace("#", "");
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return { r: 0, g: 0, b: 0 };
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function resolveStandardFontName(rep: {
+  bold?: boolean;
+  italic?: boolean;
+  originalFontName?: string;
+  fontName?: string;
+  font?: string;
+}): string {
+  const isBold = Boolean(
+    rep.bold ||
+    /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(rep.originalFontName || "") ||
+    /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(rep.fontName || "")
+  );
+  const isItalic = Boolean(
+    rep.italic ||
+    /italic|oblique|slanted/i.test(rep.originalFontName || "") ||
+    /italic|oblique|slanted/i.test(rep.fontName || "")
+  );
+
+  const name = ((rep.originalFontName || "") + " " + (rep.fontName || "")).toLowerCase();
+  if (name.includes("courier")) {
+    return isBold ? (isItalic ? "Courier-BoldOblique" : "Courier-Bold") : (isItalic ? "Courier-Oblique" : "Courier");
+  }
+  if (name.includes("times")) {
+    return isBold ? (isItalic ? "Times-BoldItalic" : "Times-Bold") : (isItalic ? "Times-Italic" : "Times-Roman");
+  }
+  return isBold ? (isItalic ? "Helvetica-BoldOblique" : "Helvetica-Bold") : (isItalic ? "Helvetica-Oblique" : "Helvetica");
+}
+
+function allocateUtf16LeString(heap: any, text: string): number {
+  if (!text || typeof text !== "string") return 0;
+  const bytes = new Uint8Array((text.length + 1) * 2);
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    bytes[i * 2] = code & 0xff;
+    bytes[i * 2 + 1] = (code >> 8) & 0xff;
+  }
+  const { malloc } = heap.wasmExports;
+  const ptr = malloc(bytes.length);
+  const mem = new Uint8Array(heap.wasmExports.memory.buffer);
+  mem.set(bytes, ptr);
+  return ptr;
+}
+
+export type PdfTextReplacement = {
+  markId: string;
+  sourceId: string;
+  page: number;
+  quad: number[];
+  text: string;
+  originalText?: string;
+  size: number;
+  font?: string;
+  originalFontName?: string;
+  fontName?: string;
+  bold?: boolean;
+  italic?: boolean;
+  color?: string;
+  bg?: string;
+};
+
+async function createUniversalCanvas(width: number, height: number): Promise<{ canvas: any; ctx: any }> {
+  if (typeof OffscreenCanvas !== "undefined") {
+    const canvas = new OffscreenCanvas(width, height);
+    return { canvas, ctx: canvas.getContext("2d") };
+  }
+  if (typeof document !== "undefined" && document.createElement) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return { canvas, ctx: canvas.getContext("2d") };
+  }
+  try {
+    const dynamicImport = new Function("modulePath", "return import(modulePath)");
+    const napiCanvas = await dynamicImport("@napi-rs/canvas").catch(() => null);
+    if (napiCanvas && napiCanvas.createCanvas) {
+      const canvas = napiCanvas.createCanvas(width, height);
+      return { canvas, ctx: canvas.getContext("2d") };
+    }
+  } catch {}
+  return { canvas: null, ctx: null };
+}
+
+/**
+ * Rewrites text content streams and inserts replacement text objects directly in topological
+ * reading order at the exact object stream index of the redacted text.
+ */
+export async function applyPdfTextReplacements(
+  bytes: Uint8Array,
+  removals: TextRemoval[],
+  replacements: PdfTextReplacement[] = []
+): Promise<{ bytes: Uint8Array; appliedMarkIds: string[] }> {
   const validRemovals = removals.filter(
     r => Array.isArray(r.quad) && r.quad.length === 8 && r.quad.every(Number.isFinite)
   );
-  if (!validRemovals.length) return bytes;
+  if (!validRemovals.length && !replacements.length) {
+    return { bytes, appliedMarkIds: [] };
+  }
+
   const m = await engine(), heap = m.pdfium as unknown as ExtendedPdfiumRuntime;
   const { malloc, free } = heap.wasmExports;
   const input = malloc(bytes.length);
   let doc = 0;
+  const appliedMarkIds: string[] = [];
+
   try {
     heap.HEAPU8.set(bytes, input);
     doc = m.FPDF_LoadMemDocument(input, bytes.length, "");
     if (!doc) throw Error("PDF metin düzenlemesi için açılamadı.");
-    for (const index of new Set(validRemovals.map(r => r.page))) {
+
+    const pageIndices = new Set([
+      ...validRemovals.map(r => r.page),
+      ...replacements.map(r => r.page)
+    ]);
+
+    for (const index of pageIndices) {
       const page = m.FPDF_LoadPage(doc, index);
       if (!page) throw Error("Düzenlenecek sayfa açılamadı.");
-      const items = validRemovals.filter(r => r.page === index);
-      const quads = malloc(items.length * 32);
+
       try {
-        items.forEach((item, i) => item.quad.forEach((value, j) => heap.setValue(quads + i * 32 + j * 4, value, "float")));
-        if (!m.EPDFText_RedactInQuads(page, quads, items.length, true, false)) throw Error("Seçili metin kaldırılamadı.");
+        const pageRemovals = validRemovals.filter(r => r.page === index);
+        const pageReplacements = replacements.filter(r => r.page === index);
+
+        const objCount = m.FPDFPage_CountObjects(page);
+        let pageHasImage = false;
+        for (let i = 0; i < objCount; i++) {
+          if (m.FPDFPageObj_GetType(m.FPDFPage_GetObject(page, i)) === 3) {
+            pageHasImage = true;
+            break;
+          }
+        }
+
+        const boundsPtr = malloc(16);
+        const replacementTargets = pageReplacements.map(rep => {
+          const quad = rep.quad;
+          const minX = Math.min(quad[0], quad[2], quad[4], quad[6]);
+          const maxX = Math.max(quad[0], quad[2], quad[4], quad[6]);
+          const minY = Math.min(quad[1], quad[3], quad[5], quad[7]);
+          const maxY = Math.max(quad[1], quad[3], quad[5], quad[7]);
+          const midX = (minX + maxX) / 2;
+          const midY = (minY + maxY) / 2;
+
+          let targetObjIndex = -1;
+          let targetBaselineY = -1;
+          for (let i = 0; i < objCount; i++) {
+            const obj = m.FPDFPage_GetObject(page, i);
+            if (m.FPDFPageObj_GetType(obj) === 1) { // text
+              m.FPDFPageObj_GetBounds(obj, boundsPtr, boundsPtr + 4, boundsPtr + 8, boundsPtr + 12);
+              const l = heap.getValue(boundsPtr, "float");
+              const b = heap.getValue(boundsPtr + 4, "float");
+              const r = heap.getValue(boundsPtr + 8, "float");
+              const t = heap.getValue(boundsPtr + 12, "float");
+              if (midX >= l - 10 && midX <= r + 10 && midY >= b - 10 && midY <= t + 10) {
+                targetObjIndex = i;
+                const mPtr = malloc(24);
+                try {
+                  m.FPDFPageObj_GetMatrix(obj, mPtr);
+                  targetBaselineY = heap.getValue(mPtr + 20, "float");
+                } catch {} finally {
+                  free(mPtr);
+                }
+                break;
+              }
+            }
+          }
+          return { rep, minX, maxX, minY, maxY, targetObjIndex, targetBaselineY };
+        });
+        free(boundsPtr);
+
+        let pageRgbaData: Uint8Array | null = null;
+        const scale = 300 / 72;
+        const pageWidthPts = m.FPDF_GetPageWidth(page);
+        const pageHeightPts = m.FPDF_GetPageHeight(page);
+        const pageWidthPx = Math.round(pageWidthPts * scale);
+        const pageHeightPx = Math.round(pageHeightPts * scale);
+
+        if (pageHasImage && replacementTargets.length > 0) {
+          const renderBmp = m.FPDFBitmap_Create(pageWidthPx, pageHeightPx, 0);
+          m.FPDFBitmap_FillRect(renderBmp, 0, 0, pageWidthPx, pageHeightPx, 0xffffffff);
+          m.FPDF_RenderPageBitmap(renderBmp, page, 0, 0, pageWidthPx, pageHeightPx, 0, 0x10 | 0x01);
+          const bufPtr = m.FPDFBitmap_GetBuffer(renderBmp);
+          const stride = m.FPDFBitmap_GetStride(renderBmp);
+          const u8Mem = new Uint8Array((heap.wasmExports as any).memory.buffer);
+          pageRgbaData = new Uint8Array(pageWidthPx * pageHeightPx * 4);
+          for (let y = 0; y < pageHeightPx; y++) {
+            const rowStart = bufPtr + y * stride;
+            const dstRow = y * pageWidthPx * 4;
+            for (let x = 0; x < pageWidthPx; x++) {
+              const srcIdx = rowStart + x * 4;
+              const dstIdx = dstRow + x * 4;
+              pageRgbaData[dstIdx] = u8Mem[srcIdx + 2];     // R
+              pageRgbaData[dstIdx + 1] = u8Mem[srcIdx + 1]; // G
+              pageRgbaData[dstIdx + 2] = u8Mem[srcIdx];     // B
+              pageRgbaData[dstIdx + 3] = u8Mem[srcIdx + 3]; // A
+            }
+          }
+          m.FPDFBitmap_Destroy(renderBmp);
+        }
+
+        // 1. Redact old text in quads
+        if (pageRemovals.length > 0) {
+          const quads = malloc(pageRemovals.length * 32);
+          try {
+            pageRemovals.forEach((item, i) =>
+              item.quad.forEach((value, j) => heap.setValue(quads + i * 32 + j * 4, value, "float"))
+            );
+            if (!m.EPDFText_RedactInQuads(page, quads, pageRemovals.length, !pageHasImage, false)) {
+              throw Error("Seçili metin kaldırılamadı.");
+            }
+          } finally {
+            free(quads);
+          }
+        }
+
+        // 2. Insert replacements in reverse target order so earlier indices remain stable
+        const sortedTargets = [...replacementTargets].sort((a, b) => {
+          if (a.targetObjIndex < 0 && b.targetObjIndex < 0) return 0;
+          if (a.targetObjIndex < 0) return 1;
+          if (b.targetObjIndex < 0) return -1;
+          return b.targetObjIndex - a.targetObjIndex;
+        });
+
+        for (const target of sortedTargets) {
+          const { rep, minX, maxX, minY, maxY, targetObjIndex, targetBaselineY } = target;
+          const stdFontName = resolveStandardFontName(rep);
+          const font = m.FPDFText_LoadStandardFont(doc, stdFontName);
+          if (!font) continue;
+
+          let curIdx = targetObjIndex >= 0 ? targetObjIndex : m.FPDFPage_CountObjects(page);
+          const baselineY = targetBaselineY && targetBaselineY > 0 ? targetBaselineY : (minY + 2.5);
+
+          if (pageHasImage && pageRgbaData) {
+            const boxLeft = Math.floor(minX * scale);
+            const boxRight = Math.ceil(maxX * scale);
+            const boxTop = Math.floor((pageHeightPts - maxY) * scale);
+            const boxBottom = Math.ceil((pageHeightPts - minY) * scale);
+            const basePx = Math.round((pageHeightPts - baselineY) * scale);
+
+            // 1. Sample background paper luminance and grain around target box
+            const bgSamples: { r: number; g: number; b: number; lum: number }[] = [];
+            const searchPad = 15;
+            for (let y = Math.max(0, boxTop - searchPad); y <= Math.min(pageHeightPx - 1, boxBottom + searchPad); y++) {
+              for (let x = Math.max(0, boxLeft - 5); x <= Math.min(pageWidthPx - 1, boxRight + 5); x++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const r = pageRgbaData[idx], g = pageRgbaData[idx + 1], b = pageRgbaData[idx + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (lum > 215) {
+                  bgSamples.push({ r, g, b, lum });
+                }
+              }
+            }
+            const bgR = bgSamples.length ? bgSamples.reduce((s, p) => s + p.r, 0) / bgSamples.length : 248;
+            const bgG = bgSamples.length ? bgSamples.reduce((s, p) => s + p.g, 0) / bgSamples.length : 248;
+            const bgB = bgSamples.length ? bgSamples.reduce((s, p) => s + p.b, 0) / bgSamples.length : 248;
+            const bgLumMean = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
+            const darkThreshold = Math.min(180, bgLumMean - 35);
+
+            const verticalSearchPad = 35;
+
+            // 2. Locate first glyph start and estimate glyph height
+            let glyphStart = boxLeft;
+            for (let x = Math.max(0, boxLeft - 10); x <= Math.min(pageWidthPx - 1, boxLeft + 25); x++) {
+              let hasDark = false;
+              for (let y = Math.max(0, boxTop - verticalSearchPad); y <= Math.min(pageHeightPx - 1, boxBottom + verticalSearchPad); y++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) { hasDark = true; break; }
+              }
+              if (hasDark) { glyphStart = x; break; }
+            }
+
+            // Estimate character height from initial glyphs
+            let firstTops: number[] = [], firstBots: number[] = [];
+            for (let x = glyphStart; x <= Math.min(pageWidthPx - 1, glyphStart + 30); x++) {
+              for (let y = Math.max(0, boxTop - verticalSearchPad); y <= Math.min(pageHeightPx - 1, boxBottom + verticalSearchPad); y++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) { firstTops.push(y); break; }
+              }
+              for (let y = Math.min(pageHeightPx - 1, boxBottom + verticalSearchPad); y >= Math.max(0, boxTop - verticalSearchPad); y--) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) { firstBots.push(y); break; }
+              }
+            }
+            firstTops.sort((a, b) => a - b);
+            firstBots.sort((a, b) => a - b);
+            const approxCharH = Math.max(12, (firstBots[firstBots.length - 1] || boxBottom) - (firstTops[0] || boxTop));
+            const oldCharCount = (rep as any).originalText ? (rep as any).originalText.length : rep.text.length;
+            const expectedMinW = Math.max(boxRight - boxLeft, oldCharCount * (approxCharH * 0.45));
+
+            // Scan right across glyphs until word boundary whitespace gap
+            const scanThresh = Math.min(140, bgLumMean - 60);
+            let glyphEnd = glyphStart + Math.round(expectedMinW);
+            let emptyRun = 0;
+            let lastDarkCol = glyphStart;
+            for (let x = glyphStart; x < Math.min(pageWidthPx - 1, glyphStart + Math.max(500, (boxRight - boxLeft) * 2)); x++) {
+              let colDark = false;
+              for (let y = Math.max(0, boxTop - verticalSearchPad); y <= Math.min(pageHeightPx - 1, boxBottom + verticalSearchPad); y++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < scanThresh) { colDark = true; break; }
+              }
+              if (colDark) {
+                lastDarkCol = x;
+                emptyRun = 0;
+              } else {
+                emptyRun++;
+                if (emptyRun >= 7 && (x - glyphStart) >= expectedMinW) {
+                  glyphEnd = lastDarkCol;
+                  break;
+                }
+              }
+            }
+
+            // Sample all dark foreground glyph pixels in [glyphStart, glyphEnd]
+            const darkPixels: { x: number; y: number; r: number; g: number; b: number }[] = [];
+            for (let y = Math.max(0, boxTop - verticalSearchPad); y <= Math.min(pageHeightPx - 1, boxBottom + verticalSearchPad); y++) {
+              for (let x = glyphStart; x <= glyphEnd; x++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const r = pageRgbaData[idx], g = pageRgbaData[idx + 1], b = pageRgbaData[idx + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (lum < darkThreshold) {
+                  darkPixels.push({ x, y, r, g, b });
+                }
+              }
+            }
+
+            let minDX = glyphStart, maxDX = glyphEnd, minDY = boxTop, maxDY = boxBottom;
+            let sumDarkR = 0, sumDarkG = 0, sumDarkB = 0;
+            if (darkPixels.length > 0) {
+              minDX = Infinity; maxDX = -Infinity; minDY = Infinity; maxDY = -Infinity;
+              for (const p of darkPixels) {
+                if (p.x < minDX) minDX = p.x;
+                if (p.x > maxDX) maxDX = p.x;
+                if (p.y < minDY) minDY = p.y;
+                if (p.y > maxDY) maxDY = p.y;
+                sumDarkR += p.r; sumDarkG += p.g; sumDarkB += p.b;
+              }
+            }
+            const fgR = darkPixels.length ? (sumDarkR / darkPixels.length) : 75;
+            const fgG = darkPixels.length ? (sumDarkG / darkPixels.length) : 75;
+            const fgB = darkPixels.length ? (sumDarkB / darkPixels.length) : 75;
+            const targetGlyphWidth = maxDX >= minDX ? (maxDX - minDX + 1) : Math.max(10, boxRight - boxLeft);
+
+            // 3. Compute stroke run-lengths
+            const strokeRuns: number[] = [];
+            for (let y = minDY + 4; y <= maxDY - 4; y++) {
+              let run = 0;
+              for (let x = minDX; x <= maxDX; x++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) {
+                  run++;
+                } else {
+                  if (run >= 3 && run <= 35) strokeRuns.push(run);
+                  run = 0;
+                }
+              }
+              if (run >= 3 && run <= 35) strokeRuns.push(run);
+            }
+            const targetStrokeWidth = strokeRuns.length ? (strokeRuns.reduce((a, b) => a + b, 0) / strokeRuns.length) : 12;
+
+            // 4. Baseline and cap height
+            const bottomYs: number[] = [];
+            const topYs: number[] = [];
+            for (let x = minDX; x <= maxDX; x++) {
+              let bY = -1, tY = -1;
+              for (let y = maxDY; y >= minDY; y--) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) { bY = y; break; }
+              }
+              for (let y = minDY; y <= maxDY; y++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) { tY = y; break; }
+              }
+              if (bY > 0) bottomYs.push(bY);
+              if (tY > 0) topYs.push(tY);
+            }
+            bottomYs.sort((a, b) => a - b);
+            const measuredBaseline = bottomYs.length ? (bottomYs[Math.floor(bottomYs.length * 0.90)] || basePx) : basePx;
+            topYs.sort((a, b) => a - b);
+            const measuredMedianTop = topYs.length ? (topYs[Math.floor(topYs.length * 0.05)] || minDY) : minDY;
+            const targetCapHeight = Math.max(12, measuredBaseline - measuredMedianTop + 1);
+
+            // 5. Find preceding dark pixel to determine safe whitespace gap
+            let prevDarkX = minDX - 30;
+            for (let x = minDX - 1; x >= Math.max(0, minDX - 80); x--) {
+              let foundDark = false;
+              for (let y = Math.max(0, minDY - 2); y <= Math.min(pageHeightPx - 1, maxDY + 2); y++) {
+                const idx = (y * pageWidthPx + x) * 4;
+                const lum = 0.299 * pageRgbaData[idx] + 0.587 * pageRgbaData[idx + 1] + 0.114 * pageRgbaData[idx + 2];
+                if (lum < darkThreshold) {
+                  prevDarkX = x;
+                  foundDark = true;
+                  break;
+                }
+              }
+              if (foundDark) break;
+            }
+
+            const gap = minDX - prevDarkX;
+            const safeLeftPad = Math.max(8, Math.min(15, Math.floor(gap / 2)));
+            const patchLeft = Math.max(0, minDX - safeLeftPad);
+            const patchTop = Math.max(0, minDY - 17);
+            const patchBottom = Math.min(pageHeightPx, maxDY + 18);
+            const patchHeight = patchBottom - patchTop;
+
+            const expectedTextWidth = (oldCharCount === rep.text.length)
+              ? targetGlyphWidth
+              : Math.round((targetGlyphWidth / Math.max(1, oldCharCount)) * rep.text.length);
+            const safeRightPad = Math.max(2, Math.min(5, Math.floor(safeLeftPad / 3)));
+            const patchWidth = safeLeftPad + Math.max(targetGlyphWidth, expectedTextWidth) + safeRightPad;
+
+            // 6. Copy patch background from page and inpaint old dark pixels
+            const patchData = new Uint8Array(patchWidth * patchHeight * 4);
+            for (let py = 0; py < patchHeight; py++) {
+              const cy = patchTop + py;
+              const srcRow = cy * pageWidthPx * 4;
+              const dstRow = py * patchWidth * 4;
+              for (let px = 0; px < patchWidth; px++) {
+                const cx = patchLeft + px;
+                const srcIdx = srcRow + cx * 4;
+                const dstIdx = dstRow + px * 4;
+                patchData[dstIdx] = pageRgbaData[srcIdx];
+                patchData[dstIdx + 1] = pageRgbaData[srcIdx + 1];
+                patchData[dstIdx + 2] = pageRgbaData[srcIdx + 2];
+                patchData[dstIdx + 3] = 255;
+              }
+            }
+
+            for (let px = 0; px < patchWidth; px++) {
+              const topR = patchData[(2 * patchWidth + px) * 4];
+              const topG = patchData[(2 * patchWidth + px) * 4 + 1];
+              const topB = patchData[(2 * patchWidth + px) * 4 + 2];
+              const botR = patchData[((patchHeight - 3) * patchWidth + px) * 4];
+              const botG = patchData[((patchHeight - 3) * patchWidth + px) * 4 + 1];
+              const botB = patchData[((patchHeight - 3) * patchWidth + px) * 4 + 2];
+
+              for (let py = 0; py < patchHeight; py++) {
+                const pIdx = (py * patchWidth + px) * 4;
+                const lum = 0.299 * patchData[pIdx] + 0.587 * patchData[pIdx + 1] + 0.114 * patchData[pIdx + 2];
+                if (lum < darkThreshold) {
+                  const alpha = py / patchHeight;
+                  patchData[pIdx] = Math.round(topR * (1 - alpha) + botR * alpha);
+                  patchData[pIdx + 1] = Math.round(topG * (1 - alpha) + botG * alpha);
+                  patchData[pIdx + 2] = Math.round(topB * (1 - alpha) + botB * alpha);
+                }
+              }
+            }
+
+            // 7. Dynamic typography calibration via universal Canvas
+            const { canvas, ctx } = await createUniversalCanvas(patchWidth, patchHeight);
+            if (ctx) {
+              let fontSize = Math.round(targetCapHeight * 1.45);
+              const isSerif = Boolean(rep.font === "serif" || rep.originalFontName?.toLowerCase().includes("times"));
+              const isMono = Boolean(rep.font === "courier" || rep.originalFontName?.toLowerCase().includes("courier"));
+              const fontFamily = isMono
+                ? '"Courier New", "Courier", monospace'
+                : isSerif
+                  ? '"Times New Roman", "Times", serif'
+                  : '"Helvetica", "Arial", "Liberation Sans", sans-serif';
+
+              ctx.font = `bold ${fontSize}px ${fontFamily}`;
+              let metrics = ctx.measureText(rep.text);
+              const naturalAscent = metrics.actualBoundingBoxAscent || (fontSize * 0.70);
+              if (naturalAscent > 0) {
+                fontSize = Math.round(fontSize * (targetCapHeight / naturalAscent));
+                ctx.font = `bold ${fontSize}px ${fontFamily}`;
+                metrics = ctx.measureText(rep.text);
+              }
+
+              const naturalWidth = metrics.width || 1;
+              let scaleX = expectedTextWidth / naturalWidth;
+              let scaleY = 1.0;
+              const targetRenderStroke = targetStrokeWidth;
+              const naturalStroke = (fontSize * scaleY) * 0.14;
+              const strokeDiff = Math.max(0, targetRenderStroke - naturalStroke);
+              let lineWidth = strokeDiff;
+
+              const isBrowser = typeof window !== "undefined";
+              const colorPreComp = fgR < 60
+                ? Math.max(2.5, fgR * 0.14)
+                : (isBrowser ? 0.6 : 2.5);
+              const targetRenderColor = Math.max(0, fgR - colorPreComp);
+              let calibR = targetRenderColor;
+              let calibG = targetRenderColor;
+              let calibB = targetRenderColor;
+
+              const startXInPatch = minDX - patchLeft;
+              const baselineInPatch = measuredBaseline - patchTop;
+
+              let baseOffset = 0;
+              const targetBaseInPatch = measuredBaseline - patchTop;
+
+              const renderWithParams = (sX: number, sY: number, lW: number, cR: number, cG: number, cB: number, bOff: number = baseOffset) => {
+                const imgData = ctx.createImageData(patchWidth, patchHeight);
+                imgData.data.set(patchData);
+                ctx.putImageData(imgData, 0, 0);
+
+                const col = `rgb(${Math.max(0, Math.min(255, Math.round(cR)))}, ${Math.max(0, Math.min(255, Math.round(cG)))}, ${Math.max(0, Math.min(255, Math.round(cB)))})`;
+                ctx.save();
+                ctx.translate(startXInPatch, baselineInPatch + bOff);
+                ctx.scale(sX, sY);
+                ctx.font = `bold ${fontSize}px ${fontFamily}`;
+                ctx.fillStyle = col;
+                ctx.strokeStyle = col;
+                ctx.lineWidth = lW;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                if (lW > 0.4) {
+                  ctx.strokeText(rep.text, 0, 0);
+                }
+                ctx.fillText(rep.text, 0, 0);
+                ctx.restore();
+                return ctx.getImageData(0, 0, patchWidth, patchHeight);
+              };
+
+              const evalPatch = (pImg: any) => {
+                let minPX = Infinity, maxPX = -Infinity, minPY = Infinity, maxPY = -Infinity;
+                let dCount = 0, dSumR = 0;
+                for (let py = 0; py < patchHeight; py++) {
+                  for (let px = 0; px < patchWidth; px++) {
+                    const idx = (py * patchWidth + px) * 4;
+                    const lum = 0.299 * pImg.data[idx] + 0.587 * pImg.data[idx + 1] + 0.114 * pImg.data[idx + 2];
+                    if (lum < darkThreshold) {
+                      dCount++;
+                      dSumR += pImg.data[idx];
+                      if (px < minPX) minPX = px;
+                      if (px > maxPX) maxPX = px;
+                      if (py < minPY) minPY = py;
+                      if (py > maxPY) maxPY = py;
+                    }
+                  }
+                }
+                const rWidth = maxPX >= minPX ? maxPX - minPX + 1 : 0;
+                const rColor = dCount ? (dSumR / dCount) : 0;
+
+                const sRuns: number[] = [];
+                for (let py = minPY + 4; py <= maxPY - 4; py++) {
+                  let run = 0;
+                  for (let px = minPX; px <= maxPX; px++) {
+                    const idx = (py * patchWidth + px) * 4;
+                    const lum = 0.299 * pImg.data[idx] + 0.587 * pImg.data[idx + 1] + 0.114 * pImg.data[idx + 2];
+                    if (lum < darkThreshold) {
+                      run++;
+                    } else {
+                      if (run >= 3 && run <= 35) sRuns.push(run);
+                      run = 0;
+                    }
+                  }
+                  if (run >= 3 && run <= 35) sRuns.push(run);
+                }
+                const rStroke = sRuns.length ? sRuns.reduce((a, b) => a + b, 0) / sRuns.length : 0;
+
+                const bYs: number[] = [], tYs: number[] = [];
+                for (let px = minPX; px <= maxPX; px++) {
+                  let bY = -1, tY = -1;
+                  for (let py = maxPY; py >= minPY; py--) {
+                    const idx = (py * patchWidth + px) * 4;
+                    const lum = 0.299 * pImg.data[idx] + 0.587 * pImg.data[idx + 1] + 0.114 * pImg.data[idx + 2];
+                    if (lum < darkThreshold) { bY = py; break; }
+                  }
+                  for (let py = minPY; py <= maxPY; py++) {
+                    const idx = (py * patchWidth + px) * 4;
+                    const lum = 0.299 * pImg.data[idx] + 0.587 * pImg.data[idx + 1] + 0.114 * pImg.data[idx + 2];
+                    if (lum < darkThreshold) { tY = py; break; }
+                  }
+                  if (bY > 0) bYs.push(bY);
+                  if (tY > 0) tYs.push(tY);
+                }
+                bYs.sort((a, b) => a - b);
+                const rBase = bYs[Math.floor(bYs.length * 0.90)] || 0;
+                tYs.sort((a, b) => a - b);
+                const rCapTop = tYs.length ? (tYs[Math.floor(tYs.length * 0.05)] || minPY) : minPY;
+                const rCapHeight = rBase - rCapTop + 1;
+
+                return { rWidth, rCapHeight, rStroke, rColor, rBase };
+              };
+
+              for (let iter = 0; iter < 6; iter++) {
+                const curImg = renderWithParams(scaleX, scaleY, lineWidth, calibR, calibG, calibB, baseOffset);
+                const ev = evalPatch(curImg);
+                let adjusted = false;
+                if (ev.rWidth > 0 && Math.abs(ev.rWidth - expectedTextWidth) > 0.6) {
+                  scaleX *= (expectedTextWidth / ev.rWidth);
+                  adjusted = true;
+                }
+                if (ev.rCapHeight > 0 && Math.abs(ev.rCapHeight - targetCapHeight) > 0.5) {
+                  scaleY *= (targetCapHeight / ev.rCapHeight);
+                  adjusted = true;
+                }
+                if (ev.rBase > 0 && Math.abs(ev.rBase - targetBaseInPatch) > 0.3) {
+                  baseOffset -= (ev.rBase - targetBaseInPatch);
+                  adjusted = true;
+                }
+                if (ev.rStroke > 0 && Math.abs(ev.rStroke - targetRenderStroke) > 0.2) {
+                  lineWidth += (targetRenderStroke - ev.rStroke) * 0.85;
+                  if (lineWidth < 0) lineWidth = 0;
+                  adjusted = true;
+                }
+                if (ev.rColor > 0 && Math.abs(ev.rColor - targetRenderColor) > 0.4) {
+                  const colorDelta = ev.rColor - targetRenderColor;
+                  calibR -= colorDelta * 1.1;
+                  calibG -= colorDelta * 1.1;
+                  calibB -= colorDelta * 1.1;
+                  adjusted = true;
+                }
+                if (!adjusted) break;
+              }
+
+              const finalPatch = renderWithParams(scaleX, scaleY, lineWidth, calibR, calibG, calibB, baseOffset);
+
+              const imgObj = m.FPDFPageObj_NewImageObj(doc);
+              const patchBmp = m.FPDFBitmap_Create(patchWidth, patchHeight, 1);
+              const bmpBuf = m.FPDFBitmap_GetBuffer(patchBmp);
+              const bmpStride = m.FPDFBitmap_GetStride(patchBmp);
+              const u8Bmp = new Uint8Array((heap.wasmExports as any).memory.buffer);
+
+              for (let y = 0; y < patchHeight; y++) {
+                const rowStart = bmpBuf + y * bmpStride;
+                for (let x = 0; x < patchWidth; x++) {
+                  const srcIdx = (y * patchWidth + x) * 4;
+                  const dstIdx = rowStart + x * 4;
+                  u8Bmp[dstIdx] = finalPatch.data[srcIdx + 2];     // B
+                  u8Bmp[dstIdx + 1] = finalPatch.data[srcIdx + 1]; // G
+                  u8Bmp[dstIdx + 2] = finalPatch.data[srcIdx];     // R
+                  u8Bmp[dstIdx + 3] = finalPatch.data[srcIdx + 3]; // A
+                }
+              }
+
+              const pagePtr = malloc(4);
+              heap.setValue(pagePtr, page, "i32");
+              m.FPDFImageObj_SetBitmap(pagePtr, 1, imgObj, patchBmp);
+              free(pagePtr);
+              m.FPDFBitmap_Destroy(patchBmp);
+
+              const patchLeftPts = patchLeft / scale;
+              const patchBottomPts = pageHeightPts - (patchTop + patchHeight) / scale;
+              const patchWidthPts = patchWidth / scale;
+              const patchHeightPts = patchHeight / scale;
+
+              m.FPDFPageObj_Transform(imgObj, patchWidthPts, 0, 0, patchHeightPts, patchLeftPts, patchBottomPts);
+              m.FPDFPage_InsertObjectAtIndex(page, imgObj, curIdx);
+              curIdx++;
+            }
+
+            // Create invisible OCR text object
+            const textObj = m.FPDFPageObj_CreateTextObj(doc, font, Math.max(6, rep.size || 12));
+            const textPtr = allocateUtf16LeString(heap, rep.text);
+            if (textObj && textPtr) {
+              try {
+                m.FPDFText_SetText(textObj, textPtr);
+                m.FPDFPageObj_Transform(textObj, 1, 0, 0, 1, minX, baselineY);
+                m.FPDFTextObj_SetTextRenderMode(textObj, 3); // 3 = invisible OCR text mode
+                m.FPDFPageObj_SetFillColor(textObj, 0, 0, 0, 0); // alpha = 0
+                m.FPDFPage_InsertObjectAtIndex(page, textObj, curIdx);
+                appliedMarkIds.push(rep.markId);
+              } catch (setTextErr) {
+                console.warn("FPDFText_SetText invisible OCR text failed:", setTextErr);
+                try { m.FPDFPageObj_Destroy(textObj); } catch {}
+              } finally {
+                free(textPtr);
+              }
+            } else {
+              if (textPtr) free(textPtr);
+              appliedMarkIds.push(rep.markId);
+            }
+          } else {
+            // Pure vector path
+            if (rep.bg) {
+              const bgRgb = parseHexColor(rep.bg);
+              const rectLeft = minX - 0.5;
+              const rectRight = Math.max(maxX + 6, minX + Math.max(maxX - minX, rep.text.length * rep.size * 0.75) * 1.50);
+              const rectBottom = baselineY - rep.size * 0.25;
+              const rectTop = baselineY + rep.size * 1.30;
+              const rectObj = m.FPDFPageObj_CreateNewRect(
+                rectLeft,
+                rectBottom,
+                Math.max(1, rectRight - rectLeft),
+                Math.max(1, rectTop - rectBottom)
+              );
+              m.FPDFPageObj_SetFillColor(rectObj, bgRgb.r, bgRgb.g, bgRgb.b, 255);
+              m.FPDFPath_SetDrawMode(rectObj, 2, false);
+              m.FPDFPage_InsertObjectAtIndex(page, rectObj, curIdx);
+              curIdx++;
+            }
+
+            const textObj = m.FPDFPageObj_CreateTextObj(doc, font, Math.max(6, rep.size || 12));
+            const textPtr = allocateUtf16LeString(heap, rep.text);
+            if (textObj && textPtr) {
+              try {
+                m.FPDFText_SetText(textObj, textPtr);
+                m.FPDFPageObj_Transform(textObj, 1, 0, 0, 1, minX, baselineY);
+                const colRgb = parseHexColor(rep.color || "#000000");
+                m.FPDFPageObj_SetFillColor(textObj, colRgb.r, colRgb.g, colRgb.b, 255);
+                m.FPDFPage_InsertObjectAtIndex(page, textObj, curIdx);
+                appliedMarkIds.push(rep.markId);
+              } catch (setTextErr) {
+                console.warn("FPDFText_SetText vector text failed:", setTextErr);
+                try { m.FPDFPageObj_Destroy(textObj); } catch {}
+              } finally {
+                free(textPtr);
+              }
+            } else {
+              if (textPtr) free(textPtr);
+              appliedMarkIds.push(rep.markId);
+            }
+          }
+        }
+
         if (!m.FPDFPage_GenerateContent(page)) throw Error("Sayfa değişiklikleri kaydedilemedi.");
-      } finally { free(quads); m.FPDF_ClosePage(page); }
+      } finally {
+        m.FPDF_ClosePage(page);
+      }
     }
+
     const writer = m.PDFiumExt_OpenFileWriter();
     let output = 0;
     try {
@@ -86,9 +809,21 @@ export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) 
       const length = m.PDFiumExt_GetFileWriterSize(writer);
       output = malloc(length);
       m.PDFiumExt_GetFileWriterData(writer, output, length);
-      return heap.HEAPU8.slice(output, output + length);
-    } finally { if (output) free(output); m.PDFiumExt_CloseFileWriter(writer); }
-  } finally { if (doc) m.FPDF_CloseDocument(doc); free(input); }
+      return { bytes: heap.HEAPU8.slice(output, output + length), appliedMarkIds };
+    } finally {
+      if (output) free(output);
+      m.PDFiumExt_CloseFileWriter(writer);
+    }
+  } finally {
+    if (doc) m.FPDF_CloseDocument(doc);
+    free(input);
+  }
+}
+
+/** Rewrites text content streams. No opaque rectangles or rasterized pages. */
+export async function removePdfText(bytes: Uint8Array, removals: TextRemoval[]) {
+  const { bytes: updatedBytes } = await applyPdfTextReplacements(bytes, removals, []);
+  return updatedBytes;
 }
 
 export type TextObjectRemovalTarget = {
@@ -1331,7 +2066,7 @@ export interface PdfiumFontRun {
 }
 
 // Document-level cache for extracted font runs to avoid redundant WASM parsing
-const pdfiumFontRunsCache = new Map<string, { runs: PdfiumFontRun[]; timestamp: number }>();
+const pdfiumFontRunsCache = new Map<string, { runs: PdfiumFontRun[]; chars?: CharBox[]; timestamp: number }>();
 
 export function clearPdfiumDocCache(): void {
   pdfiumFontRunsCache.clear();
@@ -1394,6 +2129,7 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
 
     const charCount = m.FPDFText_CountChars(textPage);
     const runs: PdfiumFontRun[] = [];
+    const allChars: CharBox[] = [];
     let cur: PdfiumFontRun | null = null;
 
     const bufSize = 256;
@@ -1437,14 +2173,28 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
         charColor = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
       }
 
+      const flags = heap.getValue(flagsPtr, "i32");
+      const isBold = fontWeight >= 600 || /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(fontName);
+      const isItalic = (flags & 64) !== 0 || /italic|oblique|slanted/i.test(fontName);
+
+      allChars.push({
+        char,
+        left: charLeft,
+        right: charRight,
+        bottom: charBottom,
+        top: charTop,
+        size: fontSize,
+        weight: fontWeight,
+        fontName,
+        color: charColor || "#000000",
+        isBold,
+        isItalic
+      });
+
       if (!fontName && (char === " " || char === "\t")) {
         if (cur) cur.text += char;
         continue;
       }
-
-      const flags = heap.getValue(flagsPtr, "i32");
-      const isBold = fontWeight >= 600 || /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(fontName);
-      const isItalic = (flags & 64) !== 0 || /italic|oblique|slanted/i.test(fontName);
 
       if (!cur) {
         cur = {
@@ -1497,7 +2247,11 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
     if (pdfiumFontRunsCache.size > 100) {
       pdfiumFontRunsCache.clear();
     }
-    pdfiumFontRunsCache.set(cacheKey, { runs: runs.map((r) => ({ ...r })), timestamp: Date.now() });
+    pdfiumFontRunsCache.set(cacheKey, {
+      runs: runs.map((r) => ({ ...r })),
+      chars: allChars.map((c) => ({ ...c })),
+      timestamp: Date.now()
+    });
 
     return runs;
   } catch (err) {
@@ -1523,6 +2277,17 @@ export async function extractPdfiumFontRuns(pdfBytes: Uint8Array, pageIndex: num
   }
 }
 
+export async function extractPdfiumCharBoxes(pdfBytes: Uint8Array, pageIndex: number): Promise<CharBox[]> {
+  const cacheKey = computeByteFingerprint(pdfBytes, pageIndex);
+  const cached = pdfiumFontRunsCache.get(cacheKey);
+  if (cached && cached.chars) {
+    return cached.chars.map((c) => ({ ...c }));
+  }
+  await extractPdfiumFontRuns(pdfBytes, pageIndex);
+  const fresh = pdfiumFontRunsCache.get(cacheKey);
+  return fresh?.chars?.map((c) => ({ ...c })) || [];
+}
+
 /** Use the renderer's own transforms, including CropBox, UserUnit, rotation, and extracts rich font/color styles. */
 export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array): Promise<EditableText[]> {
   const viewport = page.getViewport({ scale: 1 });
@@ -1540,9 +2305,11 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
     page._transport?.loadingTask?._sourceBytes;
 
   let pdfiumRuns: PdfiumFontRun[] = [];
+  let pdfiumChars: CharBox[] = [];
   if (pdfBytes) {
     try {
       pdfiumRuns = await extractPdfiumFontRuns(pdfBytes, pageIdx);
+      pdfiumChars = await extractPdfiumCharBoxes(pdfBytes, pageIdx);
     } catch {}
   }
 
@@ -1591,7 +2358,7 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
     );
 
     let fontFamily = "sans";
-    if (/courier|monospace|typewriter|fixed|mono\b/i.test(combined)) {
+    if (/(?:courier|couriernew)\b/i.test(combined)) {
       fontFamily = "courier";
     } else if (/roboto/i.test(combined)) {
       fontFamily = "roboto";
@@ -1747,7 +2514,7 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
 
     let fontFamily = fontInfo.fontFamily;
     if (finalFontName) {
-      if (/courier|monospace|typewriter|fixed|mono\b/i.test(finalFontName)) {
+      if (/(?:courier|couriernew)\b/i.test(finalFontName)) {
         fontFamily = "courier";
       } else if (/roboto/i.test(finalFontName)) {
         fontFamily = "roboto";
@@ -1755,6 +2522,33 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
         fontFamily = "serif";
       } else if (/(?:sans[-_]?serif|helvetica|arial|liberation)/i.test(finalFontName)) {
         fontFamily = "sans";
+      }
+    }
+
+    let itemCharBoxes: CharBox[] | undefined = undefined;
+    if (pdfiumChars.length > 0) {
+      const strNorm = item.str.trim();
+      let bestCharIdx = -1;
+      let bestCharDist = Infinity;
+      for (let ci = 0; ci <= pdfiumChars.length - strNorm.length; ci++) {
+        let match = true;
+        for (let k = 0; k < strNorm.length; k++) {
+          if (pdfiumChars[ci + k].char !== strNorm[k]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          const firstChar = pdfiumChars[ci];
+          const dist = Math.hypot(firstChar.left - quad[0], firstChar.bottom - quad[5]);
+          if (dist < bestCharDist) {
+            bestCharDist = dist;
+            bestCharIdx = ci;
+          }
+        }
+      }
+      if (bestCharIdx >= 0) {
+        itemCharBoxes = pdfiumChars.slice(bestCharIdx, bestCharIdx + strNorm.length);
       }
     }
 
@@ -1776,7 +2570,8 @@ export async function editablePageText(page: any, optionalPdfBytes?: Uint8Array)
       bold,
       italic,
       color: finalColor,
-      transform: t
+      transform: t,
+      charBoxes: itemCharBoxes
     }];
   });
 }
@@ -2663,6 +3458,215 @@ export async function removePdfRasterWatermarks(
     successfulCandidateIds,
     candidateResults
   };
+}
+
+export interface SubstringGlyphMetrics {
+  targetQuad: number[];
+  startX: number;
+  startY: number;
+  width: number;
+  height: number;
+  baseline: number;
+  fontSize: number;
+  fontFamily: "sans" | "serif" | "roboto" | "courier";
+  originalFontName: string;
+  isBold: boolean;
+  isItalic: boolean;
+  fontWeight: number;
+  color: string;
+}
+
+export function calculateSubstringGlyphMetricsSync(
+  item: EditableText,
+  matchStart: number,
+  matchLength: number,
+  replacementText: string
+): SubstringGlyphMetrics {
+  const itemText = item.text || "";
+  const itemQuadLeft = Math.min(item.quad[0], item.quad[4]);
+  const itemQuadRight = Math.max(item.quad[2], item.quad[6]);
+  const itemQuadTop = Math.max(item.quad[1], item.quad[3]);
+  const itemQuadBottom = Math.min(item.quad[5], item.quad[7]);
+  const quadWidth = Math.max(0.001, itemQuadRight - itemQuadLeft);
+
+  const fallbackFontName = item.originalFontName || item.fontName || "Helvetica";
+  const fallbackBold = Boolean(
+    item.bold ||
+    (typeof item.fontWeight === "number" && item.fontWeight >= 600) ||
+    (typeof item.fontWeight === "string" && /bold|700|800|900/i.test(item.fontWeight)) ||
+    /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(fallbackFontName)
+  );
+  const fallbackItalic = Boolean(
+    item.italic ||
+    /italic|oblique|slanted/i.test(fallbackFontName)
+  );
+
+  let fallbackFontFamily: "sans" | "serif" | "roboto" | "courier" = "sans";
+  if (/(?:courier|couriernew)\b/i.test(fallbackFontName)) {
+    fallbackFontFamily = "courier";
+  } else if (/roboto/i.test(fallbackFontName)) {
+    fallbackFontFamily = "roboto";
+  } else if (/(?:times|georgia|garamond|minion|cambria|lora|\bserif\b)/i.test(fallbackFontName.replace(/sans[-_]?serif/gi, ""))) {
+    fallbackFontFamily = "serif";
+  }
+
+  // 1. If character-level bounding boxes are attached from PDFium:
+  if (item.charBoxes && item.charBoxes.length > 0) {
+    const targetChars = item.charBoxes.slice(matchStart, matchStart + matchLength).filter(c => c.left !== 0 || c.right !== 0);
+    if (targetChars.length > 0) {
+      const minLeft = Math.min(...targetChars.map(c => c.left));
+      const maxRight = Math.max(...targetChars.map(c => c.right));
+      const minBottom = Math.min(...targetChars.map(c => c.bottom));
+      const maxTop = Math.max(...targetChars.map(c => c.top));
+
+      const targetQuad = [
+        minLeft - 0.2, maxTop + 1.0,
+        maxRight + 0.2, maxTop + 1.0,
+        minLeft - 0.2, minBottom - 1.0,
+        maxRight + 0.2, minBottom - 1.0
+      ];
+
+      const char0 = targetChars[0];
+      const targetFontName = char0.fontName || fallbackFontName;
+      const targetSize = char0.size > 0 ? char0.size : item.size;
+      const targetBold = targetChars.some(c => c.isBold || c.weight >= 600 || /bold|black|heavy|demi|semibold|medium|700|800|900/i.test(c.fontName));
+      const targetItalic = targetChars.some(c => c.isItalic || /italic|oblique|slanted/i.test(c.fontName));
+      const targetColor = char0.color || item.color || "#000000";
+
+      const exactRatioStart = (minLeft - itemQuadLeft) / quadWidth;
+      const exactStartX = item.x + exactRatioStart * item.w;
+      const exactWidth = ((maxRight - minLeft) / quadWidth) * item.w;
+
+      let targetFontFam: "sans" | "serif" | "roboto" | "courier" = "sans";
+      if (/(?:courier|couriernew)\b/i.test(targetFontName)) {
+        targetFontFam = "courier";
+      } else if (/roboto/i.test(targetFontName)) {
+        targetFontFam = "roboto";
+      } else if (/(?:times|georgia|garamond|minion|cambria|lora|\bserif\b)/i.test(targetFontName.replace(/sans[-_]?serif/gi, ""))) {
+        targetFontFam = "serif";
+      }
+
+      return {
+        targetQuad,
+        startX: exactStartX,
+        startY: item.y,
+        width: exactWidth,
+        height: item.h,
+        baseline: item.y + item.size,
+        fontSize: targetSize,
+        fontFamily: targetFontFam,
+        originalFontName: targetFontName,
+        isBold: targetBold,
+        isItalic: targetItalic,
+        fontWeight: targetBold ? 700 : 400,
+        color: targetColor
+      };
+    }
+  }
+
+  // 2. High-precision Canvas text measurement fallback:
+  let prefixW = 0;
+  let targetW = 0;
+  let totalW = item.w;
+
+  if (typeof document !== "undefined" && typeof document.createElement === "function") {
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const fontFamCss = fallbackFontFamily === "courier"
+          ? "'Courier New', Courier, monospace"
+          : fallbackFontFamily === "serif"
+          ? "Lora, Georgia, serif"
+          : "Forma Sans, Helvetica, Arial, sans-serif";
+        ctx.font = `${fallbackBold ? "bold " : ""}${item.size}px ${fontFamCss}`;
+        prefixW = ctx.measureText(itemText.slice(0, matchStart)).width;
+        targetW = ctx.measureText(itemText.slice(matchStart, matchStart + matchLength)).width;
+        totalW = ctx.measureText(itemText).width || item.w;
+      }
+    } catch {}
+  }
+
+  if (prefixW === 0 && itemText.length > 0) {
+    prefixW = (matchStart / itemText.length) * item.w;
+    targetW = (matchLength / itemText.length) * item.w;
+  }
+
+  const ratioStart = prefixW / Math.max(1, totalW);
+  const ratioEnd = (prefixW + targetW) / Math.max(1, totalW);
+
+  const targetQuad = [
+    itemQuadLeft + ratioStart * quadWidth, itemQuadTop,
+    itemQuadLeft + ratioEnd * quadWidth, itemQuadTop,
+    itemQuadLeft + ratioStart * quadWidth, itemQuadBottom,
+    itemQuadLeft + ratioEnd * quadWidth, itemQuadBottom
+  ];
+
+  return {
+    targetQuad,
+    startX: item.x + prefixW,
+    startY: item.y,
+    width: Math.max(10, targetW),
+    height: item.h,
+    baseline: item.y + item.size,
+    fontSize: item.size,
+    fontFamily: fallbackFontFamily,
+    originalFontName: fallbackFontName,
+    isBold: fallbackBold,
+    isItalic: fallbackItalic,
+    fontWeight: fallbackBold ? 700 : 400,
+    color: item.color || "#000000"
+  };
+}
+
+export async function calculateSubstringGlyphMetrics(
+  pdfBytes: Uint8Array | null | undefined,
+  pageIndex: number,
+  item: EditableText,
+  matchStart: number,
+  matchLength: number,
+  replacementText: string
+): Promise<SubstringGlyphMetrics> {
+  if (item.charBoxes && item.charBoxes.length > 0) {
+    return calculateSubstringGlyphMetricsSync(item, matchStart, matchLength, replacementText);
+  }
+
+  if (pdfBytes && pdfBytes.length > 0) {
+    try {
+      const pageChars = await extractPdfiumCharBoxes(pdfBytes, pageIndex);
+      if (pageChars.length > 0) {
+        const itemText = (item.text || "").trim();
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let ci = 0; ci <= pageChars.length - itemText.length; ci++) {
+          let match = true;
+          for (let k = 0; k < itemText.length; k++) {
+            if (pageChars[ci + k].char !== itemText[k]) {
+              match = false;
+              break;
+            }
+          }
+          if (match) {
+            const firstChar = pageChars[ci];
+            const dist = Math.hypot(firstChar.left - item.quad[0], firstChar.bottom - item.quad[5]);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIdx = ci;
+            }
+          }
+        }
+        if (bestIdx >= 0) {
+          const matchedChars = pageChars.slice(bestIdx, bestIdx + itemText.length);
+          const clonedItem = { ...item, charBoxes: matchedChars };
+          return calculateSubstringGlyphMetricsSync(clonedItem, matchStart, matchLength, replacementText);
+        }
+      }
+    } catch (err) {
+      console.warn("calculateSubstringGlyphMetrics error:", err);
+    }
+  }
+
+  return calculateSubstringGlyphMetricsSync(item, matchStart, matchLength, replacementText);
 }
 
 

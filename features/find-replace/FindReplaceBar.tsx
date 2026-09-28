@@ -17,6 +17,7 @@ import {
   type SearchOptions
 } from "./searchEngine";
 import { isFontCharacterSupported, canEncodeWinAnsi } from "@/lib/documents";
+import { calculateSubstringGlyphMetricsSync } from "@/lib/pdf-text";
 import { toast } from "sonner";
 
 interface FindReplaceBarProps {
@@ -24,6 +25,7 @@ interface FindReplaceBarProps {
   onClose: () => void;
   marks: any[];
   originalTexts?: any[];
+  pdfBytes?: Uint8Array | null;
   onUpdateMarks?: (updatedMarks: any[]) => void;
   onReplace?: (payload: { updatedMarks: any[]; newMarks: any[]; newRemovals: any[] }) => void;
   currentPage: number;
@@ -54,6 +56,7 @@ export function FindReplaceBar({
   onClose,
   marks,
   originalTexts = [],
+  pdfBytes,
   onUpdateMarks,
   onReplace,
   currentPage,
@@ -187,23 +190,46 @@ export function FindReplaceBar({
         currentMatch.matchLength,
         replacement
       );
-      const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
-      const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
-      const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const fontMatchQuality = computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, newText, isOcr);
-
-      const newRemoval = { id: et.id, page: et.page, quad: et.quad };
+      let removalQuad = et.quad;
       let markX = et.x;
+      let markY = et.y;
       let markW = Math.max(10, et.w);
       let markText = newText;
-      let covX = (et as any).ocrOriginalBounds?.x || et.x;
-      let covW = (et as any).ocrOriginalBounds?.w || et.w;
+      let markSize = Math.round((et.size || 12) * 10) / 10;
+      let fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
+      let isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
+      let isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
+      let markColor = et.color || "#1e293b";
+      let markFontName = et.originalFontName || et.fontName;
+      let fontMatchQuality = computeFontMatchQuality(markFontName, fontVal, newText, isOcr);
       const additionalMarks: any[] = [];
 
-      if (isOcr) {
+      // Surgical Substring Replacement for Vector PDFs:
+      if (!isOcr && (currentMatch.matchStart > 0 || currentMatch.matchLength < et.text.length)) {
+        const metrics = calculateSubstringGlyphMetricsSync(
+          et,
+          currentMatch.matchStart,
+          currentMatch.matchLength,
+          replacement
+        );
+        removalQuad = metrics.targetQuad;
+        markX = metrics.startX;
+        markY = metrics.startY;
+        markW = metrics.width;
+        markText = replacement;
+        markSize = Math.round(metrics.fontSize * 10) / 10;
+        fontVal = metrics.fontFamily;
+        isItemBold = metrics.isBold;
+        isItemItalic = metrics.isItalic;
+        markColor = metrics.color;
+        markFontName = metrics.originalFontName;
+        fontMatchQuality = computeFontMatchQuality(metrics.originalFontName, metrics.fontFamily, replacement, false);
+      } else if (isOcr) {
         const origBounds = (et as any).ocrOriginalBounds || { x: et.x, y: et.y, w: et.w, h: et.h };
         const labelMatch = et.text.match(/^([A-Za-zÇĞİÖŞÜçğıöşü0-9_\-\.]+\s*:\s*)/);
         let prefixWidth = 0;
+        let covX = origBounds.x;
+        let covW = origBounds.w;
         if (labelMatch && newText.startsWith(labelMatch[1])) {
           const prefix = labelMatch[1];
           prefixWidth = (prefix.length / et.text.length) * origBounds.w;
@@ -237,20 +263,22 @@ export function FindReplaceBar({
         });
       }
 
+      const newRemoval = { id: et.id, page: et.page, quad: removalQuad };
       const newMark = {
         id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         kind: "text",
         page: et.page,
         x: markX,
-        y: isOcr ? (((et as any).ocrOriginalBounds?.y || et.y) + ((et as any).ocrOriginalBounds?.h || et.h) - (et.size || 12)) : et.y,
+        y: isOcr ? (((et as any).ocrOriginalBounds?.y || et.y) + ((et as any).ocrOriginalBounds?.h || et.h) - (et.size || 12)) : markY,
         text: markText,
-        size: Math.round((et.size || 12) * 10) / 10,
+        originalText: et.text,
+        size: markSize,
         font: fontVal,
-        color: et.color || "#1e293b",
+        color: markColor,
         bold: isItemBold,
         italic: isItemItalic,
         angle: et.angle || 0,
-        originalFontName: et.originalFontName || et.fontName,
+        originalFontName: markFontName,
         fontMatchQuality,
         sourceId: et.id
       };
@@ -376,24 +404,81 @@ export function FindReplaceBar({
     // 2. Process original PDF texts
     for (const [, hitList] of byOrig.entries()) {
       const et = hitList[0].editableText;
-      let text = et.text;
-      hitList.sort((a, b) => b.matchStart - a.matchStart);
-      for (const h of hitList) {
-        text = replaceMatchInText(text, h.matchStart, h.matchLength, replacement);
-        count++;
-      }
       const isOcr = Boolean((et as any).isOcr || et.id.startsWith("ocr-"));
-      const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
-      const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
-      const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
-      const fontMatchQuality = computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, text, isOcr);
 
-      newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
-      let markX = et.x;
-      let markW = Math.max(10, et.w);
-      let markText = text;
+      if (!isOcr) {
+        // Vector PDF: perform surgical replacement per match
+        for (const h of hitList) {
+          count++;
+          const isSubstring = h.matchStart > 0 || h.matchLength < et.text.length;
+          if (isSubstring) {
+            const metrics = calculateSubstringGlyphMetricsSync(et, h.matchStart, h.matchLength, replacement);
+            newRemovals.push({
+              id: `${et.id}-sub-${h.matchStart}`,
+              page: et.page,
+              quad: metrics.targetQuad
+            });
+            newMarks.push({
+              id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              kind: "text",
+              page: et.page,
+              x: metrics.startX,
+              y: metrics.startY,
+              text: replacement,
+              size: Math.round(metrics.fontSize * 10) / 10,
+              font: metrics.fontFamily,
+              color: metrics.color,
+              bold: metrics.isBold,
+              italic: metrics.isItalic,
+              angle: et.angle || 0,
+              originalFontName: metrics.originalFontName,
+              fontMatchQuality: computeFontMatchQuality(metrics.originalFontName, metrics.fontFamily, replacement, false),
+              sourceId: et.id
+            });
+          } else {
+            // Full item match
+            const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
+            const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
+            const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
+            newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
+            newMarks.push({
+              id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              kind: "text",
+              page: et.page,
+              x: et.x,
+              y: et.y,
+              text: replacement,
+              originalText: et.text,
+              size: Math.round((et.size || 12) * 10) / 10,
+              font: fontVal,
+              color: et.color || "#1e293b",
+              bold: isItemBold,
+              italic: isItemItalic,
+              angle: et.angle || 0,
+              originalFontName: et.originalFontName || et.fontName,
+              fontMatchQuality: computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, replacement, false),
+              sourceId: et.id
+            });
+          }
+        }
+      } else {
+        // OCR branch
+        let text = et.text;
+        hitList.sort((a, b) => b.matchStart - a.matchStart);
+        for (const h of hitList) {
+          text = replaceMatchInText(text, h.matchStart, h.matchLength, replacement);
+          count++;
+        }
+        const isItemBold = Boolean(et.bold || et.originalFontName?.toLowerCase().includes("bold") || et.fontName?.toLowerCase().includes("bold"));
+        const isItemItalic = Boolean(et.italic || et.originalFontName?.toLowerCase().includes("italic") || et.originalFontName?.toLowerCase().includes("oblique"));
+        const fontVal = et.fontFamily === 'serif' ? 'serif' : et.fontFamily === 'courier' ? 'courier' : et.fontFamily === 'roboto' ? 'roboto' : 'sans';
+        const fontMatchQuality = computeFontMatchQuality(et.originalFontName || et.fontName, fontVal, text, isOcr);
 
-      if (isOcr) {
+        newRemovals.push({ id: et.id, page: et.page, quad: et.quad });
+        let markX = et.x;
+        let markW = Math.max(10, et.w);
+        let markText = text;
+
         const origBounds = (et as any).ocrOriginalBounds || { x: et.x, y: et.y, w: et.w, h: et.h };
         const labelMatch = et.text.match(/^([A-Za-zÇĞİÖŞÜçğıöşü0-9_\-\.]+\s*:\s*)/);
         let prefixWidth = 0;
@@ -430,25 +515,25 @@ export function FindReplaceBar({
           opacity: 1,
           sourceId: et.id
         });
-      }
 
-      newMarks.push({
-        id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        kind: "text",
-        page: et.page,
-        x: markX,
-        y: isOcr ? (((et as any).ocrOriginalBounds?.y || et.y) + ((et as any).ocrOriginalBounds?.h || et.h) - (et.size || 12)) : et.y,
-        text: markText,
-        size: Math.round((et.size || 12) * 10) / 10,
-        font: fontVal,
-        color: et.color || "#1e293b",
-        bold: isItemBold,
-        italic: isItemItalic,
-        angle: et.angle || 0,
-        originalFontName: et.originalFontName || et.fontName,
-        fontMatchQuality,
-        sourceId: et.id
-      });
+        newMarks.push({
+          id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          kind: "text",
+          page: et.page,
+          x: markX,
+          y: (((origBounds.y || et.y) + (origBounds.h || et.h) - (et.size || 12))),
+          text: markText,
+          size: Math.round((et.size || 12) * 10) / 10,
+          font: fontVal,
+          color: et.color || "#1e293b",
+          bold: isItemBold,
+          italic: isItemItalic,
+          angle: et.angle || 0,
+          originalFontName: et.originalFontName || et.fontName,
+          fontMatchQuality,
+          sourceId: et.id
+        });
+      }
     }
 
     // 3. Process split text matches

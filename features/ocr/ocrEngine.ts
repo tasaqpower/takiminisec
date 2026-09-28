@@ -213,11 +213,10 @@ export function analyzeCropStyle(
   pad = 2
 ): OcrStyleEstimate {
   const cleanText = (text || "").trim();
-  const isTypewriterPattern = /^(Name|Date|ID|No|Ref|Sign|Tarih|Adı|Soyadı|Tc|Sicil|Konu|Sayı|Tel|Fax)[:\s]/i.test(cleanText);
   const fallbackSize = Math.max(8, Math.min(72, Math.round(bbox.height * 1.42)));
 
   const fallback: OcrStyleEstimate = {
-    fontCategory: isTypewriterPattern ? "courier" : "sans",
+    fontCategory: "sans",
     bold: false,
     italic: false,
     textColor: "#000000",
@@ -416,37 +415,10 @@ export function analyzeCropStyle(
       normalizedDarkRatio > 0.32
     );
 
-    // 4. Monospace Courier detection:
-    // Word character pitch variance is the PRIMARY signal.
-    // Keyword regex is only supporting.
-    let isMonospace = false;
-    if (words.length >= 2 && cleanText.length >= 6) {
-      const charWidths = words.map(w => w.bbox.width / Math.max(1, w.text.length));
-      const avgCharW = charWidths.reduce((a, b) => a + b, 0) / charWidths.length;
-      const variance = charWidths.reduce((acc, val) => acc + Math.pow(val - avgCharW, 2), 0) / charWidths.length;
-      if (variance < 2.0 && avgCharW > 4.0) {
-        isMonospace = true;
-      }
-    }
-
-    if (!isMonospace && isTypewriterPattern) {
-      // If keyword matched, verify it doesn't have extreme proportional variance
-      if (words.length >= 2) {
-        const charWidths = words.map(w => w.bbox.width / Math.max(1, w.text.length));
-        const avgCharW = charWidths.reduce((a, b) => a + b, 0) / charWidths.length;
-        const variance = charWidths.reduce((acc, val) => acc + Math.pow(val - avgCharW, 2), 0) / charWidths.length;
-        if (variance < 4.5) {
-          isMonospace = true;
-        }
-      } else {
-        isMonospace = true;
-      }
-    }
-
+    // 4. Font Category: Strict Courier ban.
+    // Never fallback to Courier for OCR unless source font explicitly designates typewriter text.
     let fontCategory: "sans" | "serif" | "courier" = "sans";
-    if (isMonospace) {
-      fontCategory = "courier";
-    } else if (typeof document !== "undefined" && typeof document.createElement === "function") {
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
       try {
         const mCanvas = document.createElement("canvas");
         const mCtx = mCanvas.getContext("2d");
@@ -466,11 +438,8 @@ export function analyzeCropStyle(
 
           const diffSans = Math.abs(sansRatio - targetRatio);
           const diffSerif = Math.abs(serifRatio - targetRatio);
-          const diffCourier = Math.abs(courierRatio - targetRatio);
 
-          if (diffCourier < diffSans && diffCourier < diffSerif) {
-            fontCategory = "courier";
-          } else if (diffSerif < diffSans) {
+          if (diffSerif < diffSans) {
             fontCategory = "serif";
           } else {
             fontCategory = "sans";
@@ -483,7 +452,7 @@ export function analyzeCropStyle(
       cleanText,
       bbox.width,
       bbox.height,
-      fontCategory === "courier" ? "'Courier New', Courier, monospace" : fontCategory === "serif" ? "Lora, Georgia, serif" : "sans-serif",
+      fontCategory === "serif" ? "Lora, Georgia, serif" : "sans-serif",
       bold
     );
 
