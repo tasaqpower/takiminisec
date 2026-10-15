@@ -1777,7 +1777,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const renderAudioSettings = () => (
     <InspectorSection
       title="Ses Ayarları (Audio)"
-      defaultOpen={selectedClip.type === 'audio'}
+      defaultOpen={true}
       badge={`${Math.round((selectedClip.volume ?? 1) * 100)}%`}
       onReset={() => onUpdateClip(selectedClip.id, { volume: 1.0, fadeIn: 0, fadeOut: 0, muted: false })}
     >
@@ -1990,7 +1990,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
     return (
       <InspectorSection
         title="Geçiş Efektleri (Transitions)"
-        defaultOpen={false}
+        defaultOpen={true}
         badge={activeType !== 'cut' && activeType !== 'none' ? def.name : undefined}
       >
         <div className="p-2.5 space-y-2.5">

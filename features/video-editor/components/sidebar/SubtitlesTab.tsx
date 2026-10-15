@@ -23,6 +23,8 @@ import {
   ChevronRight,
   X,
   Volume2,
+  Edit3,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export interface SubtitlesTabProps {
@@ -134,6 +136,79 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
   // Descript Text-Based Selection State
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
   const [lastClickedWordId, setLastClickedWordId] = useState<string | null>(null);
+
+  // Segment inline text editing state
+  const [editingSegId, setEditingSegId] = useState<string | null>(null);
+  const [editingSegText, setEditingSegText] = useState<string>('');
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [pastedScript, setPastedScript] = useState('');
+
+  // Update segment text manually and re-partition words proportionally
+  const handleUpdateSegmentText = (segId: string, newText: string) => {
+    setSpeechSegments((prev) =>
+      prev.map((s) => {
+        if (s.id !== segId) return s;
+        const tokens = newText.trim().split(/\s+/).filter(Boolean);
+        const totalChars = tokens.reduce((acc, t) => acc + t.length, 0);
+        let cursorStart = s.startSec;
+        const words = tokens.map((token) => {
+          const charFraction = Math.max(1, token.length) / Math.max(1, totalChars);
+          const wordDur = Math.max(0.08, s.duration * charFraction);
+          const wordEnd = Math.min(s.endSec, cursorStart + wordDur);
+          const w: TimestampedWord = {
+            word: token,
+            startSec: parseFloat(cursorStart.toFixed(3)),
+            endSec: parseFloat(wordEnd.toFixed(3)),
+          };
+          cursorStart = wordEnd;
+          return w;
+        });
+        return {
+          ...s,
+          text: newText,
+          words,
+        };
+      })
+    );
+    setEditingSegId(null);
+    setStatusBanner('Konuşma metni güncellendi ve kelime zaman damgaları senkronize edildi.');
+    setTimeout(() => setStatusBanner(null), 3000);
+  };
+
+  // Align pasted script / Whisper transcript onto detected PCM VAD speech intervals
+  const handleApplyPastedScript = () => {
+    if (!pastedScript.trim() || speechSegments.length === 0) return;
+    const sentences = pastedScript
+      .split(/[.\n!?]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    setSpeechSegments((prev) =>
+      prev.map((seg, idx) => {
+        const text = sentences[idx] || seg.text || `Segment #${idx + 1}`;
+        const tokens = text.split(/\s+/).filter(Boolean);
+        const totalChars = tokens.reduce((acc, t) => acc + t.length, 0);
+        let cursor = seg.startSec;
+        const words = tokens.map((token) => {
+          const fraction = Math.max(1, token.length) / Math.max(1, totalChars);
+          const dur = Math.max(0.08, seg.duration * fraction);
+          const end = Math.min(seg.endSec, cursor + dur);
+          const w = {
+            word: token,
+            startSec: parseFloat(cursor.toFixed(3)),
+            endSec: parseFloat(end.toFixed(3)),
+          };
+          cursor = end;
+          return w;
+        });
+        return { ...seg, text, words };
+      })
+    );
+    setIsScriptModalOpen(false);
+    setPastedScript('');
+    setStatusBanner('Senaryo metni akustik konuşma segmentleriyle senkronize edildi!');
+    setTimeout(() => setStatusBanner(null), 3500);
+  };
 
   // Available candidate clips (video and audio clips with media)
   const candidateClips = useMemo(() => {
@@ -906,6 +981,15 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    onClick={() => setIsScriptModalOpen(true)}
+                    className="px-1.5 py-0.5 rounded bg-[#202631] hover:bg-[#28303e] border border-[#292F39] text-[#93c5fd] font-medium text-[9px] flex items-center gap-1 transition-colors"
+                    title="Senaryo / Whisper Metni Yapıştır ve Akustik Aralıklarla Hizala"
+                  >
+                    <FileSpreadsheet size={10} />
+                    <span>Senaryo Yapıştır</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleApplySegmentsToTimeline}
                     className="px-1.5 py-0.5 rounded bg-emerald-700/80 hover:bg-emerald-600 text-white font-medium text-[9px] transition-colors"
                     title="Altyazı olarak ekle"
@@ -948,6 +1032,17 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
+                            onClick={() => {
+                              setEditingSegId(seg.id);
+                              setEditingSegText(seg.text || '');
+                            }}
+                            className="p-1 rounded text-[#929AA8] hover:text-[#93c5fd] hover:bg-[#202631]"
+                            title="Metni Düzenle"
+                          >
+                            <Edit3 size={10} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleSelectSegment(seg.id)}
                             className="px-1 py-0.5 rounded bg-[#202631] hover:bg-[#4f6bf5] text-[#929AA8] hover:text-white text-[9px] transition-colors"
                           >
@@ -968,8 +1063,42 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Interactive Words */}
-                      <div className="flex flex-wrap gap-x-1.5 gap-y-1">
+                      {/* Inline Segment Text Editor or Interactive Words */}
+                      {editingSegId === seg.id ? (
+                        <div className="flex items-center gap-1.5 py-1">
+                          <input
+                            type="text"
+                            value={editingSegText}
+                            onChange={(e) => setEditingSegText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleUpdateSegmentText(seg.id, editingSegText);
+                              if (e.key === 'Escape') setEditingSegId(null);
+                            }}
+                            className="flex-1 px-2 py-1 rounded bg-[#0E1014] border border-[#4f6bf5] text-white text-[11px] outline-none"
+                            autoFocus
+                            placeholder="Konuşma metnini yazın..."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSegmentText(seg.id, editingSegText)}
+                            className="p-1 px-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-0.5 text-[9px] font-semibold"
+                            title="Kaydet"
+                          >
+                            <Check size={10} />
+                            <span>Kaydet</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSegId(null)}
+                            className="p-1 rounded bg-[#202631] text-[#929AA8] hover:text-white"
+                            title="İptal"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ) : (
+                        /* Interactive Words */
+                        <div className="flex flex-wrap gap-x-1.5 gap-y-1">
                         {segWords.map((wordObj) => {
                           const isSelected = selectedWordIds.has(wordObj.id);
                           const isKaraokeActive = activeWordId === wordObj.id;
@@ -999,7 +1128,8 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                           );
                         })}
                       </div>
-                    </div>
+                    )}
+                  </div>
                   );
                 })}
               </div>
@@ -1247,6 +1377,58 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
               <Download size={14} className="text-emerald-400" />
               <span>SRT İndir</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Script / Transcript Paste Modal */}
+      {isScriptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+          <div className="w-full max-w-md bg-[#111419] border border-[#292F39] rounded-lg shadow-2xl p-4 space-y-3 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#292F39] pb-2">
+              <div className="flex items-center gap-1.5 text-white font-semibold text-xs">
+                <FileSpreadsheet size={14} className="text-[#4f6bf5]" />
+                <span>Senaryo / Whisper Metni Yapıştır</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScriptModalOpen(false)}
+                className="text-[#929AA8] hover:text-white"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <p className="text-[10px] text-[#929AA8] leading-relaxed">
+              Video senaryonuzu veya AI transkriptinizi aşağıya yapıştırın. Sistem cümleleri otomatik ayırarak videodan çıkarılan PCM akustik konuşma segmentleriyle eşleştirecektir.
+            </p>
+
+            <textarea
+              rows={6}
+              value={pastedScript}
+              onChange={(e) => setPastedScript(e.target.value)}
+              placeholder="Senaryo veya konuşma metnini buraya yapıştırın..."
+              className="w-full p-2.5 rounded bg-[#0E1014] border border-[#292F39] text-white text-[11px] outline-none focus:border-[#4f6bf5] custom-scrollbar"
+            />
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsScriptModalOpen(false)}
+                className="px-2.5 py-1 rounded bg-[#202631] text-[#929AA8] hover:text-white text-[10px]"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyPastedScript}
+                disabled={!pastedScript.trim()}
+                className="px-3 py-1 rounded bg-[#4f6bf5] hover:bg-[#3b55d9] disabled:opacity-50 text-white font-medium text-[10px] flex items-center gap-1"
+              >
+                <Check size={11} />
+                <span>Akustik Segmentlerle Eşle</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

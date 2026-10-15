@@ -2099,6 +2099,7 @@ export function useVideoProject() {
   return {
     project,
     setProject,
+    commitProjectChange,
     selectedClipId,
     selectedTrackId,
     selectedTransitionId,

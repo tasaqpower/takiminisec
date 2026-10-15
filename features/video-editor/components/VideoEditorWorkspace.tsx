@@ -42,6 +42,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
   const {
     project,
     setProject,
+    commitProjectChange,
     selectedClipId,
     selectedClip,
     selectedTransitionId,
@@ -77,6 +78,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     freezeFrame,
     removeSilencesFromClip,
     removeDuplicateRangeFromClip,
+    toggleClipVocalMute,
     addTextClip,
     addTimelineTransition,
     updateTimelineTransition,
@@ -475,6 +477,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             removeSilencesFromClip(clipId);
           }}
           onRemoveDuplicateRange={removeDuplicateRangeFromClip}
+          onToggleClipVocalMute={toggleClipVocalMute}
           onCopyClip={copyClip}
           onPasteClip={(time, trackId) => pasteClip(time ?? currentTime, trackId)}
           hasClipboard={hasClipboard}
@@ -493,7 +496,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           isOpen={isAiModalOpen}
           onClose={() => setIsAiModalOpen(false)}
           onApplyAction={(updater) => {
-            setProject((prev) => updater(prev));
+            commitProjectChange((prev) => updater(prev));
           }}
         />
 

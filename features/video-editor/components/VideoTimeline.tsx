@@ -171,11 +171,12 @@ interface TimelineProps {
   onRippleTrimEnd?: (clipId: string, trimTime: number) => void;
   onFreezeFrame?: (clipId: string, freezeTime: number) => void;
   onRemoveSilences?: (clipId: string) => void;
+  onToggleClipVocalMute?: (clipId: string, enableLipFreeze?: boolean) => void;
   onRemoveDuplicateRange?: (
     clipId: string,
     rangeStart: number,
     rangeEnd: number,
-    action: 'ripple_delete' | 'vocal_mute'
+    action: 'ripple_delete' | 'vocal_mute' | 'censor_bleep'
   ) => boolean;
   onCopyClip?: (clipId: string) => void;
   onPasteClip?: (time?: number, trackId?: string) => void;
@@ -1014,6 +1015,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
   // 1. Toggle Karakter / İnsan Sesi Susturma + Lip-Freeze (Vocal Suppression + Visual Neutral Freeze)
   const handleToggleVocalMute = (clip: VideoClip, enableLipFreeze = true) => {
+    if (onToggleClipVocalMute) {
+      onToggleClipVocalMute(clip.id, enableLipFreeze);
+      return;
+    }
     if (onUpdateClip) {
       const nextVocalMute = !clip.vocalMute;
       onUpdateClip(clip.id, {

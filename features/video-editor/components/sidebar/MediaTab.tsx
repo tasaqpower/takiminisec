@@ -430,8 +430,8 @@ export const MediaTab: React.FC<MediaTabProps> = ({
       const newAsset: MediaAsset = {
         id: assetId,
         name: `${preset.name}`,
-        type: 'image',
-        mimeType: 'image/png',
+        type: 'video',
+        mimeType: 'video/mp4',
         size: blob.size,
         duration: preset.duration,
         thumbnailUrl: url,
@@ -445,7 +445,7 @@ export const MediaTab: React.FC<MediaTabProps> = ({
       onAddClip(targetTrackId, {
         assetId,
         name: preset.name,
-        type: 'image',
+        type: 'video',
         sourceUrl: url,
         startTime: startPos,
         duration: preset.duration,
