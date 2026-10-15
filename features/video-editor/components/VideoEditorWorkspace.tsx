@@ -88,6 +88,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     setClipCanvasBlurFill,
     setClipDelogoPatch,
     setClipSpeedRamp,
+    applyTransitionToAllCuts,
+    toggleProjectAutoWhoosh,
+    addProceduralSfxClip,
     addTextClip,
     addTimelineTransition,
     updateTimelineTransition,
@@ -206,6 +209,34 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     [project.tracks, seek, play, pause]
   );
 
+  const handleDownloadThumbnail = useCallback(async () => {
+    try {
+      const blob = await exportEngine.exportProject(
+        project,
+        {
+          format: 'png',
+          resolution: project.resolution,
+          fps: project.fps,
+          quality: 'ultra',
+        },
+        currentTime,
+        () => {}
+      );
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (project.name || 'forma-video').replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `${safeName}_thumbnail_${Math.round(currentTime * 1000)}ms.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download thumbnail:', err);
+    }
+  }, [project, currentTime]);
+
   // Keyboard shortcuts
   useShortcuts({
     onTogglePlay: togglePlay,
@@ -285,6 +316,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onOpenAi={() => setIsAiModalOpen(true)}
           onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
           onNavigateHome={handleHomeClick}
+          onDownloadThumbnail={handleDownloadThumbnail}
           isDirty={isDirty}
           saveStatus={saveStatus}
         />
@@ -396,6 +428,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             onToggleAutoDucking={toggleProjectAutoDucking}
             onToggleCanvasBlurFill={toggleProjectCanvasBlurFill}
             onTrimEndGlitch={trimClipEndGlitch}
+            onApplyTransitionToAllCuts={applyTransitionToAllCuts}
           />
         </div>
 
@@ -492,6 +525,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onToggleClipVocalMute={toggleClipVocalMute}
           onCopyClip={copyClip}
           onPasteClip={(time, trackId) => pasteClip(time ?? currentTime, trackId)}
+          onToggleAutoWhoosh={toggleProjectAutoWhoosh}
+          onAddProceduralSfx={(type) => addProceduralSfxClip(type, currentTime)}
           hasClipboard={hasClipboard}
         />
 

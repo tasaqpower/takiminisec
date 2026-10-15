@@ -11,6 +11,10 @@ import {
   TimelineTransition,
   EffectSegment,
   TextAnimationSegment,
+  TransitionType,
+  SpeedRampPreset,
+  CameraMotionPreset,
+  ProceduralSfxType,
 } from '../types';
 import { saveProjectMetadata, loadLatestProject, deleteProjectMetadata } from '../db';
 
@@ -1713,6 +1717,198 @@ export function useVideoProject() {
     [commitProjectChange]
   );
 
+  // 7. Apply Transition to All Cuts across the timeline
+  const applyTransitionToAllCuts = useCallback(
+    (transitionType: TransitionType, duration = 0.6) => {
+      commitProjectChange((prev) => {
+        const newTransitions: TimelineTransition[] = [];
+        const updatedTracks = prev.tracks.map((track) => {
+          if (track.type !== 'video' && track.type !== 'image') return track;
+
+          const sortedClips = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+          const trackTrans: TimelineTransition[] = [];
+
+          for (let i = 0; i < sortedClips.length - 1; i++) {
+            const c1 = sortedClips[i];
+            const c2 = sortedClips[i + 1];
+            const cutTime = (c1.startTime + c1.duration + c2.startTime) / 2;
+            if (Math.abs((c1.startTime + c1.duration) - c2.startTime) < 0.2) {
+              const trans: TimelineTransition = {
+                id: `trans-all-${Date.now()}-${track.id}-${i}`,
+                trackId: track.id,
+                type: transitionType,
+                duration,
+                cutTime,
+                leftClipId: c1.id,
+                rightClipId: c2.id,
+                alignment: 'between',
+              };
+              trackTrans.push(trans);
+              newTransitions.push(trans);
+            }
+          }
+
+          return {
+            ...track,
+            transitions: trackTrans,
+          };
+        });
+
+        return {
+          ...prev,
+          tracks: updatedTracks,
+          transitions: newTransitions,
+        };
+      });
+    },
+    [commitProjectChange]
+  );
+
+  // 8. Toggle Auto-Whoosh
+  const toggleProjectAutoWhoosh = useCallback(
+    (enabled?: boolean) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        autoWhoosh: typeof enabled === 'boolean' ? enabled : !prev.autoWhoosh,
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  // 9. Add Procedural SFX Clip to Timeline
+  const addProceduralSfxClip = useCallback(
+    (type: ProceduralSfxType, timeSec = 0, targetTrackId?: string): VideoClip => {
+      const sfxDurations: Record<ProceduralSfxType, number> = {
+        'whoosh': 0.45,
+        'sub-bass-boom': 1.2,
+        'tension-riser': 2.0,
+        'glitch-zap': 0.28,
+        'camera-shutter': 0.18,
+      };
+      const sfxNames: Record<ProceduralSfxType, string> = {
+        'whoosh': '💨 Whoosh (Geçiş Sesi)',
+        'sub-bass-boom': '💥 Sub Bass Boom',
+        'tension-riser': '📈 Tension Riser',
+        'glitch-zap': '⚡ Glitch Zap',
+        'camera-shutter': '📸 Camera Shutter',
+      };
+
+      const duration = sfxDurations[type] || 1.0;
+      const name = sfxNames[type] || `SFX ${type}`;
+      const clipId = `clip-sfx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+      let audioTrack = targetTrackId
+        ? project.tracks.find((t) => t.id === targetTrackId)
+        : project.tracks.find((t) => t.type === 'audio');
+
+      const newClip: VideoClip = {
+        id: clipId,
+        trackId: audioTrack ? audioTrack.id : '',
+        type: 'audio',
+        name,
+        startTime: Math.max(0, timeSec),
+        duration,
+        trimIn: 0,
+        trimOut: duration,
+        volume: 1.0,
+        muted: false,
+        isProceduralSfx: true,
+        proceduralSfxType: type,
+        assetId: `sfx-procedural-${type}`,
+      };
+
+      commitProjectChange((prev) => {
+        let tracks = [...prev.tracks];
+        let target = tracks.find((t) => t.id === audioTrack?.id) || tracks.find((t) => t.type === 'audio');
+        if (!target) {
+          const newTrack: TimelineTrack = {
+            id: `track-audio-${Date.now()}`,
+            name: 'Ses & Efektler',
+            type: 'audio',
+            clips: [],
+            muted: false,
+            locked: false,
+            visible: true,
+          };
+          tracks.push(newTrack);
+          target = newTrack;
+        }
+
+        newClip.trackId = target.id;
+        return {
+          ...prev,
+          tracks: tracks.map((t) =>
+            t.id === target!.id ? { ...t, clips: [...t.clips, newClip] } : t
+          ),
+        };
+      });
+
+      return newClip;
+    },
+    [project.tracks, commitProjectChange]
+  );
+
+  // 10. AI Camera Motion, Deflicker, Motion Blur, Smart Reframe helpers
+  const setClipCameraMotion = useCallback(
+    (clipId: string, preset: CameraMotionPreset) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, cameraMotionPreset: preset } : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  const setClipDeflicker = useCallback(
+    (clipId: string, enabled: boolean) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, deflicker: enabled } : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  const setClipMotionBlur = useCallback(
+    (clipId: string, enabled: boolean) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, motionBlur: enabled } : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  const setClipSmartReframe = useCallback(
+    (clipId: string, focus: 'left' | 'center' | 'right' | number) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, smartReframeFocus: focus } : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
   // Text helpers
   const addTextClip = useCallback(
     (trackId: string, text: string, startTime = 0, duration = 3, initialData?: Partial<TextLayerData>): VideoClip => {
@@ -2358,6 +2554,13 @@ export function useVideoProject() {
     setClipCanvasBlurFill,
     setClipDelogoPatch,
     setClipSpeedRamp,
+    applyTransitionToAllCuts,
+    toggleProjectAutoWhoosh,
+    addProceduralSfxClip,
+    setClipCameraMotion,
+    setClipDeflicker,
+    setClipMotionBlur,
+    setClipSmartReframe,
     addTextClip,
     // Transition ops
     addTimelineTransition,

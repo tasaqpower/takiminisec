@@ -47,9 +47,11 @@ export type TransitionType =
   | 'checkerboard'
   | 'soft-mask-reveal'
   | 'circle-close' // alias for iris-in
-  // Kamera ve Hareket (Camera & Motion - 10)
+  // Kamera ve Hareket (Camera & Motion - 12)
   | 'zoom-in'
   | 'zoom-out'
+  | 'zoom-punch'
+  | 'whip-pan'
   | 'whip-pan-left'
   | 'whip-pan-right'
   | 'whip-pan-up'
@@ -331,6 +333,8 @@ export interface DelogoPatchSettings {
 }
 
 export type SpeedRampPreset = 'none' | 'montage' | 'bullet-time' | 'jump-in';
+export type CameraMotionPreset = 'none' | 'handheld' | 'impact' | 'push-in' | 'pull-out';
+export type ProceduralSfxType = 'whoosh' | 'sub-bass-boom' | 'tension-riser' | 'glitch-zap' | 'camera-shutter';
 
 export interface ClipEffects {
   brightness?: number;   // -1 to 1 or 0 to 2
@@ -426,6 +430,13 @@ export interface VideoClip {
   canvasBlurFill?: boolean; // 9:16 veya 1:1 formatta arka planı bulanık doldurma
   delogoPatch?: DelogoPatchSettings; // AI watermark/logo gizleyici yama
   speedRampPreset?: SpeedRampPreset; // Hız rampası eğrisi
+  cameraMotionPreset?: CameraMotionPreset; // AI kamera hareketi (handheld, impact, push-in, pull-out)
+  deflicker?: boolean; // AI titreme giderici (ışık titremesi sabitleyici)
+  motionBlur?: boolean; // Yumuşak hareket harmanlama (24fps -> 60fps akıcılık)
+  smartReframeFocus?: 'left' | 'center' | 'right' | number; // 9:16 ve 1:1 akıllı kadraj odağı
+  isProceduralSfx?: boolean; // Yerleşik Web Audio sentezli ses efekti
+  proceduralSfxType?: ProceduralSfxType; // SFX türü
+  loop?: boolean; // Ses veya video döngü
   aiGlitchTrimmed?: boolean; // AI son kare bozulması temizlendi mi
   fadeIn?: number;
   fadeOut?: number;
@@ -510,6 +521,7 @@ export interface VideoProject {
   autoDucking?: boolean; // Müzik sesini konuşmada otomatik kıs (-12dB)
   autoDuckingDb?: number; // Ducking zayıflatma desibeli (varsayılan: -12dB)
   autoDuckingFadeMs?: number; // Ducking geçiş süresi ms (varsayılan: 300ms)
+  autoWhoosh?: boolean; // Tüm kesim ve geçiş noktalarına otomatik senkronize whoosh sesi ekle
   canvasBlurFill?: boolean; // 9:16 ve 1:1 dikey projelerde arka planı videonun bulanık kopyasıyla doldur
   tracks: TimelineTrack[];
 

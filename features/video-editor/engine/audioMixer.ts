@@ -1,5 +1,6 @@
 import { VideoProject, TimelineTrack, VideoClip } from '../types';
 import { getAssetBlob } from '../db';
+import { computeSpeedRampedClipTime } from './previewRenderer';
 
 /**
  * AudioMixer handles:
@@ -95,6 +96,154 @@ class AudioMixer {
   }
 
   /**
+   * Procedural Cinematic SFX Synthesizer:
+   * Generates sample-accurate audio buffers directly via Web Audio synthesis
+   * without needing external WAV/MP3 files. Supports whoosh, sub-bass-boom,
+   * tension-riser, glitch-zap, and camera-shutter.
+   */
+  public generateProceduralSfxBuffer(
+    type: 'whoosh' | 'sub-bass-boom' | 'tension-riser' | 'glitch-zap' | 'camera-shutter' | string,
+    ctx: BaseAudioContext,
+    sampleRate = 48000
+  ): AudioBuffer {
+    if (type === 'whoosh') {
+      const duration = 0.45;
+      const length = Math.ceil(duration * sampleRate);
+      const buffer = ctx.createBuffer(2, length, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      let yL1 = 0, yL2 = 0, yR1 = 0, yR2 = 0;
+      for (let i = 0; i < length; i++) {
+        const p = i / length;
+        const fCenter = 250 + Math.sin(p * Math.PI) * 2550;
+        const w0 = (2 * Math.PI * fCenter) / sampleRate;
+        const alpha = Math.sin(w0) / (2 * 1.8);
+        const b0 = alpha;
+        const a0 = 1 + alpha;
+        const a1 = -2 * Math.cos(w0);
+        const a2 = 1 - alpha;
+
+        const noiseL = Math.random() * 2 - 1;
+        const noiseR = Math.random() * 2 - 1;
+        const env = Math.pow(Math.sin(p * Math.PI), 2.2);
+
+        const outL = (b0 / a0) * noiseL - (a1 / a0) * yL1 - (a2 / a0) * yL2;
+        yL2 = yL1;
+        yL1 = outL;
+
+        const outR = (b0 / a0) * noiseR - (a1 / a0) * yR1 - (a2 / a0) * yR2;
+        yR2 = yR1;
+        yR1 = outR;
+
+        const panL = Math.cos(p * (Math.PI / 2));
+        const panR = Math.sin(p * (Math.PI / 2));
+
+        left[i] = Math.max(-1, Math.min(1, outL * env * panL * 2.2));
+        right[i] = Math.max(-1, Math.min(1, outR * env * panR * 2.2));
+      }
+      return buffer;
+    } else if (type === 'sub-bass-boom') {
+      const duration = 1.2;
+      const length = Math.ceil(duration * sampleRate);
+      const buffer = ctx.createBuffer(2, length, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      let phase = 0;
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const freq = 32 + (60 - 32) * Math.exp(-t * 3.5);
+        phase += (2 * Math.PI * freq) / sampleRate;
+
+        const attack = Math.min(1, t / 0.005);
+        const decay = Math.exp(-t * 2.8);
+        const env = attack * decay;
+
+        const fundamental = Math.sin(phase);
+        const harmonic = Math.sin(phase * 2) * 0.3;
+        const saturated = Math.tanh((fundamental + harmonic) * 1.4) * 0.85;
+
+        left[i] = saturated * env;
+        right[i] = saturated * env;
+      }
+      return buffer;
+    } else if (type === 'tension-riser') {
+      const duration = 2.0;
+      const length = Math.ceil(duration * sampleRate);
+      const buffer = ctx.createBuffer(2, length, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      let phase1 = 0;
+      let phase2 = 0;
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const p = t / duration;
+        const freq = 85 * Math.pow(1800 / 85, p);
+        phase1 += (2 * Math.PI * freq) / sampleRate;
+        phase2 += (2 * Math.PI * (freq * 1.01)) / sampleRate;
+
+        const env = Math.pow(p, 1.8) * 0.75;
+        const osc = (Math.sin(phase1) + Math.sin(phase2)) * 0.45;
+        const noise = (Math.random() * 2 - 1) * p * 0.25;
+
+        const val = (osc + noise) * env;
+        left[i] = Math.max(-1, Math.min(1, val));
+        right[i] = Math.max(-1, Math.min(1, val * (0.8 + 0.4 * Math.sin(p * 15))));
+      }
+      return buffer;
+    } else if (type === 'glitch-zap') {
+      const duration = 0.28;
+      const length = Math.ceil(duration * sampleRate);
+      const buffer = ctx.createBuffer(2, length, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      let phase = 0;
+      let currFreq = 800;
+      for (let i = 0; i < length; i++) {
+        if (i % Math.floor(sampleRate * 0.015) === 0) {
+          currFreq = 300 + Math.random() * 2400;
+        }
+        phase += (2 * Math.PI * currFreq) / sampleRate;
+        const p = i / length;
+        const env = Math.max(0, 1 - p * p);
+        const bitNoise = Math.sin(phase) > 0 ? 0.6 : -0.6;
+        const sample = (bitNoise * 0.5 + (Math.random() * 2 - 1) * 0.5) * env * 0.8;
+        left[i] = sample;
+        right[i] = sample * (Math.random() > 0.5 ? 1 : -0.8);
+      }
+      return buffer;
+    } else {
+      // camera-shutter
+      const duration = 0.18;
+      const length = Math.ceil(duration * sampleRate);
+      const buffer = ctx.createBuffer(2, length, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      const click1Time = 0.0;
+      const click2Time = 0.07;
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        let s = 0;
+        if (t >= click1Time && t < click1Time + 0.04) {
+          const dt = t - click1Time;
+          s += Math.sin(2 * Math.PI * 1800 * dt) * Math.exp(-dt * 120) * 0.7;
+        }
+        if (t >= click2Time && t < click2Time + 0.06) {
+          const dt = t - click2Time;
+          s += (Math.sin(2 * Math.PI * 1100 * dt) + Math.sin(2 * Math.PI * 350 * dt) * 0.5) * Math.exp(-dt * 80) * 0.85;
+        }
+        left[i] = Math.max(-1, Math.min(1, s));
+        right[i] = Math.max(-1, Math.min(1, s));
+      }
+      return buffer;
+    }
+  }
+
+  /**
    * Load and decode an audio buffer from a clip or asset blob.
    * Caches results and debounces concurrent decodes.
    */
@@ -106,6 +255,15 @@ class AudioMixer {
 
     if (this.pendingDecodes.has(cacheKey)) {
       return this.pendingDecodes.get(cacheKey)!;
+    }
+
+    // Procedural SFX generation (whoosh, sub-bass-boom, tension-riser, glitch-zap, camera-shutter)
+    if (clip.isProceduralSfx || clip.proceduralSfxType || (clip.assetId && clip.assetId.startsWith('sfx-procedural-'))) {
+      const sfxType = clip.proceduralSfxType || (clip.assetId ? clip.assetId.replace('sfx-procedural-', '') : 'whoosh');
+      const ctx = this.getAudioContext();
+      const sfxBuffer = this.generateProceduralSfxBuffer(sfxType, ctx);
+      this.bufferCache.set(cacheKey, sfxBuffer);
+      return sfxBuffer;
     }
 
     // Explicit test tone only if explicitly set on clip object
@@ -266,7 +424,33 @@ class AudioMixer {
               (clip.name && clip.name.toLowerCase().includes('sansür'));
 
             const audioOffsetSec = (clip.audioOffsetMs || 0) / 1000;
-            const rawRelTime = (currentTime - clipStart) * speed + (clip.trimIn ?? 0) + audioOffsetSec;
+            let rampedElapsed = (currentTime - clipStart) * speed;
+            let instantaneousSpeed = speed;
+
+            if (clip.speedRampPreset && clip.speedRampPreset !== 'none') {
+              rampedElapsed = computeSpeedRampedClipTime(
+                currentTime - clipStart,
+                clip.duration,
+                clip.speedRampPreset,
+                speed
+              );
+              const dt = 0.05;
+              const t1 = computeSpeedRampedClipTime(
+                currentTime - clipStart,
+                clip.duration,
+                clip.speedRampPreset,
+                speed
+              );
+              const t2 = computeSpeedRampedClipTime(
+                currentTime - clipStart + dt,
+                clip.duration,
+                clip.speedRampPreset,
+                speed
+              );
+              instantaneousSpeed = Math.max(0.1, (t2 - t1) / dt);
+            }
+
+            const rawRelTime = rampedElapsed + (clip.trimIn ?? 0) + audioOffsetSec;
             if (rawRelTime < -0.001) {
               // Audio is delayed by negative slip and has not reached its starting sample yet
               continue;
@@ -280,7 +464,7 @@ class AudioMixer {
 
             const source = ctx.createBufferSource();
             source.buffer = buffer;
-            const clipPlayRate = speed * (playbackRate || 1.0);
+            const clipPlayRate = instantaneousSpeed * (playbackRate || 1.0);
             source.playbackRate.value = Math.max(0.2, Math.min(4.0, clipPlayRate));
             if (shouldLoop && buffer.duration > 0) {
               source.loop = true;
@@ -323,6 +507,57 @@ class AudioMixer {
             } catch (err) {
               console.warn('[FORMA AudioMixer] Failed to start audio source for clip:', clip.id, err);
             }
+          }
+        }
+      }
+    }
+
+    // Auto-Whoosh on cuts & transitions
+    if (project.autoWhoosh) {
+      const cuts = new Set<number>();
+      for (const track of project.tracks) {
+        if (track.transitions) {
+          for (const tr of track.transitions) cuts.add(tr.cutTime);
+        }
+        for (let i = 0; i < track.clips.length - 1; i++) {
+          const c1 = track.clips[i];
+          const c2 = track.clips[i + 1];
+          if (Math.abs(c1.startTime + c1.duration - c2.startTime) < 0.1) {
+            cuts.add(Number(((c1.startTime + c1.duration + c2.startTime) / 2).toFixed(2)));
+          }
+        }
+      }
+
+      for (const cutTime of cuts) {
+        const whooshStart = cutTime - 0.22;
+        const whooshEnd = whooshStart + 0.45;
+        if (currentTime >= whooshStart && currentTime < whooshEnd) {
+          const autoKey = `auto-whoosh-${cutTime.toFixed(2)}`;
+          activeClipIds.add(autoKey);
+          if (!this.activeSources.has(autoKey)) {
+            const whooshBuf = this.generateProceduralSfxBuffer('whoosh', ctx);
+            const source = ctx.createBufferSource();
+            source.buffer = whooshBuf;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.85, ctx.currentTime);
+            source.connect(g);
+            if (this.masterGain) g.connect(this.masterGain);
+            else g.connect(ctx.destination);
+            try {
+              const relTime = currentTime - whooshStart;
+              source.start(0, Math.max(0, relTime), whooshEnd - currentTime);
+              this.activeSources.set(autoKey, {
+                source,
+                gainNode: g,
+                clipId: autoKey,
+                startedAtTimelineSec: currentTime,
+              });
+              source.onended = () => {
+                if (this.activeSources.get(autoKey)?.source === source) {
+                  this.activeSources.delete(autoKey);
+                }
+              };
+            } catch {}
           }
         }
       }
@@ -533,7 +768,17 @@ class AudioMixer {
         hasAudio = true;
         const source = offlineCtx.createBufferSource();
         source.buffer = buffer;
-        source.playbackRate.value = clip.speed || 1.0;
+        let effectiveSpeed = clip.speed || 1.0;
+        if (clip.speedRampPreset && clip.speedRampPreset !== 'none') {
+          const totalRampedSec = computeSpeedRampedClipTime(
+            clip.duration,
+            clip.duration,
+            clip.speedRampPreset,
+            effectiveSpeed
+          );
+          effectiveSpeed = totalRampedSec / Math.max(0.1, clip.duration);
+        }
+        source.playbackRate.value = Math.max(0.2, Math.min(4.0, effectiveSpeed));
 
         const gainNode = offlineCtx.createGain();
         const baseVolume = clip.volume ?? 1.0;
@@ -677,6 +922,35 @@ class AudioMixer {
         }
         gainNode.connect(offlineCtx.destination);
         source.start(actualStartTime, actualOffset, totalPlayDuration);
+      }
+    }
+
+    // Auto-Whoosh on cuts in exported audio
+    if (project.autoWhoosh) {
+      const cuts = new Set<number>();
+      for (const track of project.tracks) {
+        if (track.transitions) {
+          for (const tr of track.transitions) cuts.add(tr.cutTime);
+        }
+        for (let i = 0; i < track.clips.length - 1; i++) {
+          const c1 = track.clips[i];
+          const c2 = track.clips[i + 1];
+          if (Math.abs(c1.startTime + c1.duration - c2.startTime) < 0.1) {
+            cuts.add(Number(((c1.startTime + c1.duration + c2.startTime) / 2).toFixed(2)));
+          }
+        }
+      }
+      for (const cutTime of cuts) {
+        const whooshStart = Math.max(0, cutTime - 0.22);
+        const whooshBuf = this.generateProceduralSfxBuffer('whoosh', offlineCtx, sampleRate);
+        const wSrc = offlineCtx.createBufferSource();
+        wSrc.buffer = whooshBuf;
+        const wGain = offlineCtx.createGain();
+        wGain.gain.setValueAtTime(0.85, whooshStart);
+        wSrc.connect(wGain);
+        wGain.connect(offlineCtx.destination);
+        wSrc.start(whooshStart);
+        hasAudio = true;
       }
     }
 

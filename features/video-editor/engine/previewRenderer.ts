@@ -55,6 +55,17 @@ export function clearSmoothCutCache(clipId?: string): void {
   }
 }
 
+// Retain previous decoded frames for smooth motion blur (frame blending)
+const motionBlurCanvasCache = new Map<string, HTMLCanvasElement>();
+
+export function clearMotionBlurCache(clipId?: string): void {
+  if (clipId) {
+    motionBlurCanvasCache.delete(clipId);
+  } else {
+    motionBlurCanvasCache.clear();
+  }
+}
+
 type RedrawCallback = () => void;
 const redrawCallbacks = new Set<RedrawCallback>();
 
@@ -740,6 +751,33 @@ export function renderScene(renderCtx: RenderContext): void {
           clip.transform?.opacity ?? clip.opacity ?? 1
         );
 
+        // AI Camera Motion Presets (Handheld Documentary, Action Impact, Ken Burns Push-In / Pull-Out)
+        let camOffsetX = 0;
+        let camOffsetY = 0;
+        let camScale = 1.0;
+        let camRotation = 0;
+
+        if (clip.cameraMotionPreset === 'handheld') {
+          const t = clipTime;
+          camOffsetX = Math.sin(t * 1.5) * 8 + Math.sin(t * 3.3) * 3.5;
+          camOffsetY = Math.cos(t * 1.7) * 6 + Math.cos(t * 3.7) * 2.5;
+          camRotation = Math.sin(t * 1.2) * 0.75 + Math.cos(t * 2.4) * 0.35;
+          camScale = 1.035; // 3.5% margin to prevent empty edges during shake
+        } else if (clip.cameraMotionPreset === 'impact') {
+          const impactDecay = Math.max(0, 1 - (clipTime / 0.75));
+          const decaySq = impactDecay * impactDecay;
+          camOffsetX = (Math.sin(clipTime * 48) * 24 + Math.sin(clipTime * 96) * 12) * decaySq;
+          camOffsetY = (Math.cos(clipTime * 52) * 20 + Math.cos(clipTime * 105) * 9) * decaySq;
+          camRotation = (Math.sin(clipTime * 38) * 2.2) * decaySq;
+          camScale = 1.0 + 0.05 * decaySq;
+        } else if (clip.cameraMotionPreset === 'push-in') {
+          const p = Math.min(1, Math.max(0, clipTime / Math.max(0.001, clip.duration)));
+          camScale = 1.0 + p * 0.12;
+        } else if (clip.cameraMotionPreset === 'pull-out') {
+          const p = Math.min(1, Math.max(0, clipTime / Math.max(0.001, clip.duration)));
+          camScale = 1.12 - p * 0.12;
+        }
+
         // Transitions
         let transOffsetX = 0;
         let transOffsetY = 0;
@@ -870,24 +908,23 @@ export function renderScene(renderCtx: RenderContext): void {
             ctx.save();
             ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
 
-            // Safe Filters & Transition blur
+            // Safe Filters & Transition blur & AI Deflicker
             const hasActiveLut = Boolean(clip.colorFilter && getCachedCubeLut(clip.colorFilter));
             const presetEffects = !hasActiveLut ? getEffectsForColorFilter(clip.colorFilter) : null;
             const mergedEffects = { ...presetEffects, ...clip.effects };
             let filterStr = buildCanvasFilterString(mergedEffects);
+            if (clip.deflicker) {
+              const deflickerFilter = 'contrast(0.98) brightness(1.01)';
+              filterStr = filterStr ? `${filterStr} ${deflickerFilter}` : deflickerFilter;
+            }
             if (transBlur > 0) {
               filterStr = filterStr ? `${filterStr} blur(${transBlur}px)` : `blur(${transBlur}px)`;
             }
             ctx.filter = filterStr;
 
-            // Positioning and Transforms
-            const totalRotation = currentRotation + transRotation;
-            ctx.translate(width / 2 + currentX + transOffsetX, height / 2 + currentY + transOffsetY);
-            if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
-            if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
-
-            const sX = currentScaleX * transScale * transScaleX;
-            const sY = currentScaleY * transScale * transScaleY;
+            // Dimensions and Fit Mode
+            const sX = currentScaleX * transScale * transScaleX * camScale;
+            const sY = currentScaleY * transScale * transScaleY * camScale;
             const vw = video && video.videoWidth > 0 ? video.videoWidth : cachedCanvas ? cachedCanvas.width : width;
             const vh = video && video.videoHeight > 0 ? video.videoHeight : cachedCanvas ? cachedCanvas.height : height;
 
@@ -916,6 +953,29 @@ export function renderScene(renderCtx: RenderContext): void {
                 dh = (width / videoRatio) * sY;
               }
             }
+
+            // 9:16 & 1:1 Smart Reframe Focus Calculation
+            let reframeOffsetX = 0;
+            if (dw > width + 4) {
+              const excess = (dw - width) / 2;
+              const focus = clip.smartReframeFocus ?? 'center';
+              if (focus === 'left') {
+                reframeOffsetX = excess * 0.85; // shift video rightward so left portion is framed
+              } else if (focus === 'right') {
+                reframeOffsetX = -excess * 0.85; // shift video leftward so right portion is framed
+              } else if (typeof focus === 'number') {
+                reframeOffsetX = -excess * (Math.max(-100, Math.min(100, focus)) / 100);
+              }
+            }
+
+            // Positioning and Transforms
+            const totalRotation = currentRotation + transRotation + camRotation;
+            ctx.translate(
+              width / 2 + currentX + transOffsetX + camOffsetX + reframeOffsetX,
+              height / 2 + currentY + transOffsetY + camOffsetY
+            );
+            if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
+            if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
 
             // Wipe & Mask Transition Clipping
             if (transWipeRatio !== undefined) {
@@ -1081,6 +1141,17 @@ export function renderScene(renderCtx: RenderContext): void {
               drawMediaWithLut(ctx, lipFreezeCanvas, -dw / 2, -dh / 2, dw, dh, clip);
             } else if (isVideoReady && video) {
               try {
+                // Smooth Motion Blur: Temporal frame blend before current frame
+                if (clip.motionBlur) {
+                  const mbCanvas = motionBlurCanvasCache.get(clip.id);
+                  if (mbCanvas && mbCanvas.width > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity * 0.32));
+                    ctx.drawImage(mbCanvas, -dw / 2, -dh / 2, dw, dh);
+                    ctx.restore();
+                  }
+                }
+
                 if (useChroma) {
                   const processedCanvas = applyChromaKeyFrame(
                     video,
@@ -1120,6 +1191,22 @@ export function renderScene(renderCtx: RenderContext): void {
                   const cCtx = cachedCanvas.getContext('2d');
                   if (cCtx) {
                     cCtx.drawImage(video, 0, 0);
+                  }
+
+                  if (clip.motionBlur) {
+                    let mbCanvas = motionBlurCanvasCache.get(clip.id);
+                    if (!mbCanvas) {
+                      mbCanvas = document.createElement('canvas');
+                      motionBlurCanvasCache.set(clip.id, mbCanvas);
+                    }
+                    if (mbCanvas.width !== video.videoWidth || mbCanvas.height !== video.videoHeight) {
+                      mbCanvas.width = video.videoWidth;
+                      mbCanvas.height = video.videoHeight;
+                    }
+                    const mbCtx = mbCanvas.getContext('2d');
+                    if (mbCtx) {
+                      mbCtx.drawImage(video, 0, 0);
+                    }
                   }
                 }
               } catch (drawErr) {

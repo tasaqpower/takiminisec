@@ -96,6 +96,7 @@ interface PropertiesPanelProps {
   onToggleAutoDucking?: (enabled?: boolean) => void;
   onToggleCanvasBlurFill?: (enabled?: boolean) => void;
   onTrimEndGlitch?: (clipId: string, trimSec?: number) => void;
+  onApplyTransitionToAllCuts?: (transitionType: TransitionType, duration?: number) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -229,6 +230,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onToggleAutoDucking,
   onToggleCanvasBlurFill,
   onTrimEndGlitch,
+  onApplyTransitionToAllCuts,
   className,
   style,
 }) => {
@@ -1392,9 +1394,194 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           defaultValue={0}
           onChange={(rotation) => updateTransform({ rotation })}
         />
+
+        {/* 9:16 & 1:1 Akıllı Yeniden Çerçeveleme (Smart Reframe) */}
+        <div className="pt-2 border-t border-[#1F242C] space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-[#E7EAF0] font-medium flex items-center gap-1.5">
+              <span>📐</span>
+              <span>9:16 Akıllı Odak (Smart Reframe)</span>
+            </span>
+            <span className="text-[10px] text-sky-400 font-mono">
+              {typeof selectedClip.smartReframeFocus === 'number'
+                ? `${selectedClip.smartReframeFocus}%`
+                : (selectedClip.smartReframeFocus || 'Merkez')}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              data-testid="btn-reframe-left"
+              onClick={() => onUpdateClip(selectedClip.id, { smartReframeFocus: 'left' })}
+              className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium border flex items-center justify-center gap-1 transition-colors ${
+                selectedClip.smartReframeFocus === 'left'
+                  ? 'bg-sky-600/30 text-sky-300 border-sky-500 font-bold'
+                  : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+              }`}
+            >
+              <span>◀ Sol</span>
+            </button>
+            <button
+              type="button"
+              data-testid="btn-reframe-center"
+              onClick={() => onUpdateClip(selectedClip.id, { smartReframeFocus: 'center' })}
+              className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium border flex items-center justify-center gap-1 transition-colors ${
+                !selectedClip.smartReframeFocus || selectedClip.smartReframeFocus === 'center'
+                  ? 'bg-sky-600/30 text-sky-300 border-sky-500 font-bold'
+                  : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+              }`}
+            >
+              <span>● Merkez</span>
+            </button>
+            <button
+              type="button"
+              data-testid="btn-reframe-right"
+              onClick={() => onUpdateClip(selectedClip.id, { smartReframeFocus: 'right' })}
+              className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium border flex items-center justify-center gap-1 transition-colors ${
+                selectedClip.smartReframeFocus === 'right'
+                  ? 'bg-sky-600/30 text-sky-300 border-sky-500 font-bold'
+                  : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+              }`}
+            >
+              <span>Sağ ▶</span>
+            </button>
+          </div>
+          <input
+            type="range"
+            min={-100}
+            max={100}
+            value={
+              typeof selectedClip.smartReframeFocus === 'number'
+                ? selectedClip.smartReframeFocus
+                : selectedClip.smartReframeFocus === 'left'
+                ? -85
+                : selectedClip.smartReframeFocus === 'right'
+                ? 85
+                : 0
+            }
+            onChange={(e) => onUpdateClip(selectedClip.id, { smartReframeFocus: Number(e.target.value) })}
+            className="w-full accent-sky-500 h-1 bg-[#1F242C] rounded cursor-pointer"
+          />
+        </div>
       </div>
     </InspectorSection>
   );
+
+  const renderCameraMotion = () => {
+    const currentPreset = selectedClip.cameraMotionPreset || 'none';
+    const presets: { id: 'none' | 'handheld' | 'impact' | 'push-in' | 'pull-out'; label: string; desc: string; icon: string }[] = [
+      { id: 'none', label: 'Sabit (Kapalı)', desc: 'Kamera hareketi yok', icon: '⏹' },
+      { id: 'handheld', label: 'Belgesel Salınımı', desc: 'Elde tutulan kamera hissi (organik)', icon: '🎥' },
+      { id: 'impact', label: 'Aksiyon Sarsıntısı', desc: 'Vuruş / patlama anı sert sarsıntı', icon: '💥' },
+      { id: 'push-in', label: 'Sinematik Push-In', desc: 'Yavaşça yaklaşma (%100 -> %112)', icon: '🔍' },
+      { id: 'pull-out', label: 'Sinematik Pull-Out', desc: 'Yavaşça uzaklaşma (%112 -> %100)', icon: '🔭' },
+    ];
+
+    return (
+      <InspectorSection
+        title="AI Kamera Hareketi (Camera Motion)"
+        defaultOpen={true}
+        onReset={() => onUpdateClip(selectedClip.id, { cameraMotionPreset: 'none' })}
+      >
+        <div className="p-2.5 space-y-2">
+          <div className="text-[10px] text-[#929AA8] leading-tight">
+            AI videolarındaki donuk kamera hissini gidermek için tek tık sinematik kamera salınımı veya Ken Burns hareketi uygulayın.
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            {presets.map((p) => {
+              const active = currentPreset === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  data-testid={`btn-camera-motion-${p.id}`}
+                  data-testid-alias={`btn-cam-motion-${p.id}`}
+                  onClick={() => onUpdateClip(selectedClip.id, { cameraMotionPreset: p.id })}
+                  className={`p-2 rounded-[3px] border flex items-center justify-between transition-colors text-left ${
+                    active
+                      ? 'bg-amber-950/40 border-amber-500 text-amber-200'
+                      : 'bg-[#171B21] border-[#292F39] text-[#E7EAF0] hover:bg-[#202631]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{p.icon}</span>
+                    <div>
+                      <div className="text-xs font-semibold">{p.label}</div>
+                      <div className="text-[10px] text-[#929AA8]">{p.desc}</div>
+                    </div>
+                  </div>
+                  {active && <span className="text-xs text-amber-400 font-bold">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </InspectorSection>
+    );
+  };
+
+  const renderAiStabilizationAndMotionBlur = () => {
+    return (
+      <InspectorSection
+        title="AI Titreme Giderici & Akıcı Hareket"
+        defaultOpen={true}
+      >
+        <div className="p-2.5 space-y-2.5">
+          {/* AI Deflicker */}
+          <div className="flex items-center justify-between p-2 rounded-[3px] bg-[#171B21] border border-[#292F39]">
+            <div className="flex flex-col pr-2">
+              <span className="text-xs font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                <span>✨</span>
+                <span>AI Deflicker (Titreme Önleyici)</span>
+              </span>
+              <span className="text-[10px] text-[#929AA8] mt-0.5">
+                Runway/Kling ışık dalgalanmalarını ve pırpır etmeyi pürüzsüzleştirir
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="btn-ai-deflicker"
+              data-testid-alt="toggle-ai-deflicker"
+              onClick={() => onUpdateClip(selectedClip.id, { deflicker: !selectedClip.deflicker })}
+              className={`px-2.5 py-1 rounded-[3px] text-[10px] font-bold border transition-colors ${
+                selectedClip.deflicker
+                  ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500'
+                  : 'bg-[#111419] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+              }`}
+            >
+              {selectedClip.deflicker ? 'AÇIK' : 'KAPALI'}
+            </button>
+          </div>
+
+          {/* Smooth Motion Blur */}
+          <div className="flex items-center justify-between p-2 rounded-[3px] bg-[#171B21] border border-[#292F39]">
+            <div className="flex flex-col pr-2">
+              <span className="text-xs font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                <span>🌪️</span>
+                <span>Smooth Motion Blur (Kare Harmanlama)</span>
+              </span>
+              <span className="text-[10px] text-[#929AA8] mt-0.5">
+                24fps AI videolarına sinematik örtücü (shutter angle) hareket akıcılığı kazandırır
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="btn-motion-blur"
+              data-testid-alt="toggle-smooth-motion-blur"
+              onClick={() => onUpdateClip(selectedClip.id, { motionBlur: !selectedClip.motionBlur })}
+              className={`px-2.5 py-1 rounded-[3px] text-[10px] font-bold border transition-colors ${
+                selectedClip.motionBlur
+                  ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500'
+                  : 'bg-[#111419] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+              }`}
+            >
+              {selectedClip.motionBlur ? 'AÇIK' : 'KAPALI'}
+            </button>
+          </div>
+        </div>
+      </InspectorSection>
+    );
+  };
 
   const renderKeyframeStudio = () => {
     const relTime = Number(
@@ -2440,6 +2627,24 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </button>
             )}
 
+            {/* Apply To All Cuts Button */}
+            <button
+              type="button"
+              data-testid="btn-apply-transition-all"
+              data-testid-alt="btn-apply-transition-all-cuts"
+              onClick={() => {
+                const typeToApply = (activeType !== 'cut' && activeType !== 'none') ? activeType : 'whip-pan';
+                if (onApplyTransitionToAllCuts) {
+                  onApplyTransitionToAllCuts(typeToApply, activeDuration || 0.8);
+                }
+              }}
+              className="w-full py-1.5 px-3 rounded-[3px] bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white border border-indigo-500/50 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              title="Seçili geçişi timeline'daki tüm kesim noktalarına tek tıkla dağıtır"
+            >
+              <Zap size={13} className="text-amber-400 fill-amber-400" />
+              <span>⚡ Tüm Kesimlere Uygula</span>
+            </button>
+
             {/* Visual Grid of All 13 Transitions */}
             <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
               {TRANSITION_DEFINITIONS.map((tr) => {
@@ -3257,6 +3462,8 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
         {isVisualMedia && (
           <>
             {renderTransform()}
+            {renderCameraMotion()}
+            {renderAiStabilizationAndMotionBlur()}
             {renderCropAndMask()}
             {renderCompositing()}
             {selectedClip.type === 'video' && renderSpeed()}

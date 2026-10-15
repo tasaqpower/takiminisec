@@ -13,6 +13,7 @@ import {
   Square,
   ArrowLeft,
   Keyboard,
+  Camera,
 } from 'lucide-react';
 import { IconButton } from './ui/IconButton';
 
@@ -29,6 +30,7 @@ interface TopbarProps {
   onOpenAi: () => void;
   onOpenShortcuts?: () => void;
   onNavigateHome?: () => void;
+  onDownloadThumbnail?: () => void;
   isDirty?: boolean;
   saveStatus?: 'saved' | 'saving' | 'error';
 }
@@ -54,6 +56,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
   onOpenAi,
   onOpenShortcuts,
   onNavigateHome,
+  onDownloadThumbnail,
   isDirty,
   saveStatus,
 }) => {
@@ -281,6 +284,20 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
           <Sparkles size={11} className="text-[#4f6bf5]" />
           <span>Forma AI</span>
         </button>
+
+        {/* 📸 YouTube / Shorts Kapak Resmi İndir (PNG) */}
+        {onDownloadThumbnail && (
+          <button
+            type="button"
+            data-testid="topbar-btn-download-thumbnail"
+            onClick={onDownloadThumbnail}
+            className="flex items-center gap-1.5 h-6 px-2.5 rounded-[3px] text-xs font-semibold text-sky-200 bg-sky-950/60 hover:bg-sky-900/80 border border-sky-500/50 transition-colors select-none"
+            title="O anki kareyi yüksek çözünürlüklü kapak fotoğrafı (PNG) olarak indir"
+          >
+            <Camera size={12} className="text-sky-400" />
+            <span>Kapak (PNG)</span>
+          </button>
+        )}
 
         {/* Dışa Aktar (Kompakt ana eylem butonu) */}
         <button

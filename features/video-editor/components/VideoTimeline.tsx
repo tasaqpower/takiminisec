@@ -9,6 +9,7 @@ import {
   EffectSegment,
   TextAnimationSegment,
   TransitionType,
+  ProceduralSfxType,
 } from '../types';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
@@ -180,6 +181,8 @@ interface TimelineProps {
   ) => boolean;
   onCopyClip?: (clipId: string) => void;
   onPasteClip?: (time?: number, trackId?: string) => void;
+  onToggleAutoWhoosh?: () => void;
+  onAddProceduralSfx?: (type: ProceduralSfxType) => void;
   hasClipboard?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -229,6 +232,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onRemoveDuplicateRange,
   onCopyClip,
   onPasteClip,
+  onToggleAutoWhoosh,
+  onAddProceduralSfx,
   hasClipboard,
   className,
   style,
@@ -1356,6 +1361,86 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               Auto-Ducking: {project.autoDucking ? 'Açık' : 'Kapalı'}
             </span>
           </button>
+
+          {/* Auto-Whoosh on Cuts Toggle Button */}
+          <button
+            type="button"
+            data-testid="timeline-btn-auto-whoosh"
+            onClick={() => {
+              if (onToggleAutoWhoosh) {
+                onToggleAutoWhoosh();
+              } else if (onUpdateClip) {
+                project.autoWhoosh = !project.autoWhoosh;
+                if (activeTargetClip) onUpdateClip(activeTargetClip.id, {});
+              }
+            }}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              project.autoWhoosh
+                ? 'bg-sky-950/80 text-sky-300 border-sky-500 shadow-sm'
+                : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+            }`}
+            title="Auto-Whoosh: Geçiş olan her kesim noktasına otomatik senkronize Whoosh ses efekti ekler"
+          >
+            <span className="text-xs">💨</span>
+            <span className="text-[11px] font-medium">
+              Auto-Whoosh: {project.autoWhoosh ? 'Açık' : 'Kapalı'}
+            </span>
+          </button>
+
+          {/* Quick Procedural SFX Bar */}
+          <div className="flex items-center gap-1 pl-1 border-l border-[#292F39]">
+            <span className="text-[10px] text-[#5A6270] font-semibold uppercase tracking-wider hidden md:inline">SFX:</span>
+            <button
+              type="button"
+              data-testid="timeline-btn-sfx-boom"
+              onClick={() => onAddProceduralSfx?.('sub-bass-boom')}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-amber-300 border border-amber-500/30 hover:border-amber-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
+              title="İmlecin Olduğu Yere Sub Bass Boom (Sinematik Vuruş) Ekle"
+            >
+              <span>💥</span>
+              <span className="hidden lg:inline">Boom</span>
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-btn-sfx-whoosh"
+              onClick={() => onAddProceduralSfx?.('whoosh')}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-sky-300 border border-sky-500/30 hover:border-sky-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
+              title="İmlecin Olduğu Yere Whoosh (Geçiş Sesi) Ekle"
+            >
+              <span>💨</span>
+              <span className="hidden lg:inline">Whoosh</span>
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-btn-sfx-riser"
+              onClick={() => onAddProceduralSfx?.('tension-riser')}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-purple-300 border border-purple-500/30 hover:border-purple-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
+              title="İmlecin Olduğu Yere Gerilim Yükseltici (Riser) Ekle"
+            >
+              <span>📈</span>
+              <span className="hidden lg:inline">Riser</span>
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-btn-sfx-zap"
+              onClick={() => onAddProceduralSfx?.('glitch-zap')}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-pink-300 border border-pink-500/30 hover:border-pink-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
+              title="İmlecin Olduğu Yere Glitch / Static Zap Ekle"
+            >
+              <span>⚡</span>
+              <span className="hidden lg:inline">Zap</span>
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-btn-sfx-shutter"
+              onClick={() => onAddProceduralSfx?.('camera-shutter')}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-emerald-300 border border-emerald-500/30 hover:border-emerald-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
+              title="İmlecin Olduğu Yere Kamera Deklanşör (Shutter) Sesi Ekle"
+            >
+              <span>📸</span>
+              <span className="hidden lg:inline">Shutter</span>
+            </button>
+          </div>
 
           {/* Delete Button */}
           <button

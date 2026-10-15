@@ -515,6 +515,31 @@ export const TRANSITION_DEFINITIONS: TransitionDef[] = [
     maxDuration: 2.0,
   },
   {
+    id: 'zoom-punch',
+    name: 'Zoom Punch (Vuruşlu Zoom)',
+    technicalId: 'Zoom Punch',
+    category: 'camera-motion',
+    categoryName: 'Kamera & Hareket',
+    description: 'Birinci klipte hızlı zoom-in, ikinci klipte elastik zoom-out vuruşu',
+    icon: 'Maximize',
+    defaultDuration: 0.6,
+    minDuration: 0.2,
+    maxDuration: 1.5,
+  },
+  {
+    id: 'whip-pan',
+    name: 'Whip Pan (Kamera Savrulması)',
+    technicalId: 'Whip Pan',
+    category: 'camera-motion',
+    categoryName: 'Kamera & Hareket',
+    description: 'İki klip arasında yönlü hareket bulanıklığıyla hızlı kamera savrulması',
+    icon: 'FastForward',
+    defaultDuration: 0.5,
+    minDuration: 0.2,
+    maxDuration: 1.2,
+    supportedDirections: ['left', 'right', 'up', 'down'],
+  },
+  {
     id: 'whip-pan-left',
     name: 'Sola Whip Pan',
     technicalId: 'Whip Pan Left',
@@ -1159,6 +1184,72 @@ export function computeTransitionState(
           scale: 1.0 - p * 0.5,
         };
       }
+    }
+
+    case 'zoom-punch': {
+      if (isIncoming) {
+        const punchP = Math.max(0, (p - 0.4) / 0.6);
+        const scale = 1.0 + Math.sin((1 - punchP) * Math.PI) * 0.45;
+        const opacity = p < 0.45 ? 0 : Math.min(1, (p - 0.45) * 8);
+        const blur = Math.round((1 - punchP) * 16);
+        return {
+          opacity,
+          offsetX: 0,
+          offsetY: 0,
+          scale,
+          blur,
+        };
+      } else {
+        const zoomP = Math.min(1, p / 0.55);
+        const scale = 1.0 + Math.pow(zoomP, 2) * 0.7;
+        const opacity = p < 0.4 ? 1 : Math.max(0, 1 - (p - 0.4) * 6);
+        const blur = Math.round(zoomP * 20);
+        return {
+          opacity,
+          offsetX: 0,
+          offsetY: 0,
+          scale,
+          blur,
+        };
+      }
+    }
+
+    case 'whip-pan': {
+      const dir = options?.direction || 'left';
+      const easeP = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const blurFactor = Math.sin(p * Math.PI) * 35;
+      if (dir === 'right') {
+        return {
+          opacity: 1,
+          offsetX: isIncoming ? -(1 - easeP) : easeP,
+          offsetY: 0,
+          scale: 1,
+          blur: Math.round(blurFactor),
+        };
+      } else if (dir === 'up') {
+        return {
+          opacity: 1,
+          offsetX: 0,
+          offsetY: isIncoming ? 1 - easeP : -easeP,
+          scale: 1,
+          blur: Math.round(blurFactor),
+        };
+      } else if (dir === 'down') {
+        return {
+          opacity: 1,
+          offsetX: 0,
+          offsetY: isIncoming ? -(1 - easeP) : easeP,
+          scale: 1,
+          blur: Math.round(blurFactor),
+        };
+      }
+      return {
+        opacity: 1,
+        offsetX: isIncoming ? 1 - easeP : -easeP,
+        offsetY: 0,
+        scale: 1,
+        blur: Math.round(blurFactor),
+      };
     }
 
     case 'whip-pan-left': {
@@ -1910,6 +2001,47 @@ export function renderTransitionAB(
     case 'zoom-out': {
       drawSurface(surfA, 1 - p, 0, 0, 1.0 - p * 0.5);
       drawSurface(surfB, p, 0, 0, 1.8 - p * 0.8);
+      break;
+    }
+
+    case 'zoom-punch': {
+      const punchBlur = Math.round(Math.sin(p * Math.PI) * 16);
+      ctx.save();
+      if (punchBlur > 0) ctx.filter = `blur(${punchBlur}px)`;
+      if (p < 0.48) {
+        const zoomP = p / 0.48;
+        const scale = 1.0 + Math.pow(zoomP, 2) * 0.65;
+        drawSurface(surfA, 1 - Math.pow(zoomP, 3) * 0.3, 0, 0, scale);
+      } else {
+        const punchP = (p - 0.48) / 0.52;
+        const scale = 1.0 + Math.sin((1 - punchP) * Math.PI) * 0.4;
+        drawSurface(surfA, Math.max(0, 1 - punchP * 4), 0, 0, scale + 0.3);
+        drawSurface(surfB, Math.min(1, punchP * 2), 0, 0, scale);
+      }
+      ctx.restore();
+      break;
+    }
+
+    case 'whip-pan': {
+      const dir = options?.direction || 'left';
+      const easeP = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const blurPx = Math.round(Math.sin(p * Math.PI) * 20);
+      ctx.save();
+      if (blurPx > 0) ctx.filter = `blur(${blurPx}px)`;
+      if (dir === 'right') {
+        drawSurface(surfA, 1, easeP * width, 0);
+        drawSurface(surfB, 1, -(1 - easeP) * width, 0);
+      } else if (dir === 'up') {
+        drawSurface(surfA, 1, 0, -easeP * height);
+        drawSurface(surfB, 1, 0, (1 - easeP) * height);
+      } else if (dir === 'down') {
+        drawSurface(surfA, 1, 0, easeP * height);
+        drawSurface(surfB, 1, 0, -(1 - easeP) * height);
+      } else {
+        drawSurface(surfA, 1, -easeP * width, 0);
+        drawSurface(surfB, 1, (1 - easeP) * width, 0);
+      }
+      ctx.restore();
       break;
     }
 

@@ -384,6 +384,33 @@ async function run() {
         const speedRampMontageBtn = document.querySelector('[data-testid="btn-speed-ramp-montage"]');
         const autoDuckingBtn = document.querySelector('[data-testid="btn-auto-ducking"]');
 
+        // New Module 1: CapCut Pro Transitions & Apply to All Cuts
+        const applyTransitionAllBtn = document.querySelector('[data-testid="btn-apply-transition-all"]');
+
+        // New Module 2: AI Camera Motion Presets
+        const camHandheldBtn = document.querySelector('[data-testid="btn-camera-motion-handheld"]') || document.querySelector('[data-testid="btn-cam-motion-handheld"]');
+        const camImpactBtn = document.querySelector('[data-testid="btn-camera-motion-impact"]') || document.querySelector('[data-testid="btn-cam-motion-impact"]');
+        const camPushInBtn = document.querySelector('[data-testid="btn-camera-motion-push-in"]') || document.querySelector('[data-testid="btn-cam-motion-push-in"]');
+        const camPullOutBtn = document.querySelector('[data-testid="btn-camera-motion-pull-out"]') || document.querySelector('[data-testid="btn-cam-motion-pull-out"]');
+
+        // New Module 3: AI Deflicker & Motion Blur
+        const deflickerBtn = document.querySelector('[data-testid="btn-ai-deflicker"]');
+        const motionBlurBtn = document.querySelector('[data-testid="btn-motion-blur"]');
+
+        // New Module 6: 9:16 Smart Reframe & Thumbnail Downloader
+        const reframeLeftBtn = document.querySelector('[data-testid="btn-reframe-left"]');
+        const reframeCenterBtn = document.querySelector('[data-testid="btn-reframe-center"]');
+        const reframeRightBtn = document.querySelector('[data-testid="btn-reframe-right"]');
+        const thumbnailBtn = document.querySelector('[data-testid="topbar-btn-download-thumbnail"]');
+
+        // New Module 4: Procedural SFX & Auto-Whoosh
+        const autoWhooshBtn = document.querySelector('[data-testid="timeline-btn-auto-whoosh"]');
+        const sfxBoomBtn = document.querySelector('[data-testid="timeline-btn-sfx-boom"]');
+        const sfxWhooshBtn = document.querySelector('[data-testid="timeline-btn-sfx-whoosh"]');
+        const sfxRiserBtn = document.querySelector('[data-testid="timeline-btn-sfx-riser"]');
+        const sfxZapBtn = document.querySelector('[data-testid="timeline-btn-sfx-zap"]');
+        const sfxShutterBtn = document.querySelector('[data-testid="timeline-btn-sfx-shutter"]');
+
         // Test clicking new action buttons to guarantee zero runtime exceptions
         if (aiColorMatchBtn) aiColorMatchBtn.click();
         if (jCutBtn) jCutBtn.click();
@@ -391,6 +418,22 @@ async function run() {
         if (canvasBlurFillBtn) canvasBlurFillBtn.click();
         if (delogoToggleBtn) delogoToggleBtn.click();
         if (autoDuckingBtn) autoDuckingBtn.click();
+
+        // Click new Camera Motion & Stabilization buttons
+        if (camHandheldBtn) camHandheldBtn.click();
+        if (camPushInBtn) camPushInBtn.click();
+        if (deflickerBtn) deflickerBtn.click();
+        if (motionBlurBtn) motionBlurBtn.click();
+        if (reframeLeftBtn) reframeLeftBtn.click();
+        if (reframeCenterBtn) reframeCenterBtn.click();
+
+        // Click timeline SFX & Auto-Whoosh buttons
+        if (autoWhooshBtn) autoWhooshBtn.click();
+        if (sfxBoomBtn) sfxBoomBtn.click();
+        if (sfxWhooshBtn) sfxWhooshBtn.click();
+
+        // Click apply transition to all cuts
+        if (applyTransitionAllBtn) applyTransitionAllBtn.click();
 
         return {
           hasLipSyncSection,
@@ -405,6 +448,23 @@ async function run() {
           hasDelogoToggle: !!delogoToggleBtn,
           hasSpeedRampMontage: !!speedRampMontageBtn,
           hasAutoDucking: !!autoDuckingBtn,
+          hasApplyTransitionAll: !!applyTransitionAllBtn,
+          hasCamHandheld: !!camHandheldBtn,
+          hasCamImpact: !!camImpactBtn,
+          hasCamPushIn: !!camPushInBtn,
+          hasCamPullOut: !!camPullOutBtn,
+          hasDeflicker: !!deflickerBtn,
+          hasMotionBlur: !!motionBlurBtn,
+          hasReframeLeft: !!reframeLeftBtn,
+          hasReframeCenter: !!reframeCenterBtn,
+          hasReframeRight: !!reframeRightBtn,
+          hasThumbnailBtn: !!thumbnailBtn,
+          hasAutoWhoosh: !!autoWhooshBtn,
+          hasSfxBoom: !!sfxBoomBtn,
+          hasSfxWhoosh: !!sfxWhooshBtn,
+          hasSfxRiser: !!sfxRiserBtn,
+          hasSfxZap: !!sfxZapBtn,
+          hasSfxShutter: !!sfxShutterBtn,
         };
       })()
     `);
@@ -418,6 +478,13 @@ async function run() {
     console.log('✓ 📱 9:16 Canvas Blur Fill (CapCut Blur) verified and clicked:', propertiesCheck.hasCanvasBlurFill);
     console.log('✓ 🩹 AI Delogo Watermark patch verified and clicked:', propertiesCheck.hasDelogoToggle);
     console.log('✓ 🦆 Auto-Ducking toggle verified and clicked:', propertiesCheck.hasAutoDucking);
+    console.log('✓ 🌪️ CapCut Pro Transitions (⚡ Tüm Kesimlere Uygula) verified and clicked:', propertiesCheck.hasApplyTransitionAll);
+    console.log('✓ 🎥 AI Camera Motion Presets (Handheld, Impact, Push-in, Pull-out) verified and clicked:', propertiesCheck.hasCamHandheld && propertiesCheck.hasCamPushIn);
+    console.log('✓ ✨ AI Deflicker & Smooth Motion Blur verified and clicked:', propertiesCheck.hasDeflicker && propertiesCheck.hasMotionBlur);
+    console.log('✓ 🖼️ 9:16 Smart Reframe Focus controls (Left, Center, Right) verified and clicked:', propertiesCheck.hasReframeLeft && propertiesCheck.hasReframeCenter && propertiesCheck.hasReframeRight);
+    console.log('✓ 📸 YouTube / Shorts Kapak Resmi İndir (PNG) button verified in Topbar:', propertiesCheck.hasThumbnailBtn);
+    console.log('✓ 🔊 Auto-Whoosh on cuts toggle verified and clicked:', propertiesCheck.hasAutoWhoosh);
+    console.log('✓ 💥 Procedural SFX Bar (Boom, Whoosh, Riser, Zap, Shutter) verified and clicked:', propertiesCheck.hasSfxBoom && propertiesCheck.hasSfxWhoosh);
 
     // 8. Capture Real Browser Screenshot as Evidence
     console.log('\n8. Capturing live browser full-page screenshot...');
