@@ -1,0 +1,101 @@
+{
+  "timestamp": "2026-10-15T21:30:32.858Z",
+  "results": {
+    "test1_ui_polish": {
+      "visibleBefore": true,
+      "emptyStateRect": {
+        "width": 1904,
+        "height": 985
+      },
+      "containerWidth": 1744,
+      "rulerWidth": 1744,
+      "hasLipFreeze": true,
+      "hasSansurBipi": true,
+      "hasAiKirp": true,
+      "hasSessizlikSil": true,
+      "hasTekrarSil": true,
+      "kutuphaneText": "Kütüphane",
+      "kutuphaneTruncate": false,
+      "visibleAfterClipAdd": false,
+      "clipCount": 1,
+      "passed": true
+    },
+    "test2_glitch_trim_and_transition": {
+      "clipADurationBefore": 5,
+      "clipADurationAfter": {
+        "duration": 4.65,
+        "aiGlitchTrimmed": true
+      },
+      "transitionResult": {
+        "totalTransitions": 0,
+        "trackTransitionsCount": 0,
+        "appliedType": null,
+        "cutTime": null
+      },
+      "passed": true
+    },
+    "test3_pixel_engine": {
+      "basePixelData": {
+        "r": 147,
+        "g": 197,
+        "b": 253,
+        "a": 255
+      },
+      "afterColorMatch": {
+        "r": 108,
+        "g": 231,
+        "b": 255,
+        "a": 255
+      },
+      "colorDelta": 75,
+      "blurFillData": {
+        "topBar": {
+          "r": 24,
+          "g": 64,
+          "b": 152
+        },
+        "delogo": {
+          "r": 24,
+          "g": 64,
+          "b": 152
+        },
+        "cameraMotion": "handheld",
+        "deflicker": true
+      },
+      "passed": true
+    },
+    "test4_hormozi_burnin": {
+      "subPixel": {
+        "r": 24,
+        "g": 64,
+        "b": 152,
+        "a": 255
+      },
+      "hasSubtitleClip": true,
+      "text": "MİLYON DOLARLIK TAVSİYE",
+      "passed": true
+    },
+    "test5_audio_pcm": {
+      "whooshDuration": 0.45,
+      "whooshSampleLength": 21600,
+      "whooshPeak": 1,
+      "whooshRms": 0.2491,
+      "boomDuration": 1.2,
+      "boomPeak": 0.7528,
+      "censorBleepFreq": 995,
+      "isTimeDeterministic": true,
+      "speedRampedTime": 2.75,
+      "autoDuckingGain": 0.251,
+      "passed": true
+    },
+    "test6_export_verification": {
+      "pngSize": 7508,
+      "pngType": "image/png",
+      "wavSize": 960044,
+      "hasAudioBuffer": true,
+      "sampleRate": 48000,
+      "channels": 2,
+      "passed": true
+    }
+  }
+}

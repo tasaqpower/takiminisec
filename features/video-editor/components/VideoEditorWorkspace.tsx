@@ -16,6 +16,8 @@ import { VideoShortcutsModal } from './VideoShortcutsModal';
 import { EditorDragDropProvider } from '../context/DragDropContext';
 import { ResizableDivider } from './ui/ResizableDivider';
 import { exportEngine } from '../engine/exportEngine';
+import { audioMixer } from '../engine/audioMixer';
+import { renderFrameToCanvas, computeSpeedRampedClipTime } from '../engine/previewRenderer';
 import { assetDownloader } from '../engine/assetDownloader';
 import { assetCatalog } from '../engine/assetCatalog';
 import { assetPacks } from '../engine/assetPacks';
@@ -152,12 +154,18 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         currentTime,
         isPlaying,
         exportEngine,
+        audioMixer,
+        computeSpeedRampedClipTime,
+        renderFrameToCanvas,
+        applyTransitionToAllCuts,
         assetDownloader,
         assetCatalog,
         assetPacks,
       };
+      (window as any).__audioMixer = audioMixer;
     } else if (typeof window !== 'undefined' && (window as any).__formaEditor) {
       delete (window as any).__formaEditor;
+      delete (window as any).__audioMixer;
     }
   }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying]);
 

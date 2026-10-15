@@ -1732,7 +1732,7 @@ export function useVideoProject() {
             const c1 = sortedClips[i];
             const c2 = sortedClips[i + 1];
             const cutTime = (c1.startTime + c1.duration + c2.startTime) / 2;
-            if (Math.abs((c1.startTime + c1.duration) - c2.startTime) < 0.2) {
+            if (Math.abs((c1.startTime + c1.duration) - c2.startTime) < 0.45) {
               const trans: TimelineTransition = {
                 id: `trans-all-${Date.now()}-${track.id}-${i}`,
                 trackId: track.id,

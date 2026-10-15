@@ -688,13 +688,27 @@ class AudioMixer {
    */
   public async renderMixedAudio(
     project: VideoProject,
-    totalDuration: number,
+    totalDuration?: number,
     sampleRate = 48000
   ): Promise<AudioBuffer | null> {
-    if (totalDuration <= 0) return null;
+    let effectiveDuration = totalDuration;
+    let effectiveSampleRate = sampleRate;
 
-    const length = Math.ceil(totalDuration * sampleRate);
-    const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+    // Detect if caller passed sampleRate as second argument (e.g. 44100 or 48000)
+    if (totalDuration === 44100 || totalDuration === 48000) {
+      effectiveSampleRate = totalDuration;
+      effectiveDuration = undefined;
+    }
+
+    if (!effectiveDuration || effectiveDuration <= 0) {
+      const maxClipEnd = project.tracks.reduce((max, t) => {
+        return Math.max(max, ...t.clips.map((c) => (c.startTime || 0) + c.duration));
+      }, 0);
+      effectiveDuration = Math.max(1, project.duration || maxClipEnd || 5);
+    }
+
+    const length = Math.ceil(effectiveDuration * effectiveSampleRate);
+    const offlineCtx = new OfflineAudioContext(2, length, effectiveSampleRate);
 
     let hasAudio = false;
 

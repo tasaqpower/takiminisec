@@ -757,23 +757,24 @@ export function renderScene(renderCtx: RenderContext): void {
         let camScale = 1.0;
         let camRotation = 0;
 
-        if (clip.cameraMotionPreset === 'handheld') {
+        const camPreset = clip.cameraMotionPreset || clip.effects?.cameraMotion;
+        if (camPreset === 'handheld') {
           const t = clipTime;
           camOffsetX = Math.sin(t * 1.5) * 8 + Math.sin(t * 3.3) * 3.5;
           camOffsetY = Math.cos(t * 1.7) * 6 + Math.cos(t * 3.7) * 2.5;
           camRotation = Math.sin(t * 1.2) * 0.75 + Math.cos(t * 2.4) * 0.35;
           camScale = 1.035; // 3.5% margin to prevent empty edges during shake
-        } else if (clip.cameraMotionPreset === 'impact') {
+        } else if (camPreset === 'impact') {
           const impactDecay = Math.max(0, 1 - (clipTime / 0.75));
           const decaySq = impactDecay * impactDecay;
           camOffsetX = (Math.sin(clipTime * 48) * 24 + Math.sin(clipTime * 96) * 12) * decaySq;
           camOffsetY = (Math.cos(clipTime * 52) * 20 + Math.cos(clipTime * 105) * 9) * decaySq;
           camRotation = (Math.sin(clipTime * 38) * 2.2) * decaySq;
           camScale = 1.0 + 0.05 * decaySq;
-        } else if (clip.cameraMotionPreset === 'push-in') {
+        } else if (camPreset === 'push-in') {
           const p = Math.min(1, Math.max(0, clipTime / Math.max(0.001, clip.duration)));
           camScale = 1.0 + p * 0.12;
-        } else if (clip.cameraMotionPreset === 'pull-out') {
+        } else if (camPreset === 'pull-out') {
           const p = Math.min(1, Math.max(0, clipTime / Math.max(0.001, clip.duration)));
           camScale = 1.12 - p * 0.12;
         }
@@ -913,7 +914,7 @@ export function renderScene(renderCtx: RenderContext): void {
             const presetEffects = !hasActiveLut ? getEffectsForColorFilter(clip.colorFilter) : null;
             const mergedEffects = { ...presetEffects, ...clip.effects };
             let filterStr = buildCanvasFilterString(mergedEffects);
-            if (clip.deflicker) {
+            if (clip.deflicker || clip.effects?.deflicker) {
               const deflickerFilter = 'contrast(0.98) brightness(1.01)';
               filterStr = filterStr ? `${filterStr} ${deflickerFilter}` : deflickerFilter;
             }
@@ -1317,8 +1318,8 @@ export function renderScene(renderCtx: RenderContext): void {
             }
 
             // AI Watermark / Logo Mask (Delogo Patch: Blur / Pixelate)
-            if (clip.delogoPatch && clip.delogoPatch.enabled) {
-              const patch = clip.delogoPatch;
+            const patch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' } : undefined);
+            if (patch && patch.enabled) {
               const px = -dw / 2 + (patch.x / 100) * dw;
               const py = -dh / 2 + (patch.y / 100) * dh;
               const pw = (patch.width / 100) * dw;
@@ -1397,45 +1398,93 @@ export function renderScene(renderCtx: RenderContext): void {
           ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
 
           let filterStr = buildCanvasFilterString(clip.effects);
+          if (clip.deflicker || clip.effects?.deflicker) {
+            const deflickerFilter = 'contrast(0.98) brightness(1.01)';
+            filterStr = filterStr ? `${filterStr} ${deflickerFilter}` : deflickerFilter;
+          }
           if (transBlur > 0) {
             filterStr = filterStr ? `${filterStr} blur(${transBlur}px)` : `blur(${transBlur}px)`;
           }
           ctx.filter = filterStr;
 
-          const totalRotation = currentRotation + transRotation;
-          ctx.translate(width / 2 + currentX + transOffsetX, height / 2 + currentY + transOffsetY);
-          if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
-          if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
-
-          const sX = currentScaleX * transScale * transScaleX;
-          const sY = currentScaleY * transScale * transScaleY;
+          const sX = currentScaleX * transScale * transScaleX * camScale;
+          const sY = currentScaleY * transScale * transScaleY * camScale;
           const iw = hasValidImg ? (img!.naturalWidth || width) : width;
           const ih = hasValidImg ? (img!.naturalHeight || height) : height;
           let dw = width * sX;
           let dh = height * sY;
 
-            const fitMode = clip.fitMode || 'fit';
-            if (fitMode === 'fit') {
-              const imgRatio = iw / Math.max(1, ih);
-              const canvasRatio = width / Math.max(1, height);
-              if (imgRatio > canvasRatio) {
-                dw = width * sX;
-                dh = (width / imgRatio) * sY;
-              } else {
-                dh = height * sY;
-                dw = (height * imgRatio) * sX;
-              }
-            } else if (fitMode === 'fill') {
-              const imgRatio = iw / Math.max(1, ih);
-              const canvasRatio = width / Math.max(1, height);
-              if (imgRatio > canvasRatio) {
-                dh = height * sY;
-                dw = (height * imgRatio) * sX;
-              } else {
-                dw = width * sX;
-                dh = (width / imgRatio) * sY;
-              }
+          const fitMode = clip.fitMode || 'fit';
+          if (fitMode === 'fit') {
+            const imgRatio = iw / Math.max(1, ih);
+            const canvasRatio = width / Math.max(1, height);
+            if (imgRatio > canvasRatio) {
+              dw = width * sX;
+              dh = (width / imgRatio) * sY;
+            } else {
+              dh = height * sY;
+              dw = (height * imgRatio) * sX;
             }
+          } else if (fitMode === 'fill') {
+            const imgRatio = iw / Math.max(1, ih);
+            const canvasRatio = width / Math.max(1, height);
+            if (imgRatio > canvasRatio) {
+              dh = height * sY;
+              dw = (height * imgRatio) * sX;
+            } else {
+              dw = width * sX;
+              dh = (width / imgRatio) * sY;
+            }
+          }
+
+          // 9:16 & 1:1 Smart Reframe Focus Calculation
+          let reframeOffsetX = 0;
+          if (dw > width + 4) {
+            const excess = (dw - width) / 2;
+            const focus = clip.smartReframeFocus ?? 'center';
+            if (focus === 'left') {
+              reframeOffsetX = excess * 0.85;
+            } else if (focus === 'right') {
+              reframeOffsetX = -excess * 0.85;
+            } else if (typeof focus === 'number') {
+              reframeOffsetX = -excess * (Math.max(-100, Math.min(100, focus)) / 100);
+            }
+          }
+
+          // Positioning and Transforms
+          const totalRotation = currentRotation + transRotation + camRotation;
+          ctx.translate(
+            width / 2 + currentX + transOffsetX + camOffsetX + reframeOffsetX,
+            height / 2 + currentY + transOffsetY + camOffsetY
+          );
+          if (totalRotation !== 0) ctx.rotate((totalRotation * Math.PI) / 180);
+          if (clip.flipH || clip.flipV) ctx.scale(clip.flipH ? -1 : 1, clip.flipV ? -1 : 1);
+
+          // 9:16 & 1:1 Canvas Blur Fill (CapCut Blur for vertical / square projects)
+          const shouldBlurFill = Boolean(
+            clip.canvasBlurFill || project.canvasBlurFill || project.canvas?.blurBackground
+          );
+          if (shouldBlurFill && (dw < width - 2 || dh < height - 2)) {
+            ctx.save();
+            ctx.filter = 'blur(28px) brightness(0.65)';
+            let bgW = width * sX;
+            let bgH = height * sY;
+            const imgRatio = iw / Math.max(1, ih);
+            const cRatio = width / Math.max(1, height);
+            if (imgRatio > cRatio) {
+              bgH = height * sY;
+              bgW = (height * imgRatio) * sX;
+            } else {
+              bgW = width * sX;
+              bgH = (width / imgRatio) * sY;
+            }
+            if (hasValidImg && img) {
+              ctx.drawImage(img, -bgW / 2, -bgH / 2, bgW, bgH);
+            } else {
+              drawProceduralClipContent(ctx, clip, bgW, bgH, currentTime);
+            }
+            ctx.restore();
+          }
 
             // Wipe & Mask Transition Clipping
             if (transWipeRatio !== undefined) {
@@ -1558,6 +1607,57 @@ export function renderScene(renderCtx: RenderContext): void {
               }
             } else {
               drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+            }
+
+            // AI Watermark / Logo Mask (Delogo Patch: Blur / Pixelate)
+            const imgPatch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' } : undefined);
+            if (imgPatch && imgPatch.enabled) {
+              const px = -dw / 2 + (imgPatch.x / 100) * dw;
+              const py = -dh / 2 + (imgPatch.y / 100) * dh;
+              const pw = (imgPatch.width / 100) * dw;
+              const ph = (imgPatch.height / 100) * dh;
+
+              if (pw > 2 && ph > 2) {
+                ctx.save();
+                if (imgPatch.mode === 'pixelate' || (imgPatch as any).type === 'pixelate') {
+                  try {
+                    const pCanvas = document.createElement('canvas');
+                    pCanvas.width = Math.max(4, Math.floor(pw / 8));
+                    pCanvas.height = Math.max(4, Math.floor(ph / 8));
+                    const pCtx = pCanvas.getContext('2d');
+                    if (pCtx && hasValidImg && img) {
+                      pCtx.imageSmoothingEnabled = false;
+                      const srcX = (imgPatch.x / 100) * iw;
+                      const srcY = (imgPatch.y / 100) * ih;
+                      const srcW = (imgPatch.width / 100) * iw;
+                      const srcH = (imgPatch.height / 100) * ih;
+                      pCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, pCanvas.width, pCanvas.height);
+                      ctx.imageSmoothingEnabled = false;
+                      ctx.drawImage(pCanvas, 0, 0, pCanvas.width, pCanvas.height, px, py, pw, ph);
+                    }
+                  } catch (_) {}
+                } else {
+                  // Blur patch
+                  ctx.beginPath();
+                  safeRoundRect(ctx, px, py, pw, ph, 4);
+                  ctx.clip();
+                  ctx.filter = 'blur(16px)';
+                  if (hasValidImg && img) {
+                    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+                  } else {
+                    drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+                  }
+                }
+                ctx.restore();
+              }
+            }
+
+            // Crisp AI Sharpness: restores high-frequency micro details
+            if (
+              (clip.effects?.sharpness && clip.effects.sharpness > 0) ||
+              (clip.colorFilter && clip.colorFilter.includes('sharp'))
+            ) {
+              applyCrispAiSharpness(ctx, width, height, clip.effects?.sharpness || 0.45);
             }
 
             if (transOverlay && transOverlay.a > 0) {
