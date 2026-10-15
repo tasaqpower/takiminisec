@@ -1,0 +1,16 @@
+================================================================================
+FORMA ORIGINALS V9: MANIFEST & BASELINE CANONICAL AUDIT
+================================================================================
+Baseline 2,520 records canonical SHA-256: 157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5
+Current first 2,520 records canonical SHA-256: 157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5
+Canonical hashes match verbatim: YES (100% MATCH)
+Originals count in catalog: 600
+
+MANIFEST SUMMARY:
+  Physical assets: 240
+  Procedural assets: 360
+  Physical total size: 58.58 MB (61422172 bytes)
+  Missing physical files: 0
+  Duplicate physical hashes: 0
+
+Saved baseline comparison, catalog manifest, and production summary into v9-evidence-package

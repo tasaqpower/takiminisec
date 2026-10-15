@@ -1,0 +1,1789 @@
+{
+  "total": 297,
+  "sanitizedPass": 297,
+  "sanitizedFail": 0,
+  "results": [
+    {
+      "file": "overlays\\bokeh-particles.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\camera-grid-thirds.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\crt-scanlines.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\dust-and-scratches.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\film-burn.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\film-grain-classic.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\glitch-bars.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\lens-flare-anamorphic.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\letterbox-cinematic.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\light-leak-cool.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\light-leak-warm.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\prism-rainbow.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\rain-streaks.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\retro-8mm-jitter.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\smoke-fog.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\snow-particles.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\sparks-embers.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\vhs-distortion.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\viewfinder-hud.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "overlays\\vignette-heavy.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\arrow-curved.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\arrow-dashed-pointer.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\arrow-double.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\arrow-neon-glow.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\arrow-straight-bold.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\bell-notification.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\checkmark-circle.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\cross-circle.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\exclamation-badge.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\fire-trending.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\follow-badge.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\golden-star.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\heart-love.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\like-thumbs-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\location-pin.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-a-arrow-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-a-arrow-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-a-large-small.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-accessibility.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-activity.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-ad.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-air-vent.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-airplay.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-clock-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-clock-minus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-clock-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-clock-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-clock.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-alarm-smoke.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-center-horizontal.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-center-vertical.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-end-horizontal.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-end-vertical.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-distribute-center.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-distribute-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-distribute-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-justify-center.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-justify-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-justify-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-space-around.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-horizontal-space-between.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-start-horizontal.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-start-vertical.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-distribute-center.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-distribute-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-distribute-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-justify-center.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-justify-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-justify-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-space-around.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-align-vertical-space-between.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-ambulance.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-ampersand.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-ampersands.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-amphora.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-anchor.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-angle.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-antenna.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-anvil.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-aperture.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-app-window-mac.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-app-window.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-apple.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-archive-restore.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-archive-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-archive.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-armchair.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-down-dash.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-left-dash.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-left.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-right-dash.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-right.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-up-dash.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-big-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-0-1.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-1-0.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-a-z.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-from-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-left.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-narrow-wide.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-right.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-to-dot.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-to-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-wide-narrow.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down-z-a.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-left-from-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-left-right.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-left-to-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-left.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-right-from-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-right-left.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-right-to-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-right.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-0-1.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-1-0.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-a-z.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-from-dot.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-from-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-left.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-narrow-wide.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-right.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-to-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-wide-narrow.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up-z-a.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrow-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-arrows-up-from-line.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-asterisk.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-astroid.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-at-sign.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-atom.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-audio-lines-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-audio-lines-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-audio-lines.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-audio-waveform.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-award.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-axe.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-axis-3d.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-baby.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-backpack.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-alert.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-cent.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-dollar-sign.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-euro.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-indian-rupee.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-info.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-japanese-yen.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-minus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-percent.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-pound-sterling.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-question-mark.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-russian-ruble.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-swiss-franc.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-turkish-lira.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-badge.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-baggage-claim.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-balloon.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-ban.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banana.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bandage.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banknote-arrow-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banknote-arrow-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banknote-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banknote-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-banknote.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-barcode.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-barrel.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-baseline.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bath.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-charging.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-full.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-low.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-medium.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery-warning.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-battery.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-beaker.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bean-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bean.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bed-double.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bed-single.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bed.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-beef-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-beef.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-beer-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-beer.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-dot.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-electric.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-minus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell-ring.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bell.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-between-horizontal-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-between-horizontal-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-between-vertical-end.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-between-vertical-start.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-biceps-flexed.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bike.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-binary.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-binoculars.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-biohazard.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bird.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-birdhouse.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bitcoin.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-blend.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-blender.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-blinds.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-blocks.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bluetooth-connected.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bluetooth-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bluetooth-searching.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bluetooth.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bold.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bolt.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bomb.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bone-fracture.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bone.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-a.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-alert.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-audio.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-bookmark.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-copy.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-dashed.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-down.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-headphones.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-heart.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-image.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-key.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-lock.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-minus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-open-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-open-text.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-open.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-search.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-text.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-type.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-up-2.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-up.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-user.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-book.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark-minus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark-plus.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark-x.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bookmark.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-boom-box.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bot-message-square.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bot-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bot.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bottle-wine.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bow-arrow.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-box.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-boxes.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-braces.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brackets.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brain-circuit.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brain-cog.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brain.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brick-wall-fire.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brick-wall-shield.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brick-wall.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bridge.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-briefcase-business.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-briefcase-conveyor-belt.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-briefcase-medical.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-briefcase.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bring-to-front.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-broccoli.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-broom-sparkles.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-broom.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brush-cleaning.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-brush.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bubbles.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bug-off.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\lucide-bug-play.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\question-badge.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\rocket-launch.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\sale-tag.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\share-forward.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\speech-bubble-rounded.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\target-crosshair.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\thought-bubble.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\verified-check.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\warning-triangle.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    },
+    {
+      "file": "elements\\youtube-subscribe.svg",
+      "safe": true,
+      "validXml": true,
+      "status": "PASS"
+    }
+  ]
+}

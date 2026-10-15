@@ -1,0 +1,189 @@
+{
+  "totalCatalog": 3120,
+  "equation": {
+    "total": 3120,
+    "packaged": 698,
+    "remote": 452,
+    "unmanifestedOrUnconvertible": 1817,
+    "excluded": 153,
+    "sum": 3120
+  },
+  "detailedCounts": {
+    "excluded": 153,
+    "packagedOriginals": 600,
+    "packagedThirdParty": 98,
+    "remoteFonts": 160,
+    "remoteStock": 292,
+    "unmanifestedOnlineStock": 1817,
+    "unusableMissing": 0
+  },
+  "unmanifestedSample": [
+    {
+      "id": "title-lower-third-modern",
+      "name": "Modern Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-lower-third-news",
+      "name": "Haber Başlığı Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-lower-third-minimal",
+      "name": "Minimal Çizgili Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-lower-third-gradient",
+      "name": "Degrade Vurgulu Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-lower-third-tech",
+      "name": "Siber & Teknoloji Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-lower-third-split",
+      "name": "Bölünmüş Çubuklu Alt Bant",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-epic",
+      "name": "Epik Sinematik Başlık",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-dramatic",
+      "name": "Dramatik Beliren Başlık",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-minimal",
+      "name": "Minimalist Film Başlığı",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-gold",
+      "name": "Altın Vurgulu Lüks Başlık",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-mystery",
+      "name": "Gizem & Gerilim Başlığı",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-cinematic-retro80s",
+      "name": "80'ler Retro Sinema Başlığı",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-vlog-bold-header",
+      "name": "Cesur Vlog Başlığı",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-social-subscribe-card",
+      "name": "Abone Ol & Bildirimleri Aç",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    },
+    {
+      "id": "title-social-neon-glow",
+      "name": "Neon Parlayan Yazı",
+      "type": "title",
+      "source": "Forma Tipografi Motoru",
+      "url": "https://forma.app/assets/titles"
+    }
+  ],
+  "excludedSample": [
+    {
+      "id": "broll-3c49b42456",
+      "name": "VID20250910124444 THE NATURE OF MAYURBHANJ ODISHA",
+      "type": "video",
+      "reason": "Geçersiz/bozuk video boyutu (965 bayt < 50KB)"
+    },
+    {
+      "id": "mus-67423d4250",
+      "name": "Piano Straight(rock 'n' roll).mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-59594fddd9",
+      "name": "Piano Shuffle(boogie).mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-40f7e45b5b",
+      "name": "Saint-saens sonate hautbois op166 1er mouvement piano.midi",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-ed09805857",
+      "name": "Offbeat0002.mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-264ac50542",
+      "name": "Millions Missing (Millions Missing - Track 2).mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-f562bcb6f3",
+      "name": "Tarantelle (Fred Werner, 1909).mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-ccf470896e",
+      "name": "What'll we do, when the wattle blooms again?.mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-13a69ed5d0",
+      "name": "Jazz sus chord.mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    },
+    {
+      "id": "mus-7b60cfda52",
+      "name": "The 4 Feel in Jazz example.mid",
+      "type": "audio",
+      "reason": "MIDI dosyası doğrudan ses dalgası içermez (PCM/WAV/OGG gerekli)"
+    }
+  ]
+}

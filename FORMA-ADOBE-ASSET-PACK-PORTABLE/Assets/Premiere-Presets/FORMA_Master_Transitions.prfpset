@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PremiereData Version="3">
+  <Bin Name="FORMA Master Transitions (80 Adet)">
+    <TransitionPreset Name="Whip Pan Sol" TechnicalId="whip-pan-left">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Whip Pan Sağ" TechnicalId="whip-pan-right">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Whip Pan Yukarı" TechnicalId="whip-pan-up">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Whip Pan Aşağı" TechnicalId="whip-pan-down">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Whip Pan Çapraz Sol-Üst" TechnicalId="whip-pan-diagonal-tl">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Whip Pan Çapraz Sağ-Üst" TechnicalId="whip-pan-diagonal-tr">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Yatay Yönlü Bulanıklık" TechnicalId="directional-blur-h">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dikey Yönlü Bulanıklık" TechnicalId="directional-blur-v">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Pürüzsüz Yakınlaşma (Smooth Zoom)" TechnicalId="smooth-zoom-in">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Pürüzsüz Uzaklaşma (Smooth Zoom Out)" TechnicalId="smooth-zoom-out">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kamera Depremi Sarsıntısı" TechnicalId="camera-shake-earthquake">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.55</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Sinematik Bas Rumble Titremesi" TechnicalId="camera-shake-rumble">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.65</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Mikro Twitch Sarsıntısı" TechnicalId="camera-shake-twitch">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.35</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Parallaks Derinlik Sol" TechnicalId="parallax-left">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Parallaks Derinlik Sağ" TechnicalId="parallax-right">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Mercek Bükülmesi (Fıçı Bozulması)" TechnicalId="lens-distortion-barrel">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Mercek Bükülmesi (İğne Bozulması)" TechnicalId="lens-distortion-pincushion">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Balıkgözü Küresel Bozulma" TechnicalId="lens-distortion-fisheye">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="RGB Kromatik Yarılma (Split)" TechnicalId="rgb-split-chromatic">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.45</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kromatik Nabız Parlaması" TechnicalId="chromatic-pulse">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dijital Blok Glitch" TechnicalId="glitch-digital-blocks">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.4</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Satır Yırtılması Glitch" TechnicalId="glitch-line-tear">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.35</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Analog VHS Manyetik Bozulma" TechnicalId="vhs-tape-tracking">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Turuncu Film Yanığı" TechnicalId="film-burn-orange">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kenar Film Yanığı Flash" TechnicalId="film-burn-edge">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kehribar Işık Sızıntısı (Light Leak)" TechnicalId="light-leak-amber">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.9</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Gökkuşağı Prizma Sızıntısı" TechnicalId="light-leak-rainbow">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.95</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Anamorfik Işık Çizgisi Streak" TechnicalId="anamorphic-streak">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Parlaklık Erimesi (Luma Fade Bright)" TechnicalId="luma-fade-bright">
+      <Category>Temel</Category>
+      <Duration>1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Gölgeler Erimesi (Luma Fade Dark)" TechnicalId="luma-fade-dark">
+      <Category>Temel</Category>
+      <Duration>1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Gürültü Kaydırma (Displacement Noise)" TechnicalId="displacement-noise">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dalga Halka Kaydırma (Ripple)" TechnicalId="displacement-ripple">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Sıvı Damlama Silmesi (Liquid Drip)" TechnicalId="liquid-wipe-drip">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Sıvı Sıçrama Silmesi (Splash)" TechnicalId="liquid-wipe-splash">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Organik Mürekkep Yayılımı (Ink Spread)" TechnicalId="ink-spread-organic">
+      <Category>Silme ve Maske</Category>
+      <Duration>1.1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Çapraz Kağıt Yırtığı (Paper Tear)" TechnicalId="paper-tear-diagonal">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.65</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Yatay Piksel Sıralama (Pixel Sort)" TechnicalId="pixel-sort-horizontal">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.55</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dikey Piksel Sıralama (Pixel Sort)" TechnicalId="pixel-sort-vertical">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.55</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Datamosh Vektör Sürükleme" TechnicalId="datamosh-vector-drag">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.5</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Elmas İris Açılışı" TechnicalId="iris-diamond">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Altıgen İris Açılışı" TechnicalId="iris-hexagon">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kapsül Şekil Maskesi (Pill Reveal)" TechnicalId="shape-mask-pill">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Üçgen Panjur Maskesi" TechnicalId="shape-mask-triangle">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Saat Yönü Radyal Silme (Clock Wipe)" TechnicalId="radial-wipe-clock">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.9</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Çift Kanatlı Fan Silme" TechnicalId="radial-wipe-dual">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="3D Kart Çevirme (Perspective Flip)" TechnicalId="perspective-flip-card">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="3D Kapı Açılışı (Door Swing)" TechnicalId="perspective-flip-door">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="3D Küp Sola Dönüş (Cube Rotate)" TechnicalId="cube-3d-rotate-left">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.9</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="3D Küp Yukarı Dönüş (Cube Rotate)" TechnicalId="cube-3d-rotate-up">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.9</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Hızlı Saat Yönü Fırıldak Dönüşü" TechnicalId="spin-fast-cw">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Girdap Dönüşü (Vortex Spin)" TechnicalId="spin-vortex">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="İtme Sol (Slide Push Left)" TechnicalId="push-slide-left">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="İtme Sağ (Slide Push Right)" TechnicalId="push-slide-right">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="İtme Yukarı (Slide Push Up)" TechnicalId="push-slide-up">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="İtme Aşağı (Slide Push Down)" TechnicalId="push-slide-down">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Elastik Esneme Yatay (Elastic Stretch)" TechnicalId="elastic-stretch-h">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Elastik Esneme Dikey (Elastic Stretch)" TechnicalId="elastic-stretch-v">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Aynalı Hareket Karosu (Motion Tile)" TechnicalId="motion-tile-mirror">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Altıgen Kaleydoskop Geçişi" TechnicalId="kaleidoscope-hex">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Mandala Kaleydoskop Geçişi" TechnicalId="kaleidoscope-mandala">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.9</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Optik Prizma Dağılması" TechnicalId="prism-dispersion">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Sert Kesim (Hard Cut)" TechnicalId="cut-clean">
+      <Category>Temel</Category>
+      <Duration>0.1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Klasik Çapraz Erime (Crossfade Pro)" TechnicalId="crossfade-pro">
+      <Category>Temel</Category>
+      <Duration>1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kararmaya Solma (Dip to Black)" TechnicalId="dip-black-smooth">
+      <Category>Temel</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Beyaza Parlama (Dip to White)" TechnicalId="dip-white-flash">
+      <Category>Temel</Category>
+      <Duration>0.6</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Yumuşak Erime (Soft Dissolve)" TechnicalId="soft-dissolve-film">
+      <Category>Temel</Category>
+      <Duration>1.1</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Katkısal Parlama Erimesi (Additive)" TechnicalId="additive-glow-dissolve">
+      <Category>Temel</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Yatay Perde Açılışı (Venetian Blinds H)" TechnicalId="blinds-horizontal">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dikey Perde Açılışı (Venetian Blinds V)" TechnicalId="blinds-vertical">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.8</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Dama Tahtası Geçişi (Checkerboard)" TechnicalId="checkerboard-clean">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.85</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Çapraz Doğrusal Silme (Diagonal Wipe)" TechnicalId="diagonal-wipe-clean">
+      <Category>Silme ve Maske</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Ortadan Yatay Yarılma (Split Open H)" TechnicalId="split-open-h">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Ortadan Dikey Yarılma (Split Open V)" TechnicalId="split-open-v">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Merkezden Kapanma (Split Close)" TechnicalId="split-close-center">
+      <Category>Kaydırma ve İtme</Category>
+      <Duration>0.75</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Hızlı Kamera Deklanşör Kararması" TechnicalId="camera-shutter-dip">
+      <Category>Temel</Category>
+      <Duration>0.25</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="CRT TV Kapanış Çizgisi" TechnicalId="crt-tv-off">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.4</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Mozaik Pikselleşme Erimesi" TechnicalId="pixel-mosaic-dissolve">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.65</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Girdap Odak Bulanıklığı (Vortex Blur)" TechnicalId="vortex-blur-zoom">
+      <Category>Kamera ve Hareket</Category>
+      <Duration>0.7</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Kromatik Mercek Parlaması" TechnicalId="chromatic-flare-burst">
+      <Category>Sinematik ve Dijital</Category>
+      <Duration>0.65</Duration>
+    </TransitionPreset>
+    <TransitionPreset Name="Zaman Atlama Titremesi (Strobe Cut)" TechnicalId="strobe-jump-cut">
+      <Category>Temel</Category>
+      <Duration>0.3</Duration>
+    </TransitionPreset>
+  </Bin>
+</PremiereData>

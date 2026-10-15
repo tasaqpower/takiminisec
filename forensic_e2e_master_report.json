@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-10-06T08:15:18.845Z",
+  "item5": {
+    "totalAudited": 90,
+    "licensesValid": 90,
+    "errors": 0,
+    "pointerDropSuccess": true
+  },
+  "item6": {
+    "ssim": 0.9776346350462127,
+    "blackFrames": 0,
+    "missingOverlays": 0,
+    "missingTitles": 0,
+    "frozenAnimations": 0,
+    "multiFormatWebmPassed": true,
+    "multiFormatGifPassed": true,
+    "parityPassed": true
+  },
+  "item10": {
+    "width": 1920,
+    "height": 1080,
+    "r_frame_rate": "30/1",
+    "totalFrames": 300,
+    "vfrRatio": 0,
+    "freezes": 0,
+    "blackFrames": 0,
+    "audioCodec": "aac",
+    "audioSampleRate": "48000",
+    "audioChannels": 2,
+    "avDeltaMs": 0,
+    "cfrPassed": true
+  }
+}

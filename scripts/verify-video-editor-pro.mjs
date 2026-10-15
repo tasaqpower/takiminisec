@@ -210,7 +210,7 @@ async function main() {
   // Take full verification screenshot
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   const buf = Buffer.from(shot.data, 'base64');
-  const artifactPath = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_video_editor_e2e.png';
+  const artifactPath = path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_video_editor_e2e.png');
   await fs.writeFile(artifactPath, buf);
   console.log('[E2E] Saved screenshot artifact to:', artifactPath);
 

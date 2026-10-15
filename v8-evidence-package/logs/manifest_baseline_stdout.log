@@ -1,0 +1,6 @@
+=== FORMA ORIGINALS V8: MANIFEST & BASELINE CANONICAL AUDIT ===
+Baseline 2,520 records canonical SHA-256: 157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5
+Current first 2,520 records canonical SHA-256: 157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5
+Canonical hashes match verbatim: YES (100% MATCH)
+Originals count in catalog: 600
+Manifest and comparison JSON successfully generated in v8-evidence-package

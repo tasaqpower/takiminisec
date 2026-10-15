@@ -6,9 +6,9 @@ import sharp from 'sharp';
 
 const execFileAsync = promisify(execFile);
 
-const FFMPEG_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe';
-const FFPROBE_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
+const FFMPEG_PATH = process.env.FFMPEG_PATH || 'ffmpeg';
+const FFPROBE_PATH = process.env.FFPROBE_PATH || 'ffprobe';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts');
 const TEMP_MP4 = 'C:\\Windows\\Temp\\forma_real_exported.mp4';
 const TEMP_WAV = 'C:\\Windows\\Temp\\forma_real_exported.wav';
 const FRAME_4S = 'C:\\Windows\\Temp\\frame_4_0s.png';

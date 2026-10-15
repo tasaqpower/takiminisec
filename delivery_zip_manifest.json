@@ -1,0 +1,43 @@
+{
+  "zip_name": "FORMA-ADOBE-CORE-MEDIA-PACK-V1.zip",
+  "zip_path": "C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\FORMA-ADOBE-CORE-MEDIA-PACK-V1.zip",
+  "zip_sha256": "f480608cd47abdbc6131ef8afff45d3fa896a0846affb320d6480222ebecda72",
+  "zip_size_bytes": 91854336,
+  "zip_size_mb": 87.6,
+  "total_files": 717,
+  "extensions_count": {
+    ".txt": 7,
+    ".md": 2,
+    ".ps1": 3,
+    ".csv": 1,
+    ".wav": 168,
+    ".cube": 185,
+    ".json": 5,
+    ".svg": 337,
+    ".mp4": 9
+  },
+  "categories_count": {
+    "root": 7,
+    "Audio": 168,
+    "Licenses": 6,
+    "LUTs": 185,
+    "Reports": 5,
+    "SVG": 337,
+    "Video": 9
+  },
+  "media_breakdown": {
+    "luts_cube": 185,
+    "audio_wav": 168,
+    "vector_svg": 337,
+    "video_mp4": 9,
+    "total_media": 699
+  },
+  "zero_forbidden_checks": {
+    "jsx_count": 0,
+    "mogrt_count": 0,
+    "prfpset_count": 0,
+    "ffx_count": 0,
+    "webm_count": 0,
+    "quarantine_count": 0
+  }
+}

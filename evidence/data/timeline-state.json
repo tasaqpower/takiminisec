@@ -1,0 +1,50 @@
+{
+  "id": "proj-1791204359319",
+  "name": "Yeni Video Projesi",
+  "createdAt": 1791204359319,
+  "updatedAt": 1791204359319,
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 10,
+  "backgroundColor": "#000000",
+  "transitions": [],
+  "effectSegments": [],
+  "tracks": [
+    {
+      "id": "track-text-vum6y2p",
+      "name": "Metin & Efektler",
+      "type": "text",
+      "clips": [],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-video-r717ebn",
+      "name": "Video & Görsel 1",
+      "type": "video",
+      "clips": [],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-audio-qrudlft",
+      "name": "Ses & Müzik 1",
+      "type": "audio",
+      "clips": [],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PremiereData Version="3">
+  <Tree ObjectRef="1"/>
+  <TreeItem ObjectUID="1" ClassID="5ee64c8f-ea8d-44aa-9c36-7c9b20757a3e" Version="1">
+    <Node Version="1">
+      <Properties Version="1">
+        <ItemName>Whip Pan Aşağı</ItemName>
+        <ItemDescription>FORMA Original Transition (whip-pan-down)</ItemDescription>
+        <Category>Kamera ve Hareket</Category>
+        <Duration>0.5</Duration>
+      </Properties>
+    </Node>
+    <EffectItem Version="1">
+      <EffectFilterType>Transition</EffectFilterType>
+      <TechnicalId>whip-pan-down</TechnicalId>
+      <Parameters>
+        <Param Name="intensity" Value="1"/>
+        <Param Name="easing" Value="ease-in-out"/>
+        <Param Name="seed" Value="2931"/>
+      </Parameters>
+    </EffectItem>
+  </TreeItem>
+</PremiereData>

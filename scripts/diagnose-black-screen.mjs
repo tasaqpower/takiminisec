@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import fs from 'fs/promises';
 
 async function main() {
-  const videoBuffer = await fs.readFile('C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4');
+  const videoBuffer = await fs.readFile(process.env.FORMA_REAL_PDF_PATH || '');
   const videoBase64 = videoBuffer.toString('base64');
   
   const chromeProc = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-10-06T12:55:49.957Z",
+  "logicalAssetCount": 699,
+  "physicalMediaFileCount": 699,
+  "totalPackageFileCount": 707,
+  "categoryTotals": {
+    "lutsCube": 185,
+    "audioWavSfx": 130,
+    "audioWavMusic": 38,
+    "audioWavTotal": 168,
+    "svgVector": 337,
+    "video": 9,
+    "sum": 699
+  },
+  "sha256Metrics": {
+    "uniqueMediaSha256": 699,
+    "duplicateCount": 0
+  },
+  "provenanceMetrics": {
+    "totalAudited": 699,
+    "licenseVerifiedCount": 699,
+    "uncertainExcludedCount": 0
+  },
+  "sizeMetrics": {
+    "openMediaSizeBytes": 124091397,
+    "openMediaSizeMB": "118.34 MB",
+    "totalOpenPackageBytes": 125101388,
+    "totalOpenPackageSizeMB": "119.31 MB",
+    "estimatedZipSizeBytes": 44968375,
+    "estimatedZipSizeMB": "42.89 MB"
+  }
+}

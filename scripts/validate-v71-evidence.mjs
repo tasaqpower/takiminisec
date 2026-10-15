@@ -38,8 +38,8 @@ async function validateEvidence() {
     // Default candidate locations
     const candidates = [
       path.join(projectRoot, 'evidence-v71'),
-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch\\forma_v71_evidence_staging',
-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch\\forma_v7_evidence_staging'
+      path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'scratch', 'forma_v71_evidence_staging'),
+      path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'scratch', 'forma_v7_evidence_staging')
     ];
     for (const c of candidates) {
       if (fs.existsSync(c)) {

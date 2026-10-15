@@ -1,0 +1,140 @@
+{
+  "projectId": "forma-forensic-e2e-project",
+  "timelineVersion": "2.0.0",
+  "fps": 30,
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "totalDuration": 10,
+  "tracks": [
+    {
+      "trackId": "track-v1",
+      "type": "video",
+      "name": "Ana Video Kanalı",
+      "clips": [
+        {
+          "assetId": "broll-5e347b9827",
+          "clipId": "clip-v-001",
+          "type": "video",
+          "trackId": "track-v1",
+          "startTime": 0,
+          "duration": 10,
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/2/29/Blackfoot-River-Drone-Shot.webm",
+          "cachedBlobId": "opfs://forma_video_media/broll-5e347b9827",
+          "licenseId": "CC-BY-4.0",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotation": 0
+          },
+          "filter": {
+            "lutId": "lut-cinema-001",
+            "intensity": 1
+          }
+        }
+      ]
+    },
+    {
+      "trackId": "track-v2",
+      "type": "video",
+      "name": "Video Katmanı (Overlay)",
+      "clips": [
+        {
+          "assetId": "ovl-light-leak-cool",
+          "clipId": "clip-ovl-001",
+          "type": "overlay",
+          "trackId": "track-v2",
+          "startTime": 1,
+          "duration": 5,
+          "sourceUrl": "/video-assets/overlays/light-leak-cool.svg",
+          "cachedBlobId": "builtin://light-leak-cool.svg",
+          "licenseId": "CC0 1.0 Universal",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotation": 0
+          },
+          "filter": {
+            "blendMode": "screen",
+            "opacity": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "trackId": "track-a1",
+      "type": "audio",
+      "name": "Müzik Kanalı",
+      "clips": [
+        {
+          "assetId": "mus-f37518852b",
+          "clipId": "clip-a-001",
+          "type": "audio",
+          "trackId": "track-a1",
+          "startTime": 0,
+          "duration": 10,
+          "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Kid%27s_Dance_Chinese_Folk_Piano.ogg",
+          "cachedBlobId": "opfs://forma_video_media/mus-f37518852b",
+          "licenseId": "CC-BY-SA-3.0",
+          "audioSettings": {
+            "volume": 0.75,
+            "fadeIn": 0.5,
+            "fadeOut": 1
+          }
+        }
+      ]
+    },
+    {
+      "trackId": "track-a2",
+      "type": "audio",
+      "name": "Ses Efektleri (SFX)",
+      "clips": [
+        {
+          "assetId": "sfx-whoosh-standard",
+          "clipId": "clip-sfx-001",
+          "type": "audio",
+          "trackId": "track-a2",
+          "startTime": 3,
+          "duration": 0.5,
+          "sourceUrl": "/video-assets/audio/sfx/whoosh-standard.wav",
+          "cachedBlobId": "builtin://whoosh-standard.wav",
+          "licenseId": "CC0 1.0 Universal",
+          "audioSettings": {
+            "volume": 1,
+            "pan": 0
+          }
+        }
+      ]
+    },
+    {
+      "trackId": "track-t1",
+      "type": "text",
+      "name": "Tipografi / Başlık Kanalı",
+      "clips": [
+        {
+          "assetId": "title-lt-001",
+          "clipId": "clip-t-001",
+          "type": "title",
+          "trackId": "track-t1",
+          "startTime": 2,
+          "duration": 4,
+          "sourceUrl": "virtual:title/lt-001",
+          "cachedBlobId": "virtual://title/lt-001",
+          "licenseId": "CC0 1.0 Universal",
+          "textData": {
+            "text": "FORMA TÜRKÇE: Ç, Ğ, İ, Ö, Ş, Ü",
+            "fontFamily": "Liberation Sans",
+            "fontSize": 54,
+            "fontWeight": "bold",
+            "fillColor": "#FFFFFF",
+            "strokeColor": "#000000",
+            "strokeWidth": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+Rendering target text with Google Chrome...
+Screenshot exit code: 0 File exists: true
+Starting real Tesseract OCR on raster image...
+
+--- TARGET TEXT ---
+İstanbul, Iğdır ve Şanlıurfa — Ç, Ğ, İ, Ö, Ş, Ü, ç, ğ, ı, ö, ş, ü
+
+--- RECOGNIZED OCR TEXT ---
+İstanbul, Iğdır ve Şanlıurffa— Ç, Ğ,İ,Ö,Ş,Ü,ç,ğ,1,ö,ş,ü
+Confidence Score: 82

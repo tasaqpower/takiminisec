@@ -33,7 +33,7 @@ export const ToolRailButton: React.FC<ToolRailButtonProps> = ({
       } ${className}`}
     >
       <Icon size={16} className={isActive ? 'text-[#4f6bf5]' : 'text-[#929AA8]'} />
-      <span className="text-[9px] font-medium leading-none tracking-tight truncate max-w-full">
+      <span className="text-[9px] font-medium leading-none tracking-tighter max-w-full text-center">
         {label}
       </span>
     </button>

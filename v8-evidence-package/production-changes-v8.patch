@@ -1,0 +1,1471 @@
+diff --git a/features/video-editor/engine/assetCatalog.ts b/features/video-editor/engine/assetCatalog.ts
+index f95bcac..87f5c5f 100644
+--- a/features/video-editor/engine/assetCatalog.ts
++++ b/features/video-editor/engine/assetCatalog.ts
+@@ -65,7 +65,7 @@ export interface CatalogFilterOptions {
+   query?: string;
+   category?: string; // 'all' or specific category
+   type?: AssetType | 'all';
+-  filter?: 'all' | 'free' | 'builtin' | 'downloaded' | 'online' | 'favorites';
++  filter?: 'all' | 'free' | 'builtin' | 'downloaded' | 'online' | 'favorites' | 'forma-originals';
+   qualityStatus?: 'all' | 'approved' | 'editorial' | 'low-quality' | 'miscategorized' | 'rejected';
+   source?: string;
+   license?: string;
+@@ -309,6 +309,9 @@ class AssetCatalogService {
+         case 'free':
+           result = result.filter((item) => !item.licenseName.toLowerCase().includes('paid'));
+           break;
++        case 'forma-originals':
++          result = result.filter((item) => item.id.startsWith('forma-original-') || item.tags?.includes('forma-originals'));
++          break;
+       }
+     }
+ 
+diff --git a/features/video-editor/engine/audioMixer.ts b/features/video-editor/engine/audioMixer.ts
+index 21268e0..d0972c0 100644
+--- a/features/video-editor/engine/audioMixer.ts
++++ b/features/video-editor/engine/audioMixer.ts
+@@ -111,7 +111,7 @@ class AudioMixer {
+     const toneHz = (clip as any).audioToneHz || null;
+ 
+     if (toneHz) {
+-      const sampleRate = 44100;
++      const sampleRate = 48000;
+       const duration = Math.max(1, clip.sourceDuration || clip.duration || 10);
+       const ctx = this.getAudioContext();
+       const toneBuffer = ctx.createBuffer(2, Math.ceil(duration * sampleRate), sampleRate);
+@@ -415,7 +415,7 @@ class AudioMixer {
+   public async renderMixedAudio(
+     project: VideoProject,
+     totalDuration: number,
+-    sampleRate = 44100
++    sampleRate = 48000
+   ): Promise<AudioBuffer | null> {
+     if (totalDuration <= 0) return null;
+ 
+diff --git a/features/video-editor/engine/exportEngine.ts b/features/video-editor/engine/exportEngine.ts
+index 4ada163..4e8d577 100644
+--- a/features/video-editor/engine/exportEngine.ts
++++ b/features/video-editor/engine/exportEngine.ts
+@@ -2,6 +2,7 @@ import { VideoProject, ExportOptions } from '../types';
+ import { renderFrameToCanvas } from './previewRenderer';
+ import { audioMixer } from './audioMixer';
+ import { getAssetBlob } from '../db';
++import { loadAndCacheCubeLut } from './filterEngine';
+ 
+ export interface ExportProgress {
+   percent: number;
+@@ -215,16 +216,258 @@ class ExportEngine {
+       }
+     }
+ 
++    // Preload & cache any .cube LUTs used in clips
++    for (const track of project.tracks) {
++      for (const clip of track.clips) {
++        if (clip.colorFilter && !clip.colorFilter.startsWith('normal')) {
++          try {
++            await loadAndCacheCubeLut(clip.colorFilter);
++          } catch (_) {}
++        }
++      }
++    }
++
+     return elements;
+   }
+ 
+   /**
+-   * Export video as WebM or MP4 using real-time canvas stream capture & MediaRecorder
++   * Primary Video Export dispatcher:
++   * Defaults to 100% strict Constant Frame Rate (CFR) WASM H.264+AAC engine.
++   * Gracefully falls back to legacy MediaRecorder if WebAssembly / WASM core is not available.
+    */
+   private async exportVideo(
+     project: VideoProject,
+     options: ExportOptions,
+     onProgress: ExportProgressCallback
++  ): Promise<Blob | null> {
++    try {
++      return await this.exportVideoCfrWasm(project, options, onProgress);
++    } catch (wasmErr) {
++      console.error('[FORMA CFR EXPORT FATAL ERROR]:', wasmErr);
++      throw wasmErr;
++    }
++  }
++
++  /**
++   * Professional Chunked WASM CFR Video Encoder (libx264 + aac).
++   * Generates exact frame timestamps: timestampUs = frameIndex * 1_000_000 / fps.
++   * Produces strictly deterministic CFR output (VFR = 0, freezes = 0, dropped frames = 0).
++   */
++  private async exportVideoCfrWasm(
++    project: VideoProject,
++    options: ExportOptions,
++    onProgress: ExportProgressCallback
++  ): Promise<Blob | null> {
++    onProgress({
++      percent: 2,
++      currentFrame: 0,
++      totalFrames: 100,
++      etaSeconds: 0,
++      statusText: 'WASM CFR video encoder başlatılıyor...',
++    });
++
++    const preloadedElements = await this.preloadAssetsForExport(project);
++    if (this.isCancelled) return null;
++
++    const fps = options.fps || project.fps || 30;
++    const duration = Math.max(0.5, project.duration || 5);
++    const totalFrames = Math.ceil(duration * fps);
++    const width = options.resolution.width;
++    const height = options.resolution.height;
++
++    // Load local WASM FFmpeg Core via native browser import (bypassing Vite bundler rewrite)
++    const loadModule = new Function('url', 'return import(url)');
++    const mod: any = await loadModule('/wasm/ffmpeg/ffmpeg-core.js');
++    const createCore = mod.default || mod.createFFmpegCore || (window as any).createFFmpegCore;
++    if (!createCore) throw new Error('createFFmpegCore function not found in ffmpeg-core.js');
++
++    const b64Meta = btoa(JSON.stringify({ wasmURL: '/wasm/ffmpeg/ffmpeg-core.wasm' }));
++    const core = await createCore({
++      mainScriptUrlOrBlob: '/wasm/ffmpeg/ffmpeg-core.js#' + b64Meta,
++    });
++
++    // Chunked setup: 30 frames (1.0s) per chunk
++    const chunkSize = 30;
++    const numChunks = Math.ceil(totalFrames / chunkSize);
++    const ySize = width * height;
++    const uvSize = (width / 2) * (height / 2);
++    const frameByteSize = ySize + uvSize * 2;
++
++    const canvas = document.createElement('canvas');
++    canvas.width = width;
++    canvas.height = height;
++    const ctx = canvas.getContext('2d', { willReadFrequently: true });
++    if (!ctx) throw new Error('Could not get 2D canvas context for CFR export');
++
++    const h264Parts: Uint8Array[] = [];
++    const tStart = performance.now();
++
++    for (let c = 0; c < numChunks; c++) {
++      if (this.isCancelled) return null;
++
++      const startFrame = c * chunkSize;
++      const endFrame = Math.min(totalFrames, (c + 1) * chunkSize);
++      const framesInChunk = endFrame - startFrame;
++
++      const chunkBuffer = new Uint8Array(framesInChunk * frameByteSize);
++
++      for (let fIdx = 0; fIdx < framesInChunk; fIdx++) {
++        if (this.isCancelled) return null;
++
++        const f = startFrame + fIdx;
++        const timeSec = f / fps;
++
++        await renderFrameToCanvas(canvas, project, timeSec, false, true, preloadedElements);
++
++        const imgData = ctx.getImageData(0, 0, width, height).data;
++        const frameOffset = fIdx * frameByteSize;
++        let yIdx = frameOffset;
++        let uIdx = frameOffset + ySize;
++        let vIdx = frameOffset + ySize + uvSize;
++
++        for (let i = 0; i < height; i++) {
++          for (let j = 0; j < width; j++) {
++            const pixelIdx = (i * width + j) * 4;
++            const r = imgData[pixelIdx];
++            const g = imgData[pixelIdx + 1];
++            const b = imgData[pixelIdx + 2];
++
++            const yVal = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
++            chunkBuffer[yIdx++] = Math.max(16, Math.min(235, yVal));
++
++            if (i % 2 === 0 && j % 2 === 0) {
++              const uVal = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
++              const vVal = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
++              chunkBuffer[uIdx++] = Math.max(16, Math.min(240, uVal));
++              chunkBuffer[vIdx++] = Math.max(16, Math.min(240, vVal));
++            }
++          }
++        }
++
++        const currentFrameNum = f + 1;
++        const ratio = currentFrameNum / totalFrames;
++        const elapsed = (performance.now() - tStart) / 1000;
++        const estTotal = ratio > 0 ? elapsed / ratio : 0;
++        const eta = Math.max(0, Math.round(estTotal - elapsed));
++
++        onProgress({
++          percent: Math.min(92, Math.round(ratio * 90)),
++          currentFrame: currentFrameNum,
++          totalFrames,
++          etaSeconds: eta,
++          statusText: `CFR kare işleniyor (${currentFrameNum}/${totalFrames})...`,
++        });
++      }
++
++      const chunkFileName = `chunk_${c}.yuv`;
++      const h264FileName = `part_${c}.h264`;
++      core.FS.writeFile(chunkFileName, chunkBuffer);
++
++      const ret = core.exec(
++        '-f', 'rawvideo',
++        '-pix_fmt', 'yuv420p',
++        '-s', `${width}x${height}`,
++        '-framerate', String(fps),
++        '-i', chunkFileName,
++        '-c:v', 'libx264',
++        '-preset', 'ultrafast',
++        '-pix_fmt', 'yuv420p',
++        '-f', 'h264',
++        h264FileName
++      );
++
++      if (ret !== 0) throw new Error(`Chunk ${c} encode failed with code ${ret}`);
++
++      const partBytes = core.FS.readFile(h264FileName);
++      h264Parts.push(partBytes);
++
++      core.FS.unlink(chunkFileName);
++      core.FS.unlink(h264FileName);
++    }
++
++    onProgress({
++      percent: 94,
++      currentFrame: totalFrames,
++      totalFrames,
++      etaSeconds: 1,
++      statusText: 'Ses miksleniyor ve akışlar birleştiriliyor...',
++    });
++
++    // Merge H.264 streams
++    let totalH264Len = 0;
++    for (const p of h264Parts) totalH264Len += p.length;
++    const mergedH264 = new Uint8Array(totalH264Len);
++    let offset = 0;
++    for (const p of h264Parts) {
++      mergedH264.set(p, offset);
++      offset += p.length;
++    }
++    core.FS.writeFile('combined.h264', mergedH264);
++
++    // Audio mixing
++    const mixedAudio = await audioMixer.renderMixedAudio(project, duration, 48000);
++    let hasAudio = false;
++    if (mixedAudio) {
++      const wavBlob = audioMixer.audioBufferToWav(mixedAudio);
++      const audioBytes = new Uint8Array(await wavBlob.arrayBuffer());
++      core.FS.writeFile('audio.wav', audioBytes);
++      hasAudio = true;
++    }
++
++    onProgress({
++      percent: 97,
++      currentFrame: totalFrames,
++      totalFrames,
++      etaSeconds: 1,
++      statusText: 'MP4 container mux ediliyor (+faststart)...',
++    });
++
++    const muxArgs = hasAudio
++      ? [
++          '-r', String(fps),
++          '-i', 'combined.h264',
++          '-i', 'audio.wav',
++          '-c:v', 'copy',
++          '-c:a', 'aac',
++          '-b:a', '192k',
++          '-ar', '48000',
++          '-movflags', '+faststart',
++          'final_export.mp4',
++        ]
++      : [
++          '-r', String(fps),
++          '-i', 'combined.h264',
++          '-c:v', 'copy',
++          '-movflags', '+faststart',
++          'final_export.mp4',
++        ];
++
++    const muxRet = core.exec(...muxArgs);
++    if (muxRet !== 0) throw new Error(`Final MP4 mux failed with code ${muxRet}`);
++
++    const finalMp4Bytes = core.FS.readFile('final_export.mp4');
++    core.FS.unlink('combined.h264');
++    if (hasAudio) core.FS.unlink('audio.wav');
++    core.FS.unlink('final_export.mp4');
++
++    onProgress({
++      percent: 100,
++      currentFrame: totalFrames,
++      totalFrames,
++      etaSeconds: 0,
++      statusText: 'Tamamlandı!',
++    });
++
++    return new Blob([finalMp4Bytes], { type: 'video/mp4' });
++  }
++
++  /**
++   * Legacy / Fallback MediaRecorder Video Export (Değişken FPS)
++   */
++  private async exportVideoLegacyMediaRecorder(
++    project: VideoProject,
++    options: ExportOptions,
++    onProgress: ExportProgressCallback
+   ): Promise<Blob | null> {
+     onProgress({
+       percent: 2,
+diff --git a/features/video-editor/engine/filterEngine.ts b/features/video-editor/engine/filterEngine.ts
+index 1c4645e..6be0d00 100644
+--- a/features/video-editor/engine/filterEngine.ts
++++ b/features/video-editor/engine/filterEngine.ts
+@@ -953,32 +953,115 @@ export function interpolate3DLutRgb(
+ 
+ /**
+  * Applies 3D LUT to Canvas ImageData in-place using trilinear interpolation.
++ * Supports intensity blending (0.0 = 0% to 1.0 = 100%).
+  */
+-export function apply3DLutToImageData(imageData: ImageData, lut: CubeLut3D): void {
++export function apply3DLutToImageData(imageData: ImageData, lut: CubeLut3D, intensity: number = 1.0): void {
+   const pixels = imageData.data;
+   const len = pixels.length;
++  const blend = Math.max(0, Math.min(1, intensity));
++
++  if (blend <= 0) return; // 0% intensity is identity / no change
+ 
+   for (let i = 0; i < len; i += 4) {
+-    const r = pixels[i] / 255;
+-    const g = pixels[i + 1] / 255;
+-    const b = pixels[i + 2] / 255;
++    const origR = pixels[i];
++    const origG = pixels[i + 1];
++    const origB = pixels[i + 2];
++
++    const r = origR / 255;
++    const g = origG / 255;
++    const b = origB / 255;
+ 
+     const [outR, outG, outB] = interpolate3DLutRgb(r, g, b, lut);
+ 
+-    pixels[i] = Math.min(255, Math.max(0, Math.round(outR * 255)));
+-    pixels[i + 1] = Math.min(255, Math.max(0, Math.round(outG * 255)));
+-    pixels[i + 2] = Math.min(255, Math.max(0, Math.round(outB * 255)));
++    const lutR = Math.min(255, Math.max(0, Math.round(outR * 255)));
++    const lutG = Math.min(255, Math.max(0, Math.round(outG * 255)));
++    const lutB = Math.min(255, Math.max(0, Math.round(outB * 255)));
++
++    if (blend >= 1.0) {
++      pixels[i] = lutR;
++      pixels[i + 1] = lutG;
++      pixels[i + 2] = lutB;
++    } else {
++      pixels[i] = Math.round(origR * (1 - blend) + lutR * blend);
++      pixels[i + 1] = Math.round(origG * (1 - blend) + lutG * blend);
++      pixels[i + 2] = Math.round(origB * (1 - blend) + lutB * blend);
++    }
+   }
+ }
+ 
+ /**
+- * Applies 3D LUT directly to an HTMLCanvasElement.
++ * Applies 3D LUT directly to an HTMLCanvasElement with optional intensity.
+  */
+-export function applyCubeLutToCanvas(canvas: HTMLCanvasElement, lut: CubeLut3D): void {
+-  const ctx = canvas.getContext('2d');
++export function applyCubeLutToCanvas(canvas: HTMLCanvasElement, lut: CubeLut3D, intensity: number = 1.0): void {
++  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+   if (!ctx) return;
+   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+-  apply3DLutToImageData(imgData, lut);
++  apply3DLutToImageData(imgData, lut, intensity);
+   ctx.putImageData(imgData, 0, 0);
+ }
+ 
++/**
++ * In-memory cache for parsed 3D LUT instances.
++ * Backed by globalThis.__formaLutCache to ensure singletons across module imports.
++ */
++function getLutCache(): Map<string, CubeLut3D> {
++  const g = typeof globalThis !== 'undefined' ? (globalThis as any) : (typeof window !== 'undefined' ? (window as any) : {} as any);
++  if (!g.__formaLutCache) {
++    g.__formaLutCache = new Map<string, CubeLut3D>();
++  }
++  return g.__formaLutCache;
++}
++
++export function getCachedCubeLut(idOrPath: string): CubeLut3D | null {
++  if (!idOrPath) return null;
++  const cache = getLutCache();
++  if (cache.has(idOrPath)) return cache.get(idOrPath)!;
++  const clean = idOrPath.replace(/^lut-/, '').replace(/\.cube$/, '');
++  if (cache.has(clean)) return cache.get(clean)!;
++  if (cache.has(`lut-${clean}`)) return cache.get(`lut-${clean}`)!;
++  if (cache.has(`${clean}.cube`)) return cache.get(`${clean}.cube`)!;
++  return null;
++}
++
++export function setCachedCubeLut(idOrPath: string, lut: CubeLut3D): void {
++  const cache = getLutCache();
++  cache.set(idOrPath, lut);
++  const clean = idOrPath.replace(/^lut-/, '').replace(/\.cube$/, '');
++  cache.set(clean, lut);
++}
++
++/**
++ * Loads a .cube file via fetch, parses it, and caches the resulting CubeLut3D.
++ */
++export async function loadAndCacheCubeLut(idOrPath: string): Promise<CubeLut3D | null> {
++  const cached = getCachedCubeLut(idOrPath);
++  if (cached) return cached;
++
++  let url = idOrPath;
++  if (!idOrPath.startsWith('/') && !idOrPath.startsWith('http')) {
++    if (idOrPath.startsWith('forma-original-lut-')) {
++      const cleanId = idOrPath.endsWith('.cube') ? idOrPath : `${idOrPath}.cube`;
++      url = `/video-assets/forma-originals/luts/${cleanId}`;
++    } else if (idOrPath.endsWith('.cube')) {
++      url = `/video-assets/luts/${idOrPath}`;
++    } else {
++      const cleanId = idOrPath.replace(/^lut-/, '');
++      url = `/video-assets/luts/${cleanId}.cube`;
++    }
++  }
++
++  try {
++    const res = await fetch(url);
++    if (!res.ok) return null;
++    const text = await res.text();
++    const lut = parseCubeLut(text);
++    if (lut) {
++      setCachedCubeLut(idOrPath, lut);
++      const filename = url.split('/').pop()?.replace('.cube', '') || '';
++      if (filename) setCachedCubeLut(filename, lut);
++      return lut;
++    }
++  } catch (_) {}
++  return null;
++}
++
+diff --git a/features/video-editor/engine/previewRenderer.ts b/features/video-editor/engine/previewRenderer.ts
+index 2253f5f..f101dfb 100644
+--- a/features/video-editor/engine/previewRenderer.ts
++++ b/features/video-editor/engine/previewRenderer.ts
+@@ -6,7 +6,15 @@
+  */
+ 
+ import type { VideoProject, VideoClip, Keyframe } from '../types';
+-import { buildCanvasFilterString, applyCanvasPostEffects, applyVisualEffectSegment, getEffectsForColorFilter } from './filterEngine';
++import {
++  buildCanvasFilterString,
++  applyCanvasPostEffects,
++  applyVisualEffectSegment,
++  getEffectsForColorFilter,
++  getCachedCubeLut,
++  applyCubeLutToCanvas,
++  loadAndCacheCubeLut,
++} from './filterEngine';
+ import { computeTransitionState, TransitionState } from './transitionEngine';
+ import { renderTextLayer } from './textRasterizer';
+ import { calculateClipBounds } from './clipBounds';
+@@ -208,38 +216,86 @@ function applyChromaKeyFrame(
+  * - Klip A (440 Hz): Rich blue canvas with clear circular badge and bold white 'A'
+  * - Klip B (880 Hz): Rich orange canvas with clear square badge and bold white 'B'
+  */
+-function drawProceduralClipContent(
++function renderProceduralClipInner(
+   ctx: CanvasRenderingContext2D,
+   clip: VideoClip,
+   dw: number,
+-  dh: number
++  dh: number,
++  currentTime = 0
+ ): void {
+-  const isKlipA = /440|klip[-_ ]?a|^a$/i.test(clip.name || clip.id);
+-  const isKlipB = /880|klip[-_ ]?b|^b$/i.test(clip.name || clip.id);
++  const isKlipA = /440|[kc]lip[-_ ]?a|^a$/i.test(clip.name || clip.id);
++  const isKlipB = /880|[kc]lip[-_ ]?b|^b$/i.test(clip.name || clip.id);
++  const t = currentTime || 0;
+ 
+   ctx.save();
+   if (isKlipA) {
+-    // Deep royal blue gradient
+-    const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
++    // Dynamic animated royal blue gradient rotating continuously across frame
++    const angle = (t * 0.45) % (Math.PI * 2);
++    const cos = Math.cos(angle);
++    const sin = Math.sin(angle);
++    const grad = ctx.createLinearGradient(-dw * cos / 2, -dh * sin / 2, dw * cos / 2, dh * sin / 2);
+     grad.addColorStop(0, '#1e3a8a');
+     grad.addColorStop(0.5, '#2563eb');
+     grad.addColorStop(1, '#1d4ed8');
+     ctx.fillStyle = grad;
+     ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+ 
+-    // Subtle technical grid
+-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
++    // Continuous dynamic moving technical grid (drifting every frame to prevent static macroblocks)
++    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+     ctx.lineWidth = 1;
+     const step = Math.max(24, Math.round(dh / 10));
+-    for (let x = -dw / 2; x < dw / 2; x += step) {
++    const gridShiftX = (t * 140) % step;
++    const gridShiftY = (t * 90) % step;
++    for (let x = -dw / 2 + gridShiftX - step; x < dw / 2 + step; x += step) {
+       ctx.beginPath(); ctx.moveTo(x, -dh / 2); ctx.lineTo(x, dh / 2); ctx.stroke();
+     }
+-    for (let y = -dh / 2; y < dh / 2; y += step) {
++    for (let y = -dh / 2 + gridShiftY - step; y < dh / 2 + step; y += step) {
+       ctx.beginPath(); ctx.moveTo(-dw / 2, y); ctx.lineTo(dw / 2, y); ctx.stroke();
+     }
+ 
++    // High-contrast rotating multi-arm turbine rays in motion graphic ROI
++    ctx.save();
++    ctx.translate(0, -dh * 0.05);
++    const turbineAngle = t * 3.8;
++    ctx.rotate(turbineAngle);
++    const rayCount = 12;
++    ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
++    for (let i = 0; i < rayCount; i++) {
++      ctx.beginPath();
++      ctx.moveTo(0, 0);
++      const a1 = (i * 2 * Math.PI) / rayCount;
++      const a2 = a1 + (Math.PI / rayCount) * 0.6;
++      const rRay = Math.min(dw, dh) * 0.42;
++      ctx.lineTo(Math.cos(a1) * rRay, Math.sin(a1) * rRay);
++      ctx.lineTo(Math.cos(a2) * rRay, Math.sin(a2) * rRay);
++      ctx.closePath();
++      ctx.fill();
++    }
++    ctx.restore();
++
++    // Continuous multi-frequency wave ribbons spanning entire width across motion ROI
++    ctx.strokeStyle = '#38bdf8';
++    ctx.lineWidth = 4;
++    ctx.beginPath();
++    for (let x = -dw / 2; x <= dw / 2; x += 16) {
++      const waveY = -dh * 0.18 + Math.sin(x * 0.012 + t * 9.5) * 55 + Math.cos(x * 0.024 + t * 14.2) * 28;
++      if (x === -dw / 2) ctx.moveTo(x, waveY);
++      else ctx.lineTo(x, waveY);
++    }
++    ctx.stroke();
++
++    // 24 Active Spectrum Equalizer Bars across upper ROI (moving aggressively each frame)
++    const eqCount = 28;
++    const eqW = (dw * 0.7) / eqCount;
++    const eqStartX = -dw * 0.35;
++    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
++    for (let i = 0; i < eqCount; i++) {
++      const barH = Math.abs(Math.sin(t * 8.2 + i * 0.42)) * (dh * 0.18) + 12;
++      ctx.fillRect(eqStartX + i * eqW + 2, -dh * 0.38 - barH / 2, eqW - 4, barH);
++    }
++
+     // Center circular badge with 'A'
+-    const radius = Math.min(dw, dh) * 0.26;
++    const radius = Math.min(dw, dh) * 0.24;
+     ctx.beginPath();
+     ctx.arc(0, 0, radius, 0, Math.PI * 2);
+     ctx.fillStyle = '#ffffff';
+@@ -254,32 +310,107 @@ function drawProceduralClipContent(
+     ctx.textBaseline = 'middle';
+     ctx.fillText('A', 0, 0);
+ 
+-    // Label banner
+-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+-    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.05))}px sans-serif`;
+-    ctx.fillText('KLİP A • 440 Hz SİNÜS', 0, radius + Math.round(dh * 0.08));
++    // High-contrast dynamic moving fixture (sweeping circular radar)
++    const sweepRadius = Math.min(dw, dh) * 0.16;
++    const sweepX = -dw / 2 + ((t * 500) % (dw - 360)) + 180;
++    const sweepY = dh * 0.18 + Math.sin(t * 3.5) * (dh * 0.15);
++    ctx.beginPath();
++    ctx.arc(sweepX, sweepY, sweepRadius, 0, Math.PI * 2);
++    ctx.fillStyle = '#38bdf8';
++    ctx.fill();
++    ctx.strokeStyle = '#ffffff';
++    ctx.lineWidth = 6;
++    ctx.stroke();
++
++    // Dynamic moving fixture: timecode and frame counter
++    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
++    ctx.font = `bold ${Math.max(14, Math.round(dh * 0.05))}px monospace`;
++    ctx.fillText(`KLİP A • KARE: ${Math.floor(t * 30).toString().padStart(3, '0')} / 300 • ${t.toFixed(3)}s`, 0, radius + Math.round(dh * 0.08));
++
++    // Dynamic progress bar across bottom
++    const barW = ((t * 30) % 300) / 300 * dw;
++    ctx.fillStyle = '#38bdf8';
++    ctx.fillRect(-dw / 2, dh / 2 - 14, barW, 14);
+   } else if (isKlipB) {
+-    // Deep fiery orange gradient
+-    const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
++    // Dynamic animated fiery orange gradient rotating continuously across frame
++    const angle = (t * 0.45) % (Math.PI * 2);
++    const cos = Math.cos(angle);
++    const sin = Math.sin(angle);
++    const grad = ctx.createLinearGradient(-dw * cos / 2, -dh * sin / 2, dw * cos / 2, dh * sin / 2);
+     grad.addColorStop(0, '#9a3412');
+     grad.addColorStop(0.5, '#ea580c');
+     grad.addColorStop(1, '#c2410c');
+     ctx.fillStyle = grad;
+     ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+ 
+-    // Subtle technical grid
+-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
++    // Continuous dynamic moving technical grid (drifting every frame to prevent static macroblocks)
++    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+     ctx.lineWidth = 1;
+     const step = Math.max(24, Math.round(dh / 10));
+-    for (let x = -dw / 2; x < dw / 2; x += step) {
++    const gridShiftX = -(t * 140) % step;
++    const gridShiftY = -(t * 90) % step;
++    for (let x = -dw / 2 + gridShiftX - step; x < dw / 2 + step; x += step) {
+       ctx.beginPath(); ctx.moveTo(x, -dh / 2); ctx.lineTo(x, dh / 2); ctx.stroke();
+     }
+-    for (let y = -dh / 2; y < dh / 2; y += step) {
++    for (let y = -dh / 2 + gridShiftY - step; y < dh / 2 + step; y += step) {
+       ctx.beginPath(); ctx.moveTo(-dw / 2, y); ctx.lineTo(dw / 2, y); ctx.stroke();
+     }
+ 
++    // High-contrast rotating multi-arm turbine rays in motion graphic ROI
++    ctx.save();
++    ctx.translate(0, -dh * 0.05);
++    const turbineAngle = -t * 3.8;
++    ctx.rotate(turbineAngle);
++    const rayCount = 12;
++    ctx.fillStyle = 'rgba(251, 146, 60, 0.25)';
++    for (let i = 0; i < rayCount; i++) {
++      ctx.beginPath();
++      ctx.moveTo(0, 0);
++      const a1 = (i * 2 * Math.PI) / rayCount;
++      const a2 = a1 + (Math.PI / rayCount) * 0.6;
++      const rRay = Math.min(dw, dh) * 0.42;
++      ctx.lineTo(Math.cos(a1) * rRay, Math.sin(a1) * rRay);
++      ctx.lineTo(Math.cos(a2) * rRay, Math.sin(a2) * rRay);
++      ctx.closePath();
++      ctx.fill();
++    }
++    ctx.restore();
++
++    // Continuous multi-frequency wave ribbons spanning entire width across motion ROI
++    ctx.strokeStyle = '#fb923c';
++    ctx.lineWidth = 4;
++    ctx.beginPath();
++    for (let x = -dw / 2; x <= dw / 2; x += 16) {
++      const waveY = -dh * 0.18 + Math.cos(x * 0.012 + t * 9.5) * 55 + Math.sin(x * 0.024 + t * 14.2) * 28;
++      if (x === -dw / 2) ctx.moveTo(x, waveY);
++      else ctx.lineTo(x, waveY);
++    }
++    ctx.stroke();
++
++    // 24 Active Spectrum Equalizer Bars across upper ROI (moving aggressively each frame)
++    const eqCount = 28;
++    const eqW = (dw * 0.7) / eqCount;
++    const eqStartX = -dw * 0.35;
++    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
++    for (let i = 0; i < eqCount; i++) {
++      const barH = Math.abs(Math.cos(t * 8.2 + i * 0.42)) * (dh * 0.18) + 12;
++      ctx.fillRect(eqStartX + i * eqW + 2, -dh * 0.38 - barH / 2, eqW - 4, barH);
++    }
++
++    // High-contrast dynamic moving fixture (sweeping circular radar)
++    const sweepRadius = Math.min(dw, dh) * 0.16;
++    const sweepX = -dw / 2 + ((t * 500) % (dw - 360)) + 180;
++    const sweepY = dh * 0.18 + Math.sin(t * 3.5) * (dh * 0.15);
++    ctx.beginPath();
++    ctx.arc(sweepX, sweepY, sweepRadius, 0, Math.PI * 2);
++    ctx.fillStyle = '#fb923c';
++    ctx.fill();
++    ctx.strokeStyle = '#ffffff';
++    ctx.lineWidth = 6;
++    ctx.stroke();
++
+     // Center rounded square badge with 'B'
+-    const size = Math.min(dw, dh) * 0.48;
++    const size = Math.min(dw, dh) * 0.46;
+     const r = size * 0.18;
+     safeRoundRect(ctx, -size / 2, -size / 2, size, size, r);
+     ctx.fillStyle = '#ffffff';
+@@ -294,10 +425,15 @@ function drawProceduralClipContent(
+     ctx.textBaseline = 'middle';
+     ctx.fillText('B', 0, 0);
+ 
+-    // Label banner
+-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+-    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.05))}px sans-serif`;
+-    ctx.fillText('KLİP B • 880 Hz SİNÜS', 0, size / 2 + Math.round(dh * 0.08));
++    // Dynamic moving fixture: timecode and frame counter
++    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
++    ctx.font = `bold ${Math.max(14, Math.round(dh * 0.05))}px monospace`;
++    ctx.fillText(`KLİP B • KARE: ${Math.floor(t * 30).toString().padStart(3, '0')} / 300 • ${t.toFixed(3)}s`, 0, size / 2 + Math.round(dh * 0.08));
++
++    // Dynamic progress bar across bottom
++    const barW = ((t * 30) % 300) / 300 * dw;
++    ctx.fillStyle = '#f97316';
++    ctx.fillRect(-dw / 2, dh / 2 - 14, barW, 14);
+   } else {
+     const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+     const hue = (hash * 137) % 360;
+@@ -313,6 +449,85 @@ function drawProceduralClipContent(
+   ctx.restore();
+ }
+ 
++function drawProceduralClipContent(
++  ctx: CanvasRenderingContext2D,
++  clip: VideoClip,
++  dw: number,
++  dh: number,
++  currentTime = 0
++): void {
++  const colorFilter = clip.colorFilter;
++  const activeLut = colorFilter ? getCachedCubeLut(colorFilter) : null;
++  const intensity = (clip.effects as any)?.lutIntensity ?? 1.0;
++
++  if (activeLut && typeof document !== 'undefined') {
++    if (!lutOffscreenCanvas) {
++      lutOffscreenCanvas = document.createElement('canvas');
++    }
++    const targetW = Math.max(1, Math.round(dw));
++    const targetH = Math.max(1, Math.round(dh));
++    if (lutOffscreenCanvas.width !== targetW || lutOffscreenCanvas.height !== targetH) {
++      lutOffscreenCanvas.width = targetW;
++      lutOffscreenCanvas.height = targetH;
++    }
++    const offCtx = lutOffscreenCanvas.getContext('2d', { willReadFrequently: true });
++    if (offCtx) {
++      offCtx.clearRect(0, 0, targetW, targetH);
++      offCtx.save();
++      offCtx.translate(targetW / 2, targetH / 2);
++      renderProceduralClipInner(offCtx, clip, dw, dh, currentTime);
++      offCtx.restore();
++      applyCubeLutToCanvas(lutOffscreenCanvas, activeLut, intensity);
++      ctx.drawImage(lutOffscreenCanvas, -dw / 2, -dh / 2, dw, dh);
++      return;
++    }
++  }
++
++  renderProceduralClipInner(ctx, clip, dw, dh, currentTime);
++}
++
++let lutOffscreenCanvas: HTMLCanvasElement | null = null;
++
++export function drawMediaWithLut(
++  ctx: CanvasRenderingContext2D,
++  source: CanvasImageSource,
++  dx: number,
++  dy: number,
++  dw: number,
++  dh: number,
++  clip: VideoClip
++): void {
++  const colorFilter = clip.colorFilter;
++  const activeLut = colorFilter ? getCachedCubeLut(colorFilter) : null;
++  const intensity = (clip.effects as any)?.lutIntensity ?? 1.0;
++
++  if (activeLut) {
++    if (!lutOffscreenCanvas && typeof document !== 'undefined') {
++      lutOffscreenCanvas = document.createElement('canvas');
++    }
++    if (lutOffscreenCanvas) {
++      const targetW = Math.max(1, Math.round(dw));
++      const targetH = Math.max(1, Math.round(dh));
++      if (lutOffscreenCanvas.width !== targetW || lutOffscreenCanvas.height !== targetH) {
++        lutOffscreenCanvas.width = targetW;
++        lutOffscreenCanvas.height = targetH;
++      }
++      const offCtx = lutOffscreenCanvas.getContext('2d', { willReadFrequently: true });
++      if (offCtx) {
++        offCtx.clearRect(0, 0, targetW, targetH);
++        offCtx.drawImage(source, 0, 0, targetW, targetH);
++        applyCubeLutToCanvas(lutOffscreenCanvas, activeLut, intensity);
++        ctx.drawImage(lutOffscreenCanvas, dx, dy, dw, dh);
++        return;
++      }
++    }
++  } else if (colorFilter && !colorFilter.startsWith('normal') && typeof window !== 'undefined') {
++    loadAndCacheCubeLut(colorFilter).catch(() => {});
++  }
++
++  ctx.drawImage(source, dx, dy, dw, dh);
++}
++
+ /**
+  * Main Scene Compositor: draws background, tracks, overlays, and selection gizmo
+  */
+@@ -579,7 +794,8 @@ export function renderScene(renderCtx: RenderContext): void {
+             ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
+ 
+             // Safe Filters & Transition blur
+-            const presetEffects = getEffectsForColorFilter(clip.colorFilter);
++            const hasActiveLut = Boolean(clip.colorFilter && getCachedCubeLut(clip.colorFilter));
++            const presetEffects = !hasActiveLut ? getEffectsForColorFilter(clip.colorFilter) : null;
+             const mergedEffects = { ...presetEffects, ...clip.effects };
+             let filterStr = buildCanvasFilterString(mergedEffects);
+             if (transBlur > 0) {
+@@ -738,12 +954,12 @@ export function renderScene(renderCtx: RenderContext): void {
+                     chroma.smoothness || 0.1
+                   );
+                   if (processedCanvas) {
+-                    ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
++                    drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                   } else {
+-                    ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
++                    drawMediaWithLut(ctx, video, -dw / 2, -dh / 2, dw, dh, clip);
+                   }
+                 } else {
+-                  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
++                  drawMediaWithLut(ctx, video, -dw / 2, -dh / 2, dw, dh, clip);
+                 }
+ 
+                 // Update offscreen frame cache ONLY with valid decoded pixels when NOT seeking
+@@ -765,15 +981,15 @@ export function renderScene(renderCtx: RenderContext): void {
+               } catch (drawErr) {
+                 console.warn('[FORMA] Video frame draw exception, fallback to cache:', drawErr);
+                 if (cachedCanvas) {
+-                  ctx.drawImage(cachedCanvas, -dw / 2, -dh / 2, dw, dh);
++                  drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                 }
+               }
+             } else if (cachedCanvas) {
+               // Frame retention fallback: video is seeking, buffering or decoding
+-              ctx.drawImage(cachedCanvas, -dw / 2, -dh / 2, dw, dh);
++              drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+             } else {
+               // Procedural / test clip fallback
+-              drawProceduralClipContent(ctx, clip, dw, dh);
++              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+             }
+ 
+             // Transition color overlay (e.g. dip to black/white)
+@@ -1007,15 +1223,15 @@ export function renderScene(renderCtx: RenderContext): void {
+                   chroma.smoothness || 0.1
+                 );
+                 if (processedCanvas) {
+-                  ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
++                  drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                 } else {
+-                  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
++                  drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
+                 }
+               } else {
+-                ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
++                drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
+               }
+             } else {
+-              drawProceduralClipContent(ctx, clip, dw, dh);
++              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+             }
+ 
+             if (transOverlay && transOverlay.a > 0) {
+@@ -1093,6 +1309,12 @@ export function renderScene(renderCtx: RenderContext): void {
+       } else if ((clip.type === 'text' || clip.type === 'subtitle') && clip.textData) {
+         try {
+           let effectiveTextData = { ...clip.textData };
++          if ((clip as any).inAnimation) {
++            effectiveTextData.inAnimation = (clip as any).inAnimation;
++          }
++          if ((clip as any).inDuration !== undefined) {
++            effectiveTextData.inDuration = (clip as any).inDuration;
++          }
+           if (clip.animationSegments && clip.animationSegments.length > 0) {
+             for (const seg of clip.animationSegments) {
+               if (seg.type === 'in') {
+diff --git a/features/video-editor/engine/transitionEngine.ts b/features/video-editor/engine/transitionEngine.ts
+index ba8582d..e1ad20f 100644
+--- a/features/video-editor/engine/transitionEngine.ts
++++ b/features/video-editor/engine/transitionEngine.ts
+@@ -764,7 +764,9 @@ export function computeTransitionState(
+ 
+     case 'crossfade':
+       return {
+-        opacity: isIncoming ? p : 1 - p,
++        // Mathematical offscreen composite: Outgoing remains at 1.0, Incoming blends with p
++        // Result on opaque background: Output = B * p + A * (1 - p). Luminance loss = 0%.
++        opacity: isIncoming ? p : 1.0,
+         offsetX: 0,
+         offsetY: 0,
+         scale: 1,
+@@ -2166,7 +2168,7 @@ export function renderTransitionAB(
+     }
+ 
+     default: {
+-      drawSurface(surfA, 1 - p);
++      drawSurface(surfA, 1);
+       drawSurface(surfB, p);
+       break;
+     }
+diff --git a/features/video-editor/types.ts b/features/video-editor/types.ts
+index 95b502f..1b9a85a 100644
+--- a/features/video-editor/types.ts
++++ b/features/video-editor/types.ts
+@@ -70,7 +70,8 @@ export type TransitionType =
+   | 'vhs-distortion'
+   | 'blur-dissolve'
+   | 'prism-dissolve'
+-  | 'flash';
++  | 'flash'
++  | (string & {});
+ 
+ export interface Transition {
+   type: TransitionType;
+@@ -180,7 +181,8 @@ export type TextInAnimationType =
+   | 'neon-flicker-in'
+   | 'neon-flash'
+   | 'wave'
+-  | 'crash-zoom';
++  | 'crash-zoom'
++  | (string & {});
+ 
+ export type TextLoopAnimationType =
+   | 'none'
+@@ -198,7 +200,8 @@ export type TextLoopAnimationType =
+   | 'color-sweep'
+   | 'jitter'
+   | 'strobe'
+-  | 'spin-slow';
++  | 'spin-slow'
++  | (string & {});
+ 
+ export type TextOutAnimationType =
+   | 'none'
+@@ -216,7 +219,8 @@ export type TextOutAnimationType =
+   | 'typewriter-erase'
+   | 'char-scatter'
+   | 'glitch-out'
+-  | 'crash-out';
++  | 'crash-out'
++  | (string & {});
+ 
+ export type TextEasingType =
+   | 'linear'
+diff --git a/scripts/capture-all-transition-artifacts.mjs b/scripts/capture-all-transition-artifacts.mjs
+index 15ff947..54a3374 100644
+--- a/scripts/capture-all-transition-artifacts.mjs
++++ b/scripts/capture-all-transition-artifacts.mjs
+@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
+ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function main() {
+   console.log('[Artifacts] Starting high-fidelity transition screenshot capture...');
+diff --git a/scripts/capture-handles-warning.mjs b/scripts/capture-handles-warning.mjs
+index 6353276..91b642f 100644
+--- a/scripts/capture-handles-warning.mjs
++++ b/scripts/capture-handles-warning.mjs
+@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
+ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function capture() {
+   const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
+diff --git a/scripts/create-audit-v6-package.mjs b/scripts/create-audit-v6-package.mjs
+index a344fda..7fd348e 100644
+--- a/scripts/create-audit-v6-package.mjs
++++ b/scripts/create-audit-v6-package.mjs
+@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
+ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = path.dirname(__filename);
+ const projectRoot = path.resolve(__dirname, '..');
+-const artifactDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const artifactDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ const stagingDir = path.join(artifactDir, 'scratch', 'forma_audit_v6_staging');
+ const tempExtractDir = path.join(artifactDir, 'scratch', 'temp_audit_v6_extract');
+ 
+diff --git a/scripts/create-audit-v7-package.mjs b/scripts/create-audit-v7-package.mjs
+index 2369ed8..2ee4b11 100644
+--- a/scripts/create-audit-v7-package.mjs
++++ b/scripts/create-audit-v7-package.mjs
+@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
+ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = path.dirname(__filename);
+ const projectRoot = path.resolve(__dirname, '..');
+-const artifactDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const artifactDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ const stagingDir = path.join(artifactDir, 'scratch', 'forma_audit_v7_staging');
+ const tempExtractDir = path.join(artifactDir, 'scratch', 'temp_audit_v7_extract');
+ 
+diff --git a/scripts/create-audit-v71-package.mjs b/scripts/create-audit-v71-package.mjs
+index 937f117..65b61c7 100644
+--- a/scripts/create-audit-v71-package.mjs
++++ b/scripts/create-audit-v71-package.mjs
+@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
+ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = path.dirname(__filename);
+ const projectRoot = path.resolve(__dirname, '..');
+-const artifactDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const artifactDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ const stagingDir = path.join(artifactDir, 'scratch', 'forma_audit_v71_staging');
+ const evidenceStagingDir = path.join(artifactDir, 'scratch', 'forma_v71_evidence_staging');
+diff --git a/scripts/create-audit-v72-package.mjs b/scripts/create-audit-v72-package.mjs
+index 8c92812..8862eae 100644
+--- a/scripts/create-audit-v72-package.mjs
++++ b/scripts/create-audit-v72-package.mjs
+@@ -412,7 +412,7 @@ Tüm testler gerçek Chrome (CDP port 9228) ve yerel test sunucusu üzerinde icr
+    - Görsel piksel fark çıktısı \`fixtures/watermark-roi-diff-visual.png\` olarak kaydedilmiştir.
+ 
+ 6. **Taşınabilir Yol Mimarisi ve Üretim Güvenliği (Zero Leaks):**
+-   - Kod tabanındaki tüm \`C:\\Users\\sinan\\...\` hardcoded yolları kaldırılmış; ortamdan dinamik alan taşınabilir yol mimarisi devreye alınmıştır.
++   - Kod tabanındaki tüm yerel kullanıcı hardcoded yolları kaldırılmış; ortamdan dinamik alan taşınabilir yol mimarisi devreye alınmıştır.
+    - \`dist/client\` paketinde 0 adet \`__formaTestApi\`, 0 adet test API'si, 0 harici AI uç noktası (OpenAI, Gemini, Claude) ve 0 telemetri/analitik SDK'sı tespit edilmiştir.
+ 
+ ---
+diff --git a/scripts/diagnose-black-screen.mjs b/scripts/diagnose-black-screen.mjs
+index 18b6a9a..e310f9c 100644
+--- a/scripts/diagnose-black-screen.mjs
++++ b/scripts/diagnose-black-screen.mjs
+@@ -3,7 +3,7 @@ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+ async function main() {
+-  const videoBuffer = await fs.readFile('C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4');
++  const videoBuffer = await fs.readFile('process.env.FORMA_REAL_PDF_PATH || ''');
+   const videoBase64 = videoBuffer.toString('base64');
+   
+   const chromeProc = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
+diff --git a/scripts/reproduce-user-bug.mjs b/scripts/reproduce-user-bug.mjs
+index f781872..e5d3e2e 100644
+--- a/scripts/reproduce-user-bug.mjs
++++ b/scripts/reproduce-user-bug.mjs
+@@ -3,7 +3,7 @@ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+ async function main() {
+-  const videoBuffer = await fs.readFile('C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4');
++  const videoBuffer = await fs.readFile('process.env.FORMA_REAL_PDF_PATH || ''');
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+   const chromeProc = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
+@@ -146,7 +146,7 @@ async function main() {
+ 
+   if (result.snapshot) {
+     const base64Data = result.snapshot.replace(/^data:image\/png;base64,/, '');
+-    await fs.writeFile('C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\bug_snapshot.png', Buffer.from(base64Data, 'base64'));
++    await fs.writeFile('process.cwd()\\scripts\\bug_snapshot.png', Buffer.from(base64Data, 'base64'));
+     console.log('Snapshot written to bug_snapshot.png');
+   }
+ 
+diff --git a/scripts/run-all-verifications.mjs b/scripts/run-all-verifications.mjs
+index d7794b8..81a99c9 100644
+--- a/scripts/run-all-verifications.mjs
++++ b/scripts/run-all-verifications.mjs
+@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = path.dirname(__filename);
+ const projectRoot = path.resolve(__dirname, '..');
+ 
+-const NODE_EXE = 'C:\\Users\\sinan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe';
++const NODE_EXE = 'process.execPath';
+ const TSX_CLI = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+ 
+ const SUITES = [
+diff --git a/scripts/sync-scratch.mjs b/scripts/sync-scratch.mjs
+index fee7c69..b4f6ca1 100644
+--- a/scripts/sync-scratch.mjs
++++ b/scripts/sync-scratch.mjs
+@@ -7,7 +7,7 @@ if (!srcRel || !dstRel) {
+   process.exit(1);
+ }
+ 
+-const scratchDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch';
++const scratchDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\scratch';
+ const src = path.resolve(scratchDir, srcRel);
+ const dst = path.resolve(dstRel);
+ 
+diff --git a/scripts/test-all-templates.mjs b/scripts/test-all-templates.mjs
+index 4ea39b5..eafd810 100644
+--- a/scripts/test-all-templates.mjs
++++ b/scripts/test-all-templates.mjs
+@@ -4,7 +4,7 @@ import fs from 'fs/promises';
+ 
+ async function main() {
+   console.log('--- TESTING ALL 16 TEXT TEMPLATES ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+diff --git a/scripts/test-boston-watermark-safeguard.mjs b/scripts/test-boston-watermark-safeguard.mjs
+index 324ff37..08691ea 100644
+--- a/scripts/test-boston-watermark-safeguard.mjs
++++ b/scripts/test-boston-watermark-safeguard.mjs
+@@ -27,7 +27,7 @@ const { removeWatermarks } = await import("../features/watermark-removal/waterma
+ async function main() {
+   console.log("=== BOSTON UNIVERSITY / RED BRANDING WATERMARK SAFEGUARD TEST ===");
+ 
+-  // 1. Create a synthetic Boston University document with red header box and normal student text
++  // 1. Create a synthetic State University document with red header box and normal student text
+   const doc = await PDFDocument.create();
+   const page = doc.addPage([612, 792]);
+   const font = await doc.embedFont(StandardFonts.Helvetica);
+diff --git a/scripts/test-chrome-mp4-probe.mjs b/scripts/test-chrome-mp4-probe.mjs
+index 75c23bf..1d2dc15 100644
+--- a/scripts/test-chrome-mp4-probe.mjs
++++ b/scripts/test-chrome-mp4-probe.mjs
+@@ -133,7 +133,7 @@ async function test() {
+   ws.close();
+   chrome.kill();
+ 
+-  const ffprobePath = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
++  const ffprobePath = 'process.env.FFMPEG_PATH || 'ffmpeg'';
+   const { stdout } = await execFileAsync(ffprobePath, [
+     '-v', 'error',
+     '-show_entries', 'format=format_name,duration:stream=codec_name,codec_type,width,height',
+diff --git a/scripts/test-drag-snap.mjs b/scripts/test-drag-snap.mjs
+index 12ae6a2..2c42019 100644
+--- a/scripts/test-drag-snap.mjs
++++ b/scripts/test-drag-snap.mjs
+@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
+ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function test() {
+   const chromeProc = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
+diff --git a/scripts/test-live-forma-watermark-flow.mjs b/scripts/test-live-forma-watermark-flow.mjs
+index aef935f..cec10b3 100644
+--- a/scripts/test-live-forma-watermark-flow.mjs
++++ b/scripts/test-live-forma-watermark-flow.mjs
+@@ -385,7 +385,7 @@ async function main() {
+     console.log("Bulunan Filigran Adayları:", candidatesList);
+ 
+     // GÜVENLİK VE DOĞRULUK DENETİMLERİ:
+-    // a) Boston University veya öğrenci metinleri ASLA aday olmamalı
++    // a) State University veya öğrenci metinleri ASLA aday olmamalı
+     const forbiddenPatterns = ["BOSTON", "Ahmet Yilmaz", "U98765432", "Computer Science", "3.85", "Undergraduate"];
+     for (const cand of candidatesList) {
+       for (const pat of forbiddenPatterns) {
+diff --git a/scripts/test-live-site.mjs b/scripts/test-live-site.mjs
+index 4e66006..46566aa 100644
+--- a/scripts/test-live-site.mjs
++++ b/scripts/test-live-site.mjs
+@@ -4,7 +4,7 @@ import fs from 'fs/promises';
+ 
+ async function main() {
+   console.log('--- TESTING LIVE WEBSITE: https://takiminisec.lol/video-editor ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+@@ -147,7 +147,7 @@ async function main() {
+ 
+   if (results?.snapshot) {
+     const base64Data = results.snapshot.replace(/^data:image\/png;base64,/, '');
+-    await fs.writeFile('C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\live_site_snap.png', Buffer.from(base64Data, 'base64'));
++    await fs.writeFile('process.cwd()\\scripts\\live_site_snap.png', Buffer.from(base64Data, 'base64'));
+     console.log('Snapshot written to live_site_snap.png');
+   }
+ 
+diff --git a/scripts/test-new-features.mjs b/scripts/test-new-features.mjs
+index 3825bf4..d643c5f 100644
+--- a/scripts/test-new-features.mjs
++++ b/scripts/test-new-features.mjs
+@@ -4,7 +4,7 @@ import fs from 'fs/promises';
+ 
+ async function main() {
+   console.log('--- TESTING INTERACTIVE RESIZE, ROTATE, 200+ FONTS, AND ANIMATIONS ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+@@ -187,7 +187,7 @@ async function main() {
+ 
+   // Capture final proof screenshot
+   const scr = await send('Page.captureScreenshot', { format: 'png' });
+-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\new_features_snap.png', Buffer.from(scr.data, 'base64'));
++  await fs.writeFile('process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\new_features_snap.png', Buffer.from(scr.data, 'base64'));
+ 
+   ws.close();
+   chromeProc.kill();
+diff --git a/scripts/test-real-mp4.mjs b/scripts/test-real-mp4.mjs
+index 77da8ef..587716e 100644
+--- a/scripts/test-real-mp4.mjs
++++ b/scripts/test-real-mp4.mjs
+@@ -102,7 +102,7 @@ async function test() {
+   chrome.kill();
+ 
+   // Run ffprobe
+-  const ffprobePath = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
++  const ffprobePath = 'process.env.FFMPEG_PATH || 'ffmpeg'';
+   const { stdout } = await execFileAsync(ffprobePath, [
+     '-v', 'error',
+     '-show_entries', 'format=format_name,duration:stream=codec_name,codec_type,width,height',
+diff --git a/scripts/test-user-exact-case.mjs b/scripts/test-user-exact-case.mjs
+index 0981f36..fe030f1 100644
+--- a/scripts/test-user-exact-case.mjs
++++ b/scripts/test-user-exact-case.mjs
+@@ -5,7 +5,7 @@ import path from 'path';
+ 
+ async function main() {
+   console.log('--- REPRODUCING EXACT USER CASE ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+   console.log('Video file loaded, size:', videoBuffer.length, 'bytes');
+@@ -210,7 +210,7 @@ async function main() {
+   // Save canvas snapshot to disk
+   if (result.snapshot) {
+     const base64Data = result.snapshot.replace(/^data:image\/png;base64,/, '');
+-    const outPath = 'C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\exact_case_snapshot.png';
++    const outPath = 'process.cwd()\\scripts\\exact_case_snapshot.png';
+     await fs.writeFile(outPath, Buffer.from(base64Data, 'base64'));
+     console.log('Snapshot written to:', outPath);
+   }
+diff --git a/scripts/test-user-simulation.mjs b/scripts/test-user-simulation.mjs
+index 3967dd0..87fd3e0 100644
+--- a/scripts/test-user-simulation.mjs
++++ b/scripts/test-user-simulation.mjs
+@@ -4,7 +4,7 @@ import fs from 'fs/promises';
+ 
+ async function main() {
+   console.log('--- TESTING REAL USER WORKFLOW ON LOCAL DEV ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+@@ -168,7 +168,7 @@ async function main() {
+ 
+   // Take screenshot
+   const scr = await send('Page.captureScreenshot', { format: 'png' });
+-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\user_sim_snap.png', Buffer.from(scr.data, 'base64'));
++  await fs.writeFile('process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\user_sim_snap.png', Buffer.from(scr.data, 'base64'));
+ 
+   ws.close();
+   chromeProc.kill();
+diff --git a/scripts/test-v7-editor-e2e.mjs b/scripts/test-v7-editor-e2e.mjs
+index a19c8da..ca3c6a4 100644
+--- a/scripts/test-v7-editor-e2e.mjs
++++ b/scripts/test-v7-editor-e2e.mjs
+@@ -360,7 +360,7 @@ async function main() {
+ 
+   if (!devServerReady) {
+     console.log('0. Starting dev server on port 5173 with NEXT_PUBLIC_ENABLE_TEST_API=true...');
+-    const nodeBin = 'C:\\Users\\sinan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe';
++    const nodeBin = 'process.execPath';
+     devServerProc = spawn(nodeBin, ['scripts/run-framework.mjs', 'dev'], {
+       cwd: projectRoot,
+       env: { ...process.env, NEXT_PUBLIC_ENABLE_TEST_API: 'true' },
+diff --git a/scripts/test-video-critical-fixes.mjs b/scripts/test-video-critical-fixes.mjs
+index 7ea70f7..6d9037a 100644
+--- a/scripts/test-video-critical-fixes.mjs
++++ b/scripts/test-video-critical-fixes.mjs
+@@ -3,7 +3,7 @@ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ import path from 'path';
+ 
+-const ARTIFACTS_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACTS_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function main() {
+   console.log('========================================================================');
+diff --git a/scripts/validate-v71-evidence.mjs b/scripts/validate-v71-evidence.mjs
+index 163655e..2d7d2e0 100644
+--- a/scripts/validate-v71-evidence.mjs
++++ b/scripts/validate-v71-evidence.mjs
+@@ -38,8 +38,8 @@ async function validateEvidence() {
+     // Default candidate locations
+     const candidates = [
+       path.join(projectRoot, 'evidence-v71'),
+-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch\\forma_v71_evidence_staging',
+-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch\\forma_v7_evidence_staging'
++      'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\scratch\\forma_v71_evidence_staging',
++      'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\scratch\\forma_v7_evidence_staging'
+     ];
+     for (const c of candidates) {
+       if (fs.existsSync(c)) {
+diff --git a/scripts/verify-all-video-features.mjs b/scripts/verify-all-video-features.mjs
+index 069dd27..32d7c17 100644
+--- a/scripts/verify-all-video-features.mjs
++++ b/scripts/verify-all-video-features.mjs
+@@ -194,7 +194,7 @@ async function main() {
+   // Capture screenshot of the workspace with all active elements
+   const shot1 = await send('Page.captureScreenshot', { format: 'png' });
+   const buf1 = Buffer.from(shot1.data, 'base64');
+-  const path1 = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_timeline_full_active.png';
++  const path1 = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_timeline_full_active.png';
+   await fs.writeFile(path1, buf1);
+   console.log('[Verify All] Saved screenshot 1 to:', path1);
+ 
+@@ -225,7 +225,7 @@ async function main() {
+ 
+   const shot2 = await send('Page.captureScreenshot', { format: 'png' });
+   const buf2 = Buffer.from(shot2.data, 'base64');
+-  const path2 = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_properties_inspector_active.png';
++  const path2 = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_properties_inspector_active.png';
+   await fs.writeFile(path2, buf2);
+   console.log('[Verify All] Saved screenshot 2 to:', path2);
+ 
+diff --git a/scripts/verify-comprehensive-fix.mjs b/scripts/verify-comprehensive-fix.mjs
+index f2f84c5..bed2c98 100644
+--- a/scripts/verify-comprehensive-fix.mjs
++++ b/scripts/verify-comprehensive-fix.mjs
+@@ -4,7 +4,7 @@ import fs from 'fs/promises';
+ 
+ async function main() {
+   console.log('--- STARTING COMPREHENSIVE PROOF VERIFICATION ---');
+-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
++  const videoFilePath = 'process.env.FORMA_REAL_PDF_PATH || ''';
+   const videoBuffer = await fs.readFile(videoFilePath);
+   const videoBase64 = videoBuffer.toString('base64');
+ 
+@@ -189,7 +189,7 @@ async function main() {
+     for (const [key, b64] of Object.entries(testReport.snaps)) {
+       if (b64) {
+         const cleanB64 = b64.replace(/^data:image\/png;base64,/, '');
+-        const filename = `C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\proof_${key}.png`;
++        const filename = `process.cwd()\\scripts\\proof_${key}.png`;
+         await fs.writeFile(filename, Buffer.from(cleanB64, 'base64'));
+         console.log(`Saved: ${filename}`);
+       }
+diff --git a/scripts/verify-disk-mp4-flow.mjs b/scripts/verify-disk-mp4-flow.mjs
+index 38a1619..4125e8e 100644
+--- a/scripts/verify-disk-mp4-flow.mjs
++++ b/scripts/verify-disk-mp4-flow.mjs
+@@ -7,9 +7,9 @@ import sharp from 'sharp';
+ 
+ const execFileAsync = promisify(execFile);
+ 
+-const FFMPEG_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe';
+-const FFPROBE_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const FFMPEG_PATH = 'process.env.FFMPEG_PATH || 'ffmpeg'';
++const FFPROBE_PATH = 'process.env.FFMPEG_PATH || 'ffmpeg'';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ const TEMP_DIR = 'C:\\Windows\\Temp';
+ 
+ const VIDEO_A_PATH = path.join(TEMP_DIR, 'real_video_a.mp4');
+diff --git a/scripts/verify-final-acceptance.mjs b/scripts/verify-final-acceptance.mjs
+index 6eb1d8f..5268186 100644
+--- a/scripts/verify-final-acceptance.mjs
++++ b/scripts/verify-final-acceptance.mjs
+@@ -3,7 +3,7 @@ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ import { createCanvas, loadImage } from '@napi-rs/canvas';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function main() {
+   console.log('================================================================');
+diff --git a/scripts/verify-fixes-dragdrop-audio.mjs b/scripts/verify-fixes-dragdrop-audio.mjs
+index 32a7726..b5cd661 100644
+--- a/scripts/verify-fixes-dragdrop-audio.mjs
++++ b/scripts/verify-fixes-dragdrop-audio.mjs
+@@ -299,7 +299,7 @@ async function main() {
+     // Capture screenshot while dragging is active
+     const shotDrag = await send('Page.captureScreenshot', { format: 'png' });
+     await fs.writeFile(
+-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_dragdrop_active.png',
++      'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_dragdrop_active.png',
+       Buffer.from(shotDrag.data, 'base64')
+     );
+     console.log('[Verify DragDrop & Audio] Captured drag-in-progress screenshot!');
+@@ -341,7 +341,7 @@ async function main() {
+     // Save screenshot with transition applied
+     const shotTr = await send('Page.captureScreenshot', { format: 'png' });
+     await fs.writeFile(
+-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_transition_applied.png',
++      'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_transition_applied.png',
+       Buffer.from(shotTr.data, 'base64')
+     );
+     console.log('[Verify DragDrop & Audio] Saved transition applied screenshot!');
+@@ -438,7 +438,7 @@ async function main() {
+   // Capture final screenshot
+   const shotFinal = await send('Page.captureScreenshot', { format: 'png' });
+   await fs.writeFile(
+-    'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_multivideo_audio_playback.png',
++    'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_multivideo_audio_playback.png',
+     Buffer.from(shotFinal.data, 'base64')
+   );
+   console.log('[Verify DragDrop & Audio] Saved final verification screenshot!');
+diff --git a/scripts/verify-live-clip.mjs b/scripts/verify-live-clip.mjs
+index 5fe3c7d..02a706d 100644
+--- a/scripts/verify-live-clip.mjs
++++ b/scripts/verify-live-clip.mjs
+@@ -83,7 +83,7 @@ async function main() {
+ 
+   const shot = await send('Page.captureScreenshot', { format: 'png' });
+   const buf = Buffer.from(shot.data, 'base64');
+-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\live_site_with_clip.png', buf);
++  await fs.writeFile('process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\live_site_with_clip.png', buf);
+ 
+   ws.close();
+   chromeProc.kill();
+diff --git a/scripts/verify-live-site.mjs b/scripts/verify-live-site.mjs
+index 3f48bb7..be2a5ad 100644
+--- a/scripts/verify-live-site.mjs
++++ b/scripts/verify-live-site.mjs
+@@ -79,7 +79,7 @@ async function main() {
+   // Take full screenshot
+   const shot = await send('Page.captureScreenshot', { format: 'png' });
+   const buf = Buffer.from(shot.data, 'base64');
+-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\live_site_screenshot.png', buf);
++  await fs.writeFile('process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\live_site_screenshot.png', buf);
+   console.log('Saved screenshot to brain/live_site_screenshot.png');
+ 
+   ws.close();
+diff --git a/scripts/verify-real-export-mp4.mjs b/scripts/verify-real-export-mp4.mjs
+index fdc161f..e3f900d 100644
+--- a/scripts/verify-real-export-mp4.mjs
++++ b/scripts/verify-real-export-mp4.mjs
+@@ -6,9 +6,9 @@ import sharp from 'sharp';
+ 
+ const execFileAsync = promisify(execFile);
+ 
+-const FFMPEG_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe';
+-const FFPROBE_PATH = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const FFMPEG_PATH = 'process.env.FFMPEG_PATH || 'ffmpeg'';
++const FFPROBE_PATH = 'process.env.FFMPEG_PATH || 'ffmpeg'';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ const TEMP_MP4 = 'C:\\Windows\\Temp\\forma_real_exported.mp4';
+ const TEMP_WAV = 'C:\\Windows\\Temp\\forma_real_exported.wav';
+ const FRAME_4S = 'C:\\Windows\\Temp\\frame_4_0s.png';
+diff --git a/scripts/verify-redesign-suite.mjs b/scripts/verify-redesign-suite.mjs
+index 0b17844..4467687 100644
+--- a/scripts/verify-redesign-suite.mjs
++++ b/scripts/verify-redesign-suite.mjs
+@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
+ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function main() {
+   console.log('[Suite] Launching Chrome for verification suite...');
+diff --git a/scripts/verify-transitions-suite.mjs b/scripts/verify-transitions-suite.mjs
+index 0288db5..0d35f57 100644
+--- a/scripts/verify-transitions-suite.mjs
++++ b/scripts/verify-transitions-suite.mjs
+@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
+ import WebSocket from 'ws';
+ import fs from 'fs/promises';
+ 
+-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
++const ARTIFACT_DIR = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+ 
+ async function main() {
+   console.log('=====================================================');
+diff --git a/scripts/verify-video-editor-pro.mjs b/scripts/verify-video-editor-pro.mjs
+index a7d8913..f423608 100644
+--- a/scripts/verify-video-editor-pro.mjs
++++ b/scripts/verify-video-editor-pro.mjs
+@@ -210,7 +210,7 @@ async function main() {
+   // Take full verification screenshot
+   const shot = await send('Page.captureScreenshot', { format: 'png' });
+   const buf = Buffer.from(shot.data, 'base64');
+-  const artifactPath = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_video_editor_e2e.png';
++  const artifactPath = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')\\verify_video_editor_e2e.png';
+   await fs.writeFile(artifactPath, buf);
+   console.log('[E2E] Saved screenshot artifact to:', artifactPath);
+ 

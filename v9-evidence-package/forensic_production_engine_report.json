@@ -1,0 +1,106 @@
+{
+  "timestamp": "2026-10-06T10:34:15.044Z",
+  "crossfade": {
+    "points": [
+      {
+        "progressPercent": 0,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 25,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 50,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 75,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 100,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "textFade": {
+    "measurements": [
+      {
+        "timeSec": 9,
+        "avgLuminance": 0,
+        "maxLum": 0
+      },
+      {
+        "timeSec": 9.15,
+        "avgLuminance": 7.134119318181818,
+        "maxLum": 87
+      },
+      {
+        "timeSec": 9.3,
+        "avgLuminance": 12.728480113636364,
+        "maxLum": 155
+      },
+      {
+        "timeSec": 9.5,
+        "avgLuminance": 17.989119318181817,
+        "maxLum": 219
+      }
+    ],
+    "passed": true
+  },
+  "lut": {
+    "cachedSize": 33,
+    "maeAt0": 0,
+    "maeAt100": 20.840455729166667,
+    "diffPixels": 230400,
+    "passed": true
+  },
+  "audio": {
+    "metrics": [
+      {
+        "file": "forma-original-sfx-001.wav",
+        "sampleRate": 48000,
+        "channels": 1,
+        "truePeakDbfs": -5.060926234018712,
+        "rmsDbfs": -14.948764743682972,
+        "dcOffset": 0.000036019717945772056,
+        "clicks": 0,
+        "passed": true
+      },
+      {
+        "file": "forma-original-sfx-011.wav",
+        "sampleRate": 48000,
+        "channels": 1,
+        "truePeakDbfs": -1.895034641018217,
+        "rmsDbfs": -17.52260262738451,
+        "dcOffset": -0.0005450839088076637,
+        "clicks": 0,
+        "passed": true
+      },
+      {
+        "file": "forma-original-music-001.wav",
+        "sampleRate": 48000,
+        "channels": 1,
+        "truePeakDbfs": -4.699252423957768,
+        "rmsDbfs": -14.948765853651498,
+        "dcOffset": -0.00021532701491726818,
+        "clicks": 0,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "allPassed": true
+}

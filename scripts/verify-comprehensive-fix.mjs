@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 
 async function main() {
   console.log('--- STARTING COMPREHENSIVE PROOF VERIFICATION ---');
-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
+  const videoFilePath = process.env.FORMA_REAL_PDF_PATH || '';
   const videoBuffer = await fs.readFile(videoFilePath);
   const videoBase64 = videoBuffer.toString('base64');
 
@@ -189,7 +189,7 @@ async function main() {
     for (const [key, b64] of Object.entries(testReport.snaps)) {
       if (b64) {
         const cleanB64 = b64.replace(/^data:image\/png;base64,/, '');
-        const filename = `C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\proof_${key}.png`;
+        const filename = `process.cwd()\\scripts\\proof_${key}.png`;
         await fs.writeFile(filename, Buffer.from(cleanB64, 'base64'));
         console.log(`Saved: ${filename}`);
       }

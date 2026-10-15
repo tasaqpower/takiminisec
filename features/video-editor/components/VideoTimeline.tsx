@@ -980,7 +980,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     };
   }, [contextMenu, trackMenu]);
 
-  const totalWidth = Math.max(1200, (project.duration + 5) * zoom);
+  // Ensure timeline always fills the visible scroll area (no dead black space on the right)
+  const scrollContainerW = scrollContainerRef.current?.clientWidth ?? 0;
+  const totalWidth = Math.max(scrollContainerW || 1200, (project.duration + 5) * zoom);
 
   // Time ruler ticks
   const renderRulerTicks = () => {
@@ -1139,7 +1141,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#4f6bf5] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Klibi Oynatma Çizgisinden İkiye Böl (S)"
           >
@@ -1159,7 +1161,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Oynatma Çizgisinden Öncesini Kırp ve Boşluğu Kapat (Q)"
           >
@@ -1179,7 +1181,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Oynatma Çizgisinden Sonrasını Kırp ve Boşluğu Kapat (W)"
           >
@@ -1199,12 +1201,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-purple-300 border-purple-500/40 hover:bg-[#202631] hover:text-purple-200'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="AI Konuşma Arasındaki Boşlukları ve Sessizlikleri Otomatik Bulup Kaldırır"
           >
             <Wand2 size={12} className="text-purple-400" />
-            <span className="text-[11px] font-medium">Sessizlikleri Kaldır</span>
+            <span className="text-[11px] font-medium">Sessizlik Sil</span>
           </button>
 
           {/* AI Tekrarları Temizle Button */}
@@ -1220,12 +1222,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
                 activeTargetClip
                   ? 'bg-[#171B21] text-emerald-300 border-emerald-500/40 hover:bg-[#202631] hover:text-emerald-200'
-                  : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                  : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
               }`}
               title="AI Tekrar Eden Cümleleri ve Kekelemeleri Tara & Temizle"
             >
               <Sparkles size={12} className="text-emerald-400" />
-              <span className="text-[11px] font-medium">Tekrarları Temizle</span>
+              <span className="text-[11px] font-medium">Tekrar Sil</span>
             </button>
           )}
 
@@ -1241,12 +1243,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-sky-300 border-sky-500/40 hover:bg-[#202631] hover:text-sky-200'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Mevcut Kareyi 2 Saniyelik Hareketsiz Görsel Olarak Araya Dondurur"
           >
             <Camera size={12} className="text-sky-400" />
-            <span className="text-[11px] font-medium">Kareyi Dondur</span>
+            <span className="text-[11px] font-medium">Dondur</span>
           </button>
 
           {/* Ripple Delete Button */}
@@ -1259,7 +1261,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#f59e0b] border-[#f59e0b]/40 hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Boşluksuz Sil (Shift+Delete)"
           >
@@ -1279,7 +1281,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 ? activeTargetClip.vocalMute
                   ? 'bg-amber-950/80 text-amber-300 border-amber-500/80 shadow-sm'
                   : 'bg-[#171B21] text-amber-400 border-amber-500/40 hover:bg-[#202631] hover:text-amber-300'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Karakter Sustur & Lip-Freeze: Karakterin vokalini kısar, ağzını nötr karede dondurur; arka plan müziği kesintisiz çalar"
           >
@@ -1288,9 +1290,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               <span>
                 {activeTargetClip?.vocalMute
                   ? activeTargetClip?.lipFreeze
-                    ? 'Susturuldu (Lip-Freeze)'
-                    : 'Karakter Susturuldu'
-                  : 'Karakteri Sustur (Vocal + Lip-Freeze)'}
+                    ? 'Lip-Freeze ✓'
+                    : 'Susturuldu'
+                  : 'Lip-Freeze'}
               </span>
               {activeTargetClip?.lipFreeze && <span className="text-[10px]">❄️</span>}
             </span>
@@ -1306,12 +1308,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-red-400 border-red-500/40 hover:bg-[#202631] hover:text-red-300'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Sansür Bip Sesi: Arka plan sesini kapatmadan üzerine 1000 Hz Bip Sesi ekler"
           >
             <VolumeX size={12} className="text-red-400" />
-            <span className="text-[11px] font-medium">Bip Ekle (Arka Plan Kalsın)</span>
+            <span className="text-[11px] font-medium">Sansür Bipi</span>
           </button>
 
           {/* AI Glitch Trim (Son Kare Bozulması) */}
@@ -1328,12 +1330,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? 'bg-[#171B21] text-amber-300 border-amber-500/40 hover:bg-[#202631] hover:text-amber-200'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="AI Son Kare Bozulmalarını Kırp: Klibin sonundaki 0.35s morphing/bozuk kareleri siler"
           >
             <Scissors size={12} className="text-amber-400" />
-            <span className="text-[11px] font-medium">Bozulmaları Kırp (-0.35s)</span>
+            <span className="text-[11px] font-medium">AI Kırp</span>
           </button>
 
           {/* Auto-Ducking Toggle Button */}
@@ -1452,7 +1454,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#f87171] hover:text-[#f87171] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Seçili Klibi Sil (Delete)"
           >
@@ -1469,7 +1471,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Kopyasını Oluştur (Ctrl+D)"
           >
@@ -1486,7 +1488,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Klibi Panoya Kopyala (Ctrl+C)"
           >
@@ -1504,7 +1506,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
               hasClipboard
                 ? 'bg-[#171B21] text-[#38bdf8] border-[#38bdf8]/40 hover:border-[#38bdf8] hover:text-white hover:bg-[#202631]'
-                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
             title="Kopyalanan Klibi Çizgiye Yapıştır (Ctrl+V)"
           >
@@ -1753,7 +1755,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           onScroll={handleTimelineScroll}
           className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#090d13]"
         >
-          <div style={{ width: totalWidth }} className="relative min-h-full">
+          <div style={{ width: totalWidth }} className="relative min-h-full min-w-full">
             {/* 1. Time Ruler Bar */}
             <div
               onClick={(e) => {

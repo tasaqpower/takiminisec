@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-10-06T10:34:15.158Z",
+  "categories": {
+    "transitions": {
+      "total": 80,
+      "accepted": 80,
+      "rejected": 0,
+      "passed": true
+    },
+    "textAnimations": {
+      "total": 120,
+      "accepted": 120,
+      "rejected": 0,
+      "passed": true
+    },
+    "titles": {
+      "total": 80,
+      "accepted": 80,
+      "rejected": 0,
+      "passed": true
+    },
+    "overlays": {
+      "total": 60,
+      "accepted": 60,
+      "rejected": 0,
+      "passed": true
+    },
+    "svgElements": {
+      "total": 60,
+      "accepted": 60,
+      "rejected": 0,
+      "passed": true
+    },
+    "luts": {
+      "total": 50,
+      "accepted": 50,
+      "rejected": 0,
+      "minL2Distance": 0.011959307051532135,
+      "passed": true
+    },
+    "sfx": {
+      "total": 100,
+      "accepted": 100,
+      "rejected": 0,
+      "maxCorrelation": 0.8013386049921122,
+      "passed": true
+    },
+    "musicLoops": {
+      "total": 30,
+      "accepted": 30,
+      "rejected": 0,
+      "maxCorrelation": 0.7163409996866855,
+      "passed": true
+    },
+    "motionBackgrounds": {
+      "total": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "passed": true
+    }
+  },
+  "totalAccepted": 600,
+  "totalRejected": 0,
+  "allCategoriesPassed": true
+}

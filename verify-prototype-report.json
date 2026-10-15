@@ -1,0 +1,129 @@
+{
+  "verifiedAt": "2026-10-06T00:43:52.305Z",
+  "zipPath": "C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\FORMA-CFR-PROTOTYPE-640x360-EVIDENCE.zip",
+  "tempExtractDir": "C:\\Users\\sinan\\AppData\\Local\\Temp\\verify_cfr_proto_1791247431555",
+  "totalChecks": 14,
+  "passedChecks": 14,
+  "allPassed": true,
+  "checks": [
+    {
+      "id": "ZIP_EXTRACT",
+      "description": "Extract evidence ZIP",
+      "passed": true,
+      "details": {
+        "dir": "C:\\Users\\sinan\\AppData\\Local\\Temp\\verify_cfr_proto_1791247431555"
+      }
+    },
+    {
+      "id": "SHA256_INTEGRITY",
+      "description": "All evidence files match SHA-256 checksums",
+      "passed": true,
+      "details": {
+        "totalFilesVerified": 16,
+        "shaFailed": 0
+      }
+    },
+    {
+      "id": "FRAME_COUNT",
+      "description": "Decoded frame count is exactly 300",
+      "passed": true,
+      "details": {
+        "nbReadFrames": 300
+      }
+    },
+    {
+      "id": "R_FRAME_RATE",
+      "description": "Stream r_frame_rate is exactly 30/1",
+      "passed": true,
+      "details": {
+        "r_frame_rate": "30/1"
+      }
+    },
+    {
+      "id": "AVG_FRAME_RATE",
+      "description": "Stream avg_frame_rate is 29.99-30.01 FPS",
+      "passed": true,
+      "details": {
+        "avgFps": 30,
+        "raw": "30/1"
+      }
+    },
+    {
+      "id": "PTS_COUNT",
+      "description": "Total PTS entries equals 300",
+      "passed": true,
+      "details": {
+        "ptsCount": 300
+      }
+    },
+    {
+      "id": "PTS_DELTA_RANGE",
+      "description": "All consecutive PTS deltas are 33.333 ms +- 2 ms",
+      "passed": true,
+      "details": {
+        "minDeltaMs": 33.333,
+        "maxDeltaMs": 33.334
+      }
+    },
+    {
+      "id": "PTS_MAX_GAP",
+      "description": "Maximum PTS gap <= 40 ms",
+      "passed": true,
+      "details": {
+        "maxDeltaMs": 33.334
+      }
+    },
+    {
+      "id": "VFRDET_STRICT_CFR",
+      "description": "vfrdet reports strict CFR (VFR = 0.000000)",
+      "passed": true,
+      "details": {
+        "vfrdet": "0.000000"
+      }
+    },
+    {
+      "id": "FREEZEDETECT_ZERO",
+      "description": "freezedetect finds 0 freezes > 100 ms",
+      "passed": true,
+      "details": {
+        "freezeCount": 0
+      }
+    },
+    {
+      "id": "MPDECIMATE_NO_DROPS",
+      "description": "mpdecimate preserves all 300 visually active frames",
+      "passed": true,
+      "details": {
+        "preservedFrames": 300
+      }
+    },
+    {
+      "id": "AUDIO_PRESENT",
+      "description": "Audio stream is AAC stereo 48000 Hz",
+      "passed": true,
+      "details": {
+        "codec": "aac",
+        "sampleRate": "48000",
+        "channels": 2
+      }
+    },
+    {
+      "id": "AV_SYNC",
+      "description": "Audio/Video duration delta <= 20 ms",
+      "passed": true,
+      "details": {
+        "vDurationSec": 10,
+        "aDurationSec": 10,
+        "syncDiffMs": 0
+      }
+    },
+    {
+      "id": "BLACK_FRAMES_ZERO",
+      "description": "blackdetect finds 0 black frames",
+      "passed": true,
+      "details": {
+        "blackCount": 0
+      }
+    }
+  ]
+}

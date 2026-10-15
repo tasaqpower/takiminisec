@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-06T08:43:02.219Z",
+  "totalAudited": 50,
+  "validCount": 50,
+  "intensity0Pass": 50,
+  "intensity50Pass": 50,
+  "intensity100Pass": 50,
+  "minL2Distance": 0.011959307051532135,
+  "closestPair": "forma-original-lut-046-clean-commercial-studio.cube vs forma-original-lut-047-newsroom-crisp-broadcast.cube",
+  "duplicateLutCount": 0,
+  "previewExportParity": {
+    "testedLuts": 50,
+    "mae": 0,
+    "ssim": 1,
+    "parityPassed": true
+  }
+}

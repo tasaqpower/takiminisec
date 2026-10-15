@@ -1,0 +1,24 @@
+{
+  "id": "title-cinema-minimal",
+  "name": "Sinematik Minimal Başlık",
+  "format": "Forma Başlık Şablonu (JSON / HTML5 Canvas)",
+  "version": "2.0.0",
+  "engine": "Forma Typography & Text Rasterizer",
+  "turkishGlyphSupport": true,
+  "supportedCharacters": ["Ç", "ç", "Ğ", "ğ", "İ", "ı", "Ö", "ö", "Ş", "ş", "Ü", "ü"],
+  "defaultText": "FORMA VİDEO EDİTÖRÜ\nBağımsız Türkçe Tipografi",
+  "fontFamily": "Liberation Sans",
+  "fontSize": 56,
+  "fontWeight": "bold",
+  "fillColor": "#FFFFFF",
+  "shadowColor": "rgba(0,0,0,0.75)",
+  "shadowBlur": 12,
+  "alignment": "center",
+  "durationSeconds": 5.0,
+  "animation": {
+    "type": "fade-slide-up",
+    "inDuration": 0.8,
+    "outDuration": 0.8,
+    "easing": "cubic-bezier(0.16, 1, 0.3, 1)"
+  }
+}

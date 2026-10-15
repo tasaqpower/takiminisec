@@ -1,0 +1,232 @@
+{
+  "timestamp": "2026-10-06T12:01:02.595Z",
+  "genuineAdobeSchemas": {
+    "prfpsetStandard": "PremiereData Version=\"3\" with Tree ObjectID=\"1\" ClassID=\"177f2841-dd5b-43bd-9d9a-79e231bd47dd\"",
+    "mogrtStandard": "ZIP containing project.prgraphic or project.aep + definition.json",
+    "ffxStandard": "RIFF binary header (52 49 46 46 .... 46 46 58 20)"
+  },
+  "tests": {
+    "titleMogrts": [
+      {
+        "file": "forma-original-title-001-cinema-v1.mogrt",
+        "size": 25193,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "hasDefinitionJson": true,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Paket içerisinde derlenmiş project.aep veya project.prgraphic bulunmuyor (pseudo-prproj XML kullanılmış)"
+      },
+      {
+        "file": "forma-original-title-017-edu-v1.mogrt",
+        "size": 24582,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "hasDefinitionJson": true,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Paket içerisinde derlenmiş project.aep veya project.prgraphic bulunmuyor (pseudo-prproj XML kullanılmış)"
+      },
+      {
+        "file": "forma-original-title-033-corp-v1.mogrt",
+        "size": 24629,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "hasDefinitionJson": true,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Paket içerisinde derlenmiş project.aep veya project.prgraphic bulunmuyor (pseudo-prproj XML kullanılmış)"
+      },
+      {
+        "file": "forma-original-title-049-spirit-v1.mogrt",
+        "size": 24848,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "hasDefinitionJson": true,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Paket içerisinde derlenmiş project.aep veya project.prgraphic bulunmuyor (pseudo-prproj XML kullanılmış)"
+      },
+      {
+        "file": "forma-original-title-065-loc-v1.mogrt",
+        "size": 24984,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "hasDefinitionJson": true,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Paket içerisinde derlenmiş project.aep veya project.prgraphic bulunmuyor (pseudo-prproj XML kullanılmış)"
+      }
+    ],
+    "transMogrts": [
+      {
+        "file": "forma-original-transition-001-whip-pan-left.mogrt",
+        "size": 23604,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Derlenmiş project.aep / project.prgraphic eksik (sentetik şablon)"
+      },
+      {
+        "file": "forma-original-transition-017-lens-distortion-pincushion.mogrt",
+        "size": 29288,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Derlenmiş project.aep / project.prgraphic eksik (sentetik şablon)"
+      },
+      {
+        "file": "forma-original-transition-033-liquid-wipe-drip.mogrt",
+        "size": 27285,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Derlenmiş project.aep / project.prgraphic eksik (sentetik şablon)"
+      },
+      {
+        "file": "forma-original-transition-049-cube-3d-rotate-up.mogrt",
+        "size": 29305,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Derlenmiş project.aep / project.prgraphic eksik (sentetik şablon)"
+      },
+      {
+        "file": "forma-original-transition-065-dip-white-flash.mogrt",
+        "size": 27622,
+        "isZip": true,
+        "hasCompiledBinaryProject": false,
+        "verdict": "FAIL_SYNTHETIC_SCHEMA",
+        "reason": "Derlenmiş project.aep / project.prgraphic eksik (sentetik şablon)"
+      }
+    ],
+    "prfpsets": [
+      {
+        "file": "forma-original-transition-001-whip-pan-left.prfpset",
+        "size": 819,
+        "hasGenuineClassId": false,
+        "hasRootBinStructure": false,
+        "verdict": "FAIL_SYNTHETIC_XML",
+        "reason": "Premiere Pro fabrika ağaç şemasıyla uyuşmayan el yapımı sözde XML (Import Presets hatası verir)"
+      },
+      {
+        "file": "forma-original-transition-017-lens-distortion-pincushion.prfpset",
+        "size": 870,
+        "hasGenuineClassId": false,
+        "hasRootBinStructure": false,
+        "verdict": "FAIL_SYNTHETIC_XML",
+        "reason": "Premiere Pro fabrika ağaç şemasıyla uyuşmayan el yapımı sözde XML (Import Presets hatası verir)"
+      },
+      {
+        "file": "forma-original-transition-033-liquid-wipe-drip.prfpset",
+        "size": 849,
+        "hasGenuineClassId": false,
+        "hasRootBinStructure": false,
+        "verdict": "FAIL_SYNTHETIC_XML",
+        "reason": "Premiere Pro fabrika ağaç şemasıyla uyuşmayan el yapımı sözde XML (Import Presets hatası verir)"
+      },
+      {
+        "file": "forma-original-transition-049-cube-3d-rotate-up.prfpset",
+        "size": 852,
+        "hasGenuineClassId": false,
+        "hasRootBinStructure": false,
+        "verdict": "FAIL_SYNTHETIC_XML",
+        "reason": "Premiere Pro fabrika ağaç şemasıyla uyuşmayan el yapımı sözde XML (Import Presets hatası verir)"
+      },
+      {
+        "file": "forma-original-transition-065-dip-white-flash.prfpset",
+        "size": 832,
+        "hasGenuineClassId": false,
+        "hasRootBinStructure": false,
+        "verdict": "FAIL_SYNTHETIC_XML",
+        "reason": "Premiere Pro fabrika ağaç şemasıyla uyuşmayan el yapımı sözde XML (Import Presets hatası verir)"
+      }
+    ],
+    "ffxPresets": [
+      {
+        "file": "None (.ffx binary yok)",
+        "verdict": "FAIL_MISSING_BINARY",
+        "reason": "After Effects .ffx dosyaları derlenmiş ikili RIFF formatıdır. JSX veya metin dosyaları .ffx yapılamaz; native AE üzerinden derlenmelidir."
+      }
+    ],
+    "textJsxAnimations": [
+      {
+        "file": "forma-original-textanim-001-in-fade.jsx",
+        "size": 2487,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "ExtendScript JSX betiği olarak After Effects içerisinde metin katmanına native animatör uygular."
+      },
+      {
+        "file": "forma-original-textanim-025-in-glitch-block.jsx",
+        "size": 2519,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "ExtendScript JSX betiği olarak After Effects içerisinde metin katmanına native animatör uygular."
+      },
+      {
+        "file": "forma-original-textanim-049-in-split-word-merge.jsx",
+        "size": 2535,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "ExtendScript JSX betiği olarak After Effects içerisinde metin katmanına native animatör uygular."
+      },
+      {
+        "file": "forma-original-textanim-073-loop-blur-pulse.jsx",
+        "size": 2521,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "ExtendScript JSX betiği olarak After Effects içerisinde metin katmanına native animatör uygular."
+      },
+      {
+        "file": "forma-original-textanim-097-out-typewriter-erase.jsx",
+        "size": 2540,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "ExtendScript JSX betiği olarak After Effects içerisinde metin katmanına native animatör uygular."
+      }
+    ],
+    "ovlBgJsxGenerators": [
+      {
+        "file": "forma-original-bg-001-gradient-flow_generator.jsx",
+        "size": 339,
+        "extendScriptValid": true,
+        "turkishCharsPresent": false,
+        "verdict": "PASS",
+        "note": "After Effects kompozisyon ve katman oluşturma kodları ExtendScript standardına uygundur."
+      },
+      {
+        "file": "forma-original-bg-011-bioluminescence_generator.jsx",
+        "size": 348,
+        "extendScriptValid": true,
+        "turkishCharsPresent": false,
+        "verdict": "PASS",
+        "note": "After Effects kompozisyon ve katman oluşturma kodları ExtendScript standardına uygundur."
+      },
+      {
+        "file": "forma-original-overlay-001-light-leak-v1_generator.jsx",
+        "size": 490,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "After Effects kompozisyon ve katman oluşturma kodları ExtendScript standardına uygundur."
+      },
+      {
+        "file": "forma-original-overlay-021-smoke-v3_generator.jsx",
+        "size": 480,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "After Effects kompozisyon ve katman oluşturma kodları ExtendScript standardına uygundur."
+      },
+      {
+        "file": "forma-original-overlay-041-anamorphic-streak-v2_generator.jsx",
+        "size": 504,
+        "extendScriptValid": true,
+        "turkishCharsPresent": true,
+        "verdict": "PASS",
+        "note": "After Effects kompozisyon ve katman oluşturma kodları ExtendScript standardına uygundur."
+      }
+    ]
+  }
+}

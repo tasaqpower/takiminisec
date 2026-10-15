@@ -1,0 +1,85 @@
+{
+  "packId": "pack-sfx-essential",
+  "packName": "Temel Ses Efektleri",
+  "category": "Ses Efektleri",
+  "installTimestamp": "2026-10-05T10:23:46.473Z",
+  "requestedCount": 8,
+  "successfulCount": 8,
+  "failedCount": 0,
+  "totalDownloadedBytes": 802972,
+  "indexedDbRecordsCreated": 8,
+  "files": [
+    {
+      "assetId": "sfx-whoosh-standard",
+      "name": "Klasik Whoosh",
+      "sha256": "e51410088635c5a89da81e6dbf7f8e01ca326bc58388797f31a029badce3d547",
+      "fileSizeBytes": 88244,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-whoosh-fast",
+      "name": "Hızlı Whoosh",
+      "sha256": "25eb39343be0ef8f12111ef2587090ec3be1bb09ad8a09633e76a6cfc6e9491e",
+      "fileSizeBytes": 44144,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-cinematic-impact",
+      "name": "Sinematik Darbe",
+      "sha256": "0a6729579543e494a50098f451f2887a0dbd33eb4324f115ec0fe22f98eeb135",
+      "fileSizeBytes": 264644,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-bass-hit",
+      "name": "Derin Bas Vuruşu",
+      "sha256": "3a436ff10587d6059d094eb84e4bb50c45da794017a4c7e284f1837ff7ebfa91",
+      "fileSizeBytes": 176444,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-camera-shutter",
+      "name": "Kamera Deklanşörü",
+      "sha256": "a2ec3f6406e408ec22e039dbbcce4578fe620775d71c48ea92c9fb23d772fe24",
+      "fileSizeBytes": 52964,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-mouse-click",
+      "name": "Fare Tıklaması",
+      "sha256": "264b971c26da5fa4e007823528b6d8595cb6d2269980d268297ea4d01b672728",
+      "fileSizeBytes": 17684,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-keyboard-type",
+      "name": "Klavye Tuşu",
+      "sha256": "a62a93fb58ef4950daea8b1f5fae804fca14e0a6d07d1958b9f8757041fdf490",
+      "fileSizeBytes": 26504,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    },
+    {
+      "assetId": "sfx-bell-chime",
+      "name": "Çan & Bildirim Tınısı",
+      "sha256": "38a7199185e4ea7caeb2d7fa4429eec011d6706e2cf4f7c223c2a6136d4df9a4",
+      "fileSizeBytes": 132344,
+      "storageTarget": "IndexedDB::media_blobs",
+      "status": "verified_installed"
+    }
+  ],
+  "uninstallSimulation": {
+    "uninstalledTimestamp": "2026-10-05T10:23:46.473Z",
+    "deletedBlobsCount": 7,
+    "preservedBlobsCount": 1,
+    "preservedAssetId": "sfx-whoosh-standard",
+    "preservedReason": "Active reference in current project timeline (clip-sfx-001)",
+    "storageBytesFreed": 714728
+  }
+}

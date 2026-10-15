@@ -1,0 +1,89 @@
+Command: node scripts/test-video-suite.mjs
+Exit Code: 0
+
+STDOUT:
+================================================================
+FORMA VİDEO ÇALIŞMA ALANI — KAPSAMLI TEST VE DOĞRULAMA SUITE
+================================================================
+
+[PASS] Dosya Varlığı: features/video-editor/types.ts
+[PASS] Dosya Varlığı: features/video-editor/db.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/clipBounds.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/thumbnailGenerator.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/waveformGenerator.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/transitionEngine.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/filterEngine.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/textRasterizer.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/previewRenderer.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/audioMixer.ts
+[PASS] Dosya Varlığı: features/video-editor/engine/exportEngine.ts
+[PASS] Dosya Varlığı: features/video-editor/hooks/useVideoProject.ts
+[PASS] Dosya Varlığı: features/video-editor/hooks/useVideoPlayback.ts
+[PASS] Dosya Varlığı: features/video-editor/hooks/useShortcuts.ts
+[PASS] Dosya Varlığı: features/video-editor/ai/videoAiDispatcher.ts
+[PASS] Dosya Varlığı: features/video-editor/components/VideoEditorTopbar.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoEditorSidebar.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoPreviewArea.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoPropertiesPanel.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoTimeline.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoExportModal.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoAiModal.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoRecoveryModal.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/ModeSelectionScreen.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoEditorWorkspace.tsx
+[PASS] Dosya Varlığı: features/video-editor/components/VideoShortcutsModal.tsx
+[PASS] Dosya Varlığı: features/video-editor/engine/sfxGenerator.ts
+[PASS] Dosya Varlığı: app/video-editor/page.tsx
+[PASS] Landing / Mode Selection Entegrasyonu (app/page.tsx)
+[PASS] Belge Düzenleyici Regresyon Koruması
+[PASS] Forma AI Türkçe Niyet Çözümleme: "9:16 dikey reels formatı yap"
+[PASS] Forma AI Türkçe Niyet Çözümleme: "Videonun ilk 3 saniyesini kırp"
+[PASS] Forma AI Türkçe Niyet Çözümleme: "Tüm sesi kapat"
+[PASS] Mor Çerçeve Hatası Düzeltildi & calculateClipBounds Entegrasyonu
+[PASS] Transform Gizmosu: Döndürme Pini, Köşe/Kenar Tutamaçları ve Boyut Rozeti
+[PASS] 13 Geçiş Motoru Doğrulama: cut
+[PASS] 13 Geçiş Motoru Doğrulama: crossfade
+[PASS] 13 Geçiş Motoru Doğrulama: fade-black
+[PASS] 13 Geçiş Motoru Doğrulama: fade-white
+[PASS] 13 Geçiş Motoru Doğrulama: slide-left
+[PASS] 13 Geçiş Motoru Doğrulama: slide-right
+[PASS] 13 Geçiş Motoru Doğrulama: slide-up
+[PASS] 13 Geçiş Motoru Doğrulama: slide-down
+[PASS] 13 Geçiş Motoru Doğrulama: zoom-in
+[PASS] 13 Geçiş Motoru Doğrulama: zoom-out
+[PASS] 13 Geçiş Motoru Doğrulama: blur-dissolve
+[PASS] 13 Geçiş Motoru Doğrulama: wipe-left
+[PASS] 13 Geçiş Motoru Doğrulama: wipe-right
+[PASS] Gelişmiş Geçiş Modelleri: Optik Bulanıklık & Perde Silme (Wipe)
+[PASS] 1-Tıkla Metin Stili Şablonu: modern-white
+[PASS] 1-Tıkla Metin Stili Şablonu: cinematic-gold
+[PASS] 1-Tıkla Metin Stili Şablonu: documentary-bw
+[PASS] 1-Tıkla Metin Stili Şablonu: social-highlight
+[PASS] 1-Tıkla Metin Stili Şablonu: tiktok-subtitle
+[PASS] 1-Tıkla Metin Stili Şablonu: minimal-lower-third
+[PASS] 1-Tıkla Metin Stili Şablonu: news-ticker
+[PASS] 1-Tıkla Metin Stili Şablonu: cyber-neon
+[PASS] 1-Tıkla Metin Stili Şablonu: typewriter-mono
+[PASS] 1-Tıkla Metin Stili Şablonu: emerald-gold
+[PASS] Gelişmiş Metin Animasyon Motoru (In, Loop, Out, Easing Curves)
+[PASS] Tuval Üzerinde Çift Tıklamayla Doğrudan Metin Düzenleme (In-Canvas Editing)
+[PASS] Sol Panel 6 Hızlı Metin Şablonu (Heading, Subheading, Body, Callout, Subtitle, Badge)
+[PASS] Zaman Çizelgesinde Tıklanabilir Geçiş Rozetleri & Hızlı Seçici Açılır Penceresi
+[PASS] Metin Motoru & Türkçe Karakter Garantisi (ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü)
+[PASS] Dışa Aktarma Formatı Desteği: MP4
+[PASS] Dışa Aktarma Formatı Desteği: WEBM
+[PASS] Dışa Aktarma Formatı Desteği: GIF
+[PASS] Dışa Aktarma Formatı Desteği: WAV
+[PASS] Dışa Aktarma Formatı Desteği: MP3
+[PASS] Dışa Aktarma Formatı Desteği: PNG
+[PASS] Dışa Aktarma Güvenliği: Seçim Gizmosu ve Tutamaçlar Asla Videoya Basılmaz
+[PASS] Gizlilik ve %100 Yerel Mimari Doğrulaması
+[PASS] Sesi Videodan Ayırma (Detach Audio) & Sağ Tık Menüsü Doğrulaması
+
+================================================================
+TEST RAPORU: 73 BAŞARILI, 0 BAŞARISIZ
+================================================================
+
+
+STDERR:
+

@@ -385,7 +385,7 @@ async function main() {
     console.log("Bulunan Filigran Adayları:", candidatesList);
 
     // GÜVENLİK VE DOĞRULUK DENETİMLERİ:
-    // a) Boston University veya öğrenci metinleri ASLA aday olmamalı
+    // a) State University veya öğrenci metinleri ASLA aday olmamalı
     const forbiddenPatterns = ["BOSTON", "Ahmet Yilmaz", "U98765432", "Computer Science", "3.85", "Undergraduate"];
     for (const cand of candidatesList) {
       for (const pat of forbiddenPatterns) {

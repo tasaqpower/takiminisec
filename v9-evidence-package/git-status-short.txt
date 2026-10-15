@@ -1,0 +1,151 @@
+M  features/video-editor/components/VideoEditorSidebar.tsx
+M  features/video-editor/components/VideoEditorWorkspace.tsx
+M  features/video-editor/components/VideoExportModal.tsx
+ M features/video-editor/components/VideoPropertiesPanel.tsx
+MM features/video-editor/components/VideoTimeline.tsx
+A  features/video-editor/components/sidebar/AssetLicenseModal.tsx
+A  features/video-editor/components/sidebar/AssetPacksModal.tsx
+AM features/video-editor/components/sidebar/AssetsTab.tsx
+A  features/video-editor/components/sidebar/StorageManagementModal.tsx
+M  features/video-editor/db.ts
+AM features/video-editor/engine/assetCatalog.ts
+A  features/video-editor/engine/assetDownloader.ts
+A  features/video-editor/engine/assetPacks.ts
+MM features/video-editor/engine/audioMixer.ts
+MM features/video-editor/engine/exportEngine.ts
+MM features/video-editor/engine/filterEngine.ts
+MM features/video-editor/engine/previewRenderer.ts
+M  features/video-editor/engine/textRasterizer.ts
+ M features/video-editor/engine/transitionEngine.ts
+M  features/video-editor/hooks/useVideoProject.ts
+MM features/video-editor/types.ts
+ M scripts/capture-all-transition-artifacts.mjs
+ M scripts/capture-handles-warning.mjs
+ M scripts/create-audit-v6-package.mjs
+ M scripts/create-audit-v7-package.mjs
+ M scripts/create-audit-v71-package.mjs
+ M scripts/create-audit-v72-package.mjs
+ M scripts/diagnose-black-screen.mjs
+ M scripts/reproduce-user-bug.mjs
+ M scripts/run-all-verifications.mjs
+ M scripts/sync-scratch.mjs
+ M scripts/test-all-templates.mjs
+ M scripts/test-boston-watermark-safeguard.mjs
+ M scripts/test-browser-editing-and-findreplace.mjs
+ M scripts/test-chrome-mp4-probe.mjs
+ M scripts/test-drag-snap.mjs
+ M scripts/test-live-forma-watermark-flow.mjs
+ M scripts/test-live-site.mjs
+ M scripts/test-new-features.mjs
+ M scripts/test-real-mp4.mjs
+ M scripts/test-user-exact-case.mjs
+ M scripts/test-user-simulation.mjs
+ M scripts/test-v7-editor-e2e.mjs
+ M scripts/test-video-critical-fixes.mjs
+ M scripts/validate-v71-evidence.mjs
+ M scripts/verify-all-video-features.mjs
+ M scripts/verify-comprehensive-fix.mjs
+ M scripts/verify-disk-mp4-flow.mjs
+ M scripts/verify-final-acceptance.mjs
+ M scripts/verify-fixes-dragdrop-audio.mjs
+ M scripts/verify-live-clip.mjs
+ M scripts/verify-live-site.mjs
+ M scripts/verify-real-export-mp4.mjs
+ M scripts/verify-redesign-suite.mjs
+ M scripts/verify-transitions-suite.mjs
+ M scripts/verify-video-editor-pro.mjs
+?? .temp-chrome-engine-tests-1791282789669/
+?? FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE-V2.zip.sha256.txt
+?? FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE-V3.zip.sha256.txt
+?? FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE-V4.zip.sha256.txt
+?? FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE-V5.zip.sha256.txt
+?? FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE.zip.sha256.txt
+?? FORMA-CFR-PROTOTYPE-640x360-EVIDENCE.zip.sha256.txt
+?? FORMA-ORIGINALS-FORENSIC-V7-FINAL-EVIDENCE.zip.sha256.txt
+?? FORMA-ORIGINALS-FORENSIC-V8-FINAL-EVIDENCE.zip.sha256.txt
+?? cfr-prototype-evidence/
+?? diff_preview_export.png
+?? evidence-package/
+?? evidence/
+?? forensic_audio_audit_report.json
+?? forensic_distinctness_report.json
+?? forensic_e2e_master_report.json
+?? forensic_format_overflow_report.json
+?? forensic_lut_audit_report.json
+?? forensic_variation_engine_report.json
+?? forma_exact_frame_60.png
+?? forma_export_frame_2s.png
+?? forma_originals_production_summary.json
+?? forma_originals_verification_report.json
+?? forma_preview_frame_2s.png
+?? forma_preview_frame_5s.png
+?? forma_real_ui_1080p_v6.mp4
+?? forma_real_ui_1080p_v7.mp4
+?? forma_real_ui_1080p_v8.mp4
+?? forma_real_ui_1080p_v9.mp4
+?? last_frame.png
+?? last_frame2.png
+?? last_user_prompt.txt
+?? prototype_640x360.mp4
+?? prototype_cfr_report.json
+?? pts.txt
+?? public/FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE-V5.zip.sha256.txt
+?? public/FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE.zip.sha256.txt
+?? public/video-assets/
+?? public/wasm/ffmpeg/
+?? scripts/build-v8-manifest-and-baseline.mjs
+?? scripts/build-v9-manifest-and-baseline.mjs
+?? scripts/debug-lut.mjs
+?? scripts/fix-broken-scripts.mjs
+?? scripts/forensic-aspect-ratio-audit.mjs
+?? scripts/forensic-audio-audit.mjs
+?? scripts/forensic-distinctness-audit-v9.mjs
+?? scripts/forensic-distinctness-audit.mjs
+?? scripts/forensic-e2e-chromium-v7-suite.mjs
+?? scripts/forensic-e2e-chromium-v8-suite.mjs
+?? scripts/forensic-e2e-chromium-v9-suite.mjs
+?? scripts/forensic-lut-audit.mjs
+?? scripts/forensic-missing-acceptance-tests.mjs
+?? scripts/forensic-production-engine-tests.mjs
+?? scripts/forensic-variation-engine-audit.mjs
+?? scripts/generate-forma-originals-factory.mjs
+?? scripts/generate-prototype-evidence.mjs
+?? scripts/measure-render-time.mjs
+?? scripts/package-forensic-final.mjs
+?? scripts/package-forensic-v7.mjs
+?? scripts/package-forensic-v8.mjs
+?? scripts/package-forensic-v9.mjs
+?? scripts/read-prompt.mjs
+?? scripts/test-chunked-1080p-cfr.mjs
+?? scripts/test-full-export-300.mjs
+?? scripts/test-gpu-1080p.mjs
+?? scripts/test-gpu-speed.mjs
+?? scripts/test-h264-encoder.mjs
+?? scripts/test-paced-300.mjs
+?? scripts/test-pacing-relative.mjs
+?? scripts/test-requestframe-fps.mjs
+?? scripts/test-ui-actions-quick.mjs
+?? scripts/test-video-asset-library-e2e.mjs
+?? scripts/test-video-encoder-codecs.mjs
+?? scripts/test-warmed-real.mjs
+?? scripts/test-warmup-300.mjs
+?? scripts/test-warmup-timing.mjs
+?? scripts/test-wasm-cfr-prototype.mjs
+?? scripts/test-webcodecs-support.mjs
+?? scripts/verify-cfr-prototype-evidence.mjs
+?? scripts/verify-forma-originals-suite.mjs
+?? scripts/verify-real-ui-export-v6-cfr.mjs
+?? scripts/video-assets/
+?? scripts/zip-prototype-evidence.mjs
+?? stage_a_verification_report.json
+?? test-full-export-300.mp4
+?? test-output-reqframe.mp4
+?? test-paced-300.mp4
+?? test-relative-pacing-300.mp4
+?? test_chunked_1080p.mp4
+?? v4-evidence-package/
+?? v5-evidence-package/
+?? v7-evidence-package/
+?? v8-evidence-package/
+?? v9-evidence-package/
+?? verify-prototype-report.json

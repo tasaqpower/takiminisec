@@ -7,7 +7,7 @@ if (!srcRel || !dstRel) {
   process.exit(1);
 }
 
-const scratchDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\scratch';
+const scratchDir = path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'scratch');
 const src = path.resolve(scratchDir, srcRel);
 const dst = path.resolve(dstRel);
 

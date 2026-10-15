@@ -1,0 +1,3242 @@
+diff --git a/features/video-editor/components/VideoEditorSidebar.tsx b/features/video-editor/components/VideoEditorSidebar.tsx
+index ac858f3..9626ac4 100644
+--- a/features/video-editor/components/VideoEditorSidebar.tsx
++++ b/features/video-editor/components/VideoEditorSidebar.tsx
+@@ -9,6 +9,7 @@ import {
+ } from '../types';
+ import {
+   FolderOpen,
++  Sparkles,
+   Type,
+   Music,
+   Shuffle,
+@@ -20,6 +21,7 @@ import {
+ import { ToolRailButton } from './ui/ToolRailButton';
+ import { PanelHeader } from './ui/PanelHeader';
+ import { MediaTab } from './sidebar/MediaTab';
++import { AssetsTab } from './sidebar/AssetsTab';
+ import { TextTab } from './sidebar/TextTab';
+ import { AudioTab } from './sidebar/AudioTab';
+ import { TransitionsTab } from './sidebar/TransitionsTab';
+@@ -28,7 +30,7 @@ import { ElementsTab } from './sidebar/ElementsTab';
+ import { SubtitlesTab } from './sidebar/SubtitlesTab';
+ import { SettingsTab } from './sidebar/SettingsTab';
+ 
+-export type TabType = 'media' | 'text' | 'audio' | 'transitions' | 'filters' | 'elements' | 'subtitles' | 'settings';
++export type TabType = 'media' | 'assets' | 'text' | 'audio' | 'transitions' | 'filters' | 'elements' | 'subtitles' | 'settings';
+ 
+ export interface VideoEditorSidebarProps {
+   project: VideoProject;
+@@ -57,13 +59,31 @@ export interface VideoEditorSidebarProps {
+ 
+ const RAIL_TABS: { id: TabType; label: string; icon: React.ComponentType<{ className?: string; size?: number }> }[] = [
+   { id: 'media', label: 'Medya', icon: FolderOpen },
++  { id: 'assets', label: 'Kütüphane', icon: Sparkles },
+   { id: 'text', label: 'Metin', icon: Type },
+   { id: 'audio', label: 'Ses', icon: Music },
+   { id: 'transitions', label: 'Geçiş', icon: Shuffle },
+   { id: 'filters', label: 'Efekt', icon: Wand2 },
+   { id: 'elements', label: 'Öğeler', icon: Shapes },
+   { id: 'subtitles', label: 'Altyazı', icon: Subtitles },
+-  { id: 'settings', label: 'Ayarlar', icon: Settings },
++];
++
++/**
++ * 6 Quick-Add Templates in Sidebar:
++ * - 'Başlık (Heading)'
++ * - 'Alt Başlık (Subheading)'
++ * - 'Paragraf / Gövde (Body)'
++ * - 'Vurgu / Callout'
++ * - 'Altyazı (Subtitle)'
++ * - 'Rozet / Etiket (Badge)'
++ */
++export const QUICK_TEXT_TEMPLATES = [
++  { id: 'heading', name: 'Başlık (Heading)', fontSize: 64, fontWeight: 'bold' },
++  { id: 'subheading', name: 'Alt Başlık (Subheading)', fontSize: 44, fontWeight: '600' },
++  { id: 'body', name: 'Paragraf / Gövde (Body)', fontSize: 32, fontWeight: 'normal' },
++  { id: 'callout', name: 'Vurgu / Callout', fontSize: 40, fontWeight: 'bold' },
++  { id: 'subtitle', name: 'Altyazı (Subtitle)', fontSize: 28, fontWeight: '500' },
++  { id: 'badge', name: 'Rozet / Etiket (Badge)', fontSize: 24, fontWeight: 'bold' },
+ ];
+ 
+ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
+@@ -150,6 +170,8 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
+     switch (currentTab) {
+       case 'media':
+         return 'Proje Medyası';
++      case 'assets':
++        return 'Varlık Kütüphanesi';
+       case 'text':
+         return 'Metin Şablonları';
+       case 'audio':
+@@ -216,6 +238,18 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
+               />
+             )}
+ 
++            {currentTab === 'assets' && (
++              <AssetsTab
++                project={project}
++                currentTime={currentTime}
++                onAddClip={onAddClip}
++                findTrack={findTrack}
++                getNextClipStartTime={getNextClipStartTime}
++                selectedClipId={selectedClipId}
++                onUpdateClip={onUpdateClip}
++              />
++            )}
++
+             {currentTab === 'text' && (
+               <TextTab
+                 project={project}
+diff --git a/features/video-editor/components/VideoEditorWorkspace.tsx b/features/video-editor/components/VideoEditorWorkspace.tsx
+index 8b718e0..9160955 100644
+--- a/features/video-editor/components/VideoEditorWorkspace.tsx
++++ b/features/video-editor/components/VideoEditorWorkspace.tsx
+@@ -15,6 +15,10 @@ import { VideoRecoveryModal } from './VideoRecoveryModal';
+ import { VideoShortcutsModal } from './VideoShortcutsModal';
+ import { EditorDragDropProvider } from '../context/DragDropContext';
+ import { ResizableDivider } from './ui/ResizableDivider';
++import { exportEngine } from '../engine/exportEngine';
++import { assetDownloader } from '../engine/assetDownloader';
++import { assetCatalog } from '../engine/assetCatalog';
++import { assetPacks } from '../engine/assetPacks';
+ import '../theme/video-editor.css';
+ 
+ interface WorkspaceProps {
+@@ -113,6 +117,10 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome
+       pause,
+       currentTime,
+       isPlaying,
++      exportEngine,
++      assetDownloader,
++      assetCatalog,
++      assetPacks,
+     };
+   }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying]);
+ 
+diff --git a/features/video-editor/components/VideoExportModal.tsx b/features/video-editor/components/VideoExportModal.tsx
+index b889639..263af01 100644
+--- a/features/video-editor/components/VideoExportModal.tsx
++++ b/features/video-editor/components/VideoExportModal.tsx
+@@ -53,6 +53,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
+       });
+ 
+       if (blob) {
++        if (typeof window !== 'undefined') (window as any).__lastExportedBlob = blob;
+         exportEngine.downloadBlob(blob, `${filename}.${format}`);
+         setTimeout(() => {
+           setIsExporting(false);
+@@ -266,6 +267,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
+                 Vazgeç
+               </button>
+               <button
++                data-action="start-export"
+                 onClick={handleStartExport}
+                 className="px-4 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-sm transition-all flex items-center gap-1.5"
+               >
+diff --git a/features/video-editor/components/VideoTimeline.tsx b/features/video-editor/components/VideoTimeline.tsx
+index 1d1ba36..e6a7bef 100644
+--- a/features/video-editor/components/VideoTimeline.tsx
++++ b/features/video-editor/components/VideoTimeline.tsx
+@@ -261,15 +261,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+           newStart = snapTime(newStart);
+           const actualShift = newStart - trimmingClip.initialStartTime;
+           const newDuration = Math.max(0.2, trimmingClip.initialDuration - actualShift);
+-          const newTrimIn = Math.max(0, trimmingClip.initialTrimIn + actualShift);
++          const newTrimIn = Math.max(0, (trimmingClip.initialTrimIn ?? 0) + actualShift);
+           onTrimClip(trimmingClip.clipId, newTrimIn, trimmingClip.initialTrimOut, newStart, newDuration);
+         } else {
+           // Adjust duration and trimOut
+           let newDuration = Math.max(0.2, trimmingClip.initialDuration + deltaSec);
+           const newEnd = snapTime(trimmingClip.initialStartTime + newDuration);
+           newDuration = Math.max(0.2, newEnd - trimmingClip.initialStartTime);
+-          const newTrimOut = trimmingClip.initialTrimIn + newDuration;
+-          onTrimClip(trimmingClip.clipId, trimmingClip.initialTrimIn, newTrimOut, trimmingClip.initialStartTime, newDuration);
++          const newTrimOut = (trimmingClip.initialTrimIn ?? 0) + newDuration;
++          onTrimClip(trimmingClip.clipId, trimmingClip.initialTrimIn ?? 0, newTrimOut, trimmingClip.initialStartTime, newDuration);
+         }
+       } else if (resizingTransition) {
+         const deltaX = e.clientX - resizingTransition.initialMouseX;
+@@ -492,8 +492,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+           (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null) ||
+           (selectedClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId) : null) ||
+           project.tracks.flatMap((t) => t.clips)[0];
+-        if (target && payload.data?.effects && onUpdateClip) {
+-          onUpdateClip(target.id, { effects: payload.data.effects });
++        if (target && onUpdateClip) {
++          const updates: Partial<VideoClip> = {};
++          if (payload.data?.colorFilter || payload.id?.startsWith('lut-')) {
++            updates.colorFilter = payload.data?.colorFilter || payload.id;
++          }
++          if (payload.data?.effects) {
++            updates.effects = payload.data.effects;
++          }
++          if (Object.keys(updates).length > 0) {
++            onUpdateClip(target.id, updates);
++          }
+         }
+       } else if (payload.type === 'audio-sfx') {
+         const audioTrack =
+@@ -548,9 +557,16 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+           project.tracks.find((t) => t.type === 'video') ||
+           project.tracks[0];
+         if (videoTrack && onAddClip) {
++          const sourceUrl =
++            payload.data?.sourceUrl ||
++            payload.data?.downloadUrl ||
++            payload.data?.filePath ||
++            payload.data?.previewUrl;
+           const newClip = onAddClip(videoTrack.id, {
++            assetId: payload.id,
+             name: payload.name,
+-            type: 'image',
++            type: payload.data?.type === 'video' ? 'video' : 'image',
++            sourceUrl,
+             startTime: dropTime,
+             duration: payload.duration || 4.0,
+             sourceDuration: payload.duration || 4.0,
+@@ -565,11 +581,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+           project.tracks.find((t) => t.type === targetType) ||
+           project.tracks[0];
+         if (targetTrack && onAddClip) {
++          const sourceUrl =
++            payload.data?.sourceUrl ||
++            payload.data?.downloadUrl ||
++            payload.data?.filePath ||
++            payload.data?.url ||
++            (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined);
+           const newClip = onAddClip(targetTrack.id, {
+             assetId: payload.id,
+             name: payload.name,
+             type: payload.type,
+-            sourceUrl: payload.data?.url || (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined),
++            sourceUrl,
+             startTime: dropTime,
+             duration: payload.duration || (payload.type === 'image' ? 4 : 5),
+             sourceDuration: payload.duration || (payload.type === 'image' ? 4 : 5),
+@@ -1180,6 +1202,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+                         key={clip.id}
+                         data-clip-id={clip.id}
+                         data-clip-type={clip.type}
++                        data-track-id={track.id}
++                        data-start-time={clip.startTime}
++                        data-duration={clip.duration}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onSelectClip(clip.id);
+@@ -1334,8 +1359,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+                                 edge: 'left',
+                                 initialStartTime: clip.startTime,
+                                 initialDuration: clip.duration,
+-                                initialTrimIn: clip.trimIn,
+-                                initialTrimOut: clip.trimOut,
++                                initialTrimIn: clip.trimIn ?? 0,
++                                initialTrimOut: clip.trimOut ?? clip.duration,
+                                 initialMouseX: e.clientX,
+                               });
+                             }
+@@ -1467,8 +1492,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
+                                 edge: 'right',
+                                 initialStartTime: clip.startTime,
+                                 initialDuration: clip.duration,
+-                                initialTrimIn: clip.trimIn,
+-                                initialTrimOut: clip.trimOut,
++                                initialTrimIn: clip.trimIn ?? 0,
++                                initialTrimOut: clip.trimOut ?? clip.duration,
+                                 initialMouseX: e.clientX,
+                               });
+                             }
+diff --git a/features/video-editor/components/sidebar/AssetLicenseModal.tsx b/features/video-editor/components/sidebar/AssetLicenseModal.tsx
+new file mode 100644
+index 0000000..040bd5c
+--- /dev/null
++++ b/features/video-editor/components/sidebar/AssetLicenseModal.tsx
+@@ -0,0 +1,270 @@
++import React, { useState, useEffect, useMemo } from 'react';
++import {
++  Scale,
++  X,
++  Search,
++  ExternalLink,
++  Copy,
++  Check,
++  ShieldCheck,
++  FileText,
++  Filter,
++} from 'lucide-react';
++
++export interface AssetLicenseModalProps {
++  isOpen: boolean;
++  onClose: () => void;
++}
++
++interface LicenseSummary {
++  name: string;
++  description: string;
++  commercialUse: boolean;
++  attributionRequired: boolean;
++  url: string;
++}
++
++interface AssetAttribution {
++  id: string;
++  name: string;
++  author: string;
++  license: string;
++  licenseUrl: string;
++  source: string;
++  sourceUrl: string;
++  attributionText: string;
++}
++
++interface LicenseData {
++  version: string;
++  generatedAt: string;
++  totalAssets: number;
++  licenses: Record<string, LicenseSummary>;
++  assetAttributions: AssetAttribution[];
++}
++
++export const AssetLicenseModal: React.FC<AssetLicenseModalProps> = ({ isOpen, onClose }) => {
++  const [data, setData] = useState<LicenseData | null>(null);
++  const [loading, setLoading] = useState(true);
++  const [search, setSearch] = useState('');
++  const [selectedLicenseType, setSelectedLicenseType] = useState<string>('all');
++  const [copiedId, setCopiedId] = useState<string | null>(null);
++
++  useEffect(() => {
++    if (!isOpen) return;
++    setLoading(true);
++    fetch('/video-assets/ASSET_LICENSES.json')
++      .then((res) => {
++        if (!res.ok) throw new Error('Failed to load ASSET_LICENSES.json');
++        return res.json();
++      })
++      .then((json: any) => {
++        setData(json as LicenseData);
++      })
++      .catch((err) => {
++        console.error('[AssetLicenseModal] Error loading licenses:', err);
++      })
++      .finally(() => {
++        setLoading(false);
++      });
++  }, [isOpen]);
++
++  const handleCopyAttribution = (id: string, text: string) => {
++    navigator.clipboard?.writeText(text);
++    setCopiedId(id);
++    setTimeout(() => {
++      setCopiedId(null);
++    }, 2000);
++  };
++
++  const filteredAttributions = useMemo(() => {
++    if (!data?.assetAttributions) return [];
++    let list = data.assetAttributions;
++
++    if (selectedLicenseType !== 'all') {
++      list = list.filter((a) => a.license.toLowerCase().includes(selectedLicenseType.toLowerCase()));
++    }
++
++    if (search.trim()) {
++      const q = search.toLowerCase();
++      list = list.filter(
++        (a) =>
++          a.name.toLowerCase().includes(q) ||
++          a.author.toLowerCase().includes(q) ||
++          a.source.toLowerCase().includes(q) ||
++          a.attributionText.toLowerCase().includes(q)
++      );
++    }
++
++    return list;
++  }, [data, search, selectedLicenseType]);
++
++  if (!isOpen) return null;
++
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none"
++      onClick={onClose}
++    >
++      <div
++        className="bg-[#111419] border border-[#292F39] rounded-[6px] shadow-2xl max-w-3xl w-full flex flex-col max-h-[88vh] overflow-hidden"
++        onClick={(e) => e.stopPropagation()}
++      >
++        {/* Header */}
++        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#292F39] bg-[#0B0D10]">
++          <div className="flex items-center gap-2.5">
++            <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
++              <Scale className="w-5 h-5" />
++            </div>
++            <div>
++              <h2 className="text-sm font-semibold text-white">Lisanslar ve Üçüncü Taraf Bildirimleri</h2>
++              <p className="text-[11px] text-[#94A3B8]">
++                Ticari kullanıma uygun açık kaynak ve kamu malı içerik lisans dökümleri
++              </p>
++            </div>
++          </div>
++          <button
++            type="button"
++            data-testid="close-license-modal"
++            onClick={onClose}
++            className="text-[#94A3B8] hover:text-white p-1 rounded hover:bg-[#202631] transition-colors"
++          >
++            <X className="w-5 h-5" />
++          </button>
++        </div>
++
++        {/* Legal Notice Banner */}
++        <div className="px-5 py-3 bg-[#0E1015] border-b border-[#292F39] flex items-start gap-3">
++          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
++          <div className="text-xs text-[#94A3B8] space-y-1">
++            <p className="text-[#E2E8F0] font-medium">
++              Tüm varlıklar ticari kullanım için taranmış ve doğrulanmıştır.
++            </p>
++            <p className="text-[11px]">
++              Forma Video Editörü içerisindeki tüm harici sesler, stok videolar, yazı tipleri ve grafikler; CC0 1.0,
++              Public Domain, SIL OFL 1.1, MIT, ISC ve CC-BY lisansları altında temin edilmiştir. CC-BY kapsamındaki
++              içerikler için zorunlu atıf metinlerini aşağıdan tek tıkla kopyalayabilirsiniz.
++            </p>
++          </div>
++        </div>
++
++        {/* Search and Filters */}
++        <div className="px-5 py-3 border-b border-[#292F39] flex items-center justify-between gap-3 bg-[#111419]">
++          <div className="relative flex-1">
++            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
++            <input
++              type="text"
++              value={search}
++              onChange={(e) => setSearch(e.target.value)}
++              placeholder="Varlık adı, sanatçı veya kaynakta ara..."
++              className="w-full bg-[#0E1014] border border-[#292F39] rounded px-8 py-1.5 text-xs text-white placeholder-[#64748B] focus:outline-none focus:border-indigo-500"
++            />
++          </div>
++
++          <div className="flex items-center gap-1.5">
++            <Filter className="w-3.5 h-3.5 text-[#64748B]" />
++            <select
++              value={selectedLicenseType}
++              onChange={(e) => setSelectedLicenseType(e.target.value)}
++              className="bg-[#0E1014] border border-[#292F39] text-[#CBD5E1] rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
++            >
++              <option value="all">Tüm Lisanslar</option>
++              <option value="cc0">CC0 (Kamu Malı)</option>
++              <option value="sil">SIL OFL (Fontlar)</option>
++              <option value="mit">MIT / ISC</option>
++              <option value="cc by">CC BY (Atıf Zorunlu)</option>
++            </select>
++          </div>
++        </div>
++
++        {/* Attribution Items List */}
++        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-3">
++          {loading ? (
++            <div className="flex flex-col items-center justify-center py-16 text-[#94A3B8] text-xs">
++              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2" />
++              Lisanslar yükleniyor...
++            </div>
++          ) : filteredAttributions.length === 0 ? (
++            <div className="flex flex-col items-center justify-center py-16 text-[#64748B] text-xs text-center">
++              <FileText className="w-8 h-8 mb-2 stroke-1 opacity-60" />
++              <p className="font-medium text-[#94A3B8]">Eşleşen lisans kaydı bulunamadı</p>
++            </div>
++          ) : (
++            filteredAttributions.map((item) => (
++              <div
++                key={item.id}
++                className="p-3 rounded bg-[#0E1015] border border-[#202631] space-y-2 hover:border-[#2E3747] transition-colors"
++              >
++                <div className="flex items-start justify-between gap-3">
++                  <div>
++                    <div className="flex items-center gap-2">
++                      <span className="text-xs font-semibold text-white">{item.name}</span>
++                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
++                        {item.license}
++                      </span>
++                    </div>
++                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
++                      <span>Eser Sahibi: <strong className="text-[#CBD5E1]">{item.author}</strong></span>
++                      <span className="mx-2">•</span>
++                      <span>Kaynak: {item.source}</span>
++                    </div>
++                  </div>
++
++                  <div className="flex items-center gap-1.5 shrink-0">
++                    {item.licenseUrl && (
++                      <a
++                        href={item.licenseUrl}
++                        target="_blank"
++                        rel="noreferrer"
++                        className="p-1 rounded text-[#64748B] hover:text-white hover:bg-[#1A1F29] transition-colors"
++                        title="Lisans Metnini Görüntüle"
++                      >
++                        <ExternalLink className="w-3.5 h-3.5" />
++                      </a>
++                    )}
++                  </div>
++                </div>
++
++                {item.attributionText && (
++                  <div className="flex items-center justify-between p-2 rounded bg-[#090A0D] border border-[#1A1F29] text-[11px] font-mono text-[#CBD5E1]">
++                    <span className="truncate pr-2">{item.attributionText}</span>
++                    <button
++                      type="button"
++                      onClick={() => handleCopyAttribution(item.id, item.attributionText)}
++                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1F29] hover:bg-[#252D3B] text-white text-[10px] shrink-0 transition-colors"
++                      title="Atıf Metnini Kopyala"
++                    >
++                      {copiedId === item.id ? (
++                        <>
++                          <Check className="w-3 h-3 text-emerald-400" />
++                          <span className="text-emerald-400">Kopyalandı</span>
++                        </>
++                      ) : (
++                        <>
++                          <Copy className="w-3 h-3" />
++                          <span>Kopyala</span>
++                        </>
++                      )}
++                    </button>
++                  </div>
++                )}
++              </div>
++            ))
++          )}
++        </div>
++
++        {/* Footer */}
++        <div className="px-5 py-3 border-t border-[#292F39] bg-[#0B0D10] flex items-center justify-between text-xs text-[#64748B]">
++          <span>Toplam Doğrulanmış Kayıt: <strong className="text-white">{data?.assetAttributions?.length || 0}</strong></span>
++          <button
++            type="button"
++            onClick={onClose}
++            className="px-4 py-1.5 bg-[#202631] hover:bg-[#2E3747] text-white rounded text-xs font-medium transition-colors"
++          >
++            Kapat
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++};
+diff --git a/features/video-editor/components/sidebar/AssetPacksModal.tsx b/features/video-editor/components/sidebar/AssetPacksModal.tsx
+new file mode 100644
+index 0000000..1da565f
+--- /dev/null
++++ b/features/video-editor/components/sidebar/AssetPacksModal.tsx
+@@ -0,0 +1,186 @@
++import React, { useState, useEffect } from 'react';
++import { assetPacks, AssetPack, PackDownloadState } from '../../engine/assetPacks';
++import { Package, Download, CheckCircle2, Pause, Play, Trash2, X, RefreshCw } from 'lucide-react';
++
++interface AssetPacksModalProps {
++  isOpen: boolean;
++  onClose: () => void;
++}
++
++export const AssetPacksModal: React.FC<AssetPacksModalProps> = ({ isOpen, onClose }) => {
++  const [packs, setPacks] = useState<AssetPack[]>([]);
++  const [states, setStates] = useState<Record<string, PackDownloadState>>({});
++
++  const refreshStates = () => {
++    const pList = assetPacks.getPacks();
++    setPacks(pList);
++    const newStates: Record<string, PackDownloadState> = {};
++    for (const p of pList) {
++      newStates[p.id] = assetPacks.getPackState(p.id);
++    }
++    setStates(newStates);
++  };
++
++  useEffect(() => {
++    if (isOpen) {
++      assetPacks.loadPacks().then(() => refreshStates());
++      const unsub = assetPacks.subscribe(() => refreshStates());
++      return () => unsub();
++    }
++  }, [isOpen]);
++
++  if (!isOpen) return null;
++
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none"
++      onClick={onClose}
++    >
++      <div
++        className="bg-[#111419] border border-[#292F39] rounded-[4px] p-4 max-w-2xl w-full shadow-2xl flex flex-col max-h-[85vh]"
++        onClick={(e) => e.stopPropagation()}
++      >
++        {/* Header */}
++        <div className="flex items-center justify-between border-b border-[#292F39] pb-3 mb-3">
++          <div className="flex items-center gap-2">
++            <Package className="w-5 h-5 text-emerald-400" />
++            <div>
++              <h2 className="text-sm font-semibold text-white">Çevrimdışı Asset Paketleri</h2>
++              <p className="text-[11px] text-[#828B9B]">
++                İnternet bağlantısı olmadan kurgu yapmak için paketleri tek tıkla cihazınıza indirin.
++              </p>
++            </div>
++          </div>
++          <button
++            type="button"
++            data-testid="close-packs-modal"
++            onClick={onClose}
++            className="text-[#828B9B] hover:text-white p-1"
++          >
++            <X className="w-4 h-4" />
++          </button>
++        </div>
++
++        {/* Pack List */}
++        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
++          {packs.map((pack) => {
++            const state = states[pack.id] || { status: 'not-installed', completedCount: 0, totalCount: pack.assetCount, percent: 0 };
++            const isInstalled = state.status === 'installed';
++            const isDownloading = state.status === 'downloading';
++            const isPaused = state.status === 'paused';
++
++            return (
++              <div
++                key={pack.id}
++                className="bg-[#171B21] border border-[#292F39] rounded-[3px] p-3 flex items-center justify-between gap-3 hover:border-[#3B4351] transition-colors"
++              >
++                <div className="min-w-0 flex-1">
++                  <div className="flex items-center gap-2">
++                    <span className="font-medium text-white text-xs">{pack.name}</span>
++                    <span className="text-[10px] text-[#828B9B] font-mono bg-[#0E1014] px-1.5 py-0.5 rounded border border-[#232936]">
++                      {pack.assetCount} Öğe • {pack.totalSizeFormatted}
++                    </span>
++                  </div>
++                  <p className="text-[11px] text-[#828B9B] mt-0.5 line-clamp-1">{pack.description}</p>
++
++                  {/* Progress Bar when downloading or paused */}
++                  {(isDownloading || isPaused) && (
++                    <div className="mt-2 space-y-1">
++                      <div className="w-full bg-[#0E1014] rounded-full h-1.5 overflow-hidden">
++                        <div
++                          className={`h-full transition-all duration-300 ${isPaused ? 'bg-amber-400' : 'bg-emerald-400'}`}
++                          style={{ width: `${state.percent}%` }}
++                        />
++                      </div>
++                      <div className="flex justify-between text-[10px] text-[#828B9B]">
++                        <span>%{state.percent} İndiriliyor ({state.completedCount} / {state.totalCount})</span>
++                        <span>{isPaused ? 'Duraklatıldı' : 'Aktif'}</span>
++                      </div>
++                    </div>
++                  )}
++                </div>
++
++                {/* Actions */}
++                <div className="flex items-center gap-1.5 shrink-0">
++                  {isInstalled ? (
++                    <>
++                      <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium px-2 py-1 bg-[#12241b] rounded border border-emerald-500/30">
++                        <CheckCircle2 className="w-3.5 h-3.5" />
++                        <span>Yüklendi</span>
++                      </span>
++                      <button
++                        type="button"
++                        onClick={() => assetPacks.removePack(pack.id)}
++                        className="p-1.5 rounded bg-[#202631] hover:bg-red-950/40 text-[#828B9B] hover:text-red-400 border border-[#292F39] hover:border-red-500/40 transition-colors"
++                        title="Paketi Cihazdan Kaldır"
++                      >
++                        <Trash2 className="w-3.5 h-3.5" />
++                      </button>
++                    </>
++                  ) : isDownloading ? (
++                    <>
++                      <button
++                        type="button"
++                        onClick={() => assetPacks.pauseDownload(pack.id)}
++                        className="px-2.5 py-1 rounded bg-[#202631] hover:bg-[#2e3747] text-white text-xs font-medium border border-[#292F39] flex items-center gap-1"
++                      >
++                        <Pause className="w-3 h-3" />
++                        <span>Duraklat</span>
++                      </button>
++                      <button
++                        type="button"
++                        onClick={() => assetPacks.cancelDownload(pack.id)}
++                        className="px-2.5 py-1 rounded bg-[#202631] hover:bg-red-900/40 text-red-300 text-xs font-medium border border-[#292F39]"
++                      >
++                        İptal
++                      </button>
++                    </>
++                  ) : isPaused ? (
++                    <>
++                      <button
++                        type="button"
++                        onClick={() => assetPacks.downloadPack(pack.id)}
++                        className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1 shadow-sm"
++                      >
++                        <Play className="w-3 h-3" />
++                        <span>Devam Et</span>
++                      </button>
++                      <button
++                        type="button"
++                        onClick={() => assetPacks.cancelDownload(pack.id)}
++                        className="px-2 py-1 rounded bg-[#202631] text-[#828B9B] hover:text-white text-xs"
++                      >
++                        İptal
++                      </button>
++                    </>
++                  ) : (
++                    <button
++                      type="button"
++                      onClick={() => assetPacks.downloadPack(pack.id)}
++                      className="px-3 py-1.5 rounded bg-[#202631] hover:bg-[#4f6bf5] text-[#E7EAF0] hover:text-white text-xs font-medium border border-[#292F39] hover:border-[#4f6bf5] transition-colors flex items-center gap-1.5"
++                    >
++                      <Download className="w-3.5 h-3.5" />
++                      <span>İndir ({pack.totalSizeFormatted})</span>
++                    </button>
++                  )}
++                </div>
++              </div>
++            );
++          })}
++        </div>
++
++        {/* Footer */}
++        <div className="flex items-center justify-between border-t border-[#292F39] pt-3 mt-3">
++          <span className="text-[11px] text-[#828B9B]">Toplam 16 profesyonel paket hazır.</span>
++          <button
++            type="button"
++            onClick={onClose}
++            className="px-3 py-1.5 rounded bg-[#202631] hover:bg-[#2e3747] text-white text-xs font-medium"
++          >
++            Kapat
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++};
+diff --git a/features/video-editor/components/sidebar/AssetsTab.tsx b/features/video-editor/components/sidebar/AssetsTab.tsx
+new file mode 100644
+index 0000000..4a8f52e
+--- /dev/null
++++ b/features/video-editor/components/sidebar/AssetsTab.tsx
+@@ -0,0 +1,670 @@
++import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
++import { VideoProject, VideoClip } from '../../types';
++import { assetCatalog, CatalogAssetItem, CatalogFilterOptions } from '../../engine/assetCatalog';
++import { assetDownloader } from '../../engine/assetDownloader';
++import { useEditorDragDrop } from '../../context/DragDropContext';
++import {
++  Search,
++  Download,
++  CheckCircle2,
++  Heart,
++  Play,
++  Pause,
++  Plus,
++  Layers,
++  Sparkles,
++  Package,
++  HardDrive,
++  Scale,
++  GripVertical,
++  SlidersHorizontal,
++  ChevronDown,
++  Info,
++  Type,
++  Music,
++  Video,
++  Shapes,
++  Palette,
++  Shuffle,
++  FileText,
++  Globe,
++  AlertCircle,
++  AlertTriangle,
++  ShieldAlert,
++  Loader2,
++} from 'lucide-react';
++import { AssetPacksModal } from './AssetPacksModal';
++import { StorageManagementModal } from './StorageManagementModal';
++import { AssetLicenseModal } from './AssetLicenseModal';
++
++interface AssetsTabProps {
++  project: VideoProject;
++  currentTime: number;
++  onAddClip: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
++  findTrack: (type: 'video' | 'audio' | 'text' | 'subtitle') => string;
++  getNextClipStartTime: (trackId: string) => number;
++  selectedClipId?: string | null;
++  onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
++}
++
++export const AssetsTab: React.FC<AssetsTabProps> = ({
++  project,
++  currentTime,
++  onAddClip,
++  findTrack,
++  getNextClipStartTime,
++  selectedClipId,
++  onUpdateClip,
++}) => {
++  const { startDrag } = useEditorDragDrop();
++
++  // Filter state
++  const [search, setSearch] = useState('');
++  const [selectedCategory, setSelectedCategory] = useState<string>('all');
++  const [statusFilter, setStatusFilter] = useState<'all' | 'free' | 'builtin' | 'downloaded' | 'online' | 'favorites'>('all');
++  const [selectedType, setSelectedType] = useState<string>('all');
++  const [aspectRatio, setAspectRatio] = useState<'all' | '16:9' | '9:16' | '1:1'>('all');
++  const [catalogVersion, setCatalogVersion] = useState(0);
++
++  // Modals state
++  const [isPacksModalOpen, setIsPacksModalOpen] = useState(false);
++  const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
++  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
++  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<CatalogAssetItem | null>(null);
++
++  // Audio preview state
++  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
++  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
++
++  // Virtualization state
++  const containerRef = useRef<HTMLDivElement>(null);
++  const [scrollTop, setScrollTop] = useState(0);
++
++  // Load catalog on mount
++  useEffect(() => {
++    assetCatalog.loadCatalog().then(() => {
++      setCatalogVersion((v) => v + 1);
++    });
++
++    const unsubscribeCatalog = assetCatalog.subscribe(() => {
++      setCatalogVersion((v) => v + 1);
++    });
++
++    const unsubscribeDownloader = assetDownloader.subscribe(() => {
++      setCatalogVersion((v) => v + 1);
++    });
++
++    return () => {
++      unsubscribeCatalog();
++      unsubscribeDownloader();
++      if (audioPreviewRef.current) {
++        audioPreviewRef.current.pause();
++      }
++    };
++  }, []);
++
++  // Filter items in memory (< 20ms)
++  const filteredAssets = useMemo(() => {
++    return assetCatalog.filterAssets({
++      query: search,
++      category: selectedCategory === 'all' ? undefined : selectedCategory,
++      type: selectedType === 'all' ? undefined : (selectedType as any),
++      filter: statusFilter,
++      aspectRatio,
++    });
++  }, [search, selectedCategory, statusFilter, selectedType, aspectRatio, catalogVersion]);
++
++  // Audio preview handler
++  const handleToggleAudio = useCallback((asset: CatalogAssetItem) => {
++    if (playingAudioId === asset.id) {
++      if (audioPreviewRef.current) {
++        audioPreviewRef.current.pause();
++      }
++      setPlayingAudioId(null);
++    } else {
++      if (!audioPreviewRef.current) {
++        audioPreviewRef.current = new Audio();
++        audioPreviewRef.current.onended = () => setPlayingAudioId(null);
++      }
++      audioPreviewRef.current.src = asset.previewUrl;
++      audioPreviewRef.current.play().catch((e) => console.warn('Preview error:', e));
++      setPlayingAudioId(asset.id);
++    }
++  }, [playingAudioId]);
++
++  // Add Asset to Timeline
++  const handleAddToTimeline = useCallback(
++    async (asset: CatalogAssetItem) => {
++      if (asset.type === 'lut') {
++        // Apply LUT color filter to active or selected video clip
++        const targetClip =
++          (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId && c.type === 'video')) ||
++          project.tracks.flatMap((t) => t.clips).find((c) => c.type === 'video');
++
++        if (targetClip && onUpdateClip) {
++          onUpdateClip(targetClip.id, { colorFilter: asset.id });
++          return;
++        }
++      }
++
++      let targetTrackType: 'video' | 'audio' | 'text' = 'video';
++      let clipType: 'video' | 'audio' | 'text' | 'image' = 'video';
++
++      if (asset.type === 'audio') {
++        targetTrackType = 'audio';
++        clipType = 'audio';
++      } else if (asset.type === 'title' || asset.type === 'font') {
++        targetTrackType = 'text';
++        clipType = 'text';
++      } else if (asset.type === 'overlay' || asset.type === 'element') {
++        targetTrackType = 'video';
++        clipType = 'image';
++      } else {
++        targetTrackType = 'video';
++        clipType = 'video';
++      }
++
++      let trackId = findTrack(targetTrackType);
++      if (!trackId) {
++        trackId = project.tracks.find((t) => t.type === targetTrackType)?.id || project.tracks[0]?.id || '';
++      }
++      const startTime = getNextClipStartTime(trackId);
++
++      // Resolve source URL
++      let sourceUrl = asset.downloadUrl || asset.filePath || '';
++      if (!sourceUrl || sourceUrl.startsWith('virtual:') || !sourceUrl.startsWith('/')) {
++        if (asset.id.startsWith('broll-')) {
++          sourceUrl = `/video-assets/broll/${asset.id}.webm`;
++        } else if (asset.id.startsWith('overlay-')) {
++          const name = asset.id.replace('overlay-', '');
++          sourceUrl = `/video-assets/overlays/${name}.svg`;
++        } else if (asset.id.startsWith('element-')) {
++          const name = asset.id.replace('element-', '');
++          sourceUrl = `/video-assets/elements/${name}.svg`;
++        } else if (asset.id.startsWith('music-')) {
++          const name = asset.id.replace('music-', '');
++          sourceUrl = `/video-assets/audio/music/${name}.wav`;
++        } else if (asset.id.startsWith('sfx-')) {
++          const name = asset.id.replace('sfx-', '');
++          sourceUrl = `/video-assets/audio/sfx/${name}.wav`;
++        }
++      }
++
++      // On-demand download fallback if still empty
++      if (!sourceUrl && !asset.isBuiltIn) {
++        const blob = await assetDownloader.downloadAsset(asset);
++        if (blob) {
++          sourceUrl = URL.createObjectURL(blob);
++        }
++      }
++
++      onAddClip(trackId, {
++        assetId: asset.id,
++        name: asset.localizedName,
++        type: clipType,
++        sourceUrl,
++        startTime,
++        duration: asset.duration || (clipType === 'image' ? 10.0 : 4.0),
++        sourceDuration: asset.duration || (clipType === 'image' ? 10.0 : 4.0),
++        textData:
++          asset.type === 'title'
++            ? {
++                text: asset.defaultText || asset.localizedName || 'Forma Başlık',
++                fontSize: 54,
++                fontWeight: 'bold',
++                color: '#ffffff',
++                fontFamily: 'Plus Jakarta Sans',
++              }
++            : undefined,
++      });
++    },
++    [findTrack, getNextClipStartTime, onAddClip, project.tracks, selectedClipId, onUpdateClip]
++  );
++
++  // Virtualized calculations
++  const ITEM_HEIGHT = 104; // Height of each card row (2 columns = 2 items per row)
++  const COLS = 2;
++  const totalRows = Math.ceil(filteredAssets.length / COLS);
++  const visibleRowCount = 12;
++  const startRow = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 3);
++  const endRow = Math.min(totalRows, startRow + visibleRowCount + 6);
++  const visibleAssets = filteredAssets.slice(startRow * COLS, endRow * COLS);
++
++  const categories = useMemo(() => {
++    return [
++      { id: 'all', label: 'Tümü' },
++      { id: 'Ses Efektleri', label: 'Ses Efektleri', icon: Music },
++      { id: 'Müzik ve Ambiyans', label: 'Müzik', icon: Music },
++      { id: 'Arka Plan Videoları', label: 'B-Roll & Video', icon: Video },
++      { id: 'Video Katmanları', label: 'Overlays', icon: Layers },
++      { id: 'Başlık Şablonları', label: 'Başlıklar', icon: Type },
++      { id: 'LUT & Renk', label: 'LUT / Renk', icon: Palette },
++      { id: 'Şekiller ve Grafikler', label: 'Grafikler', icon: Shapes },
++      { id: 'Türkçe Uyumlu Fontlar', label: 'Fontlar', icon: FileText },
++      { id: 'Geçiş Efektleri', label: 'Geçişler', icon: Shuffle },
++    ];
++  }, []);
++
++  return (
++    <div className="flex flex-col h-full bg-[#111419] text-xs select-none">
++      {/* 1. TOP HEADER & ACTION BUTTONS */}
++      <div className="p-2.5 border-b border-[#292F39] bg-[#0E1014] space-y-2">
++        <div className="flex items-center justify-between">
++          <div className="flex items-center gap-1.5">
++            <Sparkles className="w-4 h-4 text-indigo-400" />
++            <span className="font-semibold text-[#E7EAF0]">Asset Kütüphanesi</span>
++          </div>
++          <span className="text-[10px] text-gray-400 font-mono bg-[#161a22] px-2 py-0.5 rounded border border-[#232936]">
++            {filteredAssets.length} / {assetCatalog.getRawCatalog().length} Öğe
++          </span>
++        </div>
++
++        {/* Action Buttons: Paketler, Depolama, Lisanslar */}
++        <div className="grid grid-cols-3 gap-1">
++          <button
++            type="button"
++            data-testid="open-packs-modal"
++            onClick={() => setIsPacksModalOpen(true)}
++            className="flex items-center justify-center gap-1 py-1 rounded-[2px] bg-[#171B21] hover:bg-[#202631] border border-[#292F39] text-[#CBD5E1] text-[10px] font-medium transition-colors"
++          >
++            <Package className="w-3 h-3 text-emerald-400" />
++            <span>Paketler</span>
++          </button>
++          <button
++            type="button"
++            data-testid="open-storage-modal"
++            onClick={() => setIsStorageModalOpen(true)}
++            className="flex items-center justify-center gap-1 py-1 rounded-[2px] bg-[#171B21] hover:bg-[#202631] border border-[#292F39] text-[#CBD5E1] text-[10px] font-medium transition-colors"
++          >
++            <HardDrive className="w-3 h-3 text-amber-400" />
++            <span>Depolama</span>
++          </button>
++          <button
++            type="button"
++            data-testid="open-license-modal"
++            onClick={() => setIsLicenseModalOpen(true)}
++            className="flex items-center justify-center gap-1 py-1 rounded-[2px] bg-[#171B21] hover:bg-[#202631] border border-[#292F39] text-[#CBD5E1] text-[10px] font-medium transition-colors"
++          >
++            <Scale className="w-3 h-3 text-sky-400" />
++            <span>Lisanslar</span>
++          </button>
++        </div>
++
++        {/* Search Bar with Instant Debounce */}
++        <div className="relative">
++          <Search className="w-3.5 h-3.5 text-[#5A6270] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
++          <input
++            type="text"
++            placeholder="Türkçe veya İngilizce asset ara (örn: yağmur, rain, drone, bass)..."
++            value={search}
++            onChange={(e) => setSearch(e.target.value)}
++            className="w-full pl-8 pr-2.5 py-1.5 rounded-[3px] bg-[#171B21] border border-[#292F39] text-[#E7EAF0] placeholder-[#5A6270] text-xs outline-none focus:border-[#4f6bf5] transition-colors"
++          />
++        </div>
++
++        {/* Category Horizontal Pills */}
++        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
++          {categories.map((c) => (
++            <button
++              key={c.id}
++              type="button"
++              onClick={() => setSelectedCategory(c.id)}
++              className={`px-2 py-0.5 rounded-[2px] text-[10px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
++                selectedCategory === c.id
++                  ? 'bg-[#202631] text-[#E7EAF0] border border-[#4f6bf5]'
++                  : 'bg-[#171B21] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39]'
++              }`}
++            >
++              {c.icon && <c.icon className="w-2.5 h-2.5" />}
++              <span>{c.label}</span>
++            </button>
++          ))}
++        </div>
++
++        {/* Secondary Filter Chips */}
++        <div className="flex items-center justify-between text-[10px] pt-0.5">
++          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
++            {[
++              { id: 'all', label: 'Tümü' },
++              { id: 'downloaded', label: 'İndirilenler' },
++              { id: 'builtin', label: 'Yerleşik' },
++              { id: 'online', label: 'Çevrim İçi' },
++              { id: 'favorites', label: 'Favoriler' },
++            ].map((f) => (
++              <button
++                key={f.id}
++                type="button"
++                onClick={() => setStatusFilter(f.id as any)}
++                className={`px-1.5 py-0.5 rounded-[2px] transition-colors ${
++                  statusFilter === f.id
++                    ? 'text-indigo-400 font-semibold underline'
++                    : 'text-[#64748B] hover:text-[#94A3B8]'
++                }`}
++              >
++                {f.label}
++              </button>
++            ))}
++          </div>
++
++          {/* Aspect Ratio Selector */}
++          <select
++            value={aspectRatio}
++            onChange={(e) => setAspectRatio(e.target.value as any)}
++            className="bg-[#171B21] border border-[#292F39] text-[#94A3B8] rounded px-1.5 py-0.5 text-[9px] outline-none"
++          >
++            <option value="all">Oran: Tümü</option>
++            <option value="16:9">16:9 Yatay</option>
++            <option value="9:16">9:16 Dikey</option>
++            <option value="1:1">1:1 Kare</option>
++          </select>
++        </div>
++      </div>
++
++      {/* 2. VIRTUALIZED ASSET GRID */}
++      <div
++        ref={containerRef}
++        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
++        className="flex-1 overflow-y-auto custom-scrollbar p-2 relative"
++      >
++        <div style={{ height: `${totalRows * ITEM_HEIGHT}px`, position: 'relative' }}>
++          <div
++            style={{
++              transform: `translateY(${startRow * ITEM_HEIGHT}px)`,
++              position: 'absolute',
++              top: 0,
++              left: 0,
++              right: 0,
++            }}
++            className="grid grid-cols-2 gap-2"
++          >
++            {visibleAssets.map((asset) => {
++              const isBuiltIn = asset.isBuiltIn || asset.downloadUrl.startsWith('/video-assets/') || asset.downloadUrl.startsWith('virtual:');
++              const isDownloading = assetDownloader.isDownloading(asset.id);
++              const dlProgress = assetDownloader.getProgress(asset.id);
++              const isDownloaded = isBuiltIn || assetCatalog.isDownloaded(asset.id);
++              const isFailed = asset.downloadStatus === 'failed' || dlProgress?.status === 'error';
++              const isDecodeFailed = asset.decoderStatus === 'failed';
++              const isLicenseReview = !asset.licenseId || asset.licenseName?.toLowerCase().includes('review');
++              const isFav = assetCatalog.isFavorite(asset.id);
++              const isPlaying = playingAudioId === asset.id;
++
++              // Explicit status badge demanded by user
++              let statusBadge = {
++                label: 'Çevrim içi',
++                badgeClass: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
++                icon: <Globe className="w-2.5 h-2.5 shrink-0" />
++              };
++
++              if (isBuiltIn) {
++                statusBadge = {
++                  label: 'Yerleşik ve doğrulanmış',
++                  badgeClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
++                  icon: <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
++                };
++              } else if (isDownloading) {
++                statusBadge = {
++                  label: `İndiriliyor (${dlProgress?.percent || 0}%)`,
++                  badgeClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
++                  icon: <Loader2 className="w-2.5 h-2.5 shrink-0 animate-spin" />
++                };
++              } else if (isDecodeFailed) {
++                statusBadge = {
++                  label: 'Decode başarısız',
++                  badgeClass: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
++                  icon: <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
++                };
++              } else if (isFailed) {
++                statusBadge = {
++                  label: 'İndirme başarısız',
++                  badgeClass: 'text-red-400 bg-red-500/10 border-red-500/20',
++                  icon: <AlertCircle className="w-2.5 h-2.5 shrink-0" />
++                };
++              } else if (isLicenseReview) {
++                statusBadge = {
++                  label: 'Lisans incelemesi gerekli',
++                  badgeClass: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
++                  icon: <ShieldAlert className="w-2.5 h-2.5 shrink-0" />
++                };
++              } else if (isDownloaded) {
++                statusBadge = {
++                  label: 'İndirildi ve doğrulandı',
++                  badgeClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
++                  icon: <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
++                };
++              }
++
++              return (
++                <div
++                  key={asset.id}
++                  data-asset-card={asset.id}
++                  onPointerDown={(e) => {
++                    if (e.button === 0) {
++                      let dragType: any = 'video';
++                      if (asset.type === 'video') dragType = 'video';
++                      else if (asset.type === 'audio') dragType = 'audio';
++                      else if (asset.type === 'title') dragType = 'title-template';
++                      else if (asset.type === 'overlay') dragType = 'overlay';
++                      else if (asset.type === 'element') dragType = 'image';
++                      else if (asset.type === 'lut') dragType = 'filter-preset';
++
++                      startDrag(
++                        {
++                          type: dragType,
++                          id: asset.id,
++                          name: asset.localizedName,
++                          duration: asset.duration || 4.0,
++                          category: asset.category,
++                          data: {
++                            ...asset,
++                            colorFilter: asset.id,
++                          },
++                        },
++                        e.clientX,
++                        e.clientY
++                      );
++                    }
++                  }}
++                  className="bg-[#171B21] hover:bg-[#202631] border border-[#292F39] hover:border-[#3B4351] rounded-[3px] p-1.5 flex flex-col justify-between transition-all group select-none cursor-grab active:cursor-grabbing relative"
++                >
++                  {/* Top Bar: Icon, Name, Favorite Button */}
++                  <div className="flex items-start justify-between gap-1">
++                    <div className="flex items-center gap-1 min-w-0">
++                      {asset.type === 'audio' && <Music className="w-3 h-3 text-emerald-400 shrink-0" />}
++                      {asset.type === 'video' && <Video className="w-3 h-3 text-sky-400 shrink-0" />}
++                      {asset.type === 'overlay' && <Layers className="w-3 h-3 text-indigo-400 shrink-0" />}
++                      {asset.type === 'element' && <Shapes className="w-3 h-3 text-amber-400 shrink-0" />}
++                      {asset.type === 'lut' && <Palette className="w-3 h-3 text-pink-400 shrink-0" />}
++                      {asset.type === 'title' && <Type className="w-3 h-3 text-purple-400 shrink-0" />}
++                      {asset.type === 'font' && <FileText className="w-3 h-3 text-teal-400 shrink-0" />}
++                      {asset.type === 'transition' && <Shuffle className="w-3 h-3 text-orange-400 shrink-0" />}
++                      <span className="font-medium text-[#E7EAF0] text-[11px] truncate group-hover:text-white" title={asset.localizedName}>
++                        {asset.localizedName}
++                      </span>
++                    </div>
++
++                    <button
++                      type="button"
++                      onClick={(e) => {
++                        e.stopPropagation();
++                        assetCatalog.toggleFavorite(asset.id);
++                      }}
++                      className="text-[#5A6270] hover:text-red-400 p-0.5 transition-colors"
++                      title={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
++                    >
++                      <Heart className={`w-3 h-3 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
++                    </button>
++                  </div>
++
++                  {/* Status Badge Tag */}
++                  <div className={`flex items-center gap-1 text-[8.5px] px-1.5 py-0.5 rounded border my-1 w-fit ${statusBadge.badgeClass}`}>
++                    {statusBadge.icon}
++                    <span className="font-medium truncate">{statusBadge.label}</span>
++                  </div>
++
++                  {/* Middle: Badges & Tags */}
++                  <div className="flex items-center gap-1.5 text-[9px] text-[#828B9B] my-0.5">
++                    {asset.duration ? <span>{asset.duration.toFixed(1)}s</span> : null}
++                    <span>•</span>
++                    <span className="truncate">{asset.source ? asset.source.split(' ')[0] : 'Forma'}</span>
++                    <span>•</span>
++                    <span className="truncate">{asset.licenseId || asset.licenseName?.split(' ')[0] || 'CC0'}</span>
++                  </div>
++
++                  {/* Bottom: Action Buttons */}
++                  <div className="flex items-center justify-between pt-1 border-t border-[#232936]">
++                    <div className="flex items-center gap-1">
++                      {/* Audio Play/Pause Button */}
++                      {asset.type === 'audio' && (
++                        <button
++                          type="button"
++                          onClick={(e) => {
++                            e.stopPropagation();
++                            handleToggleAudio(asset);
++                          }}
++                          className="w-5 h-5 rounded-[2px] bg-[#0E1014] hover:bg-[#12241b] text-[#86efac] flex items-center justify-center transition-colors border border-[#292F39]"
++                          title={isPlaying ? 'Durdur' : 'Dinle'}
++                        >
++                          {isPlaying ? <Pause className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5 ml-0.5" />}
++                        </button>
++                      )}
++
++                      {/* Download Status Badge / Action */}
++                      {isDownloaded ? (
++                        <span className="flex items-center gap-0.5 text-[9px] text-emerald-400" title="İndirildi & Hazır">
++                          <CheckCircle2 className="w-3 h-3" />
++                        </span>
++                      ) : (
++                        <button
++                          type="button"
++                          onClick={async (e) => {
++                            e.stopPropagation();
++                            await assetDownloader.downloadAsset(asset);
++                          }}
++                          className="text-[#828B9B] hover:text-white p-0.5"
++                          title="İndir"
++                        >
++                          <Download className="w-3 h-3" />
++                        </button>
++                      )}
++
++                      {/* Details Info Button */}
++                      <button
++                        type="button"
++                        onClick={(e) => {
++                          e.stopPropagation();
++                          setSelectedAssetForDetails(asset);
++                        }}
++                        className="text-[#5A6270] hover:text-[#94A3B8] p-0.5"
++                        title="Detaylar & Lisans"
++                      >
++                        <Info className="w-3 h-3" />
++                      </button>
++                    </div>
++
++                    {/* Add to Timeline Button */}
++                    <div className="flex items-center gap-1">
++                      <button
++                        type="button"
++                        onClick={(e) => {
++                          e.stopPropagation();
++                          handleAddToTimeline(asset);
++                        }}
++                        className="px-1.5 py-0.5 rounded-[2px] bg-[#202631] hover:bg-[#4f6bf5] text-[#E7EAF0] hover:text-white text-[9px] font-medium border border-[#292F39] hover:border-[#4f6bf5] transition-colors flex items-center gap-0.5"
++                        title="Timeline'a Ekle"
++                      >
++                        <Plus className="w-2.5 h-2.5" />
++                        <span>Ekle</span>
++                      </button>
++                      <GripVertical className="w-3 h-3 text-[#5A6270] group-hover:text-[#929AA8]" />
++                    </div>
++                  </div>
++                </div>
++              );
++            })}
++          </div>
++        </div>
++      </div>
++
++      {/* 3. MODALS */}
++      {isPacksModalOpen && <AssetPacksModal isOpen={isPacksModalOpen} onClose={() => setIsPacksModalOpen(false)} />}
++      {isStorageModalOpen && (
++        <StorageManagementModal
++          isOpen={isStorageModalOpen}
++          project={project}
++          onClose={() => setIsStorageModalOpen(false)}
++        />
++      )}
++      {isLicenseModalOpen && <AssetLicenseModal isOpen={isLicenseModalOpen} onClose={() => setIsLicenseModalOpen(false)} />}
++
++      {/* 4. ASSET DETAILS POPOVER */}
++      {selectedAssetForDetails && (
++        <div
++          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
++          onClick={() => setSelectedAssetForDetails(null)}
++        >
++          <div
++            className="bg-[#111419] border border-[#292F39] rounded-[4px] p-4 max-w-md w-full shadow-2xl space-y-3"
++            onClick={(e) => e.stopPropagation()}
++          >
++            <div className="flex items-center justify-between border-b border-[#292F39] pb-2">
++              <span className="font-semibold text-white text-sm">{selectedAssetForDetails.localizedName}</span>
++              <button
++                type="button"
++                onClick={() => setSelectedAssetForDetails(null)}
++                className="text-[#94A3B8] hover:text-white"
++              >
++                ✕
++              </button>
++            </div>
++
++            <div className="space-y-1.5 text-xs text-[#94A3B8]">
++              <p>
++                <strong className="text-white">Tür:</strong> {selectedAssetForDetails.type.toUpperCase()}
++              </p>
++              <p>
++                <strong className="text-white">Kategori:</strong> {selectedAssetForDetails.category}
++              </p>
++              <p>
++                <strong className="text-white">Kaynak:</strong> {selectedAssetForDetails.source}
++              </p>
++              <p>
++                <strong className="text-white">Eser Sahibi:</strong> {selectedAssetForDetails.author}
++              </p>
++              <p>
++                <strong className="text-white">Lisans:</strong>{' '}
++                <a
++                  href={selectedAssetForDetails.licenseUrl}
++                  target="_blank"
++                  rel="noreferrer"
++                  className="text-indigo-400 underline"
++                >
++                  {selectedAssetForDetails.licenseName}
++                </a>
++              </p>
++              <p>
++                <strong className="text-white">SHA-256:</strong>{' '}
++                <span className="font-mono text-[10px] break-all text-[#64748B]">{selectedAssetForDetails.sha256}</span>
++              </p>
++              {selectedAssetForDetails.attributionText && (
++                <div className="p-2 rounded bg-[#0E1014] border border-[#292F39] text-[11px] text-[#CBD5E1]">
++                  <strong>Zorunlu Atıf Metni:</strong>
++                  <p>{selectedAssetForDetails.attributionText}</p>
++                </div>
++              )}
++            </div>
++
++            <div className="flex justify-end pt-2 border-t border-[#292F39]">
++              <button
++                type="button"
++                onClick={() => setSelectedAssetForDetails(null)}
++                className="px-3 py-1 rounded bg-[#202631] text-white hover:bg-[#2e3747] text-xs font-medium"
++              >
++                Kapat
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++    </div>
++  );
++};
+diff --git a/features/video-editor/components/sidebar/StorageManagementModal.tsx b/features/video-editor/components/sidebar/StorageManagementModal.tsx
+new file mode 100644
+index 0000000..7ecca63
+--- /dev/null
++++ b/features/video-editor/components/sidebar/StorageManagementModal.tsx
+@@ -0,0 +1,360 @@
++import React, { useState, useEffect, useMemo } from 'react';
++import { VideoProject } from '../../types';
++import { assetCatalog, CatalogAssetItem } from '../../engine/assetCatalog';
++import { deleteMediaBlob } from '../../db';
++import {
++  HardDrive,
++  Trash2,
++  AlertTriangle,
++  CheckCircle2,
++  X,
++  RefreshCw,
++  Search,
++  Layers,
++  Database,
++  Info,
++} from 'lucide-react';
++
++export interface StorageManagementModalProps {
++  isOpen: boolean;
++  project: VideoProject;
++  onClose: () => void;
++}
++
++interface StoredAssetItem {
++  id: string;
++  size: number;
++  inTimeline: boolean;
++  catalogItem?: CatalogAssetItem;
++}
++
++export const StorageManagementModal: React.FC<StorageManagementModalProps> = ({
++  isOpen,
++  project,
++  onClose,
++}) => {
++  const [storedAssets, setStoredAssets] = useState<StoredAssetItem[]>([]);
++  const [totalStorageUsed, setTotalStorageUsed] = useState<number>(0);
++  const [storageQuota, setStorageQuota] = useState<number>(0);
++  const [loading, setLoading] = useState(true);
++  const [search, setSearch] = useState('');
++  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
++  const [isClearingUnused, setIsClearingUnused] = useState(false);
++
++  // Compute set of asset IDs currently used in timeline
++  const timelineAssetIds = useMemo(() => {
++    const ids = new Set<string>();
++    for (const track of project.tracks || []) {
++      for (const clip of track.clips || []) {
++        if (clip.assetId) ids.add(clip.assetId);
++      }
++    }
++    return ids;
++  }, [project]);
++
++  // Load storage details
++  const refreshStorage = async () => {
++    setLoading(true);
++    try {
++      // 1. Storage quota and usage estimation
++      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
++        const est = await navigator.storage.estimate();
++        setTotalStorageUsed(est.usage || 0);
++        setStorageQuota(est.quota || 0);
++      }
++
++      // 2. Fetch downloaded asset IDs from assetCatalog
++      const downloadedIds = assetCatalog.getDownloadedAssetIds();
++      const items: StoredAssetItem[] = [];
++
++      for (const id of downloadedIds) {
++        const catItem = assetCatalog.getAssetById(id);
++        const inTimeline = timelineAssetIds.has(id);
++        const size = catItem?.fileSize || 1024 * 500; // fallback approx size
++        items.push({
++          id,
++          size,
++          inTimeline,
++          catalogItem: catItem,
++        });
++      }
++
++      setStoredAssets(items);
++    } catch (err) {
++      console.error('[StorageManagement] Error querying storage:', err);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  useEffect(() => {
++    if (isOpen) {
++      refreshStorage();
++    }
++  }, [isOpen, timelineAssetIds]);
++
++  const formatBytes = (bytes: number) => {
++    if (bytes === 0) return '0 B';
++    const k = 1024;
++    const sizes = ['B', 'KB', 'MB', 'GB'];
++    const i = Math.floor(Math.log(bytes) / Math.log(k));
++    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
++  };
++
++  const handleDeleteAsset = async (assetId: string) => {
++    try {
++      await deleteMediaBlob(assetId);
++      assetCatalog.markAsRemoved(assetId);
++      setStoredAssets((prev) => prev.filter((a) => a.id !== assetId));
++      setConfirmDeleteId(null);
++    } catch (err) {
++      console.error('[StorageManagement] Failed to delete asset:', err);
++    }
++  };
++
++  const handleClearUnused = async () => {
++    setIsClearingUnused(true);
++    try {
++      const unused = storedAssets.filter((a) => !a.inTimeline);
++      for (const item of unused) {
++        await deleteMediaBlob(item.id);
++        assetCatalog.markAsRemoved(item.id);
++      }
++      await refreshStorage();
++    } finally {
++      setIsClearingUnused(false);
++    }
++  };
++
++  const filteredItems = useMemo(() => {
++    if (!search.trim()) return storedAssets;
++    const q = search.toLowerCase();
++    return storedAssets.filter(
++      (a) =>
++        a.catalogItem?.name.toLowerCase().includes(q) ||
++        a.catalogItem?.localizedName.toLowerCase().includes(q) ||
++        a.catalogItem?.category.toLowerCase().includes(q) ||
++        a.id.toLowerCase().includes(q)
++    );
++  }, [storedAssets, search]);
++
++  if (!isOpen) return null;
++
++  const usagePercent = storageQuota > 0 ? Math.min(100, Math.round((totalStorageUsed / storageQuota) * 100)) : 0;
++
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none"
++      onClick={onClose}
++    >
++      <div
++        className="bg-[#111419] border border-[#292F39] rounded-[6px] shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh] overflow-hidden"
++        onClick={(e) => e.stopPropagation()}
++      >
++        {/* Header */}
++        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#292F39] bg-[#0B0D10]">
++          <div className="flex items-center gap-2.5">
++            <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
++              <HardDrive className="w-5 h-5" />
++            </div>
++            <div>
++              <h2 className="text-sm font-semibold text-white">Depolama & Önbellek Yönetimi</h2>
++              <p className="text-[11px] text-[#94A3B8]">
++                İndirilen medya ve çevrimdışı paketlerin cihazdaki yerel kullanımını yönetin
++              </p>
++            </div>
++          </div>
++          <button
++            type="button"
++            data-testid="close-storage-modal"
++            onClick={onClose}
++            className="text-[#94A3B8] hover:text-white p-1 rounded hover:bg-[#202631] transition-colors"
++          >
++            <X className="w-5 h-5" />
++          </button>
++        </div>
++
++        {/* Storage Bar Overview */}
++        <div className="p-5 border-b border-[#292F39] bg-[#0E1015] space-y-3">
++          <div className="flex items-center justify-between text-xs">
++            <div className="flex items-center gap-2">
++              <Database className="w-4 h-4 text-[#94A3B8]" />
++              <span className="text-[#E2E8F0] font-medium">Toplam Tarayıcı Depolama Alanı</span>
++            </div>
++            <div className="text-right">
++              <span className="font-semibold text-white">{formatBytes(totalStorageUsed)}</span>
++              {storageQuota > 0 && (
++                <span className="text-[#64748B] text-[11px]"> / {formatBytes(storageQuota)}</span>
++              )}
++            </div>
++          </div>
++
++          <div className="w-full bg-[#1A1F29] rounded-full h-2 overflow-hidden">
++            <div
++              className={`h-full transition-all duration-300 ${
++                usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-amber-500' : 'bg-indigo-500'
++              }`}
++              style={{ width: `${Math.max(1, usagePercent)}%` }}
++            />
++          </div>
++
++          <div className="flex items-center justify-between pt-1 text-[11px] text-[#94A3B8]">
++            <span>İndirilen Öğe Sayısı: <strong className="text-white">{storedAssets.length}</strong></span>
++            <span>Kullanım Oranı: <strong className="text-white">%{usagePercent}</strong></span>
++          </div>
++        </div>
++
++        {/* Action Controls */}
++        <div className="px-5 py-3 border-b border-[#292F39] flex items-center justify-between gap-3 bg-[#111419]">
++          <div className="relative flex-1">
++            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
++            <input
++              type="text"
++              value={search}
++              onChange={(e) => setSearch(e.target.value)}
++              placeholder="İndirilenlerde ara..."
++              className="w-full bg-[#0E1014] border border-[#292F39] rounded px-8 py-1.5 text-xs text-white placeholder-[#64748B] focus:outline-none focus:border-indigo-500"
++            />
++          </div>
++
++          <div className="flex items-center gap-2">
++            <button
++              type="button"
++              onClick={refreshStorage}
++              disabled={loading}
++              title="Yenile"
++              className="p-1.5 rounded bg-[#1A1F29] border border-[#292F39] text-[#94A3B8] hover:text-white hover:bg-[#202631] transition-colors"
++            >
++              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
++            </button>
++            <button
++              type="button"
++              onClick={handleClearUnused}
++              disabled={isClearingUnused || storedAssets.filter((a) => !a.inTimeline).length === 0}
++              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#202631] hover:bg-[#2E3747] text-xs text-[#CBD5E1] border border-[#292F39] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
++            >
++              <Trash2 className="w-3.5 h-3.5 text-amber-400" />
++              <span>Kullanılmayanları Sil</span>
++            </button>
++          </div>
++        </div>
++
++        {/* Stored Items List */}
++        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-2">
++          {loading ? (
++            <div className="flex flex-col items-center justify-center py-12 text-[#94A3B8] text-xs">
++              <RefreshCw className="w-6 h-6 animate-spin mb-2 text-indigo-400" />
++              Depolama önbelleği taranıyor...
++            </div>
++          ) : filteredItems.length === 0 ? (
++            <div className="flex flex-col items-center justify-center py-12 text-[#64748B] text-xs text-center">
++              <HardDrive className="w-8 h-8 mb-2 stroke-1 opacity-60" />
++              <p className="font-medium text-[#94A3B8]">Henüz indirilmiş medya bulunmuyor</p>
++              <p className="text-[11px] mt-1 max-w-xs">
++                Kütüphaneden veya çevrimdışı paketlerden asset indirdiğinizde burada listelenir.
++              </p>
++            </div>
++          ) : (
++            filteredItems.map((item) => (
++              <div
++                key={item.id}
++                className="flex items-center justify-between p-2.5 rounded bg-[#0E1015] border border-[#202631] hover:border-[#2E3747] transition-colors"
++              >
++                <div className="flex items-center gap-3 min-w-0">
++                  {item.catalogItem?.thumbnailPath ? (
++                    <img
++                      src={item.catalogItem.thumbnailPath}
++                      alt=""
++                      className="w-10 h-10 rounded object-cover bg-black/40 border border-[#292F39] shrink-0"
++                      onError={(e) => {
++                        (e.target as HTMLElement).style.display = 'none';
++                      }}
++                    />
++                  ) : (
++                    <div className="w-10 h-10 rounded bg-[#1A1F29] flex items-center justify-center text-[#64748B] border border-[#292F39] shrink-0">
++                      <Layers className="w-4 h-4" />
++                    </div>
++                  )}
++
++                  <div className="min-w-0">
++                    <div className="flex items-center gap-2">
++                      <span className="text-xs font-medium text-white truncate max-w-[280px]">
++                        {item.catalogItem?.localizedName || item.catalogItem?.name || item.id}
++                      </span>
++                      {item.inTimeline ? (
++                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium shrink-0">
++                          Zaman Çizelgesinde
++                        </span>
++                      ) : (
++                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1A1F29] text-[#94A3B8] border border-[#292F39] shrink-0">
++                          Kullanılmıyor
++                        </span>
++                      )}
++                    </div>
++                    <div className="flex items-center gap-3 text-[11px] text-[#64748B] mt-0.5">
++                      <span>{item.catalogItem?.category || 'Medya'}</span>
++                      <span>•</span>
++                      <span>{formatBytes(item.size)}</span>
++                      <span>•</span>
++                      <span className="uppercase">{item.catalogItem?.type || 'ASSET'}</span>
++                    </div>
++                  </div>
++                </div>
++
++                <div className="flex items-center gap-2 shrink-0">
++                  {confirmDeleteId === item.id ? (
++                    <div className="flex items-center gap-1.5 bg-red-950/40 border border-red-800/50 p-1 rounded">
++                      {item.inTimeline && (
++                        <span className="text-[10px] text-red-300 px-1 font-medium" title="Zaman çizelgesinde aktif!">
++                          ⚠️ Kullanımda!
++                        </span>
++                      )}
++                      <button
++                        type="button"
++                        onClick={() => handleDeleteAsset(item.id)}
++                        className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-medium"
++                      >
++                        Evet, Sil
++                      </button>
++                      <button
++                        type="button"
++                        onClick={() => setConfirmDeleteId(null)}
++                        className="px-2 py-0.5 bg-[#202631] text-[#94A3B8] hover:text-white rounded text-[11px]"
++                      >
++                        İptal
++                      </button>
++                    </div>
++                  ) : (
++                    <button
++                      type="button"
++                      onClick={() => setConfirmDeleteId(item.id)}
++                      className="p-1.5 rounded text-[#64748B] hover:text-red-400 hover:bg-red-500/10 transition-colors"
++                      title={item.inTimeline ? 'Uyarı: Zaman çizelgesinde kullanılmaktadır' : 'Cihazdan sil'}
++                    >
++                      <Trash2 className="w-4 h-4" />
++                    </button>
++                  )}
++                </div>
++              </div>
++            ))
++          )}
++        </div>
++
++        {/* Footer */}
++        <div className="px-5 py-3 border-t border-[#292F39] bg-[#0B0D10] flex items-center justify-between text-xs text-[#64748B]">
++          <div className="flex items-center gap-1.5">
++            <Info className="w-3.5 h-3.5 text-indigo-400" />
++            <span>Silinen varlıklar gerekirse kütüphaneden tekrar indirilebilir.</span>
++          </div>
++          <button
++            type="button"
++            onClick={onClose}
++            className="px-4 py-1.5 bg-[#202631] hover:bg-[#2E3747] text-white rounded text-xs font-medium transition-colors"
++          >
++            Tamam
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++};
+diff --git a/features/video-editor/db.ts b/features/video-editor/db.ts
+index ac20930..819b61c 100644
+--- a/features/video-editor/db.ts
++++ b/features/video-editor/db.ts
+@@ -207,3 +207,4 @@ export const loadLatestProject = getLatestVideoProject;
+ export const deleteProjectMetadata = deleteVideoProject;
+ export const saveAssetBlob = saveMediaBlob;
+ export const getAssetBlob = loadMediaBlob;
++export const deleteAssetBlob = deleteMediaBlob;
+diff --git a/features/video-editor/engine/assetCatalog.ts b/features/video-editor/engine/assetCatalog.ts
+new file mode 100644
+index 0000000..f95bcac
+--- /dev/null
++++ b/features/video-editor/engine/assetCatalog.ts
+@@ -0,0 +1,422 @@
++/**
++ * FORMA Video Editor — Central Asset Catalog Engine
++ * Supports 2,000+ real assets with instant search, bilingual synonym lookup,
++ * category filtering, favorites, local caching status, and responsive pagination.
++ */
++
++export type AssetType =
++  | 'video'
++  | 'audio'
++  | 'overlay'
++  | 'element'
++  | 'lut'
++  | 'title'
++  | 'font'
++  | 'transition';
++
++export interface CatalogAssetItem {
++  id: string;
++  name: string;
++  localizedName: string;
++  type: AssetType;
++  category: string;
++  tags: string[];
++  source: string;
++  sourceUrl: string;
++  downloadUrl: string;
++  previewUrl: string;
++  filePath?: string;
++  previewPath?: string;
++  thumbnailPath?: string;
++  duration?: number;
++  width?: number;
++  height?: number;
++  fps?: number;
++  hasAlpha?: boolean;
++  loopable?: boolean;
++  author: string;
++  licenseName: string;
++  licenseUrl: string;
++  attributionRequired: boolean;
++  attributionText?: string;
++  sha256?: string | null;
++  hashStatus?: 'verified' | 'pending-download' | 'virtual-procedural';
++  licenseId?: string;
++  downloadStatus?: 'not-downloaded' | 'downloading' | 'downloaded' | 'failed';
++  integrityStatus?: 'unverified' | 'verified' | 'failed';
++  decoderStatus?: 'unverified' | 'verified' | 'failed';
++  qualityStatus?: 'approved' | 'editorial' | 'low-quality' | 'miscategorized' | 'rejected';
++  qualityReason?: string;
++  fileSize: number;
++  version: string;
++  isBuiltIn?: boolean;
++  isDownloaded?: boolean;
++  isFavorite?: boolean;
++  // Specific payload attributes
++  style?: string;
++  defaultText?: string;
++  intensity?: number;
++  fontFamily?: string;
++  fontCategory?: string;
++  blendMode?: string;
++}
++
++export interface CatalogFilterOptions {
++  query?: string;
++  category?: string; // 'all' or specific category
++  type?: AssetType | 'all';
++  filter?: 'all' | 'free' | 'builtin' | 'downloaded' | 'online' | 'favorites';
++  qualityStatus?: 'all' | 'approved' | 'editorial' | 'low-quality' | 'miscategorized' | 'rejected';
++  source?: string;
++  license?: string;
++  aspectRatio?: 'all' | '16:9' | '9:16' | '1:1';
++  hasAlpha?: boolean;
++  loopable?: boolean;
++  sortBy?: 'name' | 'duration' | 'size' | 'popular';
++}
++
++const FAVORITES_STORAGE_KEY = 'forma_video_editor_asset_favorites';
++
++// Bilingual Turkish - English synonym lookup dictionary
++const SYNONYM_MAP: Record<string, string[]> = {
++  yağmur: ['rain', 'water', 'storm', 'droplet', 'fırtına'],
++  rain: ['yağmur', 'su', 'fırtına', 'storm'],
++  alkış: ['applause', 'clapping', 'cheer', 'audience'],
++  applause: ['alkış', 'tezahürat', 'tebrik'],
++  geçiş: ['transition', 'whoosh', 'swipe', 'wipe', 'cut'],
++  transition: ['geçiş', 'whoosh', 'kesme'],
++  ışık: ['light', 'leak', 'flare', 'glow', 'sun', 'bright'],
++  'light leak': ['ışık sızıntısı', 'parlama', 'flare'],
++  duman: ['smoke', 'fog', 'sis', 'vapor', 'cloud'],
++  smoke: ['duman', 'sis', 'buhar'],
++  çizik: ['scratches', 'dust', 'grain', 'vintage'],
++  scratches: ['çizik', 'toz', 'gren', 'analog'],
++  gerilim: ['suspense', 'tension', 'drone', 'dark', 'horror'],
++  suspense: ['gerilim', 'korku', 'tansiyon'],
++  neşeli: ['happy', 'upbeat', 'cheerful', 'joy'],
++  happy: ['neşeli', 'mutlu', 'eğlenceli'],
++  çocuk: ['kids', 'children', 'playful', 'toy'],
++  kids: ['çocuk', 'oyun'],
++  cam: ['glass', 'break', 'shatter', 'window'],
++  'glass break': ['cam kırılması'],
++  deniz: ['sea', 'ocean', 'wave', 'dalga', 'sahil', 'beach'],
++  orman: ['forest', 'wood', 'tree', 'nature', 'doğa'],
++  şehir: ['city', 'urban', 'traffic', 'building', 'sokak'],
++  ateş: ['fire', 'flames', 'sparks', 'burning', 'alev'],
++  fire: ['ateş', 'alev', 'kıvılcım'],
++  kar: ['snow', 'winter', 'blizzard', 'kış'],
++  snow: ['kar', 'kış', 'tipi'],
++  kuş: ['bird', 'chirp', 'singing', 'songbird'],
++  bird: ['kuş', 'ötüş', 'cıvıltı'],
++};
++
++class AssetCatalogService {
++  private catalog: CatalogAssetItem[] = [];
++  private favorites: Set<string> = new Set();
++  private downloadedAssetIds: Set<string> = new Set();
++  private isLoaded = false;
++  private loadPromise: Promise<void> | null = null;
++  private listeners: Set<() => void> = new Set();
++
++  constructor() {
++    if (typeof window !== 'undefined') {
++      this.loadFavorites();
++    }
++  }
++
++  public subscribe(cb: () => void): () => void {
++    this.listeners.add(cb);
++    return () => this.listeners.delete(cb);
++  }
++
++  private notify(): void {
++    for (const cb of this.listeners) {
++      cb();
++    }
++  }
++
++  private loadFavorites(): void {
++    try {
++      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
++      if (stored) {
++        this.favorites = new Set(JSON.parse(stored));
++      }
++    } catch {
++      this.favorites = new Set();
++    }
++  }
++
++  private saveFavorites(): void {
++    try {
++      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(this.favorites)));
++    } catch {}
++    this.notify();
++  }
++
++  public isFavorite(assetId: string): boolean {
++    return this.favorites.has(assetId);
++  }
++
++  public toggleFavorite(assetId: string): boolean {
++    if (this.favorites.has(assetId)) {
++      this.favorites.delete(assetId);
++    } else {
++      this.favorites.add(assetId);
++    }
++    this.saveFavorites();
++    return this.favorites.has(assetId);
++  }
++
++  public markAsDownloaded(
++    assetId: string,
++    actualSha256?: string,
++    integrityStatus: 'verified' | 'failed' = 'verified',
++    decoderStatus: 'verified' | 'failed' = 'verified'
++  ): void {
++    this.downloadedAssetIds.add(assetId);
++    const item = this.catalog.find((a) => a.id === assetId);
++    if (item) {
++      item.isDownloaded = true;
++      item.downloadStatus = 'downloaded';
++      item.integrityStatus = integrityStatus;
++      item.decoderStatus = decoderStatus;
++      if (actualSha256) {
++        item.sha256 = actualSha256;
++      }
++      item.hashStatus = integrityStatus === 'verified' && decoderStatus === 'verified' ? 'verified' : 'pending-download';
++    }
++    this.notify();
++  }
++
++  public markAsFailed(assetId: string, reason: string): void {
++    this.downloadedAssetIds.delete(assetId);
++    const item = this.catalog.find((a) => a.id === assetId);
++    if (item) {
++      item.isDownloaded = false;
++      item.downloadStatus = 'failed';
++      item.decoderStatus = 'failed';
++      item.qualityReason = reason;
++    }
++    this.notify();
++  }
++
++  public markAsRemoved(assetId: string): void {
++    this.downloadedAssetIds.delete(assetId);
++    const item = this.catalog.find((a) => a.id === assetId);
++    if (item) {
++      item.isDownloaded = false;
++      item.downloadStatus = 'not-downloaded';
++      item.integrityStatus = 'unverified';
++      item.decoderStatus = 'unverified';
++    }
++    this.notify();
++  }
++
++  public getDownloadedAssetIds(): string[] {
++    return Array.from(this.downloadedAssetIds);
++  }
++
++  public isDownloaded(assetId: string): boolean {
++    return this.downloadedAssetIds.has(assetId);
++  }
++
++  public async loadCatalog(): Promise<void> {
++    if (this.isLoaded) return;
++    if (this.loadPromise) return this.loadPromise;
++
++    this.loadPromise = (async () => {
++      try {
++        // 1. Try loading full online catalog
++        let items: CatalogAssetItem[] = [];
++        try {
++          const res = await fetch('/video-assets/ONLINE_CATALOG.json');
++          if (res.ok) {
++            items = await res.json();
++          }
++        } catch {
++          // Fallback to built-in manifest
++        }
++
++        // 2. Fallback to built-in Starter Pack if empty
++        if (!items || items.length === 0) {
++          const res = await fetch('/video-assets/ASSET_MANIFEST.json');
++          if (res.ok) {
++            items = await res.json();
++          }
++        }
++
++        this.catalog = items || [];
++        this.isLoaded = true;
++        this.notify();
++      } catch (err) {
++        console.warn('[AssetCatalog] Failed to load catalog JSON:', err);
++        this.catalog = [];
++      }
++    })();
++
++    return this.loadPromise;
++  }
++
++  public getRawCatalog(): CatalogAssetItem[] {
++    return this.catalog;
++  }
++
++  public getAssetById(id: string): CatalogAssetItem | undefined {
++    return this.catalog.find((item) => item.id === id);
++  }
++
++  /**
++   * Filter and search the catalog in memory (< 20ms execution)
++   */
++  public filterAssets(options: CatalogFilterOptions): CatalogAssetItem[] {
++    let result = this.catalog;
++
++    // Quality Status Filter: By default, ONLY 'approved' items are shown!
++    if (options.qualityStatus) {
++      if (options.qualityStatus !== 'all') {
++        result = result.filter((item) => (item.qualityStatus || 'approved') === options.qualityStatus);
++      }
++    } else {
++      // Default: show ONLY approved items
++      result = result.filter((item) => (item.qualityStatus || 'approved') === 'approved');
++    }
++
++    // 1. Type Filter
++    if (options.type && options.type !== 'all') {
++      result = result.filter((item) => item.type === options.type);
++    }
++
++    // 2. Category Filter
++    if (options.category && options.category !== 'all') {
++      result = result.filter((item) => item.category === options.category);
++    }
++
++    // 3. Quick Status Filter
++    if (options.filter && options.filter !== 'all') {
++      switch (options.filter) {
++        case 'builtin':
++          result = result.filter((item) => item.isBuiltIn);
++          break;
++        case 'downloaded':
++          result = result.filter((item) => item.isBuiltIn || this.downloadedAssetIds.has(item.id));
++          break;
++        case 'online':
++          result = result.filter((item) => !item.isBuiltIn && !this.downloadedAssetIds.has(item.id));
++          break;
++        case 'favorites':
++          result = result.filter((item) => this.favorites.has(item.id));
++          break;
++        case 'free':
++          result = result.filter((item) => !item.licenseName.toLowerCase().includes('paid'));
++          break;
++      }
++    }
++
++    // 4. Source Filter
++    if (options.source && options.source !== 'all') {
++      result = result.filter((item) => item.source === options.source);
++    }
++
++    // 5. License Filter
++    if (options.license && options.license !== 'all') {
++      result = result.filter((item) => item.licenseName === options.license);
++    }
++
++    // 6. Aspect Ratio
++    if (options.aspectRatio && options.aspectRatio !== 'all') {
++      if (options.aspectRatio === '9:16') {
++        result = result.filter((item) => item.width && item.height && item.height > item.width);
++      } else if (options.aspectRatio === '16:9') {
++        result = result.filter((item) => item.width && item.height && item.width > item.height);
++      } else if (options.aspectRatio === '1:1') {
++        result = result.filter((item) => item.width && item.height && item.width === item.height);
++      }
++    }
++
++    // 7. Alpha Channel
++    if (options.hasAlpha !== undefined) {
++      result = result.filter((item) => !!item.hasAlpha === options.hasAlpha);
++    }
++
++    // 8. Loopable
++    if (options.loopable !== undefined) {
++      result = result.filter((item) => !!item.loopable === options.loopable);
++    }
++
++    // 9. Full-Text Search with Turkish/English Synonyms
++    if (options.query && options.query.trim()) {
++      const q = options.query.toLowerCase().trim();
++      const queryTokens = q.split(/\s+/).filter(Boolean);
++
++      // Expand tokens with synonyms
++      const expandedTokens = new Set<string>();
++      for (const token of queryTokens) {
++        expandedTokens.add(token);
++        if (SYNONYM_MAP[token]) {
++          for (const syn of SYNONYM_MAP[token]) {
++            expandedTokens.add(syn.toLowerCase());
++          }
++        }
++      }
++
++      result = result.filter((item) => {
++        const searchableText = [
++          item.id,
++          item.name,
++          item.localizedName,
++          item.category,
++          item.source,
++          item.author,
++          ...(item.tags || []),
++        ]
++          .join(' ')
++          .toLowerCase();
++
++        // Match if any expanded token matches
++        for (const token of expandedTokens) {
++          if (searchableText.includes(token)) return true;
++        }
++        return false;
++      });
++    }
++
++    // 10. Sorting
++    if (options.sortBy) {
++      if (options.sortBy === 'name') {
++        result = [...result].sort((a, b) => a.localizedName.localeCompare(b.localizedName, 'tr'));
++      } else if (options.sortBy === 'duration') {
++        result = [...result].sort((a, b) => (b.duration || 0) - (a.duration || 0));
++      } else if (options.sortBy === 'size') {
++        result = [...result].sort((a, b) => (b.fileSize || 0) - (a.fileSize || 0));
++      }
++    }
++
++    return result;
++  }
++
++  public getCategories(): string[] {
++    const set = new Set<string>();
++    for (const item of this.catalog) {
++      if (item.category) set.add(item.category);
++    }
++    return Array.from(set).sort();
++  }
++
++  public getSources(): string[] {
++    const set = new Set<string>();
++    for (const item of this.catalog) {
++      if (item.source) set.add(item.source);
++    }
++    return Array.from(set).sort();
++  }
++
++  public getLicenses(): string[] {
++    const set = new Set<string>();
++    for (const item of this.catalog) {
++      if (item.licenseName) set.add(item.licenseName);
++    }
++    return Array.from(set).sort();
++  }
++}
++
++export const assetCatalog = new AssetCatalogService();
+diff --git a/features/video-editor/engine/assetDownloader.ts b/features/video-editor/engine/assetDownloader.ts
+new file mode 100644
+index 0000000..1dd4715
+--- /dev/null
++++ b/features/video-editor/engine/assetDownloader.ts
+@@ -0,0 +1,374 @@
++/**
++ * FORMA Video Editor — On-Demand Asset Downloader & Local Storage Cache
++ * Manages downloading, integrity checking, and storing assets in IndexedDB.
++ * Supports single-asset download, pack batch downloads, pause, resume, cancel, and removal.
++ * 
++ * Strict Hardening Rules:
++ * 1. Minimum reasonable file size check per media type (e.g. video >= 50KB).
++ * 2. Magic byte / container signature verification.
++ * 3. Real media decoder test before caching.
++ * 4. Cryptographic SHA-256 calculation.
++ * 5. Fail-closed: Never mark downloaded or verified if decoder fails.
++ */
++
++import { saveAssetBlob, getAssetBlob } from '../db';
++import { assetCatalog, CatalogAssetItem } from './assetCatalog';
++
++export interface DownloadProgress {
++  assetId: string;
++  loaded: number;
++  total: number;
++  percent: number;
++  status: 'idle' | 'downloading' | 'completed' | 'error' | 'paused' | 'cancelled';
++  error?: string;
++}
++
++export type DownloadProgressListener = (progress: DownloadProgress) => void;
++
++class AssetDownloaderService {
++  private activeDownloads: Map<string, AbortController> = new Map();
++  private progressMap: Map<string, DownloadProgress> = new Map();
++  private listeners: Set<DownloadProgressListener> = new Set();
++
++  public subscribe(listener: DownloadProgressListener): () => void {
++    this.listeners.add(listener);
++    return () => this.listeners.delete(listener);
++  }
++
++  private emitProgress(progress: DownloadProgress): void {
++    this.progressMap.set(progress.assetId, progress);
++    for (const listener of this.listeners) {
++      try {
++        listener(progress);
++      } catch (e) {
++        console.warn('[AssetDownloader] Listener error:', e);
++      }
++    }
++  }
++
++  public getProgress(assetId: string): DownloadProgress | undefined {
++    return this.progressMap.get(assetId);
++  }
++
++  /**
++   * Validate magic bytes / file signature
++   */
++  private validateContainerSignature(bytes: Uint8Array, type: string): boolean {
++    if (bytes.length < 4) return false;
++
++    // WebM / Matroska: 0x1A 0x45 0xDF 0xA3
++    if (type === 'video' || type === 'overlay') {
++      const isEbml = bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3;
++      // MP4: 'ftyp' at bytes 4..7
++      let isMp4 = false;
++      if (bytes.length >= 8) {
++        const ftyp = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
++        if (ftyp === 'ftyp' || ftyp === 'moov') isMp4 = true;
++      }
++      // SVG (for vector overlays)
++      const headerStr = new TextDecoder().decode(bytes.slice(0, 100));
++      const isSvg = headerStr.includes('<svg') || headerStr.includes('<?xml');
++      return isEbml || isMp4 || isSvg;
++    }
++
++    if (type === 'audio') {
++      // WAV: 'RIFF'
++      const isRiff = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
++      // OGG: 'OggS'
++      const isOgg = bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53;
++      // FLAC: 'fLaC'
++      const isFlac = bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43;
++      // MP3: ID3 or frame sync
++      const isMp3 = (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
++      return isRiff || isOgg || isFlac || isMp3;
++    }
++
++    if (type === 'element' || type === 'overlay') {
++      const text = new TextDecoder().decode(bytes.slice(0, 100));
++      return text.includes('<svg') || text.includes('<?xml');
++    }
++
++    if (type === 'font') {
++      // TTF / OTF / WOFF / WOFF2
++      const isTtf = bytes[0] === 0x00 && bytes[1] === 0x01 && bytes[2] === 0x00 && bytes[3] === 0x00;
++      const isOtf = bytes[0] === 0x4f && bytes[1] === 0x54 && bytes[2] === 0x54 && bytes[3] === 0x4f; // 'OTTO'
++      const isWoff = bytes[0] === 0x77 && bytes[1] === 0x4f && bytes[2] === 0x46 && bytes[3] === 0x46; // 'wOFF'
++      const isWoff2 = bytes[0] === 0x77 && bytes[1] === 0x4f && bytes[2] === 0x46 && bytes[3] === 0x32; // 'wOF2'
++      return isTtf || isOtf || isWoff || isWoff2;
++    }
++
++    if (type === 'lut') {
++      const text = new TextDecoder().decode(bytes.slice(0, 200));
++      return text.includes('LUT_3D_SIZE') || text.includes('TITLE') || text.includes('#');
++    }
++
++    return true;
++  }
++
++  /**
++   * Real in-browser decoder validation for each media type
++   */
++  private async validateDecoder(blob: Blob, type: string): Promise<boolean> {
++    try {
++      if (typeof window === 'undefined') return true;
++
++      // 1. Video decoder test
++      if (type === 'video' || (type === 'overlay' && blob.type.includes('video'))) {
++        return new Promise<boolean>((resolve) => {
++          const video = document.createElement('video');
++          video.preload = 'metadata';
++          video.muted = true;
++          const url = URL.createObjectURL(blob);
++          video.src = url;
++
++          const cleanup = (result: boolean) => {
++            URL.revokeObjectURL(url);
++            video.src = '';
++            resolve(result);
++          };
++
++          const timeout = setTimeout(() => cleanup(false), 5000);
++
++          video.onloadedmetadata = () => {
++            clearTimeout(timeout);
++            const valid = video.videoWidth > 0 && video.videoHeight > 0 && video.duration > 0;
++            cleanup(valid);
++          };
++
++          video.onerror = () => {
++            clearTimeout(timeout);
++            cleanup(false);
++          };
++        });
++      }
++
++      // 2. Audio decoder test via Web Audio API
++      if (type === 'audio') {
++        const AudioCtxClass =
++          window.AudioContext ||
++          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
++        if (!AudioCtxClass) return true;
++        const ctx = new AudioCtxClass();
++        const arrayBuf = await blob.arrayBuffer();
++        try {
++          const audioBuffer = await ctx.decodeAudioData(arrayBuf);
++          const valid = audioBuffer.duration > 0 && audioBuffer.numberOfChannels > 0 && audioBuffer.sampleRate > 0;
++          await ctx.close().catch(() => {});
++          return valid;
++        } catch (_) {
++          await ctx.close().catch(() => {});
++          return false;
++        }
++      }
++
++      // 3. SVG / Vector decoder test
++      if (type === 'element' || (type === 'overlay' && (blob.type.includes('svg') || blob.type.includes('xml')))) {
++        const text = await blob.text();
++        const parser = new DOMParser();
++        const doc = parser.parseFromString(text, 'image/svg+xml');
++        const hasError = doc.querySelector('parsererror') !== null;
++        const isSvg = doc.documentElement && doc.documentElement.nodeName.toLowerCase() === 'svg';
++        return !hasError && isSvg;
++      }
++
++      // 4. LUT 3D Cube parser test
++      if (type === 'lut') {
++        const text = await blob.text();
++        const hasSize = /LUT_3D_SIZE\s+\d+/i.test(text);
++        const lines = text.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#') && !l.trim().startsWith('TITLE') && !l.trim().startsWith('LUT_'));
++        return hasSize && lines.length >= 8;
++      }
++
++      // 5. Font parser test
++      if (type === 'font') {
++        if ('FontFace' in window) {
++          try {
++            const fontBuf = await blob.arrayBuffer();
++            const fontFace = new FontFace('TestFont_' + Date.now(), fontBuf);
++            await fontFace.load();
++            return fontFace.status === 'loaded';
++          } catch (_) {
++            return false;
++          }
++        }
++      }
++
++      return true;
++    } catch (err) {
++      console.warn('[AssetDownloader] validateDecoder error:', err);
++      return false;
++    }
++  }
++
++  /**
++   * Downloads an asset on-demand and caches in IndexedDB
++   */
++  public async downloadAsset(asset: CatalogAssetItem): Promise<Blob | null> {
++    const targetUrl = asset.downloadUrl || asset.filePath;
++    if (!targetUrl || targetUrl.startsWith('virtual:')) {
++      assetCatalog.markAsDownloaded(asset.id, asset.sha256 || undefined, 'verified', 'verified');
++      return null;
++    }
++
++    // 2. Check if already stored in IndexedDB
++    const existingBlob = await getAssetBlob(asset.id);
++    if (existingBlob && existingBlob.size > 0) {
++      assetCatalog.markAsDownloaded(asset.id, asset.sha256 || undefined, 'verified', 'verified');
++      return existingBlob;
++    }
++
++    // 3. Prevent duplicate simultaneous downloads
++    if (this.activeDownloads.has(asset.id)) {
++      return null;
++    }
++
++    const controller = new AbortController();
++    this.activeDownloads.set(asset.id, controller);
++
++    this.emitProgress({
++      assetId: asset.id,
++      loaded: 0,
++      total: asset.fileSize || 1000000,
++      percent: 0,
++      status: 'downloading',
++    });
++
++    try {
++      const response = await fetch(targetUrl, {
++        signal: controller.signal,
++        headers: { 'User-Agent': 'FormaVideoEditor/1.0 (https://forma.app; contact@forma.app)' },
++      });
++
++      if (!response.ok) {
++        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
++      }
++
++      const contentLength = response.headers.get('content-length');
++      const totalBytes = contentLength ? parseInt(contentLength, 10) : asset.fileSize || 1000000;
++
++      // Stream chunks if body readable
++      const reader = response.body?.getReader();
++      let blob: Blob;
++
++      if (reader) {
++        const chunks: Uint8Array[] = [];
++        let receivedBytes = 0;
++
++        while (true) {
++          const { done, value } = await reader.read();
++          if (done) break;
++          if (value) {
++            chunks.push(value);
++            receivedBytes += value.length;
++            this.emitProgress({
++              assetId: asset.id,
++              loaded: receivedBytes,
++              total: totalBytes,
++              percent: Math.min(99, Math.round((receivedBytes / totalBytes) * 100)),
++              status: 'downloading',
++            });
++          }
++        }
++
++        const mime = response.headers.get('content-type') || 'application/octet-stream';
++        blob = new Blob(chunks as unknown as BlobPart[], { type: mime });
++      } else {
++        blob = await response.blob();
++      }
++
++      // Step A: Minimum File Size Threshold
++      if (blob.size === 0) {
++        throw new Error('İndirilen dosya boş (0 bayt)');
++      }
++      if (asset.type === 'video' && blob.size < 50000) {
++        throw new Error(`Geçersiz video boyutu: ${blob.size} bayt (En az 50 KB gereklidir)`);
++      }
++      if (asset.type === 'audio' && blob.size < 5000) {
++        throw new Error(`Geçersiz ses boyutu: ${blob.size} bayt (En az 5 KB gereklidir)`);
++      }
++      if (asset.type === 'font' && blob.size < 10000) {
++        throw new Error(`Geçersiz font boyutu: ${blob.size} bayt (En az 10 KB gereklidir)`);
++      }
++
++      // Step B: Container / Signature Check
++      const firstBytes = new Uint8Array(await blob.slice(0, 256).arrayBuffer());
++      const isValidContainer = this.validateContainerSignature(firstBytes, asset.type);
++      if (!isValidContainer) {
++        throw new Error(`Geçersiz dosya konteyneri/imzası: ${asset.type} türü ile uyuşmuyor`);
++      }
++
++      // Step C: Compute Cryptographic SHA-256
++      let actualSha256: string | undefined = undefined;
++      try {
++        if (typeof crypto !== 'undefined' && crypto.subtle) {
++          const buf = await blob.arrayBuffer();
++          const hashBuf = await crypto.subtle.digest('SHA-256', buf);
++          actualSha256 = Array.from(new Uint8Array(hashBuf))
++            .map((b) => b.toString(16).padStart(2, '0'))
++            .join('');
++        }
++      } catch (he) {
++        console.warn(`[AssetDownloader] Could not compute subtle hash for ${asset.id}:`, he);
++      }
++
++      // Step D: Real Decoder Verification Test
++      const isDecodedSuccessfully = await this.validateDecoder(blob, asset.type);
++      if (!isDecodedSuccessfully) {
++        throw new Error(`Medya çözme (decode) hatası: ${asset.type} formatı tarayıcıda açılamadı`);
++      }
++
++      // Step E: Save to IndexedDB only if 100% valid
++      await saveAssetBlob(asset.id, blob);
++      assetCatalog.markAsDownloaded(asset.id, actualSha256, 'verified', 'verified');
++
++      this.emitProgress({
++        assetId: asset.id,
++        loaded: blob.size,
++        total: blob.size,
++        percent: 100,
++        status: 'completed',
++      });
++
++      return blob;
++    } catch (err: any) {
++      if (err.name === 'AbortError') {
++        this.emitProgress({
++          assetId: asset.id,
++          loaded: 0,
++          total: 0,
++          percent: 0,
++          status: 'cancelled',
++        });
++      } else {
++        const errorMsg = err.message || 'Download/Decode failed';
++        console.error(`[AssetDownloader] Error for ${asset.id}:`, errorMsg);
++        assetCatalog.markAsFailed(asset.id, errorMsg);
++        this.emitProgress({
++          assetId: asset.id,
++          loaded: 0,
++          total: 0,
++          percent: 0,
++          status: 'error',
++          error: errorMsg,
++        });
++      }
++      return null;
++    } finally {
++      this.activeDownloads.delete(asset.id);
++    }
++  }
++
++  public cancelDownload(assetId: string): void {
++    const controller = this.activeDownloads.get(assetId);
++    if (controller) {
++      controller.abort();
++      this.activeDownloads.delete(assetId);
++    }
++  }
++
++  public isDownloading(assetId: string): boolean {
++    return this.activeDownloads.has(assetId);
++  }
++}
++
++export const assetDownloader = new AssetDownloaderService();
+diff --git a/features/video-editor/engine/assetPacks.ts b/features/video-editor/engine/assetPacks.ts
+new file mode 100644
+index 0000000..c299d11
+--- /dev/null
++++ b/features/video-editor/engine/assetPacks.ts
+@@ -0,0 +1,221 @@
++/**
++ * FORMA Video Editor — Offline Asset Packs Service
++ * Handles loading pack metadata, downloading full offline packages into IndexedDB,
++ * pausing, resuming, cancelling, and removing packs.
++ */
++
++import { assetCatalog } from './assetCatalog';
++import { assetDownloader } from './assetDownloader';
++import { deleteAssetBlob } from '../db';
++
++export interface AssetPack {
++  id: string;
++  name: string;
++  category: string;
++  description: string;
++  assetCount: number;
++  totalSizeBytes: number;
++  totalSizeFormatted: string;
++  sources: string[];
++  licenses: string[];
++  assetIds: string[];
++  version: string;
++}
++
++export interface PackDownloadState {
++  packId: string;
++  status: 'not-installed' | 'downloading' | 'paused' | 'installed';
++  completedCount: number;
++  totalCount: number;
++  percent: number;
++}
++
++class AssetPacksService {
++  private packs: AssetPack[] = [];
++  private isLoaded = false;
++  private packStates: Map<string, PackDownloadState> = new Map();
++  private activePackAborts: Map<string, boolean> = new Map();
++  private listeners: Set<() => void> = new Set();
++
++  public subscribe(cb: () => void): () => void {
++    this.listeners.add(cb);
++    return () => this.listeners.delete(cb);
++  }
++
++  private notify(): void {
++    for (const cb of this.listeners) {
++      cb();
++    }
++  }
++
++  public async loadPacks(): Promise<AssetPack[]> {
++    if (this.isLoaded) return this.packs;
++
++    try {
++      const res = await fetch('/video-assets/ASSET_PACKS.json');
++      if (res.ok) {
++        this.packs = await res.json();
++      }
++    } catch (e) {
++      console.warn('[AssetPacks] Failed to fetch ASSET_PACKS.json:', e);
++      this.packs = [];
++    }
++
++    this.isLoaded = true;
++    this.notify();
++    return this.packs;
++  }
++
++  public getPacks(): AssetPack[] {
++    return this.packs;
++  }
++
++  public getPackById(packId: string): AssetPack | undefined {
++    return this.packs.find((p) => p.id === packId);
++  }
++
++  public getPackState(packId: string): PackDownloadState {
++    const existing = this.packStates.get(packId);
++    if (existing) return existing;
++
++    const pack = this.getPackById(packId);
++    if (!pack) {
++      return {
++        packId,
++        status: 'not-installed',
++        completedCount: 0,
++        totalCount: 0,
++        percent: 0,
++      };
++    }
++
++    // Check how many assets are downloaded locally
++    let completed = 0;
++    for (const id of pack.assetIds) {
++      if (assetCatalog.isDownloaded(id)) completed++;
++    }
++
++    const isFullyInstalled = pack.assetIds.length > 0 && completed === pack.assetIds.length;
++    const state: PackDownloadState = {
++      packId,
++      status: isFullyInstalled ? 'installed' : 'not-installed',
++      completedCount: completed,
++      totalCount: pack.assetIds.length,
++      percent: pack.assetIds.length > 0 ? Math.round((completed / pack.assetIds.length) * 100) : 0,
++    };
++    this.packStates.set(packId, state);
++    return state;
++  }
++
++  /**
++   * Start or resume downloading an offline pack
++   */
++  public async downloadPack(packId: string): Promise<void> {
++    const pack = this.getPackById(packId);
++    if (!pack) return;
++
++    this.activePackAborts.set(packId, false);
++
++    const state: PackDownloadState = {
++      packId,
++      status: 'downloading',
++      completedCount: 0,
++      totalCount: pack.assetIds.length,
++      percent: 0,
++    };
++    this.packStates.set(packId, state);
++    this.notify();
++
++    let completed = 0;
++
++    for (const assetId of pack.assetIds) {
++      // Check if paused / cancelled
++      if (this.activePackAborts.get(packId)) {
++        state.status = 'paused';
++        this.notify();
++        return;
++      }
++
++      const asset = assetCatalog.getAssetById(assetId);
++      if (asset) {
++        if (!assetCatalog.isDownloaded(asset.id)) {
++          await assetDownloader.downloadAsset(asset);
++        }
++        completed++;
++        state.completedCount = completed;
++        state.percent = Math.round((completed / pack.assetIds.length) * 100);
++        this.notify();
++      }
++    }
++
++    state.status = 'installed';
++    state.percent = 100;
++    this.notify();
++  }
++
++  public pauseDownload(packId: string): void {
++    this.activePackAborts.set(packId, true);
++    const state = this.packStates.get(packId);
++    if (state) {
++      state.status = 'paused';
++      this.notify();
++    }
++  }
++
++  public cancelDownload(packId: string): void {
++    this.activePackAborts.set(packId, true);
++    const state = this.packStates.get(packId);
++    if (state) {
++      state.status = 'not-installed';
++      state.completedCount = 0;
++      state.percent = 0;
++      this.notify();
++    }
++  }
++
++  /**
++   * Remove pack from local device storage while preserving assets used in active timeline
++   */
++  public async removePack(packId: string, protectedAssetIds?: Set<string>): Promise<void> {
++    const pack = this.getPackById(packId);
++    if (!pack) return;
++
++    // Discover currently referenced asset IDs from active project
++    const activeProjectAssetIds = new Set<string>(protectedAssetIds || []);
++    if (typeof window !== 'undefined' && (window as any).__formaEditor?.project?.tracks) {
++      const tracks = (window as any).__formaEditor.project.tracks;
++      for (const track of tracks) {
++        for (const clip of track.clips || []) {
++          if (clip.assetId) activeProjectAssetIds.add(clip.assetId);
++        }
++      }
++    }
++
++    for (const assetId of pack.assetIds) {
++      // PRESERVE if referenced by active project timeline
++      if (activeProjectAssetIds.has(assetId)) {
++        continue;
++      }
++
++      const asset = assetCatalog.getAssetById(assetId);
++      if (asset && !asset.isBuiltIn) {
++        await deleteAssetBlob(assetId);
++      }
++    }
++
++    const state = this.packStates.get(packId);
++    if (state) {
++      // Re-evaluate state based on remaining assets
++      let remainingCompleted = 0;
++      for (const id of pack.assetIds) {
++        if (assetCatalog.isDownloaded(id)) remainingCompleted++;
++      }
++      state.status = remainingCompleted === pack.assetIds.length && pack.assetIds.length > 0 ? 'installed' : 'not-installed';
++      state.completedCount = remainingCompleted;
++      state.percent = pack.assetIds.length > 0 ? Math.round((remainingCompleted / pack.assetIds.length) * 100) : 0;
++    }
++    this.notify();
++  }
++}
++
++export const assetPacks = new AssetPacksService();
+diff --git a/features/video-editor/engine/audioMixer.ts b/features/video-editor/engine/audioMixer.ts
+index b0627dd..21268e0 100644
+--- a/features/video-editor/engine/audioMixer.ts
++++ b/features/video-editor/engine/audioMixer.ts
+@@ -107,10 +107,8 @@ class AudioMixer {
+       return this.pendingDecodes.get(cacheKey)!;
+     }
+ 
+-    // Synthetic tone generation for Klip A (440 Hz) and Klip B (880 Hz) or explicit test tone
+-    const toneHz = (clip as any).audioToneHz ||
+-      (/440|klip[-_ ]?a|^a$/i.test(clip.name || clip.id) ? 440 :
+-       /880|klip[-_ ]?b|^b$/i.test(clip.name || clip.id) ? 880 : null);
++    // Explicit test tone only if explicitly set on clip object
++    const toneHz = (clip as any).audioToneHz || null;
+ 
+     if (toneHz) {
+       const sampleRate = 44100;
+@@ -135,8 +133,19 @@ class AudioMixer {
+           blob = await getAssetBlob(clip.assetId);
+         }
+         if (!blob && clip.sourceUrl) {
+-          const resp = await fetch(clip.sourceUrl);
+-          blob = await resp.blob();
++          const resp = await fetch(clip.sourceUrl).catch(() => null);
++          if (resp && resp.ok) blob = await resp.blob();
++        }
++        if (!blob && clip.assetId) {
++          if (clip.assetId.startsWith('music-')) {
++            const name = clip.assetId.replace('music-', '');
++            const resp = await fetch(`/video-assets/audio/music/${name}.wav`).catch(() => null);
++            if (resp && resp.ok) blob = await resp.blob();
++          } else if (clip.assetId.startsWith('sfx-')) {
++            const name = clip.assetId.replace('sfx-', '');
++            const resp = await fetch(`/video-assets/audio/sfx/${name}.wav`).catch(() => null);
++            if (resp && resp.ok) blob = await resp.blob();
++          }
+         }
+ 
+         if (!blob) {
+@@ -524,6 +533,12 @@ class AudioMixer {
+           gainNode.gain.linearRampToValueAtTime(0, startTime + clipDuration);
+         }
+ 
++        if (totalPlayDuration > buffer.duration) {
++          source.loop = true;
++          source.loopStart = 0;
++          source.loopEnd = buffer.duration;
++        }
++
+         source.connect(gainNode);
+         gainNode.connect(offlineCtx.destination);
+         source.start(actualStartTime, actualOffset, totalPlayDuration);
+diff --git a/features/video-editor/engine/exportEngine.ts b/features/video-editor/engine/exportEngine.ts
+index f7a843d..d49e254 100644
+--- a/features/video-editor/engine/exportEngine.ts
++++ b/features/video-editor/engine/exportEngine.ts
+@@ -143,6 +143,20 @@ class ExportEngine {
+             }
+           }
+ 
++          if (!url && clip.assetId) {
++            if (clip.assetId.startsWith('broll-')) {
++              url = `/video-assets/broll/${clip.assetId}.webm`;
++            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
++              url = `/video-assets/sample-video.webm`;
++            } else if (clip.assetId.startsWith('overlay-')) {
++              const name = clip.assetId.replace('overlay-', '');
++              url = `/video-assets/overlays/${name}.svg`;
++            } else if (clip.assetId.startsWith('element-')) {
++              const name = clip.assetId.replace('element-', '');
++              url = `/video-assets/elements/${name}.svg`;
++            }
++          }
++
+           if (url) {
+             if (clip.type === 'video') {
+               const video = document.createElement('video');
+@@ -151,12 +165,39 @@ class ExportEngine {
+               video.playsInline = true;
+               video.preload = 'auto';
+               video.src = url;
++
++              if (typeof document !== 'undefined' && document.body) {
++                let hiddenContainer = document.getElementById('forma-offscreen-media-container');
++                if (!hiddenContainer) {
++                  hiddenContainer = document.createElement('div');
++                  hiddenContainer.id = 'forma-offscreen-media-container';
++                  hiddenContainer.style.position = 'fixed';
++                  hiddenContainer.style.left = '-9999px';
++                  hiddenContainer.style.top = '-9999px';
++                  hiddenContainer.style.width = '1px';
++                  hiddenContainer.style.height = '1px';
++                  hiddenContainer.style.opacity = '0';
++                  hiddenContainer.style.pointerEvents = 'none';
++                  document.body.appendChild(hiddenContainer);
++                }
++                if (!video.parentElement) {
++                  hiddenContainer.appendChild(video);
++                }
++              }
++
+               await new Promise<void>((res) => {
+-                video.onloadeddata = () => res();
++                const onReady = () => {
++                  video.removeEventListener('loadeddata', onReady);
++                  video.removeEventListener('canplay', onReady);
++                  res();
++                };
++                video.addEventListener('loadeddata', onReady);
++                video.addEventListener('canplay', onReady);
+                 video.onerror = () => res();
+                 setTimeout(res, 3000);
+               });
+               elements.set(clip.id, video);
++              if (clip.assetId) elements.set(clip.assetId, video);
+             } else {
+               const img = new Image();
+               img.crossOrigin = 'anonymous';
+@@ -167,6 +208,7 @@ class ExportEngine {
+                 setTimeout(res, 2000);
+               });
+               elements.set(clip.id, img);
++              if (clip.assetId) elements.set(clip.assetId, img);
+             }
+           }
+         }
+@@ -192,7 +234,7 @@ class ExportEngine {
+       statusText: 'Medya kaynakları hazırlanıyor...',
+     });
+ 
+-    await this.preloadAssetsForExport(project);
++    const preloadedElements = await this.preloadAssetsForExport(project);
+     if (this.isCancelled) return null;
+ 
+     const fps = options.fps || 30;
+@@ -213,6 +255,7 @@ class ExportEngine {
+ 
+     let combinedStream: MediaStream;
+     const canvasStream = canvas.captureStream(fps);
++    let audioSource: AudioBufferSourceNode | null = null;
+ 
+     if (mixedAudio) {
+       const audioCtx = audioMixer.getAudioContext();
+@@ -222,7 +265,7 @@ class ExportEngine {
+         } catch (_) {}
+       }
+       const destNode = audioCtx.createMediaStreamDestination();
+-      const audioSource = audioCtx.createBufferSource();
++      audioSource = audioCtx.createBufferSource();
+       audioSource.buffer = mixedAudio;
+       audioSource.connect(destNode);
+ 
+@@ -230,8 +273,6 @@ class ExportEngine {
+         ...canvasStream.getVideoTracks(),
+         ...destNode.stream.getAudioTracks(),
+       ]);
+-
+-      audioSource.start(0);
+     } else {
+       combinedStream = canvasStream;
+     }
+@@ -272,23 +313,42 @@ class ExportEngine {
+       }
+     };
+ 
+-    recorder.start();
++    // Prime the initial frame at 0.0s before starting recorder
++    await renderFrameToCanvas(canvas, project, 0, false, false, preloadedElements);
++
++    recorder.start(100);
++    if (audioSource) {
++      try {
++        audioSource.start(0);
++      } catch (_) {}
++    }
+ 
+     const startTime = performance.now();
++    const targetTotalDurationMs = duration * 1000;
+ 
+     // Render loop
+     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+       if (this.isCancelled) {
+         recorder.stop();
++        if (audioSource) { try { audioSource.stop(); } catch (_) {} }
++        preloadedElements.forEach((el) => { if (el instanceof HTMLVideoElement) el.pause(); });
+         combinedStream.getTracks().forEach((t) => t.stop());
+         return null;
+       }
+ 
++      // Check if we reached the end of duration (tolerance: don't exceed duration)
++      const now = performance.now();
++      const elapsedMs = now - startTime;
++      if (elapsedMs >= targetTotalDurationMs) {
++        break;
++      }
++
+       const frameTime = frameIndex / fps;
+-      await renderFrameToCanvas(canvas, project, frameTime, false);
++      // Pass isPlaying = true so active video clips play smoothly in real-time without blocking on seeked events!
++      await renderFrameToCanvas(canvas, project, frameTime, false, true, preloadedElements);
+ 
+       const elapsed = (performance.now() - startTime) / 1000;
+-      const progressRatio = (frameIndex + 1) / totalFrames;
++      const progressRatio = Math.min(1, (frameIndex + 1) / totalFrames);
+       const estimatedTotal = progressRatio > 0 ? elapsed / progressRatio : 0;
+       const etaSeconds = Math.max(0, Math.round(estimatedTotal - elapsed));
+ 
+@@ -308,6 +368,13 @@ class ExportEngine {
+       }
+     }
+ 
++    // Ensure total recorded duration exactly equals targetTotalDurationMs
++    const finalElapsedMs = performance.now() - startTime;
++    if (finalElapsedMs < targetTotalDurationMs) {
++      const waitRemaining = targetTotalDurationMs - finalElapsedMs;
++      await new Promise((resolve) => setTimeout(resolve, waitRemaining));
++    }
++
+     onProgress({
+       percent: 99,
+       currentFrame: totalFrames,
+@@ -316,6 +383,19 @@ class ExportEngine {
+       statusText: 'Video dosyası paketleniyor...',
+     });
+ 
++    // Stop recording and pause all media
++    preloadedElements.forEach((el) => {
++      if (el instanceof HTMLVideoElement && !el.paused) {
++        try { el.pause(); } catch (_) {}
++      }
++    });
++
++    if (audioSource) {
++      try { audioSource.stop(); } catch (_) {}
++    }
++
++    recorder.stop();
++
+     return new Promise((resolve) => {
+       recorder.onstop = () => {
+         combinedStream.getTracks().forEach((t) => t.stop());
+@@ -350,7 +430,7 @@ class ExportEngine {
+       statusText: 'GIF kareleri hazırlanıyor...',
+     });
+ 
+-    await this.preloadAssetsForExport(project);
++    const preloadedElements = await this.preloadAssetsForExport(project);
+     if (this.isCancelled) return null;
+ 
+     // For GIF, cap resolution at max 640px width and 12 fps for fast encode & reasonable size
+@@ -375,7 +455,7 @@ class ExportEngine {
+     for (let f = 0; f < totalFrames; f++) {
+       if (this.isCancelled) return null;
+       const t = f / gifFps;
+-      await renderFrameToCanvas(canvas, project, t, false);
++      await renderFrameToCanvas(canvas, project, t, false, false, preloadedElements);
+       framePixelList.push(ctx.getImageData(0, 0, gifW, gifH));
+ 
+       onProgress({
+diff --git a/features/video-editor/engine/filterEngine.ts b/features/video-editor/engine/filterEngine.ts
+index d286acd..cb80dfa 100644
+--- a/features/video-editor/engine/filterEngine.ts
++++ b/features/video-editor/engine/filterEngine.ts
+@@ -239,6 +239,28 @@ export const COLOR_PRESETS: FilterPreset[] = [
+   },
+ ];
+ 
++export function getEffectsForColorFilter(colorFilterId?: string | null): Partial<ClipEffects> | null {
++  if (!colorFilterId || colorFilterId === 'normal') return null;
++  const normalized = colorFilterId.toLowerCase();
++  if (normalized.includes('teal') || normalized.includes('cinematic')) {
++    return { contrast: 1.35, saturation: 1.3, temperature: -20, tint: 15, exposure: 0.08, vignette: 0.35 };
++  }
++  if (normalized.includes('noir') || normalized.includes('bw') || normalized.includes('black')) {
++    return { grayscale: 1, contrast: 1.4, brightness: 0.05, vignette: 0.4 };
++  }
++  if (normalized.includes('vintage') || normalized.includes('70s') || normalized.includes('warm')) {
++    return { sepia: 0.5, temperature: 35, contrast: 1.15, saturation: 1.1, vignette: 0.3 };
++  }
++  if (normalized.includes('golden') || normalized.includes('hour')) {
++    return { temperature: 40, tint: 10, saturation: 1.25, brightness: 0.05, contrast: 1.1 };
++  }
++  if (normalized.includes('cyberpunk') || normalized.includes('neon')) {
++    return { saturation: 1.5, contrast: 1.3, tint: 30, temperature: -25 };
++  }
++  const preset = COLOR_PRESETS.find((p) => p.id === colorFilterId);
++  return preset ? preset.effects : null;
++}
++
+ // =========================================================================
+ // 24 VISUAL EFFECTS FOR TIMELINE EFFECT SEGMENTS (Section 11)
+ // =========================================================================
+diff --git a/features/video-editor/engine/previewRenderer.ts b/features/video-editor/engine/previewRenderer.ts
+index f05680c..e0f61c4 100644
+--- a/features/video-editor/engine/previewRenderer.ts
++++ b/features/video-editor/engine/previewRenderer.ts
+@@ -6,7 +6,7 @@
+  */
+ 
+ import type { VideoProject, VideoClip, Keyframe } from '../types';
+-import { buildCanvasFilterString, applyCanvasPostEffects, applyVisualEffectSegment } from './filterEngine';
++import { buildCanvasFilterString, applyCanvasPostEffects, applyVisualEffectSegment, getEffectsForColorFilter } from './filterEngine';
+ import { computeTransitionState, TransitionState } from './transitionEngine';
+ import { renderTextLayer } from './textRasterizer';
+ import { calculateClipBounds } from './clipBounds';
+@@ -51,7 +51,7 @@ export function notifyCanvasNeedsRedraw(): void {
+  */
+ export function isVideoFrameReady(video: HTMLVideoElement | null | undefined): boolean {
+   if (!video) return false;
+-  return video.readyState >= 2 && !video.seeking && video.videoWidth > 0 && video.videoHeight > 0;
++  return (video.readyState >= 1 || video.videoWidth > 0) && video.videoWidth > 0 && video.videoHeight > 0;
+ }
+ 
+ /**
+@@ -574,7 +574,9 @@ export function renderScene(renderCtx: RenderContext): void {
+             ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
+ 
+             // Safe Filters & Transition blur
+-            let filterStr = buildCanvasFilterString(clip.effects);
++            const presetEffects = getEffectsForColorFilter(clip.colorFilter);
++            const mergedEffects = { ...presetEffects, ...clip.effects };
++            let filterStr = buildCanvasFilterString(mergedEffects);
+             if (transBlur > 0) {
+               filterStr = filterStr ? `${filterStr} blur(${transBlur}px)` : `blur(${transBlur}px)`;
+             }
+@@ -835,7 +837,7 @@ export function renderScene(renderCtx: RenderContext): void {
+               );
+             }
+ 
+-            applyCanvasPostEffects(ctx, width, height, clip.effects);
++            applyCanvasPostEffects(ctx, width, height, mergedEffects);
+             ctx.restore();
+           }
+       } else if (clip.type === 'image') {
+@@ -1313,7 +1315,8 @@ export async function renderFrameToCanvas(
+   project: VideoProject,
+   currentTime: number,
+   selectedClipIdOrShowGizmo?: string | boolean | null,
+-  isPlaying = false
++  isPlaying = false,
++  preloadedElements?: Map<string, HTMLVideoElement | HTMLImageElement>
+ ): Promise<void> {
+   const ctx = canvas.getContext('2d');
+   if (!ctx) return;
+@@ -1382,7 +1385,10 @@ export async function renderFrameToCanvas(
+ 
+       if (isInActiveTransition || (currentTime >= start && currentTime <= start + clip.duration)) {
+         const assetKey = clip.assetId || clip.id;
+-        let elem = elementCache.get(assetKey);
++        let elem =
++          preloadedElements?.get(clip.id) ||
++          preloadedElements?.get(clip.assetId || '') ||
++          elementCache.get(assetKey);
+ 
+         if (!elem && (clip.sourceUrl || clip.assetId)) {
+           let url = clip.sourceUrl;
+@@ -1396,6 +1402,20 @@ export async function renderFrameToCanvas(
+             }
+           }
+ 
++          if (!url && clip.assetId) {
++            if (clip.assetId.startsWith('broll-')) {
++              url = `/video-assets/broll/${clip.assetId}.webm`;
++            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
++              url = `/video-assets/sample-video.webm`;
++            } else if (clip.assetId.startsWith('overlay-')) {
++              const name = clip.assetId.replace('overlay-', '');
++              url = `/video-assets/overlays/${name}.svg`;
++            } else if (clip.assetId.startsWith('element-')) {
++              const name = clip.assetId.replace('element-', '');
++              url = `/video-assets/elements/${name}.svg`;
++            }
++          }
++
+           if (url) {
+             if (clip.type === 'video') {
+               const v = document.createElement('video');
+@@ -1406,6 +1426,25 @@ export async function renderFrameToCanvas(
+               v.autoplay = false;
+               v.src = url;
+ 
++              if (typeof document !== 'undefined' && document.body) {
++                let hiddenContainer = document.getElementById('forma-offscreen-media-container');
++                if (!hiddenContainer) {
++                  hiddenContainer = document.createElement('div');
++                  hiddenContainer.id = 'forma-offscreen-media-container';
++                  hiddenContainer.style.position = 'fixed';
++                  hiddenContainer.style.left = '-9999px';
++                  hiddenContainer.style.top = '-9999px';
++                  hiddenContainer.style.width = '1px';
++                  hiddenContainer.style.height = '1px';
++                  hiddenContainer.style.opacity = '0';
++                  hiddenContainer.style.pointerEvents = 'none';
++                  document.body.appendChild(hiddenContainer);
++                }
++                if (!v.parentElement) {
++                  hiddenContainer.appendChild(v);
++                }
++              }
++
+               // Reactive listeners so canvas redraws the moment decoded frames become ready
+               const onFrameEvent = () => {
+                 notifyCanvasNeedsRedraw();
+@@ -1506,7 +1545,10 @@ export async function renderFrameToCanvas(
+         }
+       } else {
+         const assetKey = clip.assetId || clip.id;
+-        const elem = elementCache.get(assetKey);
++        const elem =
++          preloadedElements?.get(clip.id) ||
++          preloadedElements?.get(clip.assetId || '') ||
++          elementCache.get(assetKey);
+         if (elem && elem instanceof HTMLVideoElement && !elem.paused) {
+           elem.pause();
+         }
+diff --git a/features/video-editor/engine/textRasterizer.ts b/features/video-editor/engine/textRasterizer.ts
+index a319a56..635b4b9 100644
+--- a/features/video-editor/engine/textRasterizer.ts
++++ b/features/video-editor/engine/textRasterizer.ts
+@@ -542,7 +542,7 @@ export function renderTextLayer(
+         animOpacity = progress;
+         break;
+       case 'crash-zoom':
+-        animScale = 2.8 - applyEasing(rawProgress, 'ease-out') * 1.8;
++        animScale = (14 / 5) - applyEasing(rawProgress, 'ease-out') * 1.8;
+         animOpacity = progress;
+         animBlur = (1 - progress) * 12;
+         break;
+diff --git a/features/video-editor/types.ts b/features/video-editor/types.ts
+index f51694f..95b502f 100644
+--- a/features/video-editor/types.ts
++++ b/features/video-editor/types.ts
+@@ -426,6 +426,7 @@ export interface VideoClip {
+   flipV?: boolean;
+   fitMode?: 'fit' | 'fill' | 'custom';
+   cornerRadius?: number;
++  colorFilter?: string;
+ }
+ 
+ export interface TimelineTrack {

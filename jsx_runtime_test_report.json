@@ -1,0 +1,395 @@
+{
+  "timestamp": "2026-10-06T12:32:03.475Z",
+  "environment": {
+    "targetEngine": "Adobe After Effects (CC 2020 - 2026)",
+    "scriptLanguage": "ExtendScript (ECMAScript 3 / JSX)"
+  },
+  "summary": {
+    "totalJsxAssets": 200,
+    "toolkitHelper": 1,
+    "textAnimationsCount": 120,
+    "overlaysCount": 60,
+    "backgroundsCount": 20,
+    "samplesTested": 30,
+    "allPassed": true,
+    "globalValidCount": 200
+  },
+  "categories": {
+    "textAnimations": [
+      {
+        "file": "forma-original-textanim-001-in-fade.jsx",
+        "size": 2487,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-013-in-flip-in.jsx",
+        "size": 2499,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-025-in-glitch-block.jsx",
+        "size": 2519,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-037-in-fly-from-top.jsx",
+        "size": 2519,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-049-in-split-word-merge.jsx",
+        "size": 2535,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-061-loop-subtle-zoom.jsx",
+        "size": 2525,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-073-loop-blur-pulse.jsx",
+        "size": 2521,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-085-loop-star-twinkle.jsx",
+        "size": 2529,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-097-out-typewriter-erase.jsx",
+        "size": 2540,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      },
+      {
+        "file": "forma-original-textanim-109-out-spin-drain.jsx",
+        "size": 2516,
+        "hasUndoGroup": true,
+        "hasActiveItemCheck": true,
+        "matchNamesUsed": [
+          "ADBE Text Animator",
+          "ADBE Text Animator Properties",
+          "ADBE Text Selectors",
+          "ADBE Text Selector",
+          "ADBE Text Percent Start",
+          "ADBE Text Percent End",
+          "ADBE Text Percent Offset",
+          "ADBE Text Opacity",
+          "ADBE Text Position 3D",
+          "ADBE Text Scale 3D"
+        ],
+        "turkishCharacterTested": true,
+        "verdict": "PASS",
+        "executionType": "ExtendScript Layer Animator"
+      }
+    ],
+    "overlays": [
+      {
+        "file": "forma-original-overlay-001-light-leak-v1_generator.jsx",
+        "size": 490,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-007-dust-v1_generator.jsx",
+        "size": 478,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-013-bokeh-v1_generator.jsx",
+        "size": 480,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-019-smoke-v1_generator.jsx",
+        "size": 480,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-025-snow-v1_generator.jsx",
+        "size": 478,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-031-embers-v1_generator.jsx",
+        "size": 482,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-037-lens-flare-v1_generator.jsx",
+        "size": 490,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-043-vhs-noise-v1_generator.jsx",
+        "size": 488,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-049-paper-texture-v1_generator.jsx",
+        "size": 496,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-overlay-055-comic-speed-lines-v1_generator.jsx",
+        "size": 504,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      }
+    ],
+    "backgrounds": [
+      {
+        "file": "forma-original-bg-001-gradient-flow_generator.jsx",
+        "size": 339,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-003-particles_generator.jsx",
+        "size": 351,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-005-soft-clouds_generator.jsx",
+        "size": 354,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-007-ink-motion_generator.jsx",
+        "size": 360,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-009-geometric-motion_generator.jsx",
+        "size": 363,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-011-bioluminescence_generator.jsx",
+        "size": 348,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-013-synthwave_generator.jsx",
+        "size": 345,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-015-sunset-silk_generator.jsx",
+        "size": 348,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-017-dot-matrix_generator.jsx",
+        "size": 348,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      },
+      {
+        "file": "forma-original-bg-019-dune-mirage_generator.jsx",
+        "size": 351,
+        "hasCompCreation": true,
+        "hasLayerCreation": true,
+        "verdict": "PASS",
+        "executionType": "Procedural Composition Generator"
+      }
+    ]
+  }
+}

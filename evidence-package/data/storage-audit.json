@@ -1,0 +1,14 @@
+{
+  "auditTimestamp": "2026-10-05T10:29:54.903Z",
+  "databaseName": "forma_video_editor_db",
+  "databaseVersion": 1,
+  "objectStores": [
+    "projects",
+    "media_blobs"
+  ],
+  "opfsDirectory": "forma_video_media",
+  "totalCachedBlobs": 25,
+  "totalStorageBytes": 30311068,
+  "retentionPolicy": "LRU (Least Recently Used) with project reference protection",
+  "integrityStatus": "VALID_CONSISTENT"
+}

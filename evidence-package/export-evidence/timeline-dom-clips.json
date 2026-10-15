@@ -1,0 +1,47 @@
+[
+  {
+    "clipId": "clip-cjqnj2w",
+    "clipType": "video",
+    "trackId": "track-v1",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-7gmdiyx",
+    "clipType": "image",
+    "trackId": "track-v1",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-wil66xl",
+    "clipType": "audio",
+    "trackId": "track-a1",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-8x7hlyp",
+    "clipType": "audio",
+    "trackId": "track-a1",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-shujviz",
+    "clipType": "text",
+    "trackId": "track-t1",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  }
+]

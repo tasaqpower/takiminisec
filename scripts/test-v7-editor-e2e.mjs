@@ -360,7 +360,7 @@ async function main() {
 
   if (!devServerReady) {
     console.log('0. Starting dev server on port 5173 with NEXT_PUBLIC_ENABLE_TEST_API=true...');
-    const nodeBin = 'C:\\Users\\sinan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe';
+    const nodeBin = 'process.execPath';
     devServerProc = spawn(nodeBin, ['scripts/run-framework.mjs', 'dev'], {
       cwd: projectRoot,
       env: { ...process.env, NEXT_PUBLIC_ENABLE_TEST_API: 'true' },

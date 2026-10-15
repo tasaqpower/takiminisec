@@ -1,0 +1,10 @@
+{
+  "lutFile": "teal-orange.cube",
+  "title": "Teal & Orange Sinematik",
+  "size": 17,
+  "algorithm": "trilinear_interpolation",
+  "pixelDifferencePercent": 87.6,
+  "lutAppliedToPixels": true,
+  "withLutImage": "lut_cube_applied.png",
+  "withoutLutImage": "lut_none_original.png"
+}

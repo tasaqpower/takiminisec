@@ -1,0 +1,75 @@
+================================================================================
+FORMA V5 FORENSIC SUITE — MANDATORY STATIC CODE ASSERTIONS
+================================================================================
+✓ STATIC CODE ASSERTIONS PASSED: 100% pure UI DOM flow with zero backdoor state mutations.
+
+[1/9] Launching Headless Chrome with Hardware GPU Acceleration on Port 9268...
+  CDP connected successfully.
+
+[2/9] Navigating to http://localhost:5173/video-editor...
+
+[3/9] Building 10.0s Composition (5 clips, 8.5s transition, 9s text animation) via Real DOM...
+  UI setup actions completed:
+    - Result: {"success":true,"assetId":"broll-7e2579576d"}
+    - Result: {"success":true,"assetId":"lut-teal-orange"}
+    - Result: {"success":true,"assetId":"overlay-light-leak-warm"}
+    - Result: {"success":true,"assetId":"music-calm-piano"}
+    - Result: {"success":true,"assetId":"title-lower-third-modern"}
+
+[4/9] Inspecting DOM timeline clips and project state...
+  Confirmed: Recovery modal is NOT present.
+  Found 5 DOM clips on timeline:
+    - [DOM] ID: clip-l2oi7v9 | Type: text | Track: track-text-ybzxuyc | Start: 9s | Dur: 1s
+    - [DOM] ID: clip-oy64opj | Type: video | Track: track-video-7len65f | Start: 0s | Dur: 8.5s
+    - [DOM] ID: clip-77od3hc | Type: video | Track: track-video-7len65f | Start: 8.5s | Dur: 1.5s
+    - [DOM] ID: clip-pv385k3 | Type: image | Track: track-video-i0e2hu8 | Start: 0s | Dur: 10s
+    - [DOM] ID: clip-1qerv6l | Type: audio | Track: track-audio-sgnqpvn | Start: 0s | Dur: 10s
+  Found 1 timeline transitions:
+    - [Transition] Çapraz Geçiş (1.00s) — Tıkla: Özellikler, Sürükle: Süre | width: 40px
+  Clean Timeline screenshot saved: C:\Users\sinan\OneDrive\Belgeler\ChatGPT\pdf\v5-evidence-package\screenshots\v5_timeline_full_composition.png
+
+[5/9] Proving Real 3D .cube LUT Parser and Trilinear Interpolation on Canvas...
+  Parsed .cube 3D LUT : "Teal & Orange Sinematik" (LUT_3D_SIZE 17) with 4913 table triplets
+  Trilinear Pixel Diff: 87.6% changed pixels
+
+[6/9] Triggering Real UI Export via Topbar and Modal ("Dışa Aktar" -> "Dışa Aktarımı Başlat")...
+  UI Export Succeeded in 10.2s!
+  MIME Type : video/mp4;codecs=avc1.42e01e,mp4a.40.2
+  File Size : 6.62 MB (6.945.726 bytes)
+  Export saved to: C:\Users\sinan\OneDrive\Belgeler\ChatGPT\pdf\v5-evidence-package\export\forma_forensic_10s_export_v5.mp4
+
+[7/9] Forensic FFprobe Analysis (nb_read_frames, avg_frame_rate, duration)...
+  [FFprobe] Container     : mov,mp4,m4a,3gp,3g2,mj2
+  [FFprobe] Resolution    : 1920x1080
+  [FFprobe] Video Codec   : h264
+  [FFprobe] Decoded Frames: 300 frames
+  [FFprobe] Avg Frame Rate: 29.958 FPS (3000000/100141)
+  [FFprobe] Video Duration: 10.003s
+  [FFprobe] Audio Codec   : aac, Duration: 9.939s, Rate: 48000Hz
+
+  Evaluating Forensic Export Assertions:
+  ✓ ASSERTION PASSED: Decoded frames (300) within [299, 301].
+  ✓ ASSERTION PASSED: Average FPS (29.958) within [29.9, 30.1].
+  ✓ ASSERTION PASSED: Video duration (10.003s) within [9.9, 10.1].
+  ✓ ASSERTION PASSED: Audio duration (9.939s) within [9.9, 10.1].
+
+  Extracting 10 frames across the 10-second duration...
+    [Frame 1] at 0.5s: SHA=0110cc1fb1... | RGB=(104.9, 114.9, 111.5) | Lum=111.5 | Valid: PASS
+    [Frame 2] at 1.5s: SHA=ea2378425c... | RGB=(103.9, 114, 111.6) | Lum=110.7 | Valid: PASS
+    [Frame 3] at 2.5s: SHA=c2245a53ea... | RGB=(106, 116.4, 113.3) | Lum=112.9 | Valid: PASS
+    [Frame 4] at 3.5s: SHA=fd0699d5d3... | RGB=(107.8, 118.2, 115.7) | Lum=114.8 | Valid: PASS
+    [Frame 5] at 4.5s: SHA=c92ca46bba... | RGB=(107.6, 118.1, 114.9) | Lum=114.6 | Valid: PASS
+    [Frame 6] at 5.5s: SHA=6abf04aa48... | RGB=(108.6, 119, 116.8) | Lum=115.6 | Valid: PASS
+    [Frame 7] at 6.5s: SHA=2bd2021637... | RGB=(106.4, 116.7, 114.6) | Lum=113.4 | Valid: PASS
+    [Frame 8] at 7.5s: SHA=f8c552aa25... | RGB=(108, 118.5, 115.9) | Lum=115.1 | Valid: PASS
+    [Frame 9] at 8.5s: SHA=03d017f24e... | RGB=(86.3, 90.2, 87.1) | Lum=88.7 | Valid: PASS
+    [Frame 10] at 9.5s: SHA=e5b2195665... | RGB=(109, 118.9, 116.1) | Lum=115.6 | Valid: PASS
+  Side-by-side verification image saved: C:\Users\sinan\OneDrive\Belgeler\ChatGPT\pdf\v5-evidence-package\export\side_by_side_export_frames_v5.png
+  [Audio Energy] Max Volume = -7.1 dB, Mean Volume = -19.0 dB
+
+[8/9] Staging production files and generating production-fixes-v5.patch...
+  Patch created: C:\Users\sinan\OneDrive\Belgeler\ChatGPT\pdf\v5-evidence-package\production-fixes-v5.patch (144151 bytes)
+
+[9/9] Copying test scripts and compiling evidence package...
+  Computed SHA256SUMS.txt (29 files)
+  Deferring final ZIP compression to runner process...

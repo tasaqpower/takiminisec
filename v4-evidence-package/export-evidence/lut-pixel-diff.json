@@ -1,0 +1,7 @@
+{
+  "lutFilter": "lut-teal-orange",
+  "pixelDifferencePercent": 95.4,
+  "lutAppliedToPixels": true,
+  "withLutImage": "lut_teal_orange_applied.png",
+  "withoutLutImage": "lut_none_original.png"
+}

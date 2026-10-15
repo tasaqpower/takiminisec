@@ -1,0 +1,69 @@
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   app/globals.css
+	modified:   features/compliance/ComplianceModal.tsx
+	modified:   features/compliance/complianceEngine.ts
+	modified:   features/conversion/AdvancedConversionModal.tsx
+	modified:   features/video-editor/components/VideoEditorSidebar.tsx
+	modified:   features/video-editor/components/VideoEditorWorkspace.tsx
+	modified:   features/video-editor/components/VideoExportModal.tsx
+	modified:   features/video-editor/components/VideoTimeline.tsx
+	modified:   features/video-editor/db.ts
+	modified:   features/video-editor/engine/audioMixer.ts
+	modified:   features/video-editor/engine/exportEngine.ts
+	modified:   features/video-editor/engine/textRasterizer.ts
+	modified:   scripts/capture-all-transition-artifacts.mjs
+	modified:   scripts/capture-handles-warning.mjs
+	modified:   scripts/create-audit-v6-package.mjs
+	modified:   scripts/create-audit-v7-package.mjs
+	modified:   scripts/create-audit-v71-package.mjs
+	modified:   scripts/create-audit-v72-package.mjs
+	modified:   scripts/diagnose-black-screen.mjs
+	modified:   scripts/reproduce-user-bug.mjs
+	modified:   scripts/run-all-verifications.mjs
+	modified:   scripts/sync-scratch.mjs
+	modified:   scripts/test-all-templates.mjs
+	modified:   scripts/test-boston-watermark-safeguard.mjs
+	modified:   scripts/test-chrome-mp4-probe.mjs
+	modified:   scripts/test-drag-snap.mjs
+	modified:   scripts/test-live-forma-watermark-flow.mjs
+	modified:   scripts/test-live-site.mjs
+	modified:   scripts/test-new-features.mjs
+	modified:   scripts/test-real-mp4.mjs
+	modified:   scripts/test-user-exact-case.mjs
+	modified:   scripts/test-user-simulation.mjs
+	modified:   scripts/test-v7-editor-e2e.mjs
+	modified:   scripts/test-video-critical-fixes.mjs
+	modified:   scripts/validate-v71-evidence.mjs
+	modified:   scripts/verify-all-video-features.mjs
+	modified:   scripts/verify-comprehensive-fix.mjs
+	modified:   scripts/verify-disk-mp4-flow.mjs
+	modified:   scripts/verify-final-acceptance.mjs
+	modified:   scripts/verify-fixes-dragdrop-audio.mjs
+	modified:   scripts/verify-live-clip.mjs
+	modified:   scripts/verify-live-site.mjs
+	modified:   scripts/verify-real-export-mp4.mjs
+	modified:   scripts/verify-redesign-suite.mjs
+	modified:   scripts/verify-transitions-suite.mjs
+	modified:   scripts/verify-video-editor-pro.mjs
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE.zip.sha256.txt
+	evidence-package/
+	evidence/
+	features/video-editor/components/sidebar/AssetLicenseModal.tsx
+	features/video-editor/components/sidebar/AssetPacksModal.tsx
+	features/video-editor/components/sidebar/AssetsTab.tsx
+	features/video-editor/components/sidebar/StorageManagementModal.tsx
+	features/video-editor/engine/assetCatalog.ts
+	features/video-editor/engine/assetDownloader.ts
+	features/video-editor/engine/assetPacks.ts
+	public/FORMA-ASSET-LIBRARY-INDEPENDENT-EVIDENCE.zip.sha256.txt
+	public/video-assets/
+	scripts/test-video-asset-library-e2e.mjs
+	scripts/video-assets/
+
+no changes added to commit (use "git add" and/or "git commit -a")

@@ -1,0 +1,1215 @@
+{
+  "timestamp": "2026-10-06T08:02:09.761Z",
+  "testedRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "passesCount": 160,
+  "safeAreaViolations": 0,
+  "textClippingCount": 0,
+  "overflowCount": 0,
+  "details": [
+    {
+      "id": "forma-original-title-001-cinema-v1",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-002-cinema-v2",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-003-cinema-v3",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-004-cinema-v4",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-005-doc-v1",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-006-doc-v2",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-007-doc-v3",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-008-doc-v4",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-009-news-v1",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-010-news-v2",
+      "ratio": "16:9",
+      "type": "title",
+      "bounds": {
+        "left": 192,
+        "right": 1728,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-001-light-leak-v1",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-002-light-leak-v2",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-003-light-leak-v3",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-004-film-grain-v1",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-005-film-grain-v2",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-006-film-grain-v3",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-007-dust-v1",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-008-dust-v2",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-009-dust-v3",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-010-scratches-v1",
+      "ratio": "16:9",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-001-arrow-neon-right",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-002-arrow-curved-swoosh",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-003-arrow-double-chevron",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-004-pointer-compass",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-005-arrow-doodle",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-006-arrow-line-left",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-007-arrow-accent-up",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-008-arrow-looping-return",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-009-arrow-tech-diagonal",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-010-arrow-triple-step",
+      "ratio": "16:9",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-001-gradient-flow",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-002-abstract-waves",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-003-particles",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-004-grid-tunnel",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-005-soft-clouds",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-006-aurora",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-007-ink-motion",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-008-liquid-colors",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-009-geometric-motion",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-010-light-streaks",
+      "ratio": "16:9",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-001-cinema-v1",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-002-cinema-v2",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-003-cinema-v3",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-004-cinema-v4",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-005-doc-v1",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-006-doc-v2",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-007-doc-v3",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-008-doc-v4",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-009-news-v1",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-010-news-v2",
+      "ratio": "9:16",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 1344,
+        "bottom": 1728
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-001-light-leak-v1",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-002-light-leak-v2",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-003-light-leak-v3",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-004-film-grain-v1",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-005-film-grain-v2",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-006-film-grain-v3",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-007-dust-v1",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-008-dust-v2",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-009-dust-v3",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-010-scratches-v1",
+      "ratio": "9:16",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-001-arrow-neon-right",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-002-arrow-curved-swoosh",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-003-arrow-double-chevron",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-004-pointer-compass",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-005-arrow-doodle",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-006-arrow-line-left",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-007-arrow-accent-up",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-008-arrow-looping-return",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-009-arrow-tech-diagonal",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-010-arrow-triple-step",
+      "ratio": "9:16",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-001-gradient-flow",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-002-abstract-waves",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-003-particles",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-004-grid-tunnel",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-005-soft-clouds",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-006-aurora",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-007-ink-motion",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-008-liquid-colors",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-009-geometric-motion",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-010-light-streaks",
+      "ratio": "9:16",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-001-cinema-v1",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-002-cinema-v2",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-003-cinema-v3",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-004-cinema-v4",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-005-doc-v1",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-006-doc-v2",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-007-doc-v3",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-008-doc-v4",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-009-news-v1",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-010-news-v2",
+      "ratio": "1:1",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 756,
+        "bottom": 972
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-001-light-leak-v1",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-002-light-leak-v2",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-003-light-leak-v3",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-004-film-grain-v1",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-005-film-grain-v2",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-006-film-grain-v3",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-007-dust-v1",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-008-dust-v2",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-009-dust-v3",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-010-scratches-v1",
+      "ratio": "1:1",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-001-arrow-neon-right",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-002-arrow-curved-swoosh",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-003-arrow-double-chevron",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-004-pointer-compass",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-005-arrow-doodle",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-006-arrow-line-left",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-007-arrow-accent-up",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-008-arrow-looping-return",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-009-arrow-tech-diagonal",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-010-arrow-triple-step",
+      "ratio": "1:1",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-001-gradient-flow",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-002-abstract-waves",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-003-particles",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-004-grid-tunnel",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-005-soft-clouds",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-006-aurora",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-007-ink-motion",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-008-liquid-colors",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-009-geometric-motion",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-010-light-streaks",
+      "ratio": "1:1",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-001-cinema-v1",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-002-cinema-v2",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-003-cinema-v3",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-004-cinema-v4",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-005-doc-v1",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-006-doc-v2",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-007-doc-v3",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-008-doc-v4",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-009-news-v1",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-title-010-news-v2",
+      "ratio": "4:5",
+      "type": "title",
+      "bounds": {
+        "left": 108,
+        "right": 972,
+        "top": 944.9999999999999,
+        "bottom": 1215
+      },
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-001-light-leak-v1",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-002-light-leak-v2",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-003-light-leak-v3",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-004-film-grain-v1",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-005-film-grain-v2",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-006-film-grain-v3",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-007-dust-v1",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-008-dust-v2",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-009-dust-v3",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-overlay-010-scratches-v1",
+      "ratio": "4:5",
+      "type": "overlay",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-001-arrow-neon-right",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-002-arrow-curved-swoosh",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-003-arrow-double-chevron",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-004-pointer-compass",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-005-arrow-doodle",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-006-arrow-line-left",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-007-arrow-accent-up",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-008-arrow-looping-return",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-009-arrow-tech-diagonal",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-element-010-arrow-triple-step",
+      "ratio": "4:5",
+      "type": "svg",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-001-gradient-flow",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-002-abstract-waves",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-003-particles",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-004-grid-tunnel",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-005-soft-clouds",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-006-aurora",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-007-ink-motion",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-008-liquid-colors",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-009-geometric-motion",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    },
+    {
+      "id": "forma-original-bg-010-light-streaks",
+      "ratio": "4:5",
+      "type": "background",
+      "safe": true
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "segment": "Seg1_0to3s",
+    "start": "0",
+    "duration": "3",
+    "maxDb": -1.7,
+    "meanDb": -15.2,
+    "audible": true
+  },
+  {
+    "segment": "Seg2_3to7s",
+    "start": "3",
+    "duration": "4",
+    "maxDb": -1.6,
+    "meanDb": -15.1,
+    "audible": true
+  },
+  {
+    "segment": "Seg3_7to10s",
+    "start": "7",
+    "duration": "3",
+    "maxDb": -1.5,
+    "meanDb": -15.2,
+    "audible": true
+  }
+]

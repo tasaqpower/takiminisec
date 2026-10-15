@@ -1,0 +1,93 @@
+[2026-10-06T00:42:21.979Z] [CONSOLE] [vite] connecting...
+[2026-10-06T00:42:21.980Z] [CONSOLE] [vite] connected.
+[2026-10-06T00:42:22.124Z] [CONSOLE] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-10-06T00:42:22.251Z] [CONSOLE] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <AppRouterScrollTargetInner commitId={0}>
+      <RedirectBoundary>
+        <RedirectErrorBoundary>
+          <LayoutSegmentProvider providerId="page:/vide..." segmentMap={{children:[...]}}>
+            <Slot id="page:/vide...">
+              <BfcacheSlotBoundary id="page:/vide..." content={<Context>}>
+                <PageInvoker>
+                  <AwaitAppRenderDependencies>
+                    <VideoEditorWorkspace>
+                      <EditorDragDropProvider>
+                        <div className="forma-vide...">
+                          <VideoEditorTopbar>
+                          <div>
+                          <ResizableDivider>
+                          <VideoTimeline style={{height:240}} project={{id:"proj-1...", ...}} currentTime={0} ...>
+                            <div
+                              ref={{current:null}}
+                              data-testid="video-timeline"
++                             style={{height:240}}
+-                             style={{height:"300px"}}
+                              className="bg-[#0a0c10] border-t border-[#191d26] flex flex-col select-none shrink-0 z-1..."
+                            >
+                          ...
+
+[2026-10-06T00:42:23.400Z] [CONSOLE] [Browser] Starting WASM CFR render pipeline
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR] ffmpeg version 5.1.4 Copyright (c) 2000-2023 the FFmpeg developers
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR]   built with emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.40 (5c27e79dd0a9c4e27ef2326841698cdd4f6b5784)
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR]   configuration: --target-os=none --arch=x86_32 --enable-cross-compile --disable-asm --disable-stripping --disable-programs --disable-doc --disable-debug --disable-runtime-cpudetect --disable-autodetect --nm=emnm --ar=emar --ranlib=emranlib --cc=emcc --cxx=em++ --objcc=emcc --dep-cc=emcc --extra-cflags='-I/opt/include -O3 -msimd128' --extra-cxxflags='-I/opt/include -O3 -msimd128' --disable-pthreads --disable-w32threads --disable-os2threads --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libmp3lame --enable-libtheora --enable-libvorbis --enable-libopus --enable-zlib --enable-libwebp --enable-libfreetype --enable-libfribidi --enable-libass --enable-libzimg
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR]   libavutil      57. 28.100 / 57. 28.100
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR]   libavcodec     59. 37.100 / 59. 37.100
+[2026-10-06T00:42:23.833Z] [CONSOLE] [FFMPEG-ERR]   libavformat    59. 27.100 / 59. 27.100
+[2026-10-06T00:42:23.834Z] [CONSOLE] [FFMPEG-ERR]   libavdevice    59.  7.100 / 59.  7.100
+[2026-10-06T00:42:23.834Z] [CONSOLE] [FFMPEG-ERR]   libavfilter     8. 44.100 /  8. 44.100
+[2026-10-06T00:42:23.834Z] [CONSOLE] [FFMPEG-ERR]   libswscale      6.  7.100 /  6.  7.100
+[2026-10-06T00:42:23.834Z] [CONSOLE] [FFMPEG-ERR]   libswresample   4.  7.100 /  4.  7.100
+[2026-10-06T00:42:23.834Z] [CONSOLE] [FFMPEG-ERR]   libpostproc    56.  6.100 / 56.  6.100
+[2026-10-06T00:42:23.837Z] [CONSOLE] [FFMPEG-ERR] [rawvideo @ 0xdeed50] Estimating duration from bitrate, this may be inaccurate
+[2026-10-06T00:42:23.837Z] [CONSOLE] [FFMPEG-ERR] Input #0, rawvideo, from 'input.yuv':
+[2026-10-06T00:42:23.837Z] [CONSOLE] [FFMPEG-ERR]   Duration: 00:00:10.00, start: 0.000000, bitrate: 82944 kb/s
+[2026-10-06T00:42:23.837Z] [CONSOLE] [FFMPEG-ERR]   Stream #0:0: Video: rawvideo (I420 / 0x30323449), yuv420p, 640x360, 82944 kb/s, 30 tbr, 30 tbn
+[2026-10-06T00:42:23.838Z] [CONSOLE] [FFMPEG-ERR] [s16le @ 0xe4c8f0] Estimating duration from bitrate, this may be inaccurate
+[2026-10-06T00:42:23.838Z] [CONSOLE] [FFMPEG-ERR] Guessed Channel Layout for Input Stream #1.0 : stereo
+[2026-10-06T00:42:23.838Z] [CONSOLE] [FFMPEG-ERR] Input #1, s16le, from 'audio.pcm':
+[2026-10-06T00:42:23.839Z] [CONSOLE] [FFMPEG-ERR]   Duration: 00:00:10.00, bitrate: 1536 kb/s
+[2026-10-06T00:42:23.839Z] [CONSOLE] [FFMPEG-ERR]   Stream #1:0: Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s
+[2026-10-06T00:42:23.839Z] [CONSOLE] [FFMPEG-ERR] Stream mapping:
+[2026-10-06T00:42:23.840Z] [CONSOLE] [FFMPEG-ERR]   Stream #0:0 -> #0:0 (rawvideo (native) -> h264 (libx264))
+[2026-10-06T00:42:23.840Z] [CONSOLE] [FFMPEG-ERR]   Stream #1:0 -> #0:1 (pcm_s16le (native) -> aac (native))
+[2026-10-06T00:42:23.847Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] using cpu capabilities: none!
+[2026-10-06T00:42:23.848Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] profile Constrained Baseline, level 3.0, 4:2:0, 8-bit
+[2026-10-06T00:42:23.848Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] 264 - core 164 - H.264/MPEG-4 AVC codec - Copyleft 2003-2022 - http://www.videolan.org/x264.html - options: cabac=0 ref=1 deblock=0:0:0 analyse=0:0 me=dia subme=0 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=0 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=1 lookahead_threads=1 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=0 weightp=0 keyint=250 keyint_min=25 scenecut=0 intra_refresh=0 rc=crf mbtree=0 crf=23.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=0
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR] Output #0, mp4, to 'prototype_640x360.mp4':
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]   Metadata:
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]     encoder         : Lavf59.27.100
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]   Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv420p(progressive), 640x360, q=2-31, 30 fps, 15360 tbn
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]     Metadata:
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]       encoder         : Lavc59.37.100 libx264
+[2026-10-06T00:42:23.860Z] [CONSOLE] [FFMPEG-ERR]     Side data:
+[2026-10-06T00:42:23.861Z] [CONSOLE] [FFMPEG-ERR]       cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+[2026-10-06T00:42:23.861Z] [CONSOLE] [FFMPEG-ERR]   Stream #0:1: Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 192 kb/s
+[2026-10-06T00:42:23.861Z] [CONSOLE] [FFMPEG-ERR]     Metadata:
+[2026-10-06T00:42:23.861Z] [CONSOLE] [FFMPEG-ERR]       encoder         : Lavc59.37.100 aac
+[2026-10-06T00:42:23.861Z] [CONSOLE] [FFMPEG-ERR] frame=    1 fps=0.0 q=0.0 size=       0kB time=00:00:00.00 bitrate=N/A speed=   0x    
+[2026-10-06T00:42:24.358Z] [CONSOLE] [FFMPEG-ERR] frame=  168 fps=0.0 q=20.0 size=     256kB time=00:00:05.56 bitrate= 376.7kbits/s speed=10.8x    
+[2026-10-06T00:42:24.695Z] [CONSOLE] [FFMPEG-ERR] [mp4 @ 0xe556e0] Starting second pass: moving the moov atom to the beginning of the file
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] frame=  300 fps=0.0 q=19.0 Lsize=     709kB time=00:00:10.00 bitrate= 580.3kbits/s speed=11.7x    
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] video:465kB audio:234kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 1.401460%
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] frame I:2     Avg QP:18.50  size: 10114
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] frame P:298   Avg QP:19.49  size:  1527
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] mb I  I16..4: 100.0%  0.0%  0.0%
+[2026-10-06T00:42:24.697Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] mb P  I16..4:  0.8%  0.0%  0.0%  P16..4:  3.1%  0.0%  0.0%  0.0%  0.0%    skip:96.0%
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] coded y,uvDC,uvAC intra: 17.6% 15.3% 12.9% inter: 1.5% 1.6% 1.4%
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] i16 v,h,dc,p: 78% 17%  4%  1%
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] i8c dc,h,v,p: 73% 16% 11%  0%
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] [libx264 @ 0xe8c7c0] kb/s:380.16
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] [aac @ 0xe8dc20] Qavg: 225.639
+[2026-10-06T00:42:24.698Z] [CONSOLE] [FFMPEG-ERR] Aborted()

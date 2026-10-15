@@ -1,0 +1,16 @@
+FORMA ORIGINAL ASSET LICENSE (FORMA-ORIGINAL-1.0)
+================================================================================
+Copyright (c) 2026 FORMA Motion Labs. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated asset files (the "Assets"), to use, copy, modify,
+merge, publish, distribute, and/or render the Assets in personal or commercial
+video productions, subject to the following conditions:
+
+1. The Assets may be freely used in any video edit, commercial film, social media
+   content, broadcast, or interactive application without payment of royalties.
+2. The Assets cannot be sublicensed or resold as standalone raw template packs
+   in competing asset marketplaces.
+3. THE ASSETS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY.
+================================================================================

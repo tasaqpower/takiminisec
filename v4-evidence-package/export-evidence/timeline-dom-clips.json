@@ -1,0 +1,47 @@
+[
+  {
+    "clipId": "clip-6yqzh47",
+    "clipType": "text",
+    "trackId": "track-text-aguapyk",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-ebhgug6",
+    "clipType": "video",
+    "trackId": "track-video-g1m0xie",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-2fgtq28",
+    "clipType": "image",
+    "trackId": "track-video-6kxq55i",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-xwru40d",
+    "clipType": "audio",
+    "trackId": "track-audio-rorlrfw",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  },
+  {
+    "clipId": "clip-irra2rl",
+    "clipType": "audio",
+    "trackId": "track-audio-lyj4f8s",
+    "startTime": 0,
+    "duration": 10,
+    "widthPx": 400,
+    "heightPx": 51
+  }
+]

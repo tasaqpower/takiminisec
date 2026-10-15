@@ -299,7 +299,7 @@ async function main() {
     // Capture screenshot while dragging is active
     const shotDrag = await send('Page.captureScreenshot', { format: 'png' });
     await fs.writeFile(
-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_dragdrop_active.png',
+      path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_dragdrop_active.png'),
       Buffer.from(shotDrag.data, 'base64')
     );
     console.log('[Verify DragDrop & Audio] Captured drag-in-progress screenshot!');
@@ -341,7 +341,7 @@ async function main() {
     // Save screenshot with transition applied
     const shotTr = await send('Page.captureScreenshot', { format: 'png' });
     await fs.writeFile(
-      'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_transition_applied.png',
+      path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_transition_applied.png'),
       Buffer.from(shotTr.data, 'base64')
     );
     console.log('[Verify DragDrop & Audio] Saved transition applied screenshot!');
@@ -438,7 +438,7 @@ async function main() {
   // Capture final screenshot
   const shotFinal = await send('Page.captureScreenshot', { format: 'png' });
   await fs.writeFile(
-    'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_multivideo_audio_playback.png',
+    path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_multivideo_audio_playback.png'),
     Buffer.from(shotFinal.data, 'base64')
   );
   console.log('[Verify DragDrop & Audio] Saved final verification screenshot!');

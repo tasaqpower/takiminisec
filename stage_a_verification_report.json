@@ -1,0 +1,161 @@
+{
+  "timestamp": "2026-10-06T01:11:01.429Z",
+  "mp4Path": "C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\forma_real_ui_1080p_v6.mp4",
+  "fileSizeBytes": 5471478,
+  "vStream": {
+    "codec_name": "h264",
+    "width": 1920,
+    "height": 1080,
+    "r_frame_rate": "30/1",
+    "avg_frame_rate": "30/1",
+    "duration": "10.000000",
+    "nb_read_frames": "300"
+  },
+  "aStream": {
+    "codec_name": "aac",
+    "sample_rate": "48000",
+    "channels": 2,
+    "duration": "10.000000"
+  },
+  "ptsAnalysis": {
+    "totalFrames": 300,
+    "minDeltaMs": 33.333,
+    "maxDeltaMs": 33.334,
+    "avgDeltaMs": 33.333
+  },
+  "vfrdet": "0.000000",
+  "freezesCount": 0,
+  "mpdecimateFrames": 300,
+  "avSyncDiffMs": 0,
+  "blackFramesCount": 0,
+  "lutValidation": {
+    "lutName": "teal-orange.cube",
+    "avgRgbDiff": 27.463333333333335,
+    "isTrilinearLutActive": true
+  },
+  "crossfadeValidation": {
+    "lumA": 76.993,
+    "lumMid": 92.387,
+    "lumB": 107.59599999999999,
+    "lumExpected": 92.2945,
+    "dropPct": 0.10022265682137195
+  },
+  "textFadeValidation": [
+    {
+      "sampleTime": 0,
+      "alpha": 0,
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "sampleTime": 0.25,
+      "alpha": 112,
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    },
+    {
+      "sampleTime": 0.5,
+      "alpha": 191,
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    },
+    {
+      "sampleTime": 0.75,
+      "alpha": 239,
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    },
+    {
+      "sampleTime": 1,
+      "alpha": 255,
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    }
+  ],
+  "allPassed": true,
+  "assertions": [
+    {
+      "name": "Resolution 1920x1080",
+      "passed": true
+    },
+    {
+      "name": "Total Decoded Frames == 300",
+      "passed": true
+    },
+    {
+      "name": "Stream r_frame_rate == \"30/1\"",
+      "passed": true
+    },
+    {
+      "name": "Stream avg_frame_rate == \"30/1\"",
+      "passed": true
+    },
+    {
+      "name": "PTS Count == 300",
+      "passed": true
+    },
+    {
+      "name": "All PTS Deltas 33.333 ms +- 2 ms",
+      "passed": true
+    },
+    {
+      "name": "Max PTS Gap <= 40 ms",
+      "passed": true
+    },
+    {
+      "name": "vfrdet VFR == 0.000000",
+      "passed": true
+    },
+    {
+      "name": "freezedetect Freezes > 100ms == 0",
+      "passed": true
+    },
+    {
+      "name": "mpdecimate All 300 Frames Preserved",
+      "passed": true
+    },
+    {
+      "name": "Audio Present (AAC stereo 48kHz)",
+      "passed": true
+    },
+    {
+      "name": "Audio/Video Sync Delta <= 20 ms",
+      "passed": true
+    },
+    {
+      "name": "Black Frames == 0",
+      "passed": true
+    },
+    {
+      "name": "Real .cube LUT Applied (Avg diff > 5)",
+      "passed": true
+    },
+    {
+      "name": "Crossfade Luminance Drop <= 1%",
+      "passed": true
+    },
+    {
+      "name": "Text Fade In Monotonic Alpha",
+      "passed": true
+    },
+    {
+      "name": "Preview/Export Frame Parity Verified",
+      "passed": true
+    }
+  ]
+}

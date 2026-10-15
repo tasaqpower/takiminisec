@@ -1,0 +1,66 @@
+{
+  "totalDecodedFrames": 300,
+  "expectedFrames": 300,
+  "matchesExpectedCount": true,
+  "nominalFps": 30,
+  "nominalDeltaMs": 33.333,
+  "minDeltaMs": 33.333,
+  "maxDeltaMs": 33.334,
+  "avgDeltaMs": 33.333,
+  "allDeltasWithin33msPlusMinus2ms": true,
+  "maxDeltaLessThan40ms": true,
+  "firstFivePts": [
+    {
+      "pts": 0,
+      "pts_time": 0,
+      "duration_time": null
+    },
+    {
+      "pts": 512,
+      "pts_time": 0.033333,
+      "duration_time": null
+    },
+    {
+      "pts": 1024,
+      "pts_time": 0.066667,
+      "duration_time": null
+    },
+    {
+      "pts": 1536,
+      "pts_time": 0.1,
+      "duration_time": null
+    },
+    {
+      "pts": 2048,
+      "pts_time": 0.133333,
+      "duration_time": null
+    }
+  ],
+  "lastFivePts": [
+    {
+      "pts": 151040,
+      "pts_time": 9.833333,
+      "duration_time": null
+    },
+    {
+      "pts": 151552,
+      "pts_time": 9.866667,
+      "duration_time": null
+    },
+    {
+      "pts": 152064,
+      "pts_time": 9.9,
+      "duration_time": null
+    },
+    {
+      "pts": 152576,
+      "pts_time": 9.933333,
+      "duration_time": null
+    },
+    {
+      "pts": 153088,
+      "pts_time": 9.966667,
+      "duration_time": null
+    }
+  ]
+}

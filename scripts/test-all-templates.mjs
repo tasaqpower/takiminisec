@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 
 async function main() {
   console.log('--- TESTING ALL 16 TEXT TEMPLATES ---');
-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
+  const videoFilePath = process.env.FORMA_REAL_PDF_PATH || '';
   const videoBuffer = await fs.readFile(videoFilePath);
   const videoBase64 = videoBuffer.toString('base64');
 

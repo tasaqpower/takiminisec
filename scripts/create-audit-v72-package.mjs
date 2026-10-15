@@ -412,7 +412,7 @@ Tüm testler gerçek Chrome (CDP port 9228) ve yerel test sunucusu üzerinde icr
    - Görsel piksel fark çıktısı \`fixtures/watermark-roi-diff-visual.png\` olarak kaydedilmiştir.
 
 6. **Taşınabilir Yol Mimarisi ve Üretim Güvenliği (Zero Leaks):**
-   - Kod tabanındaki tüm \`C:\\Users\\sinan\\...\` hardcoded yolları kaldırılmış; ortamdan dinamik alan taşınabilir yol mimarisi devreye alınmıştır.
+   - Kod tabanındaki tüm yerel kullanıcı hardcoded yolları kaldırılmış; ortamdan dinamik alan taşınabilir yol mimarisi devreye alınmıştır.
    - \`dist/client\` paketinde 0 adet \`__formaTestApi\`, 0 adet test API'si, 0 harici AI uç noktası (OpenAI, Gemini, Claude) ve 0 telemetri/analitik SDK'sı tespit edilmiştir.
 
 ---

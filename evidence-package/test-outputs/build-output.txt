@@ -1,0 +1,93 @@
+Command: npm run build
+Exit Code: 0
+
+STDOUT:
+
+> forma-belge-atolyesi@0.1.0 prebuild
+> node scripts/patch-vinext.mjs
+
+[patch-vinext] Document assets prepared successfully.
+
+> forma-belge-atolyesi@0.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[34m[1/5] analyze client references...[39m
+[2Ktransforming...✓ 227 modules transformed.
+rendering chunks...
+[32m✓ built in 954ms[39m
+[34m[2/5] analyze server references...[39m
+[2Ktransforming...✓ 635 modules transformed.
+rendering chunks...
+[32m✓ built in 5.05s[39m
+[34m[3/5] build rsc environment...[39m
+[2Ktransforming...✓ 224 modules transformed.
+rendering chunks...
+computing gzip size...
+[32m✓ built in 576ms[39m
+[34m[4/5] build client environment...[39m
+[2Ktransforming...✓ 2745 modules transformed.
+rendering chunks...
+computing gzip size...
+[32m✓ built in 5.64s[39m
+[34m[5/5] build ssr environment...[39m
+[2Ktransforming...✓ 1072 modules transformed.
+rendering chunks...
+computing gzip size...
+[32m✓ built in 2.81s[39m
+[0m
+  Route (app)
+  ┌ ? /            
+  └ ? /video-editor
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+
+
+STDERR:
+[33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - vinext:og-inline-fetch-assets (20%)
+  - alias (16%)
+  - vinext:middleware-server-only (14%)
+  - vinext:css-data-url (13%)
+  - rsc:virtual-client-package (7%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/conversion/docxConverter.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:url" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/conversion/docxConverter.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:url" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/documents.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/documents.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/documents.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/ai-copilot/aiActionDispatcher.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/ai-copilot/aiActionDispatcher.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/pdf-text.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/pdf-text.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:crypto" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/lib/pdf-text.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/forms/formBuilder.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/forms/formBuilder.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:fs" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/ocr/ocrEngine.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/ocr/ocrEngine.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:path" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/compression/compressPdf.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin rolldown:vite-resolve] Module "node:url" has been externalized for browser compatibility, imported by "C:/Users/sinan/OneDrive/Belgeler/ChatGPT/pdf/features/compression/compressPdf.ts". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - vinext:middleware-server-only (18%)
+  - rsc:virtual-client-package (16%)
+  - vinext:css-data-url (15%)
+  - alias (14%)
+  - vinext:validate-middleware-exports (8%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+[39m
+

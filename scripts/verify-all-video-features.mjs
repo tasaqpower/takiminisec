@@ -194,7 +194,7 @@ async function main() {
   // Capture screenshot of the workspace with all active elements
   const shot1 = await send('Page.captureScreenshot', { format: 'png' });
   const buf1 = Buffer.from(shot1.data, 'base64');
-  const path1 = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_timeline_full_active.png';
+  const path1 = path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_timeline_full_active.png');
   await fs.writeFile(path1, buf1);
   console.log('[Verify All] Saved screenshot 1 to:', path1);
 
@@ -225,7 +225,7 @@ async function main() {
 
   const shot2 = await send('Page.captureScreenshot', { format: 'png' });
   const buf2 = Buffer.from(shot2.data, 'base64');
-  const path2 = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\verify_properties_inspector_active.png';
+  const path2 = path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'verify_properties_inspector_active.png');
   await fs.writeFile(path2, buf2);
   console.log('[Verify All] Saved screenshot 2 to:', path2);
 

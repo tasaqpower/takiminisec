@@ -1,0 +1,53 @@
+﻿
+> forma-belge-atolyesi@0.1.0 prebuild
+> node scripts/patch-vinext.mjs
+
+[patch-vinext] Document assets prepared successfully.
+
+> forma-belge-atolyesi@0.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[34m[1/5] analyze client references...[39m
+[2K
+transforming...Ô£ô 227 modules transformed.
+rendering chunks...
+[32mÔ£ô built in 1.03s[39m
+[34m[2/5] analyze server references...[39m
+[2K
+transforming...Ô£ô 635 modules transformed.
+rendering chunks...
+[32mÔ£ô built in 5.24s[39m
+[34m[3/5] build rsc environment...[39m
+[2K
+transforming...Ô£ô 224 modules transformed.
+rendering chunks...
+computing gzip size...
+[32mÔ£ô built in 642ms[39m
+[34m[4/5] build client environment...[39m
+[2K
+transforming...Ô£ô 2745 modules transformed.
+rendering chunks...
+computing gzip size...
+[32mÔ£ô built in 5.74s[39m
+[34m[5/5] build ssr environment...[39m
+[2K
+transforming...Ô£ô 1072 modules transformed.
+rendering chunks...
+computing gzip size...
+[32mÔ£ô built in 2.68s[39m
+[0m
+  Route (app)
+  Ôöî ? /            
+  Ôöö ? /video-editor
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+

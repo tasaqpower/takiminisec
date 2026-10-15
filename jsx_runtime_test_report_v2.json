@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-06T12:45:54.512Z",
+  "testScope": "After Effects 2026 (v26.3.0) Real Runtime Execution Audit",
+  "testedMethods": [
+    {
+      "method": "AfterFX.com -r <script-path>",
+      "timeoutSeconds": 60,
+      "exitStatus": "TIMEOUT_AFTER_60S",
+      "sentinelsDetected": {
+        "start": false,
+        "done": false
+      },
+      "rootCause": "Win32 console wrapper spawns GUI host which halts on Home Screen / Welcome Dialog."
+    },
+    {
+      "method": "AfterFX.exe -r <script-path>",
+      "timeoutSeconds": 60,
+      "exitStatus": "TIMEOUT_AFTER_60S",
+      "sentinelsDetected": {
+        "start": false,
+        "done": false
+      },
+      "rootCause": "Masaüstü etkileşimsiz alt süreçte çalıştırıldığında After Effects penceresi Giriş Ekranı kuyruğunda duraklar."
+    },
+    {
+      "method": "İzole APPDATA Test Profili (Welcome Screen=00, Scripting Security=1)",
+      "timeoutSeconds": 60,
+      "exitStatus": "TIMEOUT_AFTER_60S",
+      "sentinelsDetected": {
+        "start": false,
+        "done": false
+      },
+      "rootCause": "Adobe uygulamaları salt APPDATA ortam değişkenini değil, Windows Known Folders API (SHGetKnownFolderPath) üzerinden kayıt defterini sorgulamaktadır."
+    },
+    {
+      "method": "Windows UI Otomasyonu (SendKeys ESC Dismissal)",
+      "timeoutSeconds": 60,
+      "exitStatus": "BLOCKED_BY_UIPI",
+      "win32Exception": "System.ComponentModel.Win32Exception: Erişim engellendi (User Interface Privilege Isolation)",
+      "rootCause": "Windows UIPI ve Oturum İzolasyonu, terminal alt sürecinin masaüstü GUI penceresine sentetik klavye sinyali göndermesini engellemektedir."
+    }
+  ],
+  "statusVerdict": "RUNTIME_VERIFICATION_PENDING",
+  "officialAction": "200 JSX varlığı Verified-AE-Scripts klasörüne ALINMAMIŞTIR; Quarantine-Failed dizininde etkileşimli kullanıcı doğrulaması beklemektedir."
+}

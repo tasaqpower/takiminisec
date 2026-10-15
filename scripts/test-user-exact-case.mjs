@@ -5,7 +5,7 @@ import path from 'path';
 
 async function main() {
   console.log('--- REPRODUCING EXACT USER CASE ---');
-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
+  const videoFilePath = process.env.FORMA_REAL_PDF_PATH || '';
   const videoBuffer = await fs.readFile(videoFilePath);
   const videoBase64 = videoBuffer.toString('base64');
   console.log('Video file loaded, size:', videoBuffer.length, 'bytes');
@@ -210,7 +210,7 @@ async function main() {
   // Save canvas snapshot to disk
   if (result.snapshot) {
     const base64Data = result.snapshot.replace(/^data:image\/png;base64,/, '');
-    const outPath = 'C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\exact_case_snapshot.png';
+    const outPath = 'process.cwd()\\scripts\\exact_case_snapshot.png';
     await fs.writeFile(outPath, Buffer.from(base64Data, 'base64'));
     console.log('Snapshot written to:', outPath);
   }

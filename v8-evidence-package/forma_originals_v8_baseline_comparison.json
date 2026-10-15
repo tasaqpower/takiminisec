@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-10-06T08:43:00.640Z",
+  "baselineRecordsCount": 2520,
+  "currentCatalogTotal": 3120,
+  "newOriginalsCount": 600,
+  "baselineCanonicalHash": "157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5",
+  "currentFirst2520CanonicalHash": "157d941770745f358567fa26f380d3cdd3cd3a85ab7c7d792b35231c50d1cff5",
+  "canonicalMatches": true,
+  "deletedExistingIds": [],
+  "modifiedExistingIds": [],
+  "reorderedExistingIds": [],
+  "changedExistingMetadata": [],
+  "missingExistingFiles": [],
+  "changedExistingFileHashes": [],
+  "overwrittenExistingFiles": []
+}

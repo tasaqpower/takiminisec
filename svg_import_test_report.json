@@ -1,0 +1,413 @@
+{
+  "timestamp": "2026-10-06T12:31:37.458Z",
+  "totalSvgsInCorePack": 337,
+  "globalAudit": {
+    "totalChecked": 337,
+    "validXmlCount": 337,
+    "sanitizedSecureCount": 337
+  },
+  "sampleTestCount": 20,
+  "allSamplesPassed": true,
+  "sampleResults": [
+    {
+      "index": 1,
+      "file": "forma-original-element-001-arrow-neon-right.svg",
+      "relPath": "Forma-Originals/forma-original-element-001-arrow-neon-right.svg",
+      "fileSize": 278,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 100 100",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 1026,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 2,
+      "file": "forma-original-element-017-icon-thumbs-up.svg",
+      "relPath": "Forma-Originals/forma-original-element-017-icon-thumbs-up.svg",
+      "fileSize": 294,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 100 100",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 1730,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 3,
+      "file": "forma-original-element-033-frame-crosshair.svg",
+      "relPath": "Forma-Originals/forma-original-element-033-frame-crosshair.svg",
+      "fileSize": 362,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 100 100",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 1562,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 4,
+      "file": "forma-original-element-049-motif-tulip-silhouette.svg",
+      "relPath": "Forma-Originals/forma-original-element-049-motif-tulip-silhouette.svg",
+      "fileSize": 251,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 100 100",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 1304,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 5,
+      "file": "arrow-straight-bold.svg",
+      "relPath": "Library-Elements/arrow-straight-bold.svg",
+      "fileSize": 208,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 220 100",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 6714,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 6,
+      "file": "lucide-ad.svg",
+      "relPath": "Library-Elements/lucide-ad.svg",
+      "fileSize": 394,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 23569,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 7,
+      "file": "lucide-align-horizontal-justify-center.svg",
+      "relPath": "Library-Elements/lucide-align-horizontal-justify-center.svg",
+      "fileSize": 301,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 20478,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 8,
+      "file": "lucide-ampersand.svg",
+      "relPath": "Library-Elements/lucide-ampersand.svg",
+      "fileSize": 305,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 14405,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 9,
+      "file": "lucide-arrow-big-down.svg",
+      "relPath": "Library-Elements/lucide-arrow-big-down.svg",
+      "fileSize": 361,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 12799,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 10,
+      "file": "lucide-arrow-down-up.svg",
+      "relPath": "Library-Elements/lucide-arrow-down-up.svg",
+      "fileSize": 273,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 13163,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 11,
+      "file": "lucide-arrow-up-from-dot.svg",
+      "relPath": "Library-Elements/lucide-arrow-up-from-dot.svg",
+      "fileSize": 259,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 9641,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 12,
+      "file": "lucide-audio-lines.svg",
+      "relPath": "Library-Elements/lucide-audio-lines.svg",
+      "fileSize": 301,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 15264,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 13,
+      "file": "lucide-badge-percent.svg",
+      "relPath": "Library-Elements/lucide-badge-percent.svg",
+      "fileSize": 418,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 18485,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 14,
+      "file": "lucide-banknote-check.svg",
+      "relPath": "Library-Elements/lucide-banknote-check.svg",
+      "fileSize": 361,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 17425,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 15,
+      "file": "lucide-bean.svg",
+      "relPath": "Library-Elements/lucide-bean.svg",
+      "fileSize": 372,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 18145,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 16,
+      "file": "lucide-between-horizontal-end.svg",
+      "relPath": "Library-Elements/lucide-between-horizontal-end.svg",
+      "fileSize": 307,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 20438,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 17,
+      "file": "lucide-bluetooth-connected.svg",
+      "relPath": "Library-Elements/lucide-bluetooth-connected.svg",
+      "fileSize": 297,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 15785,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 18,
+      "file": "lucide-book-down.svg",
+      "relPath": "Library-Elements/lucide-book-down.svg",
+      "fileSize": 327,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 23058,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 19,
+      "file": "lucide-book-user.svg",
+      "relPath": "Library-Elements/lucide-book-user.svg",
+      "fileSize": 344,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 24352,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    },
+    {
+      "index": 20,
+      "file": "lucide-boxes.svg",
+      "relPath": "Library-Elements/lucide-boxes.svg",
+      "fileSize": 752,
+      "hasValidSvgXml": true,
+      "hasViewBox": true,
+      "viewBox": "0 0 24 24",
+      "isSanitized": true,
+      "securityIssues": {
+        "hasScriptTag": false,
+        "hasOnEvent": false,
+        "hasExternalUrl": false
+      },
+      "renderSuccess": true,
+      "nonZeroPixels": 27549,
+      "renderError": null,
+      "adobeImportVerdict": "PASS",
+      "adobeCompatibility": "Natively supported in AE 26.3 as vector footage / Shape Layer"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
-const artifactDir = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
+const artifactDir = process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts');
 
 const stagingDir = path.join(artifactDir, 'scratch', 'forma_audit_v71_staging');
 const evidenceStagingDir = path.join(artifactDir, 'scratch', 'forma_v71_evidence_staging');

@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 
 async function main() {
   console.log('--- TESTING LIVE WEBSITE: https://takiminisec.lol/video-editor ---');
-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
+  const videoFilePath = process.env.FORMA_REAL_PDF_PATH || '';
   const videoBuffer = await fs.readFile(videoFilePath);
   const videoBase64 = videoBuffer.toString('base64');
 
@@ -147,7 +147,7 @@ async function main() {
 
   if (results?.snapshot) {
     const base64Data = results.snapshot.replace(/^data:image\/png;base64,/, '');
-    await fs.writeFile('C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\live_site_snap.png', Buffer.from(base64Data, 'base64'));
+    await fs.writeFile('process.cwd()\\scripts\\live_site_snap.png', Buffer.from(base64Data, 'base64'));
     console.log('Snapshot written to live_site_snap.png');
   }
 

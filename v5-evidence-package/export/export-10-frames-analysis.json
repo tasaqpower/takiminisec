@@ -1,0 +1,122 @@
+[
+  {
+    "index": 1,
+    "timeSec": 0.5,
+    "timeStr": "00:00:00.500",
+    "fileName": "export_frame_01.png",
+    "sha256": "0110cc1fb14e60b8a52e01ce94929a6b644aa6c5e1df329e645227b9ea86f3fb",
+    "avgR": 104.9,
+    "avgG": 114.9,
+    "avgB": 111.5,
+    "luminance": 111.5,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 2,
+    "timeSec": 1.5,
+    "timeStr": "00:00:01.500",
+    "fileName": "export_frame_02.png",
+    "sha256": "ea2378425c4aedd0cd2a72d63aef2a0ec94a06fdcceedc01adf689f1b076798b",
+    "avgR": 103.9,
+    "avgG": 114,
+    "avgB": 111.6,
+    "luminance": 110.7,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 3,
+    "timeSec": 2.5,
+    "timeStr": "00:00:02.500",
+    "fileName": "export_frame_03.png",
+    "sha256": "c2245a53ea1a152ef0ab009d5c84c4f2831b9ef133360443964e6e04dca66b5a",
+    "avgR": 106,
+    "avgG": 116.4,
+    "avgB": 113.3,
+    "luminance": 112.9,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 4,
+    "timeSec": 3.5,
+    "timeStr": "00:00:03.500",
+    "fileName": "export_frame_04.png",
+    "sha256": "fd0699d5d3dfa0fd11bfc484d7e98078c1f6c0d63dc5ac6c058fbcb076d6c69c",
+    "avgR": 107.8,
+    "avgG": 118.2,
+    "avgB": 115.7,
+    "luminance": 114.8,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 5,
+    "timeSec": 4.5,
+    "timeStr": "00:00:04.500",
+    "fileName": "export_frame_05.png",
+    "sha256": "c92ca46bba1c99b07e376d9a2108edd3ef8b59dcad19a2a914ca453bf4c7014b",
+    "avgR": 107.6,
+    "avgG": 118.1,
+    "avgB": 114.9,
+    "luminance": 114.6,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 6,
+    "timeSec": 5.5,
+    "timeStr": "00:00:05.500",
+    "fileName": "export_frame_06.png",
+    "sha256": "6abf04aa486741fdceba8ec635c976609bac54d4a93c2197feb5c25493510544",
+    "avgR": 108.6,
+    "avgG": 119,
+    "avgB": 116.8,
+    "luminance": 115.6,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 7,
+    "timeSec": 6.5,
+    "timeStr": "00:00:06.500",
+    "fileName": "export_frame_07.png",
+    "sha256": "2bd20216375e64ed07f6a80c7066b0bff39e371df1fe1dde166eec882ccf148d",
+    "avgR": 106.4,
+    "avgG": 116.7,
+    "avgB": 114.6,
+    "luminance": 113.4,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 8,
+    "timeSec": 7.5,
+    "timeStr": "00:00:07.500",
+    "fileName": "export_frame_08.png",
+    "sha256": "f8c552aa2571a3394152944df2942e7d02cd27d640ffb426fe1cbfc856c480ab",
+    "avgR": 108,
+    "avgG": 118.5,
+    "avgB": 115.9,
+    "luminance": 115.1,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 9,
+    "timeSec": 8.5,
+    "timeStr": "00:00:08.500",
+    "fileName": "export_frame_09.png",
+    "sha256": "03d017f24e44f77b6fdfcfc9bb3be33425dc9c76648a078505931c5513774dce",
+    "avgR": 86.3,
+    "avgG": 90.2,
+    "avgB": 87.1,
+    "luminance": 88.7,
+    "isBlackOrEmpty": false
+  },
+  {
+    "index": 10,
+    "timeSec": 9.5,
+    "timeStr": "00:00:09.500",
+    "fileName": "export_frame_10.png",
+    "sha256": "e5b21956657d06c4b5a511a7ce2ba79b3fcb74c6e7967dbb16f6d6dc28eeaee7",
+    "avgR": 109,
+    "avgG": 118.9,
+    "avgB": 116.1,
+    "luminance": 115.6,
+    "isBlackOrEmpty": false
+  }
+]

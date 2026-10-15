@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import fs from 'fs/promises';
 
 async function main() {
-  const videoBuffer = await fs.readFile('C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4');
+  const videoBuffer = await fs.readFile(process.env.FORMA_REAL_PDF_PATH || '');
   const videoBase64 = videoBuffer.toString('base64');
 
   const chromeProc = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
@@ -146,7 +146,7 @@ async function main() {
 
   if (result.snapshot) {
     const base64Data = result.snapshot.replace(/^data:image\/png;base64,/, '');
-    await fs.writeFile('C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\scripts\\bug_snapshot.png', Buffer.from(base64Data, 'base64'));
+    await fs.writeFile('process.cwd()\\scripts\\bug_snapshot.png', Buffer.from(base64Data, 'base64'));
     console.log('Snapshot written to bug_snapshot.png');
   }
 

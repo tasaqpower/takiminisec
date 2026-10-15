@@ -21,6 +21,8 @@ import {
   Sparkles,
   Check,
   X,
+  Film,
+  FolderOpen,
 } from 'lucide-react';
 
 interface PreviewProps {
@@ -629,6 +631,35 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
             onDoubleClick={handleCanvasDoubleClick}
             className="w-full h-full object-contain cursor-default"
           />
+
+          {/* Empty State Overlay — UI only, never affects canvas/export */}
+          {project.tracks.every(t => t.clips.length === 0) && !isDragOverCanvas && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-auto bg-black/40 backdrop-blur-[2px]">
+              <div className="flex flex-col items-center gap-3 p-8 rounded-xl">
+                <div className="w-16 h-16 rounded-2xl bg-[#171B21]/80 border border-[#292F39] flex items-center justify-center shadow-lg">
+                  <Film size={28} className="text-[#4f6bf5]" />
+                </div>
+                <h3 className="text-[#E7EAF0] text-base font-semibold tracking-tight">
+                  🎬 Kurguya Başlamak İçin Medya Ekleyin
+                </h3>
+                <p className="text-[#929AA8] text-xs text-center max-w-[280px] leading-relaxed">
+                  Sol panelden bir video/stok klip seçin veya bilgisayarınızdan dosya sürükleyin
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Trigger sidebar open to media tab
+                    const mediaTab = document.querySelector('[data-rail-tab="media"]') as HTMLElement;
+                    if (mediaTab) mediaTab.click();
+                  }}
+                  className="mt-1 px-4 py-2 rounded-lg bg-[#4f6bf5] hover:bg-[#3b55d9] text-white text-xs font-semibold shadow-lg transition-colors flex items-center gap-2"
+                >
+                  <FolderOpen size={14} />
+                  <span>📁 Medya İçe Aktar</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Drag Overlay Indicator */}
           {isDragOverCanvas && (

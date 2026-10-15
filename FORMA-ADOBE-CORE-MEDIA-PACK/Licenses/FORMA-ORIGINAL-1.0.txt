@@ -1,0 +1,31 @@
+FORMA ASSET ORIGINAL LICENSE (Version 1.0)
+===========================================
+
+Copyright (c) 2024-2026 FORMA Media Engine & Algorithmic Design Studio.
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of the media assets, sound designs, color calibration LUTs, SVG vectors, and
+associated metadata governed by this license ("Assets"):
+
+1. PERMITTED USES:
+   - You may incorporate, adapt, remix, transform, and synchronize the Assets
+     into personal, educational, commercial, broadcast, cinema, streaming,
+     and digital multimedia video productions without limitation.
+   - You may render, export, and distribute final video, film, motion graphics,
+     and audio productions containing these Assets worldwide, in perpetuity.
+   - Attribution to FORMA is appreciated but NOT required in end productions.
+
+2. RESTRICTIONS:
+   - You may NOT resell, sub-license, redistribute, lease, or syndicate the raw,
+     unprocessed, or standalone Assets (whether unmodified or modified) as a
+     standalone stock asset, asset pack, sound library, LUT pack, or template collection.
+   - You may NOT extract, bundle, or claim proprietary trademark ownership over
+     the original raw asset files.
+
+3. DISCLAIMER:
+   THE ASSETS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY ARISING FROM THE USE OF THE ASSETS.

@@ -1,0 +1,15 @@
+{
+  "catalogTotal": 3120,
+  "buckets": {
+    "packaged": 698,
+    "remote": 452,
+    "excluded": 153,
+    "unmanifestedOrUnconvertible": 1817,
+    "sum": 3120
+  },
+  "previousReportDiscrepancy": {
+    "reportedItems": 1664,
+    "unaccountedItems": 1456,
+    "reason": "Katalogda yer alan 1.456 adet çevrimiçi stok video ve ses kaydı, önceki raporda ne indirilebilir manifestlere ne de paketleme listesine dahil edilmeden sessizce atlanmıştı."
+  }
+}

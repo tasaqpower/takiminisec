@@ -1,0 +1,43 @@
+[
+  {
+    "id": "sfx-wiki-8a3d5c7d0c",
+    "name": "Door jam mid low-mid high pitch - long with ambient noise",
+    "localizedName": "Kapı & Mandal - Door jam mid low-mid high pitch - l",
+    "type": "audio",
+    "category": "Ses Efektleri",
+    "tags": [
+      "kapı",
+      "sfx",
+      "ses",
+      "foley",
+      "wikimedia"
+    ],
+    "source": "Wikimedia Commons",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File%3ADoor%20jam%20mid%20low-mid%20high%20pitch%20-%20long%20with%20ambient%20noise.flac",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Door_jam_mid_low-mid_high_pitch_-_long_with_ambient_noise.flac?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "previewUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Door_jam_mid_low-mid_high_pitch_-_long_with_ambient_noise.flac?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "thumbnailPath": "/video-assets/thumbnails/sfx-8a3d5c7d0c.png",
+    "duration": 3.5,
+    "width": 0,
+    "height": 0,
+    "fps": 0,
+    "hasAlpha": false,
+    "loopable": false,
+    "author": "Subhashish Panigrahi",
+    "licenseName": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attributionRequired": true,
+    "attributionText": "Door jam mid low-mid high pitch - long with ambient noise by Subhashish Panigrahi (Creative Commons Attribution-ShareAlike 4.0 International) via Wikimedia Commons",
+    "sha256": null,
+    "fileSize": 178951,
+    "version": "1.0.0",
+    "isBuiltIn": false,
+    "hashStatus": "pending-download",
+    "qualityStatus": "miscategorized",
+    "qualityReason": "Ses efekti değil, uzun ortam veya ambiyans kaydı",
+    "licenseId": "CC-BY-SA-4.0",
+    "downloadStatus": "not-downloaded",
+    "integrityStatus": "unverified",
+    "decoderStatus": "unverified"
+  }
+]

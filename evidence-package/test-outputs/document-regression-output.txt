@@ -1,0 +1,18 @@
+Command: node scripts/test-isolation-suite.mjs
+Exit Code: 0
+
+STDOUT:
+✓ Test A5 without bounds passes (fail-closed): true false
+Placements count: 2 targetName: Image-7098480789 targetRefKey: 4 0 R
+✓ Test A5 with bounds passes (fail-closed): true false
+Placements count: 3 targetName: Image-2000805986 targetRefKey: 5 0 R
+✓ Unrelated image duplicated + single target WM passes (SUCCESS): false true
+Placements count: 1 targetName: Image-7098480789 targetRefKey: 4 0 R
+✓ Cross-page shared image passes (CLONED & SUCCESS): true true
+✓ Corrupt PDF passes (FAIL-CLOSED): true false
+
+🎉 ALL 4 ISOLATION TEST CASES PASSED 100%!
+
+
+STDERR:
+

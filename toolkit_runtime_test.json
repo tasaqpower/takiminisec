@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-10-06T12:45:54.513Z",
+  "file": "FORMA_Motion_Toolkit.jsx",
+  "role": "Helper ScriptUI Panel / Motion Toolkit",
+  "analysis": {
+    "syntaxCheck": "PASS (Valid ExtendScript / ScriptUI resource string)",
+    "undoGroupSupport": "PASS (app.beginUndoGroup(\"FORMA Toolkit Action\") tanımlı)",
+    "panelLayout": "Dockable ScriptUI Resource (tabbed palette: Titles, Transitions, Text, Overlays)",
+    "runtimeExecutionStatus": "RUNTIME_VERIFICATION_PENDING"
+  },
+  "classification": "Asset değil; yardımcı otomasyon aracı olarak Toolkit/ dizininde izole edilmiştir."
+}

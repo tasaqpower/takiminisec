@@ -1,0 +1,216 @@
+{
+  "id": "proj-1791211670458",
+  "name": "Yeni Video Projesi",
+  "createdAt": 1791211670458,
+  "updatedAt": 1791211689165,
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 10,
+  "backgroundColor": "#000000",
+  "transitions": [],
+  "effectSegments": [],
+  "tracks": [
+    {
+      "id": "track-text-aguapyk",
+      "name": "Metin & Efektler",
+      "type": "text",
+      "clips": [
+        {
+          "id": "clip-6yqzh47",
+          "trackId": "track-text-aguapyk",
+          "type": "text",
+          "name": "Modern Alt Bant",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 4,
+          "sourceUrl": "virtual:title/lower-third-modern",
+          "assetId": "title-lower-third-modern",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {},
+          "textData": {
+            "text": "FORMA V4 ADLİ RAPOR — TÜRKÇE BAŞLIK",
+            "fontSize": 54,
+            "fontWeight": "bold",
+            "color": "#ffffff",
+            "fontFamily": "Plus Jakarta Sans"
+          }
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-video-g1m0xie",
+      "name": "Video & Görsel 1",
+      "type": "video",
+      "clips": [
+        {
+          "id": "clip-ebhgug6",
+          "trackId": "track-video-g1m0xie",
+          "type": "video",
+          "name": "Doğa Manzarası - Nizhnehopersky Nature Park 109",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 10,
+          "sourceUrl": "/video-assets/broll/broll-7e2579576d.webm",
+          "assetId": "broll-7e2579576d",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {},
+          "colorFilter": "lut-teal-orange"
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-video-6kxq55i",
+      "name": "Video & Görsel 2",
+      "type": "video",
+      "clips": [
+        {
+          "id": "clip-2fgtq28",
+          "trackId": "track-video-6kxq55i",
+          "type": "image",
+          "name": "Sıcak Işık Sızıntısı (Warm Light Leak)",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 5,
+          "sourceUrl": "/video-assets/overlays/light-leak-warm.svg",
+          "assetId": "overlay-light-leak-warm",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {}
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true
+    },
+    {
+      "id": "track-audio-rorlrfw",
+      "name": "Ses & Müzik 1",
+      "type": "audio",
+      "clips": [
+        {
+          "id": "clip-xwru40d",
+          "trackId": "track-audio-rorlrfw",
+          "type": "audio",
+          "name": "Sakin Piyano (Calm Piano)",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 6,
+          "sourceUrl": "/video-assets/audio/music/calm-piano.wav",
+          "assetId": "music-calm-piano",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {}
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-audio-lyj4f8s",
+      "name": "Ses & Müzik 2",
+      "type": "audio",
+      "clips": [
+        {
+          "id": "clip-irra2rl",
+          "trackId": "track-audio-lyj4f8s",
+          "type": "audio",
+          "name": "Klasik Whoosh",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 0.5,
+          "sourceUrl": "/video-assets/audio/sfx/whoosh-standard.wav",
+          "assetId": "sfx-whoosh-standard",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {}
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "masterZip": {
+    "name": "FORMA-ADOBE-ASSET-PACK-PORTABLE.zip",
+    "sizeMB": 77.37,
+    "sha256": "8be66a4a7e27c3e56f245169892a40d1623542f67c7d2ad6f47df32daec77446"
+  },
+  "modularZips": [
+    {
+      "name": "FORMA-ADOBE-LUTs.zip",
+      "sizeMB": 14.334588050842285,
+      "sha256": "3632d56abd66f1c5ad0b28fbc5e7394058bb347302d6bc1cb5b785810374a78c"
+    },
+    {
+      "name": "FORMA-ADOBE-Audio.zip",
+      "sizeMB": 30.065695762634277,
+      "sha256": "ff3355d2de97ab903c7f6923e2859ff39e29ed928cd5826d2271bd0758cb10b9"
+    },
+    {
+      "name": "FORMA-ADOBE-MOGRT-and-Presets.zip",
+      "sizeMB": 4.486250877380371,
+      "sha256": "5ef0654e7ff7b5d811eef12a7517d5fe6f214cfaeb9142bbc78c94abe823d1d6"
+    },
+    {
+      "name": "FORMA-ADOBE-SVG-and-Graphics.zip",
+      "sizeMB": 29.04122257232666,
+      "sha256": "5d698a9fec05c1a44a0a27d0ecc711e4a2c01347664fec5efa5f53e5e9c47b19"
+    }
+  ]
+}

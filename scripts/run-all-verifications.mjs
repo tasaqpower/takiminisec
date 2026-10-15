@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
-const NODE_EXE = 'C:\\Users\\sinan\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe';
+const NODE_EXE = 'process.execPath';
 const TSX_CLI = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 
 const SUITES = [

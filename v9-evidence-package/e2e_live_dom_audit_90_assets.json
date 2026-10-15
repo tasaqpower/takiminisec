@@ -1,0 +1,2168 @@
+{
+  "total": 90,
+  "licensePassCount": 90,
+  "failedCount": 0,
+  "passed": true,
+  "results": [
+    {
+      "index": 1,
+      "id": "forma-original-transition-040-iris-diamond",
+      "name": "Elmas İris Açılışı",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-040-iris-diamond\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.351,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 2,
+      "id": "forma-original-transition-032-displacement-ripple",
+      "name": "Dalga Halka Kaydırma (Ripple)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-032-displacement-ripple\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.079,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 3,
+      "id": "forma-original-transition-018-lens-distortion-fisheye",
+      "name": "Balıkgözü Küresel Bozulma",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-018-lens-distortion-fisheye\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.736,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 4,
+      "id": "forma-original-transition-016-lens-distortion-barrel",
+      "name": "Mercek Bükülmesi (Fıçı Bozulması)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-016-lens-distortion-barrel\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.558,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 5,
+      "id": "forma-original-transition-036-paper-tear-diagonal",
+      "name": "Çapraz Kağıt Yırtığı (Paper Tear)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-036-paper-tear-diagonal\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.148,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 6,
+      "id": "forma-original-transition-013-camera-shake-twitch",
+      "name": "Mikro Twitch Sarsıntısı",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-013-camera-shake-twitch\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.04,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 7,
+      "id": "forma-original-transition-044-radial-wipe-clock",
+      "name": "Saat Yönü Radyal Silme (Clock Wipe)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-044-radial-wipe-clock\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.612,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 8,
+      "id": "forma-original-transition-064-dip-black-smooth",
+      "name": "Kararmaya Solma (Dip to Black)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-064-dip-black-smooth\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.058,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 9,
+      "id": "forma-original-transition-075-camera-shutter-dip",
+      "name": "Hızlı Kamera Deklanşör Kararması",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-075-camera-shutter-dip\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.275,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 10,
+      "id": "forma-original-transition-055-push-slide-down",
+      "name": "İtme Aşağı (Slide Push Down)",
+      "category": "Klip Geçişleri",
+      "type": "transition",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-transition-055-push-slide-down\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.845,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 11,
+      "id": "forma-original-textanim-114-out-curtain-close",
+      "name": "Metin Çıkışı: CURTAIN CLOSE",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-114-out-curtain-close\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 12,
+      "id": "forma-original-textanim-043-in-smooth-focus-in",
+      "name": "Metin Girişi: SMOOTH FOCUS IN",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-043-in-smooth-focus-in\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 13,
+      "id": "forma-original-textanim-016-in-mask-reveal",
+      "name": "Metin Girişi: MASK REVEAL",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-016-in-mask-reveal\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 14,
+      "id": "forma-original-textanim-047-in-color-strobe-in",
+      "name": "Metin Girişi: COLOR STROBE IN",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-047-in-color-strobe-in\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 15,
+      "id": "forma-original-textanim-112-out-fly-away-top",
+      "name": "Metin Çıkışı: FLY AWAY TOP",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-112-out-fly-away-top\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 16,
+      "id": "forma-original-textanim-120-out-elastic-fling",
+      "name": "Metin Çıkışı: ELASTIC FLING",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-120-out-elastic-fling\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 17,
+      "id": "forma-original-textanim-109-out-spin-drain",
+      "name": "Metin Çıkışı: SPIN DRAIN",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-109-out-spin-drain\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 18,
+      "id": "forma-original-textanim-046-in-pixelate-reveal",
+      "name": "Metin Girişi: PIXELATE REVEAL",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-046-in-pixelate-reveal\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 19,
+      "id": "forma-original-textanim-113-out-fly-away-bottom",
+      "name": "Metin Çıkışı: FLY AWAY BOTTOM",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-113-out-fly-away-bottom\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 20,
+      "id": "forma-original-textanim-118-out-matrix-code-fall",
+      "name": "Metin Çıkışı: MATRIX CODE FALL",
+      "category": "Metin Animasyonları",
+      "type": "text",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-textanim-118-out-matrix-code-fall\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 21,
+      "id": "forma-original-title-020-edu-v4",
+      "name": "Eğitim & Akademi Şablonu (Model 4)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-020-edu-v4\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 27.485,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 22,
+      "id": "forma-original-title-025-social-v1",
+      "name": "Sosyal Medya & Reels Şablonu (Model 1)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-025-social-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 29.194,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 23,
+      "id": "forma-original-title-019-edu-v3",
+      "name": "Eğitim & Akademi Şablonu (Model 3)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-019-edu-v3\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 28.033,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 24,
+      "id": "forma-original-title-022-kids-v2",
+      "name": "Çocuk & Eğlence Şablonu (Model 2)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-022-kids-v2\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 27.373,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 25,
+      "id": "forma-original-title-028-social-v4",
+      "name": "Sosyal Medya & Reels Şablonu (Model 4)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-028-social-v4\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 29.402,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 26,
+      "id": "forma-original-title-008-doc-v4",
+      "name": "Belgesel Şablonu (Model 4)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-008-doc-v4\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 24.432,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 27,
+      "id": "forma-original-title-009-news-v1",
+      "name": "Haber & Bülten Şablonu (Model 1)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-009-news-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 26.47,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 28,
+      "id": "forma-original-title-014-sport-v2",
+      "name": "Spor & Dinamik Şablonu (Model 2)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-014-sport-v2\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 26.553,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 29,
+      "id": "forma-original-title-041-neon-v1",
+      "name": "Neon & Siber Şablonu (Model 1)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-041-neon-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 25.449,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 30,
+      "id": "forma-original-title-024-kids-v4",
+      "name": "Çocuk & Eğlence Şablonu (Model 4)",
+      "category": "Metin ve Başlık Şablonları",
+      "type": "title",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-title-024-kids-v4\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 27.417,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 31,
+      "id": "forma-original-overlay-025-snow-v1",
+      "name": "SNOW Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-025-snow-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.629,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 32,
+      "id": "forma-original-overlay-004-film-grain-v1",
+      "name": "FILM GRAIN Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-004-film-grain-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 75.249,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 33,
+      "id": "forma-original-overlay-015-bokeh-v3",
+      "name": "BOKEH Procedural Overlay (Varyant 3)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-015-bokeh-v3\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.778,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 34,
+      "id": "forma-original-overlay-034-prism-v1",
+      "name": "PRISM Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-034-prism-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.629,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 35,
+      "id": "forma-original-overlay-024-rain-v3",
+      "name": "RAIN Procedural Overlay (Varyant 3)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-024-rain-v3\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.469,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 36,
+      "id": "forma-original-overlay-018-fog-v3",
+      "name": "FOG Procedural Overlay (Varyant 3)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-018-fog-v3\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.326,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 37,
+      "id": "forma-original-overlay-046-crt-scanline-v1",
+      "name": "CRT SCANLINE Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-046-crt-scanline-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 75.536,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 38,
+      "id": "forma-original-overlay-014-bokeh-v2",
+      "name": "BOKEH Procedural Overlay (Varyant 2)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-014-bokeh-v2\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.784,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 39,
+      "id": "forma-original-overlay-058-floating-particles-v1",
+      "name": "FLOATING PARTICLES Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-058-floating-particles-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 75.725,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 40,
+      "id": "forma-original-overlay-016-fog-v1",
+      "name": "FOG Procedural Overlay (Varyant 1)",
+      "category": "Procedural Kaplamalar",
+      "type": "overlay",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-overlay-016-fog-v1\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.285,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 41,
+      "id": "forma-original-element-014-focus-bracket-right",
+      "name": "Focus Bracket Right",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-014-focus-bracket-right\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.837,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 42,
+      "id": "forma-original-element-037-frame-cinemascope",
+      "name": "Cinematic Cinema Scope Bars",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-037-frame-cinemascope\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.814,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 43,
+      "id": "forma-original-element-057-badge-qa-bubble",
+      "name": "Soru-Cevap Rozeti Q&A",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-057-badge-qa-bubble\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.112,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 44,
+      "id": "forma-original-element-040-badge-star-bold",
+      "name": "Badge Star 5-Point Bold",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-040-badge-star-bold\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.25,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 45,
+      "id": "forma-original-element-008-arrow-looping-return",
+      "name": "Looping Return Arrow",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-008-arrow-looping-return\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.968,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 46,
+      "id": "forma-original-element-007-arrow-accent-up",
+      "name": "Bold Accent Arrow Up",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-007-arrow-accent-up\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.92,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 47,
+      "id": "forma-original-element-015-corner-frame-accent",
+      "name": "Corner Frame Accent",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-015-corner-frame-accent\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.727,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 48,
+      "id": "forma-original-element-012-badge-ribbon-right",
+      "name": "Badge Ribbon Right",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-012-badge-ribbon-right\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.988,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 49,
+      "id": "forma-original-element-056-icon-location-pin",
+      "name": "Konum Harita İğnesi",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-056-icon-location-pin\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.817,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 50,
+      "id": "forma-original-element-011-badge-ribbon-left",
+      "name": "Badge Ribbon Left",
+      "category": "Grafik Elementler",
+      "type": "element",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-element-011-badge-ribbon-left\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.711,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 51,
+      "id": "forma-original-lut-007-teal-orange-sunset",
+      "name": "Teal & Orange Warm Sunset",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-007-teal-orange-sunset\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.557,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 52,
+      "id": "forma-original-lut-015-retro-70s-polaroid",
+      "name": "Retro 70s Polaroid Faded",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-015-retro-70s-polaroid\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.248,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 53,
+      "id": "forma-original-lut-035-acid-green-underground",
+      "name": "Acid Green Underground",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-035-acid-green-underground\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.293,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 54,
+      "id": "forma-original-lut-008-teal-orange-thriller",
+      "name": "Teal & Orange Dark Thriller",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-008-teal-orange-thriller\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.434,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 55,
+      "id": "forma-original-lut-049-food-culinary-warmth",
+      "name": "Food & Culinary Rich Warmth",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-049-food-culinary-warmth\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.741,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 56,
+      "id": "forma-original-lut-040-bronze-tan-skin",
+      "name": "Bronze Tan Summer Skin",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-040-bronze-tan-skin\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.22,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 57,
+      "id": "forma-original-lut-042-desert-dune-ochre",
+      "name": "Desert Dune Ochre Sand",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-042-desert-dune-ochre\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.163,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 58,
+      "id": "forma-original-lut-018-midnight-blue-shadow",
+      "name": "Deep Midnight Blue Shadow",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-018-midnight-blue-shadow\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.867,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 59,
+      "id": "forma-original-lut-036-natural-skin-flattering",
+      "name": "Natural Skin Tone Flattering",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-036-natural-skin-flattering\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.623,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 60,
+      "id": "forma-original-lut-004-noir-deep-street",
+      "name": "Noir Deep Shadow Street",
+      "category": "Renk Filtreleri (LUT)",
+      "type": "lut",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-lut-004-noir-deep-street\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.318,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 61,
+      "id": "forma-original-sfx-089",
+      "name": "Wind Chimes Gentle Ring",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-089\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 62,
+      "id": "forma-original-sfx-043",
+      "name": "Warm Rhodes Ping",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-043\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 63,
+      "id": "forma-original-sfx-027",
+      "name": "Sub Drop Downer",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-027\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 64,
+      "id": "forma-original-sfx-065",
+      "name": "Puddle Water Splash Step",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-065\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 65,
+      "id": "forma-original-sfx-037",
+      "name": "Pen Clicker Snap",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-037\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 66,
+      "id": "forma-original-sfx-009",
+      "name": "Dark Void Whoosh",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-009\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 67,
+      "id": "forma-original-sfx-023",
+      "name": "Shepard Pitch Riser",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-023\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 68,
+      "id": "forma-original-sfx-059",
+      "name": "Zipper Quick Pull",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-059\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 69,
+      "id": "forma-original-sfx-008",
+      "name": "Laser Glider Whoosh",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-008\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 70,
+      "id": "forma-original-sfx-076",
+      "name": "Water Splash Surface",
+      "category": "Ses Efektleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-sfx-076\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 71,
+      "id": "forma-original-music-027",
+      "name": "Ocean Depth Mystery Ambient",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-027\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 72,
+      "id": "forma-original-music-003",
+      "name": "Heroic Brass Rise Loop",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-003\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 73,
+      "id": "forma-original-music-025",
+      "name": "Startup Pitch Energetic Beat",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-025\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 74,
+      "id": "forma-original-music-016",
+      "name": "Playful Toy Box Bop",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-016\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 75,
+      "id": "forma-original-music-002",
+      "name": "Epic Journey Strings",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-002\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 76,
+      "id": "forma-original-music-026",
+      "name": "Documentary Nature Awakening",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-026\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 77,
+      "id": "forma-original-music-014",
+      "name": "Warm Cassette Bedroom Tape",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-014\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 78,
+      "id": "forma-original-music-020",
+      "name": "Happy Family Memory Tune",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-020\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 79,
+      "id": "forma-original-music-006",
+      "name": "Soft Emotional Piano Melody",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-006\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 80,
+      "id": "forma-original-music-004",
+      "name": "Dark Drama Suspense Pad",
+      "category": "Müzik Döngüleri",
+      "type": "audio",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-music-004\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x7f598fe0",
+        "0x7f598fe0",
+        "0x7f598fe0"
+      ],
+      "avgLuminance": 12.901,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 81,
+      "id": "forma-original-bg-016-matrix-tech",
+      "name": "Dark Techno Matrix Code",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-016-matrix-tech\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.247,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 82,
+      "id": "forma-original-bg-004-grid-tunnel",
+      "name": "Sci-Fi Grid Tunnel Infinite",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-004-grid-tunnel\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.207,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 83,
+      "id": "forma-original-bg-014-studio-white",
+      "name": "Clean Studio White Radial",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-014-studio-white\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.459,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 84,
+      "id": "forma-original-bg-001-gradient-flow",
+      "name": "Gradient Flow Horizon",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-001-gradient-flow\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 72.956,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 85,
+      "id": "forma-original-bg-015-sunset-silk",
+      "name": "Warm Sunset Horizon Silk",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-015-sunset-silk\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.343,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 86,
+      "id": "forma-original-bg-009-geometric-motion",
+      "name": "Minimal Geometric Motion Grid",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-009-geometric-motion\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.065,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 87,
+      "id": "forma-original-bg-018-silk-ribbon",
+      "name": "Silk Ribbon Motion Sweep",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-018-silk-ribbon\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.51,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 88,
+      "id": "forma-original-bg-005-soft-clouds",
+      "name": "Soft Velvet Clouds Sunrise",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-005-soft-clouds\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.368,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 89,
+      "id": "forma-original-bg-010-light-streaks",
+      "name": "Anamorphic Light Streaks Glow",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-010-light-streaks\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 74.035,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    },
+    {
+      "index": 90,
+      "id": "forma-original-bg-002-abstract-waves",
+      "name": "Abstract Liquid Waves",
+      "category": "Hareketli Arka Planlar",
+      "type": "video",
+      "license": "FORMA-ORIGINAL-1.0",
+      "domSelector": "[data-asset-card=\"forma-original-bg-002-abstract-waves\"]",
+      "domFound": true,
+      "timestamps": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "sampleHashes": [
+        "0x6b769da0",
+        "0x6b769da0",
+        "0x6b769da0"
+      ],
+      "avgLuminance": 73.013,
+      "isNonBlack": true,
+      "isNonBlank": true,
+      "passed": true
+    }
+  ]
+}

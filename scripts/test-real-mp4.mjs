@@ -102,7 +102,7 @@ async function test() {
   chrome.kill();
 
   // Run ffprobe
-  const ffprobePath = 'C:\\Users\\sinan\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffprobe.exe';
+  const ffprobePath = process.env.FFPROBE_PATH || 'ffprobe';
   const { stdout } = await execFileAsync(ffprobePath, [
     '-v', 'error',
     '-show_entries', 'format=format_name,duration:stream=codec_name,codec_type,width,height',

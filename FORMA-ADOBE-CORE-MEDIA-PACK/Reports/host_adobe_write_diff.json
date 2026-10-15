@@ -1,0 +1,529 @@
+﻿{
+    "timestamp":  "2026-10-06T15:53:31.3124953+03:00",
+    "scannedLocations":  [
+                             "C:\\Users\\sinan\\AppData\\Roaming\\Adobe",
+                             "C:\\Users\\sinan\\AppData\\Local\\Adobe",
+                             "C:\\Users\\sinan\\Documents\\Adobe",
+                             "C:\\Users\\sinan\\OneDrive\\Belgeler\\Adobe",
+                             "C:\\Program Files\\Common Files\\Adobe",
+                             "C:\\Program Files(x86)\\Common Files\\Adobe",
+                             "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe"
+                         ],
+    "formaAssetWritesToHost":  {
+                                   "status":  "CLEAN_ZERO_FORMA_WRITES",
+                                   "files":  {
+
+                                             },
+                                   "count":  0
+                               },
+    "internalAdobeActivityDetected":  {
+                                          "explanation":  "Adobe After Effects baÅŸlatÄ±ldÄ±ÄŸÄ±nda Windows tarafÄ±ndan gÃ¼ncellenen dahili loglar, Plugin Loading.log, Trace Database veya CC telemetry dosyalarÄ±.",
+                                          "files":  [
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.0\\Debug Database.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.0\\Debug Database.txt",
+                                                            "Size":  8229,
+                                                            "SHA256":  "1b26c52091827dce29834b103cc237b2f2c7580ed2bc19f4033a372f2d146a07",
+                                                            "CreationTime":  "2026-07-12T14:50:49.8087662+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:29.1090848+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\Adobe After Effects 26.3 MC Prefs",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\Adobe After Effects 26.3 MC Prefs",
+                                                            "Size":  1105,
+                                                            "SHA256":  "beab712b9dbed86d805af04157067433b4c67041880b85da71bffa258d66377e",
+                                                            "CreationTime":  "2026-07-12T14:50:46.7842514+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:25.1626104+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\Plugin Loading.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\Plugin Loading.log",
+                                                            "Size":  400307,
+                                                            "SHA256":  "33e67ce8e5eb6b517cd99fc0bbba7c389da56d2749be1441e1cafaf48417e1bf",
+                                                            "CreationTime":  "2026-07-12T14:50:46.6022499+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:48.3478345+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\SCRPriorState.json",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\SCRPriorState.json",
+                                                            "Size":  57,
+                                                            "SHA256":  "9e9462540f733e4f29fc4d820573ba9b6d914c55bc0f1e37dd30bc259930dd23",
+                                                            "CreationTime":  "2026-07-12T14:50:44.5970517+03:00",
+                                                            "LastWriteTime":  "2026-10-06T15:42:53.4848526+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\ModifiedWorkspaces\\UserWorkspace.xml",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\ModifiedWorkspaces\\UserWorkspace.xml",
+                                                            "Size":  46794,
+                                                            "SHA256":  "e767d2be0f444c29b74feff5fc50293ebd629087ea67d243568dad936408ceb7",
+                                                            "CreationTime":  "2026-07-12T14:50:49.4866526+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:29.1544502+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\SystemCompatibilityReport\\26.3\\win\\blocklist.en_US.json",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\SystemCompatibilityReport\\26.3\\win\\blocklist.en_US.json",
+                                                            "Size":  15272,
+                                                            "SHA256":  "4f827bdf56f51e97eddd42286fae3a8e545d68aea125ed997fd101ecad0d655c",
+                                                            "CreationTime":  "2026-08-30T17:25:29.0149593+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:29.7830821+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\000048.ldb",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\000048.ldb",
+                                                            "Size":  138,
+                                                            "SHA256":  "87b84e653866dbc52a6ec9f85324c91e10aa171a428275650b750c897ac40603",
+                                                            "CreationTime":  "2026-10-06T14:51:30.1289672+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:30.1299668+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\000049.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\000049.log",
+                                                            "Size":  192303,
+                                                            "SHA256":  "769c0388b5fae950a781886476329b5c2d40f3adda291489a8fc147c83a500a7",
+                                                            "CreationTime":  "2026-10-06T14:51:30.1339674+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:32.0109791+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\CURRENT",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\CURRENT",
+                                                            "Size":  16,
+                                                            "SHA256":  "dd0fd65887e1ffc157307730eb7e298a5a9059f31b869c1d92df352532aea72e",
+                                                            "CreationTime":  "2026-10-06T14:51:30.1339674+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:30.1339674+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\MANIFEST-000047",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\26.3\\UXP\\PluginsStorage\\Internal\\com.adobe.ccx.start\\LocalStorage\\MANIFEST-000047",
+                                                            "Size":  218,
+                                                            "SHA256":  "353219ba45d94988ea3352066d32ff3d9cc2dedb1b06453d95ef97f81acd8f21",
+                                                            "CreationTime":  "2026-10-06T14:51:30.1339674+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:30.1339674+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-51-29_047043.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-51-29_047043.log",
+                                                            "Size":  15447,
+                                                            "SHA256":  "37f653718611891c95b4c955ea33247758f3db6045c55a1ff9107bf504140306",
+                                                            "CreationTime":  "2026-10-06T14:51:29.0470281+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:32.0364867+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-52-31_976622.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-52-31_976622.log",
+                                                            "Size":  200,
+                                                            "SHA256":  "0cbbdc31cc17fe1a40087e33de901869bbb9115282cd4c21a22f52a86a5ccab3",
+                                                            "CreationTime":  "2026-10-06T14:52:31.9763025+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:31.9763025+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-52-47_058667.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-52-47_058667.log",
+                                                            "Size":  200,
+                                                            "SHA256":  "962426c073110c8a961b55bddcf0c7f1a69ed2a6a43650235a1bfdc4005dd03f",
+                                                            "CreationTime":  "2026-10-06T14:52:47.0577916+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:47.0587976+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-54-44_628645.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-54-44_628645.log",
+                                                            "Size":  200,
+                                                            "SHA256":  "296e7921b526cdf323cd366585b5a1d94928e77c777e5f3f0b46b0de4558e66c",
+                                                            "CreationTime":  "2026-10-06T14:54:44.6281619+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:54:44.6281619+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-58-33_744498.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-58-33_744498.log",
+                                                            "Size":  200,
+                                                            "SHA256":  "aa1bb848222dc633490606acc54085bdef5e09291084ad2d255af9aee88f94bd",
+                                                            "CreationTime":  "2026-10-06T14:58:33.7443876+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:33.7443876+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-58-49_108921.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\After Effects\\Logs\\UXPLogs_2026-10-06_14-58-49_108921.log",
+                                                            "Size":  200,
+                                                            "SHA256":  "f51e4ab7e97b91802f5b90a4f51f8e68a9b87e2459676411bdfd10c3f1e95f2a",
+                                                            "CreationTime":  "2026-10-06T14:58:49.1081327+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:49.1091322+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\CameraRaw\\Logs\\Camera Raw Log Latest v0.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\CameraRaw\\Logs\\Camera Raw Log Latest v0.txt",
+                                                            "Size":  6843,
+                                                            "SHA256":  "5a58119a15b7964386ee9d6030bb2838c3ab3078aef43e4337bbe56931a54217",
+                                                            "CreationTime":  "2026-07-12T14:50:47.3058172+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:48.2413562+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\CameraRaw\\Logs\\Camera Raw Log Latest v1.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\CameraRaw\\Logs\\Camera Raw Log Latest v1.txt",
+                                                            "Size":  8533,
+                                                            "SHA256":  "d270a64c628235f5dd55690abe826e377a1d90ac239ac8c24502c674acf26db9",
+                                                            "CreationTime":  "2026-07-12T14:50:47.3058172+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:48.2524017+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\017d9ab0-e2e7-2c04-a836-a67b00021695.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\017d9ab0-e2e7-2c04-a836-a67b00021695.ocl",
+                                                            "Size":  20840,
+                                                            "SHA256":  "7423c27d45018008fd369448617cf109ec8225e9924662dbb5233f93e06249ac",
+                                                            "CreationTime":  "2026-10-06T14:51:29.4272170+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:29.4282166+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\188b4efc-cccf-5092-45dd-773f000296b6.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\188b4efc-cccf-5092-45dd-773f000296b6.ocl",
+                                                            "Size":  75112,
+                                                            "SHA256":  "f8a23373bd3a7e27445563262e4b494363712d535ecf6355acf71161d3c90af4",
+                                                            "CreationTime":  "2026-10-06T14:58:33.6943879+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:33.6953875+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\2c3b5e34-c89c-3376-f501-223f00023fd1.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\2c3b5e34-c89c-3376-f501-223f00023fd1.ocl",
+                                                            "Size":  10232,
+                                                            "SHA256":  "48d044a602a87f96efe05e97f3adc8aa85b31fa265d88af69e8d812a22d4fedf",
+                                                            "CreationTime":  "2026-10-06T14:52:47.7069569+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:47.7069569+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\2c6a457d-a190-c517-e2d0-9f500002b1fb.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\2c6a457d-a190-c517-e2d0-9f500002b1fb.ocl",
+                                                            "Size":  81672,
+                                                            "SHA256":  "b88a53da15d9ef636051396523aae7d0874ebaced96d90cb789000aa165f227e",
+                                                            "CreationTime":  "2026-10-06T14:52:55.5338844+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:55.5348885+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\310f4c46-1292-546b-4263-55440002fed0.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\310f4c46-1292-546b-4263-55440002fed0.ocl",
+                                                            "Size":  120328,
+                                                            "SHA256":  "2315acd38ceebc336961dd315b63b8c50f02d5f2df114d45ae39fd9cf46d4e40",
+                                                            "CreationTime":  "2026-10-06T14:54:45.6902896+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:54:45.6902896+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\38fdba97-5e76-0ff4-f837-c21500020be0.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\38fdba97-5e76-0ff4-f837-c21500020be0.ocl",
+                                                            "Size":  15896,
+                                                            "SHA256":  "661917df0954a1f2c4f8576fb92042e195f8cc1ac8f9823da59f2334e524d79a",
+                                                            "CreationTime":  "2026-10-06T14:51:28.9915162+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:28.9915162+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\3b0c457a-9496-0dc4-c952-3a580002e32d.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\3b0c457a-9496-0dc4-c952-3a580002e32d.ocl",
+                                                            "Size":  83288,
+                                                            "SHA256":  "9a5bf25eb0ed0282e22123b6dd9d5cca02361870e6251bab664c367cbf0c82cc",
+                                                            "CreationTime":  "2026-10-06T14:52:51.3308077+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:51.3318072+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\3df87e0b-190e-1dfb-9bb2-bc180002fd5b.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\3df87e0b-190e-1dfb-9bb2-bc180002fd5b.ocl",
+                                                            "Size":  105600,
+                                                            "SHA256":  "d6625edf6166baa2086a5314b1befb3d8518a77c36af19a37584ae7a59c5861b",
+                                                            "CreationTime":  "2026-10-06T14:52:54.4013316+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:54.4013316+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\3e96bb91-495b-95fe-0873-3d5a00028109.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\3e96bb91-495b-95fe-0873-3d5a00028109.ocl",
+                                                            "Size":  75680,
+                                                            "SHA256":  "763d6d85097e26fc77920bafe59612a5260c9ef0e7833655772875ba5b4aef83",
+                                                            "CreationTime":  "2026-10-06T14:58:48.7854181+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:48.7854181+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\47fdea97-bb4f-b366-2024-d44800023b9b.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\47fdea97-bb4f-b366-2024-d44800023b9b.ocl",
+                                                            "Size":  5832,
+                                                            "SHA256":  "e686311dc4a63a2e5e348e002699076e25e21d230f265cf7ad56c122009c92dd",
+                                                            "CreationTime":  "2026-10-06T14:52:55.7213210+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:55.7213210+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\56abec31-a665-8e36-2ada-44660002d5f7.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\56abec31-a665-8e36-2ada-44660002d5f7.ocl",
+                                                            "Size":  80384,
+                                                            "SHA256":  "b40837f0207574cd787f359fc8fe2f4f658d42afd96721b6c93dbf6ce7dc0b81",
+                                                            "CreationTime":  "2026-10-06T14:52:52.3024043+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:52.3034038+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\5c0985f4-2180-e53d-7495-315500026fe3.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\5c0985f4-2180-e53d-7495-315500026fe3.ocl",
+                                                            "Size":  51952,
+                                                            "SHA256":  "503e1d016e7fa48462e7964641ae68a5350875cf02718dedf9aea116ac4786e0",
+                                                            "CreationTime":  "2026-10-06T14:52:49.6701104+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:49.6701104+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\646dcf9a-8602-9707-15d1-b52d0002692a.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\646dcf9a-8602-9707-15d1-b52d0002692a.ocl",
+                                                            "Size":  41304,
+                                                            "SHA256":  "746032409895401351d67c416e2c70d72b3510262f0255d71c28b44e9a4e3321",
+                                                            "CreationTime":  "2026-10-06T14:52:50.3962346+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:50.3962346+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\6b1aedc2-0f23-3d67-366a-78d1000207d8.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\6b1aedc2-0f23-3d67-366a-78d1000207d8.ocl",
+                                                            "Size":  8048,
+                                                            "SHA256":  "559b3c16121191f7790d761a8edacd3e1895083f21228707c7a3c9792580ee26",
+                                                            "CreationTime":  "2026-10-06T14:52:45.9100260+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:45.9100260+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\711327c3-2ffd-d5a2-807e-be8f00035c24.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\711327c3-2ffd-d5a2-807e-be8f00035c24.ocl",
+                                                            "Size":  68488,
+                                                            "SHA256":  "4b7011f01c522283367e798d4a25a7aec7c4789fbc76cb01b2a58bb08b6fd229",
+                                                            "CreationTime":  "2026-10-06T14:52:53.2968673+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:53.2968673+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\767ae6b8-fb6c-f993-7b24-4fd50002fea3.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\767ae6b8-fb6c-f993-7b24-4fd50002fea3.ocl",
+                                                            "Size":  120328,
+                                                            "SHA256":  "f9fb59dd1b271d91524f8a4194a30dcdcd215e60486360fe95f6125e1e90b517",
+                                                            "CreationTime":  "2026-10-06T14:52:56.8223058+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:56.8223058+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\7995fe72-2470-337e-a4fd-20e40001a46e.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\7995fe72-2470-337e-a4fd-20e40001a46e.ocl",
+                                                            "Size":  54168,
+                                                            "SHA256":  "408eecfeccbdac8e2b185544872aca4460d1003a9a3e7b960a1f8e796c106694",
+                                                            "CreationTime":  "2026-10-06T14:52:47.5131946+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:47.5131946+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\8d4eff15-e416-2aa9-e4a9-e21700021546.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\8d4eff15-e416-2aa9-e4a9-e21700021546.ocl",
+                                                            "Size":  16640,
+                                                            "SHA256":  "581c154f28bd0f353659334ffe4c3310d7679f662858aaac1f7cd380245fe19d",
+                                                            "CreationTime":  "2026-10-06T14:52:46.2565435+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:46.2565435+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\9420cbd2-5a92-04f6-3b72-7f53000206b0.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\9420cbd2-5a92-04f6-3b72-7f53000206b0.ocl",
+                                                            "Size":  13384,
+                                                            "SHA256":  "673f3d7d449263adab20e948130f7a50d3f5744dfdb73f3bc8ebd7481c65f920",
+                                                            "CreationTime":  "2026-10-06T14:51:28.6519781+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:28.6519781+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\b0741ad1-fd2e-f127-d8d4-a0cd00006b74.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\b0741ad1-fd2e-f127-d8d4-a0cd00006b74.ocl",
+                                                            "Size":  6104,
+                                                            "SHA256":  "09a7c63be713b12963e32bff516e57625a6d96cdfd5b8134244619e594e7b0ad",
+                                                            "CreationTime":  "2026-10-06T14:52:46.4460452+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:46.4460452+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\b8c10ae6-db4b-3dc9-2eab-88fc00022a80.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\b8c10ae6-db4b-3dc9-2eab-88fc00022a80.ocl",
+                                                            "Size":  15104,
+                                                            "SHA256":  "1465917be2a22bdcf45dce536149af838e78719079b24287449142ca50323b28",
+                                                            "CreationTime":  "2026-10-06T14:52:30.8920140+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:30.8920140+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\c0d8259d-58bd-ac0c-6ae2-33330001e0b8.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\c0d8259d-58bd-ac0c-6ae2-33330001e0b8.ocl",
+                                                            "Size":  6248,
+                                                            "SHA256":  "ee70ab84fdb97e179edb3200c47af4be5327f2f23d6eb5f57faa746a0403b6e1",
+                                                            "CreationTime":  "2026-10-06T14:51:28.3361982+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:28.3361982+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\c3d9095a-f793-1293-717b-1a3e00028193.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\c3d9095a-f793-1293-717b-1a3e00028193.ocl",
+                                                            "Size":  75760,
+                                                            "SHA256":  "1650b37633e591304d2a6962be6344d7a7a4ccb596ebe73d65696d87d496a5e6",
+                                                            "CreationTime":  "2026-10-06T14:58:49.8751532+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:49.8751532+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\d86e97bd-f6d5-73d7-2340-c88d000228cb.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\d86e97bd-f6d5-73d7-2340-c88d000228cb.ocl",
+                                                            "Size":  33088,
+                                                            "SHA256":  "5761d628634ede77d39154261c63a93b2fd9fb4b8ee9d065227b4a7ab7ecaf3e",
+                                                            "CreationTime":  "2026-10-06T14:52:31.6959768+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:31.6969761+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\dd132b9a-b070-e826-f647-5b1600031cfe.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\dd132b9a-b070-e826-f647-5b1600031cfe.ocl",
+                                                            "Size":  149016,
+                                                            "SHA256":  "bca384c042f43cc0b0d18b9f72bad8f49892f2c68d5851357e06fa0c590b9e0e",
+                                                            "CreationTime":  "2026-10-06T14:54:44.5216468+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:54:44.5216468+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Common\\PTX\\e4a8aa6c-ad02-1e9b-6258-7b190002cf53.ocl",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Common\\PTX\\e4a8aa6c-ad02-1e9b-6258-7b190002cf53.ocl",
+                                                            "Size":  89352,
+                                                            "SHA256":  "07b1f14d5d79d8349d653d969d83d727e1609dc796748270a1a5af552c7b1e01",
+                                                            "CreationTime":  "2026-10-06T14:52:48.8432525+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:48.8442509+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\GUDE\\gude-2026-10-06.log",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\GUDE\\gude-2026-10-06.log",
+                                                            "Size":  3660,
+                                                            "SHA256":  "62eff23acc558ea1ce2fec2535c91d2641e8be1218ee1a52bda13d5c5f566cd6",
+                                                            "CreationTime":  "2026-10-06T14:51:25.3545786+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:47.6769862+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115125.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115125.txt",
+                                                            "Size":  759,
+                                                            "SHA256":  "25ecdbb477e1f2b11b27971a22bfdc2dd39697696f52f22fd8d2386322cff8a5",
+                                                            "CreationTime":  "2026-10-06T14:51:25.3285793+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:25.3685791+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115230.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115230.txt",
+                                                            "Size":  865,
+                                                            "SHA256":  "904c803be8230dbbd28300de4768078cd18f3a22dc5b654a80f4873fc99a86df",
+                                                            "CreationTime":  "2026-10-06T14:52:30.2269894+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:32.2555085+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115245.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115245.txt",
+                                                            "Size":  777,
+                                                            "SHA256":  "18b751f033ca8cd1783915ee122ee070ac06a066a74491d7e467d21f663faed7",
+                                                            "CreationTime":  "2026-10-06T14:52:45.5906680+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:52:45.6092625+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115443.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115443.txt",
+                                                            "Size":  773,
+                                                            "SHA256":  "886afe536171e1cf05e610ad12924912a888e0e8e2ee3e75d57f851666256275",
+                                                            "CreationTime":  "2026-10-06T14:54:43.1679435+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:54:43.1959447+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115832.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115832.txt",
+                                                            "Size":  773,
+                                                            "SHA256":  "88eb175c097f041b8a1bca4dadba98cf3028311d326bb87314d1b4b5b6e2a650",
+                                                            "CreationTime":  "2026-10-06T14:58:32.2375126+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:32.2615122+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115847.txt",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Roaming\\Adobe\\Team Projects Local Hub\\2.0\\logs\\Team Projects Local Hub 20261006-115847.txt",
+                                                            "Size":  771,
+                                                            "SHA256":  "5d273a5a3f5d877edddf09aa4d4005f566aef92b5785bf0b03ff3fe4f1635d11",
+                                                            "CreationTime":  "2026-10-06T14:58:47.6703492+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:47.6950435+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\AdobeFnt_CMaps.lst",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\AdobeFnt_CMaps.lst",
+                                                            "Size":  51620,
+                                                            "SHA256":  "791b1ab0206178588cd1a57095ccc6daca3f69e44bef409458292a70aab7b5fd",
+                                                            "CreationTime":  "2026-10-06T14:51:22.5642773+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:22.5662763+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\AdobeFnt_OSFonts.lst",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\AdobeFnt_OSFonts.lst",
+                                                            "Size":  119812,
+                                                            "SHA256":  "707bcd9a5f49b3438e2263fee3605592ca334efbc13c0a56642515c675585452",
+                                                            "CreationTime":  "2026-10-06T14:58:46.4374225+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:46.4384221+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_CTCMaps.lst",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_CTCMaps.lst",
+                                                            "Size":  51620,
+                                                            "SHA256":  "791b1ab0206178588cd1a57095ccc6daca3f69e44bef409458292a70aab7b5fd",
+                                                            "CreationTime":  "2026-10-06T14:51:22.5642773+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:22.7178850+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_PDFLCMaps.lst",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_PDFLCMaps.lst",
+                                                            "Size":  12899,
+                                                            "SHA256":  "6c28ddfecd6fee13dd9e41a8b029044a3f070ed03065009c64ffd90ba391480c",
+                                                            "CreationTime":  "2026-10-06T14:51:22.5642773+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:51:22.5642773+03:00",
+                                                            "IsFormaAsset":  false
+                                                        },
+                                                        {
+                                                            "FullPath":  "C:\\Users\\sinan\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_PDFLFonts.lst",
+                                                            "MaskedPath":  "C:\\Users\\\u003cUSER\u003e\\AppData\\Local\\Temp\\Adobe\\After Effects\\26.3\\Typesupport\\Adobe_PDFLFonts.lst",
+                                                            "Size":  13670,
+                                                            "SHA256":  "b601b42d4b4d454a66038b99cf98ec22abe7fdc001d5f6531c8f116d6798a52a",
+                                                            "CreationTime":  "2026-10-06T14:58:46.4374225+03:00",
+                                                            "LastWriteTime":  "2026-10-06T14:58:46.4524210+03:00",
+                                                            "IsFormaAsset":  false
+                                                        }
+                                                    ],
+                                          "count":  56
+                                      }
+}

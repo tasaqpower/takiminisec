@@ -1,0 +1,22 @@
+PUBLIC DOMAIN ASSET DEDICATION & NOTICE
+=======================================
+
+This notice certifies that designated assets within this distribution package
+(including select ambient sound recordings, acoustic tracks, foley audio, and
+standard 3D LUT color grading look-up tables) are dedicated to or reside in the
+Public Domain.
+
+1. AUDIO ARCHIVE ASSETS:
+   - Sourced from Wikimedia Commons and Freesound.org collections tagged under
+     Creative Commons CC0 1.0 Universal dedication or marked explicitly as Public Domain.
+   - All rights have been waived worldwide to the fullest extent permitted by applicable law.
+   - Free for personal and commercial usage without royalty obligations.
+
+2. COLOR CALIBRATION PRESETS (LUTs):
+   - Sourced from public domain photographic references, open cinematography color curves,
+     and open standard mathematics (Rec.709, sRGB, Log-to-Rec709 conversion transforms).
+   - Unrestricted for commercial grading, editing, and distribution.
+
+DISCLAIMER:
+The assets are provided without warranties of any kind. Users are responsible
+for compliance with local laws regarding publicity and moral rights where applicable.

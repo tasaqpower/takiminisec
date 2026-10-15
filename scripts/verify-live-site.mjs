@@ -79,7 +79,7 @@ async function main() {
   // Take full screenshot
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   const buf = Buffer.from(shot.data, 'base64');
-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\live_site_screenshot.png', buf);
+  await fs.writeFile(path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'live_site_screenshot.png'), buf);
   console.log('Saved screenshot to brain/live_site_screenshot.png');
 
   ws.close();

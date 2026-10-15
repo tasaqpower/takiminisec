@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-10-06T12:45:54.513Z",
+  "aerenderVersion": "aerender version 26.3x87",
+  "executionMode": "True Headless CLI Console",
+  "testSummary": {
+    "commandExecution": "SUCCESS (5 saniye yanıt süresi)",
+    "secretAepProbe": "SUCCESS - aerender motoru After Effects 26.3 çekirdeğini hatasız başlatmaktadır.",
+    "jsxLimitation": "aerender yalnızca derlenmiş .aep proje dosyalarını render edebilir; ExtendScript (.jsx) derleme veya kompozisyon oluşturma yeteneği bulunmamaktadır.",
+    "renderVerdict": "BLOCKED_AEP_DEPENDENCY"
+  },
+  "recommendation": "Motion template ve AEP derlemeleri kullanıcı oturumunda etkileşimli After Effects arayüzü üzerinden derlenmeli, aerender yalnızca nihai AEP çıktılarını render etmelidir."
+}

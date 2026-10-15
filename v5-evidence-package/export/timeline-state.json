@@ -1,0 +1,252 @@
+{
+  "id": "proj-1791243780038",
+  "name": "Yeni Video Projesi",
+  "createdAt": 1791243780038,
+  "updatedAt": 1791243797642,
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 10,
+  "backgroundColor": "#000000",
+  "transitions": [
+    {
+      "id": "trans-id86h8z",
+      "trackId": "track-video-7len65f",
+      "type": "crossfade",
+      "duration": 1,
+      "cutTime": 8.5,
+      "leftClipId": "clip-oy64opj",
+      "rightClipId": "clip-77od3hc",
+      "alignment": "between",
+      "easing": "linear",
+      "intensity": 1
+    }
+  ],
+  "effectSegments": [],
+  "tracks": [
+    {
+      "id": "track-text-ybzxuyc",
+      "name": "Metin & Efektler",
+      "type": "text",
+      "clips": [
+        {
+          "id": "clip-l2oi7v9",
+          "trackId": "track-text-ybzxuyc",
+          "type": "text",
+          "name": "Modern Alt Bant",
+          "startTime": 9,
+          "duration": 1,
+          "trimIn": 0,
+          "trimOut": 1,
+          "sourceDuration": 4,
+          "sourceUrl": "virtual:title/lower-third-modern",
+          "assetId": "title-lower-third-modern",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {},
+          "textData": {
+            "text": "FORMA V5 FINAL CUT",
+            "fontSize": 54,
+            "fontWeight": "bold",
+            "color": "#ffffff",
+            "fontFamily": "Plus Jakarta Sans"
+          }
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-video-7len65f",
+      "name": "Video & Görsel 1",
+      "type": "video",
+      "clips": [
+        {
+          "id": "clip-oy64opj",
+          "trackId": "track-video-7len65f",
+          "type": "video",
+          "name": "Doğa Manzarası - Nizhnehopersky Nature Park 109",
+          "startTime": 0,
+          "duration": 8.5,
+          "trimIn": 0,
+          "trimOut": 8.5,
+          "sourceDuration": 10,
+          "sourceUrl": "/video-assets/broll/broll-7e2579576d.webm",
+          "assetId": "broll-7e2579576d",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {},
+          "transitionOut": {
+            "type": "crossfade",
+            "duration": 1,
+            "easing": "linear"
+          },
+          "colorFilter": "lut-teal-orange"
+        },
+        {
+          "id": "clip-77od3hc",
+          "trackId": "track-video-7len65f",
+          "type": "video",
+          "name": "Doğa Manzarası - Nizhnehopersky Nature Park 109 (Bölüm 2)",
+          "startTime": 8.5,
+          "duration": 1.5,
+          "trimIn": 8.5,
+          "trimOut": 10,
+          "sourceDuration": 10,
+          "sourceUrl": "/video-assets/broll/broll-7e2579576d.webm",
+          "assetId": "broll-7e2579576d",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {},
+          "transitionIn": {
+            "type": "crossfade",
+            "duration": 1,
+            "easing": "linear"
+          },
+          "colorFilter": "lut-teal-orange"
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [
+        {
+          "id": "trans-id86h8z",
+          "trackId": "track-video-7len65f",
+          "type": "crossfade",
+          "duration": 1,
+          "cutTime": 8.5,
+          "leftClipId": "clip-oy64opj",
+          "rightClipId": "clip-77od3hc",
+          "alignment": "between",
+          "easing": "linear",
+          "intensity": 1
+        }
+      ],
+      "effectSegments": []
+    },
+    {
+      "id": "track-video-i0e2hu8",
+      "name": "Video & Görsel 2",
+      "type": "video",
+      "clips": [
+        {
+          "id": "clip-pv385k3",
+          "trackId": "track-video-i0e2hu8",
+          "type": "image",
+          "name": "Sıcak Işık Sızıntısı (Warm Light Leak)",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 5,
+          "sourceUrl": "/video-assets/overlays/light-leak-warm.svg",
+          "assetId": "overlay-light-leak-warm",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {}
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true
+    },
+    {
+      "id": "track-audio-sgnqpvn",
+      "name": "Ses & Müzik 1",
+      "type": "audio",
+      "clips": [
+        {
+          "id": "clip-1qerv6l",
+          "trackId": "track-audio-sgnqpvn",
+          "type": "audio",
+          "name": "Sakin Piyano (Calm Piano)",
+          "startTime": 0,
+          "duration": 10,
+          "trimIn": 0,
+          "trimOut": 10,
+          "sourceDuration": 6,
+          "sourceUrl": "/video-assets/audio/music/calm-piano.wav",
+          "assetId": "music-calm-piano",
+          "volume": 1,
+          "muted": false,
+          "speed": 1,
+          "fadeIn": 0,
+          "fadeOut": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "effects": {}
+        }
+      ],
+      "muted": false,
+      "locked": false,
+      "visible": true,
+      "transitions": [],
+      "effectSegments": []
+    },
+    {
+      "id": "track-audio-ps7wtdn",
+      "name": "Ses & Müzik 2",
+      "type": "audio",
+      "clips": [],
+      "muted": false,
+      "locked": false,
+      "visible": true
+    }
+  ]
+}

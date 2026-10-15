@@ -27,7 +27,7 @@ const { removeWatermarks } = await import("../features/watermark-removal/waterma
 async function main() {
   console.log("=== BOSTON UNIVERSITY / RED BRANDING WATERMARK SAFEGUARD TEST ===");
 
-  // 1. Create a synthetic Boston University document with red header box and normal student text
+  // 1. Create a synthetic State University document with red header box and normal student text
   const doc = await PDFDocument.create();
   const page = doc.addPage([612, 792]);
   const font = await doc.embedFont(StandardFonts.Helvetica);

@@ -1,0 +1,291 @@
+{
+  "timestamp": "2026-10-06T08:43:00.778Z",
+  "crossfadeIdentity": {
+    "testedPoints": [
+      {
+        "progressPercent": 0,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 25,
+        "mae": 0.24364438657407408,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 50,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 75,
+        "mae": 0.20825954861111112,
+        "lumDropPercent": 0,
+        "passed": true
+      },
+      {
+        "progressPercent": 100,
+        "mae": 0,
+        "lumDropPercent": 0,
+        "passed": true
+      }
+    ],
+    "maxAllowedMae": 1,
+    "maxAllowedLumDropPercent": 1,
+    "passed": true
+  },
+  "textFadeMonotonic": {
+    "sampleTimes": [
+      9,
+      9.15,
+      9.3,
+      9.5
+    ],
+    "measurements": [
+      {
+        "timeSec": 9,
+        "timeInClipSec": 0,
+        "alphaProgress": 0,
+        "avgAlpha": 0,
+        "maxAlpha": 0
+      },
+      {
+        "timeSec": 9.15,
+        "timeInClipSec": 0.15000000000000036,
+        "alphaProgress": 0.4636230468750009,
+        "avgAlpha": 107.0308934038408,
+        "maxAlpha": 118
+      },
+      {
+        "timeSec": 9.3,
+        "timeInClipSec": 0.3000000000000007,
+        "alphaProgress": 0.7558593750000011,
+        "avgAlpha": 173.99276370720847,
+        "maxAlpha": 192
+      },
+      {
+        "timeSec": 9.5,
+        "timeInClipSec": 0.5,
+        "alphaProgress": 0.947265625,
+        "avgAlpha": 218.36932925132203,
+        "maxAlpha": 241
+      }
+    ],
+    "isMonotonicallyIncreasing": true,
+    "passed": true
+  },
+  "realLutProductionRenderer": {
+    "lutFile": "forma-original-lut-006-teal-orange-crisp.cube",
+    "lutSize": 33,
+    "testedVectorsCount": 7,
+    "vectorResults": [
+      {
+        "input": [
+          0,
+          0,
+          0
+        ],
+        "intensity0": [
+          0,
+          0,
+          0
+        ],
+        "intensity50": [
+          0,
+          0,
+          12
+        ],
+        "intensity100": [
+          0,
+          0,
+          24
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          255,
+          255,
+          255
+        ],
+        "intensity0": [
+          255,
+          255,
+          255
+        ],
+        "intensity50": [
+          255,
+          255,
+          240
+        ],
+        "intensity100": [
+          255,
+          255,
+          225
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          255,
+          0,
+          0
+        ],
+        "intensity0": [
+          255,
+          0,
+          0
+        ],
+        "intensity50": [
+          255,
+          0,
+          0
+        ],
+        "intensity100": [
+          255,
+          0,
+          0
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          0,
+          255,
+          0
+        ],
+        "intensity0": [
+          0,
+          255,
+          0
+        ],
+        "intensity50": [
+          0,
+          255,
+          0
+        ],
+        "intensity100": [
+          0,
+          255,
+          0
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          0,
+          0,
+          255
+        ],
+        "intensity0": [
+          0,
+          0,
+          255
+        ],
+        "intensity50": [
+          0,
+          0,
+          255
+        ],
+        "intensity100": [
+          0,
+          0,
+          255
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          128,
+          128,
+          128
+        ],
+        "intensity0": [
+          128,
+          128,
+          128
+        ],
+        "intensity50": [
+          128,
+          128,
+          128
+        ],
+        "intensity100": [
+          128,
+          128,
+          128
+        ],
+        "identityPass": true
+      },
+      {
+        "input": [
+          64,
+          180,
+          220
+        ],
+        "intensity0": [
+          64,
+          180,
+          220
+        ],
+        "intensity50": [
+          50,
+          192,
+          235
+        ],
+        "intensity100": [
+          36,
+          204,
+          250
+        ],
+        "identityPass": true
+      }
+    ],
+    "passed": true
+  },
+  "realAudioRawOutputs": {
+    "testedFiles": [
+      {
+        "file": "forma-original-sfx-001.wav",
+        "sampleRate": 48000,
+        "bitsPerSample": 16,
+        "channels": 1,
+        "durationSec": "0.85",
+        "truePeakDbTP": "-5.06",
+        "integratedLufs": "-15.6",
+        "dcOffset": "0.00004",
+        "clickFree": true,
+        "passed": true
+      },
+      {
+        "file": "forma-original-sfx-011.wav",
+        "sampleRate": 48000,
+        "bitsPerSample": 16,
+        "channels": 1,
+        "durationSec": "1.40",
+        "truePeakDbTP": "-1.90",
+        "integratedLufs": "-18.2",
+        "dcOffset": "0.00055",
+        "clickFree": true,
+        "passed": true
+      },
+      {
+        "file": "forma-original-music-001.wav",
+        "sampleRate": 48000,
+        "bitsPerSample": 16,
+        "channels": 1,
+        "durationSec": "4.36",
+        "truePeakDbTP": "-4.70",
+        "integratedLufs": "-15.6",
+        "dcOffset": "0.00022",
+        "clickFree": true,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "allPassed": true
+}

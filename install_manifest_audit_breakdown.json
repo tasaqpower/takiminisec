@@ -1,0 +1,45 @@
+{
+  "totalPhysicalInstallationItems": 1139,
+  "alternativeFormatOutputs": 80,
+  "uniqueLogicalAssets": 1059,
+  "breakdown": {
+    "formaOriginalsLogical": 600,
+    "thirdPartyPhysicalLogical": 459,
+    "dualFormatOutputs": {
+      "transitionsPrimary": 80,
+      "transitionsAlternativeMogrt": 80
+    }
+  },
+  "byFormat": {
+    ".cube": 185,
+    ".wav": 168,
+    ".svg": 337,
+    ".webm": 5,
+    ".mp4": 4,
+    ".mogrt": 160,
+    ".prfpset": 80,
+    ".jsx": 200
+  },
+  "byCategory": {
+    "FORMA Originals LUT": 50,
+    "Library LUT": 135,
+    "Sound Effect": 130,
+    "Music Track": 38,
+    "FORMA Originals Vector": 60,
+    "Vector Element": 277,
+    "Video Stock / Loop": 9,
+    "Motion Graphics Title Template": 80,
+    "Premiere Pro Transition Preset": 80,
+    "MOGRT Transition Overlay": 80,
+    "After Effects Text Animation Preset": 120,
+    "Procedural Animated Background Generator": 20,
+    "Procedural Overlay Generator": 60
+  },
+  "tpByType": {
+    "lut": 135,
+    "sfx": 30,
+    "music": 8,
+    "element": 277,
+    "video": 9
+  }
+}

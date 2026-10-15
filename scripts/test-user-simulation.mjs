@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 
 async function main() {
   console.log('--- TESTING REAL USER WORKFLOW ON LOCAL DEV ---');
-  const videoFilePath = 'C:\\Users\\sinan\\Downloads\\Ayaz_sleeping_in_quiet_bedroom_20260926001246.mp4';
+  const videoFilePath = process.env.FORMA_REAL_PDF_PATH || '';
   const videoBuffer = await fs.readFile(videoFilePath);
   const videoBase64 = videoBuffer.toString('base64');
 
@@ -168,7 +168,7 @@ async function main() {
 
   // Take screenshot
   const scr = await send('Page.captureScreenshot', { format: 'png' });
-  await fs.writeFile('C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b\\user_sim_snap.png', Buffer.from(scr.data, 'base64'));
+  await fs.writeFile(path.join(process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts'), 'user_sim_snap.png'), Buffer.from(scr.data, 'base64'));
 
   ws.close();
   chromeProc.kill();

@@ -1,0 +1,17 @@
+{
+  "memBefore": {
+    "usedJSHeapSize": 24130917,
+    "totalJSHeapSize": 29854797,
+    "jsHeapSizeLimit": 4395630592
+  },
+  "memPeak": {
+    "usedJSHeapSize": 434674381,
+    "totalJSHeapSize": 442081585,
+    "jsHeapSizeLimit": 4395630592
+  },
+  "memAfter": {
+    "usedJSHeapSize": 437595606,
+    "totalJSHeapSize": 446215574,
+    "jsHeapSizeLimit": 4395630592
+  }
+}

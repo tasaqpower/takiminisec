@@ -286,7 +286,7 @@ async function runTestSuite() {
 
   const evidenceDir = path.resolve('outputs/v74-evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });
-  const artifactDir = 'process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts')';
+  const artifactDir = process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts');
 
   const diffRgba = new Uint8Array(metaOriginal.width * metaOriginal.height * 4);
   for (let i = 0; i < diffRgba.length; i += 4) {

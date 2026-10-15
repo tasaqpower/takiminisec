@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import fs from 'fs/promises';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
-const ARTIFACT_DIR = 'C:\\Users\\sinan\\.gemini\\antigravity\\brain\\094b1c26-b9f9-4b08-93a4-797170dbff1b';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || path.join(os.tmpdir(), 'forma_artifacts');
 
 async function main() {
   console.log('================================================================');

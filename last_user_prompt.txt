@@ -1,0 +1,320 @@
+<USER_REQUEST>
+FORMA VİDEO EDİTÖRÜ — ÖZGÜN PROFESYONEL ASSET FABRİKASI
+
+AMAÇ:
+
+Ücretli Premiere Pro, After Effects, Envato, Motion Array, Storyblocks veya benzeri paketlerden hiçbir dosya kopyalamadan; onların karşıladığı profesyonel kurgu ihtiyaçlarını karşılayan, tamamen özgün, yerel ve ticari kullanıma açık FORMA asset sistemi oluştur.
+
+Bu çalışma mevcut asset kütüphanesine EK olarak yapılacak. Mevcut 2.520 katalog kaydını bozma veya silme.
+
+KESİN TELİF KURALI:
+
+- Ücretli paket indirme, kırma, arşiv kopyalama veya yeniden dağıtma YASAK.
+- Başka bir assetin dosyasını, animasyon verisini, sesini, LUT tablosunu veya şablonunu kopyalama.
+- Yalnızca genel işlev ve efekt kategorilerinden esinlen.
+- Başka markaların isimlerini, logolarını, şablon adlarını ve katalog görsellerini kullanma.
+- Her yeni asset sıfırdan kodla, matematiksel motorla, sentezleyiciyle veya deterministik generator ile oluşturulsun.
+- Yeni içeriklerin lisansı `FORMA-ORIGINAL-1.0` olarak kaydedilsin.
+- Her assetin üretim yöntemi, seed değeri, sürümü ve oluşturulma tarihi metadata içerisinde bulunsun.
+
+HEDEF KÜTÜPHANE:
+
+En az 600 adet gerçek ve birbirinden anlamlı biçimde farklı özgün temel asset üret:
+
+1. 80 profesyonel klip geçişi
+2. 120 metin giriş, döngü ve çıkış animasyonu
+3. 80 başlık, lower-third, bilgi kartı ve sosyal medya metin şablonu
+4. 60 hareketli overlay
+5. 60 SVG grafik element
+6. 50 gerçek `.cube` LUT
+7. 100 özgün ses efekti
+8. 30 özgün müzik ve ambiyans döngüsü
+9. 20 hareketli arka plan ve procedural video dokusu
+
+Toplam fiziksel temel asset sayısı en az 600 olacak. Renk, yön, hız veya süre varyasyonlarını ayrı fiziksel asset gibi sayarak rakam şişirme.
+
+VARYASYON MOTORU:
+
+Her temel asset için uygun parametreleri destekle:
+
+- Renk
+- Yoğunluk
+- Yön
+- Hız
+- Süre
+- Yumuşatma eğrisi
+- Blur miktarı
+- Grain miktarı
+- Glow miktarı
+- Opaklık
+- Seed
+
+600 temel asset üzerinden en az 10.000 kullanılabilir kombinasyon üretilebilsin. Arayüzde “600 Temel Asset / 10.000+ Varyasyon” şeklinde dürüst gösterim kullan.
+
+GEÇİŞ MOTORU:
+
+Geçişler yalnızca farklı isim verilmiş aynı crossfade olmasın. Matematiksel olarak bağımsız davranışlar içersin:
+
+- Whip pan
+- Directional blur
+- Smooth zoom
+- Camera shake
+- Parallax
+- Lens distortion
+- RGB split
+- Glitch
+- Film burn
+- Light leak
+- Luma fade
+- Displacement
+- Liquid wipe
+- Ink spread
+- Paper tear
+- Pixel sorting
+- Datamosh benzeri özgün bozulma
+- Iris
+- Shape mask
+- Radial wipe
+- Perspective flip
+- 3D cube
+- Spin
+- Push
+- Stretch
+- Motion tile
+- Kaleidoscope
+- Chromatic aberration
+
+Her geçişin canlı küçük önizlemesi, varsayılan süresi ve düzenlenebilir parametreleri bulunsun.
+
+METİN VE BAŞLIK ŞABLONLARI:
+
+Tam Türkçe karakter desteği zorunlu:
+
+`ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü`
+
+Şablon kategorileri:
+
+- Sinematik başlık
+- Belgesel
+- Haber
+- Spor
+- Eğitim
+- Çocuk içeriği
+- Sosyal medya
+- Minimal
+- Kurumsal
+- Teknoloji
+- Neon
+- Retro
+- Dini ve manevi içerik için sade tasarımlar
+- Altyazı
+- Açıklama kartı
+- İsim ve unvan
+- Konum etiketi
+- Sayaç
+- Liste
+- Soru-cevap
+- “İYİLİK +1” benzeri oyunlaştırma göstergeleri
+
+Metin, font, renk ve süre kullanıcı tarafından değiştirilebilsin. Şablonun içine sabit marka veya hazır yabancı metin gömme.
+
+OVERLAY VE GRAFİKLER:
+
+Şu özgün procedural overlay kategorilerini oluştur:
+
+- Light leak
+- Film grain
+- Dust
+- Scratches
+- Bokeh
+- Fog
+- Smoke
+- Rain
+- Snow
+- Sparks
+- Embers
+- Prism
+- Lens flare
+- Anamorphic streak
+- VHS noise
+- CRT scanline
+- Paper texture
+- Halftone
+- Comic speed lines
+- Floating particles
+
+SVG elementlerde harici URL, gömülü script veya izleme kodu bulunmasın. SVG dosyalarını sanitize et.
+
+GERÇEK LUT MOTORU:
+
+LUT’lar yalnızca kontrast ve doygunluk presetleri olmasın.
+
+- Gerçek `.cube` dosyaları üret.
+- `LUT_3D_SIZE 33` kullan.
+- LUT tablosunu parse et.
+- RGB dönüşümünü trilinear veya tetrahedral interpolation ile uygula.
+- Preview ve export aynı LUT motorunu kullansın.
+- Noir, teal-orange, warm film, cold Nordic, faded vintage, golden hour, night blue, pastel, bleach bypass ve doğal ten tonu kategorileri oluştur.
+- LUT açık/kapalı karşılaştırması göster.
+- LUT yoğunluğu `%0–100` arasında ayarlanabilsin.
+
+SES EFEKTLERİ:
+
+Web Audio, matematiksel sentez, procedural noise ve özgün katmanlama kullanarak üret:
+
+- Whoosh
+- Impact
+- Hit
+- Riser
+- Downer
+- Pop
+- Click
+- Notification
+- Transition sweep
+- Camera shutter
+- Keyboard
+- Page turn
+- Footstep
+- Wind
+- Rain
+- Water
+- Fire
+- Room ambience
+- Outdoor ambience
+- UI sounds
+
+WAV gereksinimleri:
+
+- PCM WAV
+- 48 kHz
+- 24-bit veya kaliteli 16-bit
+- Clipping yok
+- DC offset yok
+- True peak en fazla `-1 dBTP`
+- Başlangıç ve bitişte tıklama sesi yok
+- Aynı waveform’un yalnızca pitch değiştirilmiş kopyalarını farklı asset diye sayma
+
+MÜZİK VE AMBİYANS:
+
+En az 30 özgün loop üret:
+
+- Sinematik
+- Duygusal piyano
+- Çocuk içeriği
+- Manevi ve huzurlu
+- Lo-fi
+- Teknoloji
+- Gerilim
+- Neşeli
+- Belgesel
+- Ambient
+
+Loop başlangıcı ve sonu dikişsiz olsun. Her müzikte BPM, ton, süre ve loudness metadata’sı bulunsun. Konuşmayı bastırmaması için varsayılan loudness yaklaşık `-18 ila -14 LUFS` arasında olsun.
+
+HAREKETLİ ARKA PLANLAR:
+
+Telifli stock video taklidi yapma. Canvas, WebGL veya shader tabanlı özgün procedural içerikler üret:
+
+- Gradient flow
+- Abstract waves
+- Particles
+- Grid tunnel
+- Soft clouds
+- Aurora
+- Ink motion
+- Liquid colors
+- Geometric motion
+- Light streaks
+
+Bu içerikler çözünürlükten bağımsız oluşturulsun ve 16:9, 9:16, 1:1 ve 4:5 formatlarında çalışsın.
+
+DEPOLAMA MİMARİSİ:
+
+- Kodla üretilebilen assetleri fiziksel video dosyası olarak saklama.
+- Seed ve parametrelerden çalışma anında üret.
+- Yerleşik başlangıç paketi 60 MB’ı geçmesin.
+- Ağır ses ve medya paketleri isteğe bağlı kurulabilsin.
+- IndexedDB/OPFS önbelleği kullan.
+- Kullanılan asset silinmeye çalışıldığında timeline koruması çalışsın.
+- Aynı assetin tekrar indirilmesini veya oluşturulmasını SHA-256 ile engelle.
+
+ARAYÜZ:
+
+Kütüphanede yeni bir “FORMA Originals” filtresi oluştur.
+
+Her kartta:
+
+- Canlı önizleme
+- Asset adı
+- Kategori
+- Süre
+- Lisans
+- Favori
+- Parametre düzenleme
+- Timeline’a ekle
+- Sürükle-bırak
+- Varyasyon oluştur
+
+bulunsun.
+
+Assetler arama, kategori, süre, renk, mood ve format filtreleriyle bulunabilsin.
+
+ÖNİZLEME–EXPORT EŞLİĞİ:
+
+Assetin önizlemede görünen davranışı MP4, WebM ve GIF exportta birebir aynı olmalı.
+
+Tek bir ortak render motoru kullan. “Önizlemede var ama exportta yok” şeklinde ayrı veya sahte implementasyon oluşturma.
+
+TEKRAR VE KALİTE DENETİMİ:
+
+- Dosya SHA-256 tekilleştirmesi
+- SVG yapısal benzerlik kontrolü
+- Ses fingerprint kontrolü
+- LUT tablo mesafesi kontrolü
+- Geçiş orta kare perceptual hash kontrolü
+- Başlık şablonu layout benzerlik kontrolü
+
+uygula.
+
+Yalnızca isim, renk veya seed değişmiş fakat görsel olarak aynı assetleri reddet.
+
+ZORUNLU TESTLER:
+
+1. En az 600 gerçek temel asset bulunduğunu doğrula.
+2. Kategori sayılarını ayrı ayrı raporla.
+3. Aynı hash’e sahip asset sayısı kesinlikle 0 olsun.
+4. Her kategoriden rastgele 10 asseti gerçek Chromium üzerinde önizle.
+5. Her kategoriden en az 2 asseti timeline’a gerçek sürükle-bırak ile ekle.
+6. Preview ve export karelerini SSIM/MAE ile karşılaştır.
+7. Gerçek `.cube` LUT dönüşümünü bilinen RGB test vektörleriyle doğrula.
+8. SFX ve müzik WAV dosyalarını decoder ile aç.
+9. Türkçe başlıklarda karakter bozulması olmadığını doğrula.
+10. 9:16, 16:9 ve 1:1 projelerde taşma kontrolü yap.
+11. 10 saniyelik 30 FPS exportta 299–301 gerçek kare üret.
+12. `ffprobe avg_frame_rate` değeri 29.9–30.1 FPS olsun.
+13. Siyah kare, eksik medya, donmuş overlay veya sessiz ses kanalı bulunmasın.
+14. Eski belge düzenleyici özelliklerinde regresyon oluşturma.
+
+DÜRÜST RAPORLAMA:
+
+- Üretilmeyen asseti üretilmiş gösterme.
+- Metadata satırını fiziksel asset gibi sayma.
+- Varyasyonları temel asset sayısına ekleme.
+- Placeholder, pending-download veya yalnızca URL’den oluşan kayıtları “hazır asset” sayma.
+- Gerçek `.cube` LUT yerine sabit CSS filtresi kullanıp LUT diye raporlama.
+- Test sonuçlarını hard-code etme.
+- Ekran görüntülerini test sonucu yerine kullanma.
+- Hata varsa PASS yazma.
+
+GİT KURALI:
+
+- Şimdilik commit ve push yapma.
+- PDF, DOCX, OCR, filigran, compliance ve conversion dosyalarına dokunma.
+- Yalnızca `features/video-editor/`, gerekli `public/video-assets/forma-originals/` ve bu işe ait test dosyalarında çalış.
+- Evidence ZIP’lerini veya büyük test çıktılarını commit kapsamına alma.
+- Önce `git diff --name-status`, test sonuçları, gerçek fiziksel asset sayıları ve toplam depolama boyutunu raporla.
+- Kullanıcının açık onayından önce commit veya push yapma.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-06T03:38:22+03:00.
+</ADDITIONAL_METADATA>
