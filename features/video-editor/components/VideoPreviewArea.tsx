@@ -149,14 +149,14 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
     }
 
     let isMounted = true;
-    renderFrameToCanvas(canvas, project, currentTime, selectedClip?.id, isPlaying).catch((err) => {
+    renderFrameToCanvas(canvas, project, currentTime, selectedClip?.id, isPlaying, undefined, playbackRate).catch((err) => {
       if (isMounted) console.warn('Preview render frame error:', err);
     });
 
     return () => {
       isMounted = false;
     };
-  }, [project, currentTime, selectedClip, isPlaying, renderVersion]);
+  }, [project, currentTime, selectedClip, isPlaying, playbackRate, renderVersion]);
 
   // Focus textarea when entering edit mode
   useEffect(() => {
@@ -858,7 +858,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
 
           {/* Playback speed selector */}
           <div className="flex items-center ml-2 border-l border-[#292F39] pl-2 gap-0.5 font-mono text-[10px]">
-            {[1, 1.5, 2].map((r) => (
+            {[1, 1.5, 2, 4].map((r) => (
               <button
                 key={r}
                 type="button"
@@ -873,6 +873,24 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               </button>
             ))}
           </div>
+
+          {/* Active Shuttle Badge (J-K-L) */}
+          {isPlaying && (
+            <div
+              className={`flex items-center gap-1 ml-2 px-2 py-0.5 rounded text-[10px] font-mono font-medium border shadow-sm ${
+                playbackRate < 0
+                  ? 'bg-amber-950/60 text-amber-300 border-amber-600/70'
+                  : playbackRate > 1.0
+                  ? 'bg-blue-950/60 text-blue-300 border-blue-600/70'
+                  : 'bg-[#171B21] text-[#929AA8] border-[#292F39]'
+              }`}
+              title="J-K-L Shuttle Kontrolleri: J = Geri Sar / Yavaşlat, K = Duraklat, L = İleri / Hızlandır (1x -> 1.5x -> 2x -> 4x)"
+            >
+              <span>{playbackRate < 0 ? '◀◀' : playbackRate > 1.0 ? '▶▶' : '▶'}</span>
+              <span className="font-bold">{playbackRate > 0 ? `${playbackRate}x` : `${playbackRate}x`}</span>
+              <span className="text-[9px] opacity-75">J-K-L</span>
+            </div>
+          )}
         </div>
 
         {/* Right: Master Volume Controls */}

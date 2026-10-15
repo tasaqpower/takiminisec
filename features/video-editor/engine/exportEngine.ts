@@ -1,5 +1,5 @@
 import { VideoProject, ExportOptions } from '../types';
-import { renderFrameToCanvas, clearLipFreezeCache } from './previewRenderer';
+import { renderFrameToCanvas, clearLipFreezeCache, clearSmoothCutCache } from './previewRenderer';
 import { audioMixer } from './audioMixer';
 import { getAssetBlob } from '../db';
 import { loadAndCacheCubeLut } from './filterEngine';
@@ -35,6 +35,7 @@ class ExportEngine {
   ): Promise<Blob | null> {
     this.isCancelled = false;
     clearLipFreezeCache();
+    clearSmoothCutCache();
 
     // 1. PNG Snapshot
     if (options.format === 'png') {

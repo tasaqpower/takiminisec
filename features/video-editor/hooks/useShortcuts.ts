@@ -19,6 +19,9 @@ interface ShortcutHandlers {
   onRippleTrimEnd?: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
+  onShuttleForward?: () => void;
+  onShuttlePause?: () => void;
+  onShuttleBackward?: () => void;
 }
 
 export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
@@ -83,6 +86,27 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
       if (e.code === 'Space') {
         e.preventDefault();
         handlers.onTogglePlay();
+        return;
+      }
+
+      // J: Shuttle Reverse / Slow Down
+      if ((e.key === 'j' || e.key === 'J') && !cmdOrCtrl) {
+        e.preventDefault();
+        handlers.onShuttleBackward?.();
+        return;
+      }
+
+      // K: Shuttle Pause / Stop
+      if ((e.key === 'k' || e.key === 'K') && !cmdOrCtrl) {
+        e.preventDefault();
+        handlers.onShuttlePause?.();
+        return;
+      }
+
+      // L: Shuttle Forward / Speed Up (1x -> 1.5x -> 2x -> 4x)
+      if ((e.key === 'l' || e.key === 'L') && !cmdOrCtrl) {
+        e.preventDefault();
+        handlers.onShuttleForward?.();
         return;
       }
 

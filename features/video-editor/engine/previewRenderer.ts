@@ -29,6 +29,7 @@ export interface RenderContext {
   selectedClipId?: string | null;
   showSafeZones?: boolean;
   isPlaying?: boolean;
+  playbackRate?: number;
 }
 
 // Retain last known good frame per clip to completely eliminate black flashes during seeking
@@ -42,6 +43,14 @@ export function clearLipFreezeCache(clipId?: string): void {
     lipFreezeCanvasCache.delete(clipId);
   } else {
     lipFreezeCanvasCache.clear();
+  }
+}
+
+export function clearSmoothCutCache(clipId?: string): void {
+  if (clipId) {
+    lastFrameCanvasCache.delete(clipId);
+  } else {
+    lastFrameCanvasCache.clear();
   }
 }
 
@@ -1051,6 +1060,46 @@ export function renderScene(renderCtx: RenderContext): void {
               drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
             }
 
+            // Smooth Jump-Cut / Micro Frame Blend:
+            // Eliminates head jump-cut when two clips meet or after Ripple Delete
+            const isSmoothCut = Boolean(clip.smoothCutIn);
+            const smoothDur = Math.max(0.04, (clip.smoothCutDurationMs || 160) / 1000);
+            if (isSmoothCut && clipRelSec >= 0 && clipRelSec < smoothDur) {
+              const prevClip = track.clips
+                .filter(
+                  (c) =>
+                    c.id !== clip.id &&
+                    (c.startTime ?? c.start ?? 0) + c.duration <= (clip.startTime ?? clip.start ?? 0) + 0.08
+                )
+                .sort(
+                  (a, b) =>
+                    (b.startTime ?? b.start ?? 0) + b.duration - ((a.startTime ?? a.start ?? 0) + a.duration)
+                )[0];
+
+              let prevFrame: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement | null = prevClip
+                ? lastFrameCanvasCache.get(prevClip.id) || lipFreezeCanvasCache.get(prevClip.id) || null
+                : null;
+
+              if (!prevFrame && prevClip && videoElements?.get(prevClip.id)) {
+                const prevVid = videoElements.get(prevClip.id);
+                if (prevVid && prevVid.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && prevVid.videoWidth > 0) {
+                  prevFrame = prevVid;
+                }
+              }
+
+              if (prevFrame) {
+                const smoothProgress = Math.max(0, Math.min(1, clipRelSec / smoothDur));
+                // Cosine S-curve micro-blend (starts at 1.0, ends at 0.0)
+                const prevWeight = 0.5 * (1 + Math.cos(smoothProgress * Math.PI));
+                if (prevWeight > 0.005) {
+                  ctx.save();
+                  ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity * prevWeight));
+                  drawMediaWithLut(ctx, prevFrame, -dw / 2, -dh / 2, dw, dh, clip);
+                  ctx.restore();
+                }
+              }
+            }
+
             // Transition color overlay (e.g. dip to black/white)
             if (transOverlay && transOverlay.a > 0) {
               ctx.fillStyle = `rgba(${transOverlay.r}, ${transOverlay.g}, ${transOverlay.b}, ${transOverlay.a})`;
@@ -1604,7 +1653,8 @@ export async function renderFrameToCanvas(
   currentTime: number,
   selectedClipIdOrShowGizmo?: string | boolean | null,
   isPlaying = false,
-  preloadedElements?: Map<string, HTMLVideoElement | HTMLImageElement>
+  preloadedElements?: Map<string, HTMLVideoElement | HTMLImageElement>,
+  playbackRate = 1.0
 ): Promise<void> {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -1798,8 +1848,8 @@ export async function renderFrameToCanvas(
               clipRelSec = frozenTime;
             }
 
-            if (isPlaying) {
-              const targetSpeed = clip.speed || 1.0;
+            if (isPlaying && playbackRate > 0) {
+              const targetSpeed = (clip.speed || 1.0) * playbackRate;
               if (elem.paused) {
                 if (Math.abs(elem.currentTime - clipRelSec) > 0.08) {
                   try { elem.currentTime = clipRelSec; } catch {}
@@ -1817,9 +1867,9 @@ export async function renderFrameToCanvas(
               } else if (Math.abs(drift) > 0.025) {
                 // Micro drift (25ms - 450ms): gentle playbackRate adaptation WITHOUT HARD-SEEKING OR JITTER!
                 const catchUpMultiplier = drift > 0 ? 1.06 : 0.94;
-                elem.playbackRate = targetSpeed * catchUpMultiplier;
+                elem.playbackRate = Math.min(4.0, targetSpeed * catchUpMultiplier);
               } else {
-                elem.playbackRate = targetSpeed;
+                elem.playbackRate = Math.min(4.0, targetSpeed);
               }
             } else {
               if (!elem.paused) {
@@ -1860,6 +1910,7 @@ export async function renderFrameToCanvas(
     selectedClipId,
     showSafeZones: false,
     isPlaying,
+    playbackRate,
   });
 }
 

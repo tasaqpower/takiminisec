@@ -111,6 +111,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     seekRelative,
     setPlaybackRate,
     setIsLooping,
+    shuttleForward,
+    shuttlePause,
+    shuttleBackward,
   } = useVideoPlayback({ project });
 
   useEffect(() => {
@@ -249,6 +252,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     onPaste: () => {
       pasteClip(currentTime, selectedClip?.trackId);
     },
+    onShuttleForward: shuttleForward,
+    onShuttlePause: shuttlePause,
+    onShuttleBackward: shuttleBackward,
   });
 
   return (

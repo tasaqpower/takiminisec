@@ -1395,6 +1395,8 @@ export function useVideoProject() {
               duration: originalDuration - safeEnd,
               trimIn: initialTrimIn + safeEnd * speed,
               trimOut: curClip.trimOut,
+              smoothCutIn: true,
+              smoothCutDurationMs: 160,
             });
           }
 

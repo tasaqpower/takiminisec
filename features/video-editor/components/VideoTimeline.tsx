@@ -1899,6 +1899,24 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 <span>{clip.lipFreeze ? 'Susturuldu (Lip-Freeze)' : 'Karakter Susturuldu'}</span>
                               </span>
                             )}
+                            {clip.smoothCutIn && (
+                              <span
+                                title={`Smooth Jump-Cut Aktif (${clip.smoothCutDurationMs || 160}ms Mikro Harmanlama)`}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm bg-cyan-950/90 text-cyan-300 border border-cyan-500/80"
+                              >
+                                <Sparkles className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+                                <span>SMOOTH</span>
+                              </span>
+                            )}
+                            {clip.audioOffsetMs !== undefined && clip.audioOffsetMs !== 0 && (
+                              <span
+                                title={`Lip-Sync Dudak Senkron Ofseti: ${clip.audioOffsetMs > 0 ? `+${clip.audioOffsetMs}` : clip.audioOffsetMs}ms`}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm bg-indigo-950/90 text-indigo-300 border border-indigo-500/80 font-mono"
+                              >
+                                <span>SYNC</span>
+                                <span>{clip.audioOffsetMs > 0 ? `+${clip.audioOffsetMs}` : clip.audioOffsetMs}ms</span>
+                              </span>
+                            )}
                             <span>{clip.name}</span>
                           </p>
                           <p className="text-[9px] text-[#929AA8] font-mono truncate">
@@ -2437,6 +2455,32 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               </span>
             )}
           </button>
+
+          {/* Kesimi Yumuşat (Smooth Jump-Cut) Action */}
+          {contextMenu.clip.type === 'video' && (
+            <button
+              onClick={() => {
+                const nextVal = !contextMenu.clip.smoothCutIn;
+                onUpdateClip(contextMenu.clip.id, {
+                  smoothCutIn: nextVal,
+                  smoothCutDurationMs: nextVal ? (contextMenu.clip.smoothCutDurationMs || 160) : undefined,
+                });
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Kesimi Yumuşat (Smooth Jump-Cut)</span>
+              </span>
+              {contextMenu.clip.smoothCutIn && (
+                <span className="text-[10px] text-cyan-400 font-mono font-bold flex items-center gap-1">
+                  <span>SMOOTH</span>
+                  <span>✨</span>
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Bip Ekle (Arka Plan Sesini Kapatmadan) Action */}
           <button

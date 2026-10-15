@@ -35,9 +35,11 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
   // Audio sync helper
   const syncAudio = useCallback(
     (time: number, playing: boolean, forceSeek = false) => {
-      audioMixer.syncPlayback(projectRef.current, time, playing, forceSeek).catch((err) => {
-        console.warn('[FORMA Playback] Audio sync error:', err);
-      });
+      audioMixer
+        .syncPlayback(projectRef.current, time, playing, forceSeek, playbackRateRef.current)
+        .catch((err) => {
+          console.warn('[FORMA Playback] Audio sync error:', err);
+        });
     },
     []
   );
@@ -61,10 +63,13 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
       audioMixer.getAudioContext();
     } catch {}
 
-    // If at the end, restart from 0
-    if (currentTimeRef.current >= duration) {
+    // If at the end, restart from 0 (forward), or from duration if rewinding
+    if (playbackRateRef.current >= 0 && currentTimeRef.current >= duration) {
       currentTimeRef.current = 0;
       setCurrentTime(0);
+    } else if (playbackRateRef.current < 0 && currentTimeRef.current <= 0) {
+      currentTimeRef.current = duration;
+      setCurrentTime(duration);
     }
 
     setIsPlaying(true);
@@ -72,7 +77,11 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
     lastRafTimeRef.current = performance.now();
     lastAudioSyncTimeRef.current = performance.now();
 
-    syncAudio(currentTimeRef.current, true, true);
+    if (playbackRateRef.current > 0) {
+      syncAudio(currentTimeRef.current, true, true);
+    } else {
+      audioMixer.stopAll();
+    }
 
     const tick = (now: number) => {
       if (!isPlayingRef.current) return;
@@ -81,46 +90,66 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
         const deltaSec = ((now - lastRafTimeRef.current) / 1000) * playbackRateRef.current;
         let nextTime = currentTimeRef.current + deltaSec;
 
-        if (nextTime >= duration) {
-          if (isLoopingRef.current) {
+        if (playbackRateRef.current < 0) {
+          // Shuttle Rewind / Reverse Playback
+          if (nextTime <= 0) {
             nextTime = 0;
             currentTimeRef.current = 0;
             setCurrentTime(0);
-            syncAudio(0, true, true);
-          } else {
-            nextTime = duration;
-            currentTimeRef.current = duration;
-            setCurrentTime(duration);
             pause();
+            playbackRateRef.current = 1.0;
+            setPlaybackRate(1.0);
             return;
+          } else {
+            currentTimeRef.current = nextTime;
+            setCurrentTime(nextTime);
+            onTimeUpdate?.(nextTime);
+            audioMixer.stopAll();
           }
         } else {
-          currentTimeRef.current = nextTime;
-          setCurrentTime(nextTime);
-          onTimeUpdate?.(nextTime);
-
-          // Continuous audio synchronization across clip boundaries
-          // Check if playhead stepped across any clip boundary (split point) on this tick
-          let crossedBoundary = false;
-          const prevT = currentTimeRef.current;
-          for (const track of projectRef.current.tracks) {
-            if (track.type === 'video' || track.type === 'audio') {
-              for (const clip of track.clips) {
-                if (
-                  (clip.startTime > prevT && clip.startTime <= nextTime) ||
-                  (clip.startTime + clip.duration > prevT && clip.startTime + clip.duration <= nextTime)
-                ) {
-                  crossedBoundary = true;
-                  break;
-                }
-              }
-              if (crossedBoundary) break;
+          // Forward Playback (1x, 1.5x, 2x, 4x)
+          if (nextTime >= duration) {
+            if (isLoopingRef.current) {
+              nextTime = 0;
+              currentTimeRef.current = 0;
+              setCurrentTime(0);
+              syncAudio(0, true, true);
+            } else {
+              nextTime = duration;
+              currentTimeRef.current = duration;
+              setCurrentTime(duration);
+              pause();
+              playbackRateRef.current = 1.0;
+              setPlaybackRate(1.0);
+              return;
             }
-          }
+          } else {
+            currentTimeRef.current = nextTime;
+            setCurrentTime(nextTime);
+            onTimeUpdate?.(nextTime);
 
-          if (crossedBoundary || now - lastAudioSyncTimeRef.current >= 40) {
-            lastAudioSyncTimeRef.current = now;
-            syncAudio(nextTime, true, false);
+            // Continuous audio synchronization across clip boundaries
+            let crossedBoundary = false;
+            const prevT = currentTimeRef.current;
+            for (const track of projectRef.current.tracks) {
+              if (track.type === 'video' || track.type === 'audio') {
+                for (const clip of track.clips) {
+                  if (
+                    (clip.startTime > prevT && clip.startTime <= nextTime) ||
+                    (clip.startTime + clip.duration > prevT && clip.startTime + clip.duration <= nextTime)
+                  ) {
+                    crossedBoundary = true;
+                    break;
+                  }
+                }
+                if (crossedBoundary) break;
+              }
+            }
+
+            if (crossedBoundary || now - lastAudioSyncTimeRef.current >= 40) {
+              lastAudioSyncTimeRef.current = now;
+              syncAudio(nextTime, true, false);
+            }
           }
         }
       }
@@ -139,6 +168,78 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
       play();
     }
   }, [play, pause]);
+
+  // Professional J-K-L Shuttle Controls
+  const shuttleForward = useCallback(() => {
+    // Standard NLE shuttle forward (L key): 1x -> 1.5x -> 2x -> 4x
+    let nextRate = 1.0;
+    if (!isPlayingRef.current) {
+      nextRate = 1.0;
+    } else if (playbackRateRef.current < 0) {
+      nextRate = 1.0;
+    } else if (playbackRateRef.current < 1.4) {
+      nextRate = 1.5;
+    } else if (playbackRateRef.current < 1.9) {
+      nextRate = 2.0;
+    } else {
+      nextRate = 4.0;
+    }
+
+    playbackRateRef.current = nextRate;
+    setPlaybackRate(nextRate);
+
+    if (!isPlayingRef.current) {
+      play();
+    } else {
+      syncAudio(currentTimeRef.current, true, false);
+    }
+  }, [play, syncAudio]);
+
+  const shuttlePause = useCallback(() => {
+    // Standard NLE pause (K key)
+    pause();
+    playbackRateRef.current = 1.0;
+    setPlaybackRate(1.0);
+  }, [pause]);
+
+  const shuttleBackward = useCallback(() => {
+    // Standard NLE shuttle reverse / slow down (J key)
+    let nextRate = -1.0;
+    if (!isPlayingRef.current) {
+      nextRate = -1.0;
+    } else if (playbackRateRef.current > 2.5) {
+      nextRate = 2.0;
+    } else if (playbackRateRef.current > 1.6) {
+      nextRate = 1.5;
+    } else if (playbackRateRef.current > 1.1) {
+      nextRate = 1.0;
+    } else if (playbackRateRef.current > 0) {
+      nextRate = -1.0;
+    } else if (playbackRateRef.current > -1.4) {
+      nextRate = -1.5;
+    } else if (playbackRateRef.current > -1.9) {
+      nextRate = -2.0;
+    } else {
+      nextRate = -4.0;
+    }
+
+    playbackRateRef.current = nextRate;
+    setPlaybackRate(nextRate);
+
+    if (!isPlayingRef.current) {
+      if (currentTimeRef.current <= 0) {
+        currentTimeRef.current = duration;
+        setCurrentTime(duration);
+      }
+      play();
+    } else {
+      if (nextRate < 0) {
+        audioMixer.stopAll();
+      } else {
+        syncAudio(currentTimeRef.current, true, false);
+      }
+    }
+  }, [duration, play, syncAudio]);
 
   const seek = useCallback(
     (time: number) => {
@@ -200,5 +301,8 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
     seekRelative,
     setPlaybackRate,
     setIsLooping,
+    shuttleForward,
+    shuttlePause,
+    shuttleBackward,
   };
 }

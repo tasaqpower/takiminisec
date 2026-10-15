@@ -1880,6 +1880,77 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           )}
         </div>
 
+        {/* Lip-Sync Dudak Senkronu (Audio Slip Tool) */}
+        <div className="pt-2 border-t border-[#1c222e] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+              <span>🎙️</span>
+              <span>Lip-Sync Dudak Senkronu (Audio Slip)</span>
+            </span>
+            <span className="text-[10px] font-mono font-bold text-indigo-400">
+              {(selectedClip.audioOffsetMs || 0) > 0
+                ? `+${selectedClip.audioOffsetMs} ms`
+                : (selectedClip.audioOffsetMs || 0) < 0
+                ? `${selectedClip.audioOffsetMs} ms`
+                : '0 ms (Senkron)'}
+            </span>
+          </div>
+          <p className="text-[10px] text-[#8e98a8] leading-tight">
+            Klibin timeline konumunu bozmadan iç sesini öne veya geriye kaydırarak dudak hareketine tam kilitler.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-mono text-[#5A6270]">-500ms</span>
+            <input
+              type="range"
+              min="-500"
+              max="500"
+              step="5"
+              value={selectedClip.audioOffsetMs || 0}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                onUpdateClip(selectedClip.id, { audioOffsetMs: val });
+              }}
+              className="flex-1 accent-[#4f6bf5] h-1 bg-[#171B21] rounded"
+            />
+            <span className="text-[9px] font-mono text-[#5A6270]">+500ms</span>
+          </div>
+
+          <div className="flex items-center gap-1 justify-between pt-0.5">
+            {[
+              { label: '-50ms', val: -50, desc: 'Ses 50ms Geç' },
+              { label: '-10ms', val: -10, desc: 'Ses 10ms Geç' },
+              { label: '0ms Sıfırla', val: 0, desc: 'Sıfırla' },
+              { label: '+10ms', val: 10, desc: 'Ses 10ms Erken' },
+              { label: '+50ms', val: 50, desc: 'Ses 50ms Erken' },
+            ].map((btn) => (
+              <button
+                key={btn.label}
+                type="button"
+                onClick={() => {
+                  if (btn.val === 0) {
+                    onUpdateClip(selectedClip.id, { audioOffsetMs: 0 });
+                  } else {
+                    const currentOffset = selectedClip.audioOffsetMs || 0;
+                    const nextOffset = Math.max(-500, Math.min(500, currentOffset + btn.val));
+                    onUpdateClip(selectedClip.id, { audioOffsetMs: nextOffset });
+                  }
+                }}
+                className={`flex-1 py-1 px-1 rounded-[2px] text-[9px] font-mono font-medium border transition-colors text-center ${
+                  btn.val === 0
+                    ? (selectedClip.audioOffsetMs || 0) === 0
+                      ? 'bg-[#202631] text-[#E7EAF0] border-[#292F39]'
+                      : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-white'
+                    : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:bg-[#202631] hover:text-[#4f6bf5] hover:border-[#4f6bf5]/40'
+                }`}
+                title={btn.desc}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center justify-between pt-1">
           <span className="text-[11px] text-[#929AA8]">Klibi Tamamen Sessize Al (Mute All)</span>
           <button
@@ -2078,6 +2149,58 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               })}
             </div>
           </div>
+
+          {/* Smooth Jump-Cut (AI Kesik Yumuşatma) */}
+          {selectedClip.type === 'video' && (
+            <div className="pt-2.5 border-t border-[#1c222e] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-cyan-400" />
+                  <span>Kesimi Yumuşat (Smooth Jump-Cut)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextVal = !selectedClip.smoothCutIn;
+                    onUpdateClip(selectedClip.id, {
+                      smoothCutIn: nextVal,
+                      smoothCutDurationMs: nextVal ? (selectedClip.smoothCutDurationMs || 160) : undefined,
+                    });
+                  }}
+                  className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                    selectedClip.smoothCutIn
+                      ? 'bg-cyan-500 text-black border-cyan-400 shadow-sm'
+                      : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+                  }`}
+                >
+                  {selectedClip.smoothCutIn ? 'AKTİF' : 'KAPALI'}
+                </button>
+              </div>
+              <p className="text-[10px] text-[#8e98a8] leading-tight">
+                AI videolarında tekrar silme (Ripple Delete) veya kesim sonrası karakterin kafa sıçramasını optik mikro harmanlama ile pürüzsüzleştirir.
+              </p>
+              {selectedClip.smoothCutIn && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[10px] text-[#929AA8]">Süre:</span>
+                  <input
+                    type="range"
+                    min="60"
+                    max="400"
+                    step="20"
+                    value={selectedClip.smoothCutDurationMs || 160}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      onUpdateClip(selectedClip.id, { smoothCutDurationMs: val });
+                    }}
+                    className="flex-1 accent-cyan-400 h-1 bg-[#171B21] rounded"
+                  />
+                  <span className="text-[10px] font-mono text-cyan-300 w-12 text-right">
+                    {selectedClip.smoothCutDurationMs || 160} ms
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </InspectorSection>
     );

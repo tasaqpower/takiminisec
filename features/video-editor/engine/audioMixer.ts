@@ -203,9 +203,10 @@ class AudioMixer {
     project: VideoProject,
     currentTime: number,
     isPlaying: boolean,
-    forceSeek = false
+    forceSeek = false,
+    playbackRate = 1.0
   ): Promise<void> {
-    if (!isPlaying) {
+    if (!isPlaying || playbackRate < 0) {
       this.stopAll();
       return;
     }
@@ -250,7 +251,13 @@ class AudioMixer {
               (clip.assetId && clip.assetId.includes('censor-bleep')) ||
               (clip.name && clip.name.toLowerCase().includes('sansür'));
 
-            let clipRelTime = Math.max(0, (currentTime - clipStart) * speed + (clip.trimIn ?? 0));
+            const audioOffsetSec = (clip.audioOffsetMs || 0) / 1000;
+            const rawRelTime = (currentTime - clipStart) * speed + (clip.trimIn ?? 0) + audioOffsetSec;
+            if (rawRelTime < -0.001) {
+              // Audio is delayed by negative slip and has not reached its starting sample yet
+              continue;
+            }
+            let clipRelTime = Math.max(0, rawRelTime);
             if (shouldLoop && buffer.duration > 0) {
               clipRelTime = clipRelTime % buffer.duration;
             } else if (clipRelTime >= buffer.duration) {
@@ -259,7 +266,8 @@ class AudioMixer {
 
             const source = ctx.createBufferSource();
             source.buffer = buffer;
-            source.playbackRate.value = speed;
+            const clipPlayRate = speed * (playbackRate || 1.0);
+            source.playbackRate.value = Math.max(0.2, Math.min(4.0, clipPlayRate));
             if (shouldLoop && buffer.duration > 0) {
               source.loop = true;
               source.loopStart = 0;
@@ -482,8 +490,14 @@ class AudioMixer {
             Math.abs(clip.startTime - tr.cutTime) < 0.25
         );
 
+        const audioOffsetSec = (clip.audioOffsetMs || 0) / 1000;
         let actualStartTime = startTime;
-        let actualOffset = clip.trimIn || 0;
+        const rawOffset = (clip.trimIn || 0) + audioOffsetSec;
+        let actualOffset = Math.max(0, rawOffset);
+        if (rawOffset < 0) {
+          // Negative slip with insufficient trimIn delays the audio start on timeline
+          actualStartTime = startTime - rawOffset;
+        }
         let preRoll = 0;
         let extension = 0;
 
@@ -498,7 +512,7 @@ class AudioMixer {
           const leftHandle = Math.max(0, clip.trimIn || 0);
           preRoll = Math.min(leftHandle, Math.max(0, startTime - tStart));
           actualStartTime = startTime - preRoll;
-          actualOffset = Math.max(0, (clip.trimIn || 0) - preRoll);
+          actualOffset = Math.max(0, (clip.trimIn || 0) - preRoll + audioOffsetSec);
         }
 
         if (outgoingTrans) {

@@ -402,6 +402,7 @@ export interface VideoClip {
   lipFreeze?: boolean; // Görsel Ağız / Karakter Dondurma (Karakter susturulduğunda ağzının oynamasını engelleme)
   lipFreezeFrameTime?: number; // İsteğe bağlı özel dondurma karesi zamanı (default: trimIn)
   visualMuteMode?: 'lip_freeze' | 'none' | 'blur_mouth'; // Görsel susturma modu
+  audioOffsetMs?: number; // Lip-Sync Audio Slip Offset in ms (-500ms to +500ms)
   fadeIn?: number;
   fadeOut?: number;
 
@@ -412,6 +413,8 @@ export interface VideoClip {
   effects?: Partial<ClipEffects>;
   transitionIn?: Transition;
   transitionOut?: Transition;
+  smoothCutIn?: boolean; // AI Jump-Cut Micro Frame Blend (Kafa sıçramasını yumuşatma)
+  smoothCutDurationMs?: number; // Jump-cut harmanlama süresi (varsayılan: 160ms)
   keyframes?: Keyframe[];
 
   // Text
