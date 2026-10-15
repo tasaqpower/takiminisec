@@ -459,12 +459,17 @@ async function runTortureTest() {
         const docTabBtn = document.querySelector('[data-testid="subtitles-tab-doc"]');
         const dupsTabBtn = document.querySelector('[data-testid="subtitles-tab-duplicates"]');
         const srtTabBtn = document.querySelector('[data-testid="subtitles-tab-srt"]');
+        const startTransBtn = document.querySelector('[data-testid="btn-start-transcription"]');
         const loadDemoBtn = document.querySelector('[data-testid="btn-load-demo-speech"]');
+        const editor = window.__formaEditor;
 
         const hasDocTab = !!docTabBtn;
         const hasDupsTab = !!dupsTabBtn;
         const hasSrtTab = !!srtTabBtn;
+        const hasStartTransBtn = !!startTransBtn;
         const hasLoadDemoBtn = !!loadDemoBtn;
+        const hasWhisperEngine = Boolean(editor?.inBrowserWhisperEngine);
+        const hasSpeechEngine = Boolean(editor?.speechRecognitionEngine);
 
         // Switch to duplicates tab and then back to doc tab
         if (dupsTabBtn) dupsTabBtn.click();
@@ -477,7 +482,10 @@ async function runTortureTest() {
           hasDocTab,
           hasDupsTab,
           hasSrtTab,
+          hasStartTransBtn,
           hasLoadDemoBtn,
+          hasWhisperEngine,
+          hasSpeechEngine,
         };
       })()
     `);
@@ -492,9 +500,10 @@ async function runTortureTest() {
       })()
     `);
     console.log(`[DOM-1F4] SubtitlesTab Descript Metin Kurgu: docTab = ${subtitlesTabResult.hasDocTab}, dupsTab = ${subtitlesTabResult.hasDupsTab}, srtTab = ${subtitlesTabResult.hasSrtTab}`);
-    console.log(`[DOM-1F5] Demo Speech Loaded into Descript Text Editor: ${checkDemoWords.hasDemoWords}`);
-    if (!subtitlesTabResult.hasDocTab || !checkDemoWords.hasDemoWords) {
-      throw new Error('TEST 1F4/1F5 FAILED: Descript Metin Kurgu tab or demo speech loading failed!');
+    console.log(`[DOM-1F5] Whisper AI Transcribe Button: ${subtitlesTabResult.hasStartTransBtn}, In-Browser Whisper Engine: ${subtitlesTabResult.hasWhisperEngine}`);
+    console.log(`[DOM-1F5b] Demo Speech Loaded into Descript Text Editor: ${checkDemoWords.hasDemoWords}`);
+    if (!subtitlesTabResult.hasDocTab || !subtitlesTabResult.hasWhisperEngine || !checkDemoWords.hasDemoWords) {
+      throw new Error('TEST 1F4/1F5 FAILED: Descript Metin Kurgu tab or Whisper engine verification failed!');
     }
 
     // 3. Test VideoPropertiesPanel Lip-Sync -50ms/+50ms buttons

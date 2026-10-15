@@ -39,6 +39,8 @@ export interface SpeechTranscriptionResult {
   silenceDuration: number;
 }
 
+import { inBrowserWhisperEngine } from './whisperTranscriber';
+
 export class SpeechRecognitionEngine {
   /**
    * Performs high-resolution Voice Activity Detection (VAD) on the clip's PCM AudioBuffer.
@@ -220,19 +222,42 @@ export class SpeechRecognitionEngine {
 
   /**
    * Full transcription pipeline for a clip:
-   * 1. Detects exact speech intervals with PCM VAD
-   * 2. Runs Web Speech API if in supported browser or aligns known text
-   * 3. Breaks down speech segments into words and phrases
+   * 1. Runs In-Browser Client-Side Whisper (WASM/WebGPU via @huggingface/transformers) on 16kHz PCM
+   * 2. If Whisper produces word timestamps, returns them directly
+   * 3. Falls back smoothly to PCM VAD + Web Speech API bridge if needed
    */
   public async transcribeClip(
     clip: VideoClip,
     options: {
       language?: string;
       onProgress?: (progressPercent: number, statusText: string) => void;
+      preferWhisper?: boolean;
     } = {}
   ): Promise<SpeechTranscriptionResult> {
+    const isBrowser = typeof window !== 'undefined';
     const lang = options.language || 'tr-TR';
-    options.onProgress?.(15, 'Ses frekansları ve konuşma aktivitesi taranıyor (PCM VAD)...');
+    const preferWhisper = options.preferWhisper !== false;
+
+    // A. 100% In-Browser Whisper via Transformers.js (Zero API keys)
+    if (isBrowser && preferWhisper) {
+      try {
+        options.onProgress?.(5, 'Tarayıcı içi Whisper AI ses modeli hazırlanıyor...');
+        const whisperResult = await inBrowserWhisperEngine.transcribeClip(clip, {
+          language: lang.toLowerCase().startsWith('tr') ? 'turkish' : lang,
+          onProgress: options.onProgress,
+        });
+
+        if (whisperResult && whisperResult.segments.length > 0 && whisperResult.fullText.trim().length > 0) {
+          options.onProgress?.(100, 'Whisper transkripsiyonu başarıyla tamamlandı.');
+          return whisperResult;
+        }
+      } catch (whisperErr) {
+        console.warn('[SpeechRecognitionEngine] In-browser Whisper fallback:', whisperErr);
+      }
+    }
+
+    // B. Acoustic PCM VAD Fallback
+    options.onProgress?.(30, 'Ses frekansları ve konuşma aktivitesi taranıyor (PCM VAD)...');
 
     const segments = await this.detectVoiceActivity(clip, {
       energySensitivity: 0.55,
@@ -240,7 +265,7 @@ export class SpeechRecognitionEngine {
       minSilenceGapSec: 0.25,
     });
 
-    options.onProgress?.(50, `${segments.length} adet konuşma segmenti yakalandı, metin çözümleniyor...`);
+    options.onProgress?.(60, `${segments.length} adet konuşma segmenti yakalandı, metin çözümleniyor...`);
 
     // Calculate total spoken duration
     const totalDuration = clip.duration;
@@ -249,7 +274,6 @@ export class SpeechRecognitionEngine {
     const silenceDuration = Math.max(0, totalDuration - speechDuration);
 
     // If Web Speech API is supported, run live recognition bridge
-    const isBrowser = typeof window !== 'undefined';
     const SpeechRec = isBrowser
       ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       : null;
@@ -259,7 +283,7 @@ export class SpeechRecognitionEngine {
     if (SpeechRec) {
       try {
         recognizedText = await this.recognizeClipAudioStream(clip, lang, (p) => {
-          options.onProgress?.(50 + Math.floor(p * 0.45), 'Tarayıcı ses modeli konuşmayı dinliyor...');
+          options.onProgress?.(60 + Math.floor(p * 0.35), 'Tarayıcı ses modeli konuşmayı dinliyor...');
         });
       } catch (err) {
         console.warn('[SpeechRecognitionEngine] Web Speech live stream skipped/unsupported:', err);

@@ -937,14 +937,20 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
 
           {/* Transcribing Progress bar */}
           {isTranscribing && (
-            <div className="p-2.5 rounded-[3px] bg-[#171B21] border border-purple-500/40 space-y-1.5">
-              <div className="flex justify-between text-[10px] text-purple-300">
-                <span>{transcribeStatusText}</span>
-                <span className="font-mono">{transcribeProgress}%</span>
+            <div className="p-2.5 rounded-[4px] bg-[#171B21] border border-purple-500/40 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-purple-300 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                  <span>🧠 Whisper AI (%100 Tarayıcı İçi / Ücretsiz)</span>
+                </span>
+                <span className="font-mono text-[10px] font-bold text-purple-200">{transcribeProgress}%</span>
               </div>
+              <p className="text-[10px] text-[#929AA8] leading-tight truncate">
+                {transcribeStatusText || 'Yapay Zeka Ses Modeli Hazırlanıyor / Çözümleniyor...'}
+              </p>
               <div className="w-full h-1.5 bg-[#0E1014] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-[#4f6bf5] transition-all duration-200"
+                  className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-[#4f6bf5] transition-all duration-200"
                   style={{ width: `${transcribeProgress}%` }}
                 />
               </div>
@@ -960,7 +966,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
               <div>
                 <p className="text-white font-semibold text-[11px]">Konuşma Metni Henüz Çıkarılmadı</p>
                 <p className="text-[10px] text-[#929AA8] mt-1 leading-relaxed">
-                  Klipteki konuşmayı milisaniyelik zaman damgalarıyla metne dökebilir, kelime seçerek videoyu kırpabilirsiniz.
+                  Klipteki konuşmayı Whisper WASM ile %100 tarayıcı içinde kelime kelime metne dökebilir, kelime seçerek videoyu kırpabilirsiniz.
                 </p>
               </div>
 
@@ -970,10 +976,11 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                   data-testid="btn-start-transcription"
                   onClick={handleStartRealTranscription}
                   disabled={!activeClip || isTranscribing}
-                  className="w-full py-1.5 px-2.5 rounded-[3px] bg-[#4f6bf5] hover:bg-[#3b55d9] disabled:opacity-50 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                  className="w-full py-1.5 px-2.5 rounded-[3px] bg-gradient-to-r from-purple-600 to-[#4f6bf5] hover:from-purple-500 hover:to-[#3b55d9] disabled:opacity-50 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                  title="WASM / WebGPU ile %100 yerel Whisper Tiny modelini çalıştırır (Sıfır API Key)"
                 >
                   <Sparkles size={13} />
-                  <span>Klipteki Konuşmayı Çözümle</span>
+                  <span>🎙️ Whisper AI ile Konuşmayı Çözümle</span>
                 </button>
                 <button
                   type="button"

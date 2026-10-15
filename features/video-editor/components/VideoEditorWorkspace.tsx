@@ -22,6 +22,8 @@ import { parseVideoAiPrompt, AiProposedAction } from '../ai/videoAiDispatcher';
 import { assetDownloader } from '../engine/assetDownloader';
 import { assetCatalog } from '../engine/assetCatalog';
 import { assetPacks } from '../engine/assetPacks';
+import { speechRecognitionEngine } from '../engine/speechRecognitionEngine';
+import { inBrowserWhisperEngine } from '../engine/whisperTranscriber';
 import '../theme/video-editor.css';
 
 interface WorkspaceProps {
@@ -202,6 +204,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         assetDownloader,
         assetCatalog,
         assetPacks,
+        speechRecognitionEngine,
+        inBrowserWhisperEngine,
       };
       (window as any).__audioMixer = audioMixer;
     } else if (typeof window !== 'undefined' && (window as any).__formaEditor) {
