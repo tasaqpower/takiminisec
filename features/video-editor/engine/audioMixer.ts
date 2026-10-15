@@ -249,7 +249,7 @@ class AudioMixer {
               (clip.assetId && clip.assetId.includes('censor-bleep')) ||
               (clip.name && clip.name.toLowerCase().includes('sansür'));
 
-            let clipRelTime = Math.max(0, (currentTime - clipStart) * speed + clip.trimIn);
+            let clipRelTime = Math.max(0, (currentTime - clipStart) * speed + (clip.trimIn ?? 0));
             if (shouldLoop && buffer.duration > 0) {
               clipRelTime = clipRelTime % buffer.duration;
             } else if (clipRelTime >= buffer.duration) {

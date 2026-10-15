@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { VideoProject } from '../types';
 import { audioMixer } from '../engine/audioMixer';
+import { preloadProjectMedia } from '../engine/previewRenderer';
 
 interface PlaybackHookOptions {
   project: VideoProject;
@@ -99,7 +100,25 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
           onTimeUpdate?.(nextTime);
 
           // Continuous audio synchronization across clip boundaries
-          if (now - lastAudioSyncTimeRef.current >= 80) {
+          // Check if playhead stepped across any clip boundary (split point) on this tick
+          let crossedBoundary = false;
+          const prevT = currentTimeRef.current;
+          for (const track of projectRef.current.tracks) {
+            if (track.type === 'video' || track.type === 'audio') {
+              for (const clip of track.clips) {
+                if (
+                  (clip.startTime > prevT && clip.startTime <= nextTime) ||
+                  (clip.startTime + clip.duration > prevT && clip.startTime + clip.duration <= nextTime)
+                ) {
+                  crossedBoundary = true;
+                  break;
+                }
+              }
+              if (crossedBoundary) break;
+            }
+          }
+
+          if (crossedBoundary || now - lastAudioSyncTimeRef.current >= 40) {
             lastAudioSyncTimeRef.current = now;
             syncAudio(nextTime, true, false);
           }
@@ -148,6 +167,9 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
   useEffect(() => {
     audioMixer.preloadProjectAudio(project).catch((err) => {
       console.warn('[FORMA Playback] Audio preloading failed:', err);
+    });
+    preloadProjectMedia(project).catch((err) => {
+      console.warn('[FORMA Playback] Media preloading failed:', err);
     });
 
     if (isPlayingRef.current) {

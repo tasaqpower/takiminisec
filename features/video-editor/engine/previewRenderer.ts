@@ -623,7 +623,10 @@ export function renderScene(renderCtx: RenderContext): void {
         }
 
         // Only process clips active at currentTime (or active via timeline transition)
-        if (!isInActiveTransition && (currentTime < start || currentTime > end)) continue;
+        // Use '< end' to prevent adjacent split clips from overlapping on the split timestamp
+        const isProjectEnd = end >= ((project.duration || 0) - 0.005);
+        const isTimeInClip = currentTime >= start && (isProjectEnd ? currentTime <= end : currentTime < end);
+        if (!isInActiveTransition && !isTimeInClip) continue;
 
         let clipTime = (currentTime - start) * (clip.speed || 1.0);
         if (isInActiveTransition) {
@@ -784,9 +787,8 @@ export function renderScene(renderCtx: RenderContext): void {
 
         // Render by type
         if (clip.type === 'video') {
-          const video = videoElements.get(clip.assetId || '') || videoElements.get(clip.id);
-          const cacheKey = clip.assetId || clip.id;
-          let cachedCanvas = lastFrameCanvasCache.get(cacheKey) || lastFrameCanvasCache.get(clip.id);
+          const video = videoElements.get(clip.id) || videoElements.get(clip.assetId || '');
+          let cachedCanvas = lastFrameCanvasCache.get(clip.id) || (clip.assetId ? lastFrameCanvasCache.get(clip.assetId) : undefined);
           const isVideoReady = isVideoFrameReady(video);
 
           if (isVideoReady || cachedCanvas) {
@@ -967,7 +969,6 @@ export function renderScene(renderCtx: RenderContext): void {
                   if (!cachedCanvas) {
                     cachedCanvas = document.createElement('canvas');
                     lastFrameCanvasCache.set(clip.id, cachedCanvas);
-                    if (clip.assetId) lastFrameCanvasCache.set(clip.assetId, cachedCanvas);
                   }
                   if (cachedCanvas.width !== video.videoWidth || cachedCanvas.height !== video.videoHeight) {
                     cachedCanvas.width = video.videoWidth;
@@ -1612,12 +1613,14 @@ export async function renderFrameToCanvas(
         ((activeLeftClip && clip.id === activeLeftClip.id) ||
          (activeRightClip && clip.id === activeRightClip.id));
 
-      if (isInActiveTransition || (currentTime >= start && currentTime <= start + clip.duration)) {
-        const assetKey = clip.assetId || clip.id;
+      const isProjectEnd = (start + clip.duration) >= ((project.duration || 0) - 0.005);
+      const isTimeInClip = currentTime >= start && (isProjectEnd ? currentTime <= start + clip.duration : currentTime < start + clip.duration);
+
+      if (isInActiveTransition || isTimeInClip) {
+        // Isolate video element per clip instance so split clips never contend or fight over seeking/playback
         let elem =
           preloadedElements?.get(clip.id) ||
-          preloadedElements?.get(clip.assetId || '') ||
-          elementCache.get(assetKey);
+          elementCache.get(clip.id);
 
         if (!elem && (clip.sourceUrl || clip.assetId)) {
           let url = clip.sourceUrl;
@@ -1695,27 +1698,18 @@ export async function renderFrameToCanvas(
                 v.load();
               } catch {}
 
-              elementCache.set(assetKey, v);
+              elementCache.set(clip.id, v);
               elem = v;
 
-              // Ensure video initial frame data is ready before first draw
+              // Non-blocking frame readiness: request redraw the moment frame arrives
               if (v.readyState < 2) {
-                await new Promise<void>((resolve) => {
-                  const onReady = () => {
-                    v.removeEventListener('loadeddata', onReady);
-                    v.removeEventListener('canplay', onReady);
-                    resolve();
-                  };
-                  v.addEventListener('loadeddata', onReady);
-                  v.addEventListener('canplay', onReady);
-                  setTimeout(resolve, 400);
-                });
+                v.addEventListener('canplay', () => notifyCanvasNeedsRedraw(), { once: true });
               }
             } else if (clip.type === 'image') {
               const img = new Image();
               img.crossOrigin = 'anonymous';
               img.src = url;
-              elementCache.set(assetKey, img);
+              elementCache.set(clip.id, img);
               elem = img;
               if (!img.complete) {
                 await new Promise<void>((resolve) => {
@@ -1739,37 +1733,42 @@ export async function renderFrameToCanvas(
             }
 
             if (isPlaying) {
-              elem.playbackRate = clip.speed || 1.0;
+              const targetSpeed = clip.speed || 1.0;
               if (elem.paused) {
+                if (Math.abs(elem.currentTime - clipRelSec) > 0.08) {
+                  try { elem.currentTime = clipRelSec; } catch {}
+                }
                 elem.play().catch(() => {});
               }
-              if (Math.abs(elem.currentTime - clipRelSec) > 0.25) {
-                elem.currentTime = clipRelSec;
+
+              const drift = clipRelSec - elem.currentTime;
+
+              if (Math.abs(drift) > 0.45) {
+                // Large scrub/jump: seek only when not already seeking to prevent seek-storm
+                if (!elem.seeking) {
+                  try { elem.currentTime = clipRelSec; } catch {}
+                }
+              } else if (Math.abs(drift) > 0.025) {
+                // Micro drift (25ms - 450ms): gentle playbackRate adaptation WITHOUT HARD-SEEKING OR JITTER!
+                const catchUpMultiplier = drift > 0 ? 1.06 : 0.94;
+                elem.playbackRate = targetSpeed * catchUpMultiplier;
+              } else {
+                elem.playbackRate = targetSpeed;
               }
             } else {
               if (!elem.paused) {
                 elem.pause();
               }
-              if (Math.abs(elem.currentTime - clipRelSec) > 0.03) {
-                elem.currentTime = clipRelSec;
-                if (elem.seeking) {
-                  await new Promise<void>((resolve) => {
-                    const onSeeked = () => {
-                      elem.removeEventListener('seeked', onSeeked);
-                      resolve();
-                    };
-                    elem.addEventListener('seeked', onSeeked);
-                    setTimeout(resolve, 200);
-                  });
-                }
+              if (Math.abs(elem.currentTime - clipRelSec) > 0.02 && !elem.seeking) {
+                try { elem.currentTime = clipRelSec; } catch {}
               }
             }
 
-            videoElements.set(clip.assetId || clip.id, elem);
             videoElements.set(clip.id, elem);
+            if (clip.assetId) videoElements.set(clip.assetId, elem);
           } else if (elem instanceof HTMLImageElement) {
-            imageElements.set(clip.assetId || clip.id, elem);
             imageElements.set(clip.id, elem);
+            if (clip.assetId) imageElements.set(clip.assetId, elem);
           }
         }
       } else {
@@ -1797,3 +1796,58 @@ export async function renderFrameToCanvas(
     isPlaying,
   });
 }
+
+/**
+ * Pre-warm all media elements for the project to ensure zero-lag switching across split clips
+ */
+export async function preloadProjectMedia(project: VideoProject): Promise<void> {
+  if (typeof document === 'undefined') return;
+
+  let hiddenContainer = document.getElementById('forma-offscreen-media-container');
+  if (!hiddenContainer && document.body) {
+    hiddenContainer = document.createElement('div');
+    hiddenContainer.id = 'forma-offscreen-media-container';
+    hiddenContainer.style.position = 'fixed';
+    hiddenContainer.style.left = '-9999px';
+    hiddenContainer.style.top = '-9999px';
+    hiddenContainer.style.width = '1px';
+    hiddenContainer.style.height = '1px';
+    hiddenContainer.style.opacity = '0';
+    hiddenContainer.style.pointerEvents = 'none';
+    document.body.appendChild(hiddenContainer);
+  }
+
+  for (const track of project.tracks) {
+    if (track.muted || track.visible === false) continue;
+    for (const clip of track.clips) {
+      if (clip.type === 'video' && !elementCache.has(clip.id)) {
+        let url = clip.sourceUrl;
+        if (!url && clip.assetId) {
+          try {
+            const { getAssetBlob } = await import('../db');
+            const blob = await getAssetBlob(clip.assetId);
+            if (blob) url = URL.createObjectURL(blob);
+          } catch {}
+          if (!url) {
+            if (clip.assetId.startsWith('broll-')) url = `/video-assets/broll/${clip.assetId}.webm`;
+            else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') url = `/video-assets/sample-video.webm`;
+          }
+        }
+        if (url) {
+          const v = document.createElement('video');
+          v.crossOrigin = 'anonymous';
+          v.muted = true;
+          v.playsInline = true;
+          v.preload = 'auto';
+          v.autoplay = false;
+          v.src = url;
+          if (hiddenContainer && !v.parentElement) hiddenContainer.appendChild(v);
+          v.addEventListener('canplay', () => notifyCanvasNeedsRedraw(), { once: true });
+          try { v.load(); } catch {}
+          elementCache.set(clip.id, v);
+        }
+      }
+    }
+  }
+}
+

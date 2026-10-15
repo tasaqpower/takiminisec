@@ -521,15 +521,16 @@ export function useVideoProject() {
         const rightDuration = clipEnd - effectiveSplit;
         const speed = targetClip.speed || 1.0;
 
-        const leftTrimIn = targetClip.trimIn;
-        const leftTrimOut = targetClip.trimIn + leftDuration * speed;
+        const leftTrimIn = targetClip.trimIn ?? 0;
+        const leftTrimOut = leftTrimIn + leftDuration * speed;
 
         const rightTrimIn = leftTrimOut;
-        const rightTrimOut = targetClip.trimOut;
+        const rightTrimOut = targetClip.trimOut ?? (rightTrimIn + rightDuration * speed);
 
+        // Keep targetClip.id for leftClip to preserve active media decoder & audio buffers seamlessly
         const leftClip: VideoClip = {
           ...targetClip,
-          id: 'clip-' + Math.random().toString(36).substring(2, 9),
+          id: targetClip.id,
           duration: leftDuration,
           trimIn: leftTrimIn,
           trimOut: leftTrimOut,
@@ -565,14 +566,9 @@ export function useVideoProject() {
       });
 
       if (result) {
-        const { leftClip, rightClip } = result as { leftClip: VideoClip; rightClip: VideoClip };
-        // Smart selection: if leftClip starts after 0s (a middle section in a multi-cut scene),
-        // select leftClip so user can immediately press Delete or Ripple Delete!
-        if (leftClip.startTime > 0.05) {
-          setSelectedClipId(leftClip.id);
-        } else {
-          setSelectedClipId(rightClip.id);
-        }
+        const { rightClip } = result as { leftClip: VideoClip; rightClip: VideoClip };
+        // Select rightClip so user can immediately mute, delete, or add effects to the section following split
+        setSelectedClipId(rightClip.id);
       }
       return result;
     },
