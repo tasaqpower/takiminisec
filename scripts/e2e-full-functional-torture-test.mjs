@@ -357,6 +357,270 @@ async function runTortureTest() {
     auditReport.results.test1_ui_polish = { ...test1Initial, ...test1AfterClip, passed: true };
 
     // =========================================================================
+    // 🧪 TEST 1F: Canlı Tarayıcı DOM Butonları & Tıklama Doğrulaması (Kritik 4 Madde)
+    // =========================================================================
+    console.log('\n--------------------------------------------------------------------------------');
+    console.log('🧪 TEST 1F: Canlı Tarayıcı DOM Butonları & Tıklama Doğrulaması');
+    console.log('--------------------------------------------------------------------------------');
+
+    // 1. Select Klip A and verify Timeline Toolbar Buttons
+    console.log('  Selecting Klip A on timeline...');
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.type === 'video' || t.type === 'image');
+        const clip = track.clips[0];
+        if (editor.selectClip) editor.selectClip(clip.id);
+        const clipEl = document.querySelector('[data-clip-id="' + clip.id + '"]');
+        if (clipEl) clipEl.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 300));
+
+    console.log('  Testing Timeline Toolbar Buttons (Lip-Freeze, Smooth Cut, Tekrar Sil)...');
+    const timelineBtnResult = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.type === 'video' || t.type === 'image');
+        const clip = track.clips[0];
+
+        const lipFreezeBtn = document.querySelector('[data-testid="timeline-btn-vocal-mute"]');
+        const smoothCutBtn = document.querySelector('[data-testid="timeline-btn-smooth-cut"]');
+        const repeatDeleteBtn = document.querySelector('[data-testid="timeline-btn-repeat-delete"]');
+
+        const initialLipFreeze = Boolean(clip.vocalMute);
+        const initialSmoothCut = Boolean(clip.smoothCutIn);
+
+        // Click Lip-Freeze button
+        if (lipFreezeBtn) lipFreezeBtn.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const afterLipFreezeResult = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.type === 'video' || t.type === 'image');
+        const clip = track.clips[0];
+        const afterLipFreeze = Boolean(clip.vocalMute);
+
+        // Click Smooth Cut button
+        const smoothCutBtn = document.querySelector('[data-testid="timeline-btn-smooth-cut"]');
+        if (smoothCutBtn) smoothCutBtn.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const finalTimelineBtnCheck = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.type === 'video' || t.type === 'image');
+        const clip = track.clips[0];
+
+        const lipFreezeBtn = document.querySelector('[data-testid="timeline-btn-vocal-mute"]');
+        const smoothCutBtn = document.querySelector('[data-testid="timeline-btn-smooth-cut"]');
+        const repeatDeleteBtn = document.querySelector('[data-testid="timeline-btn-repeat-delete"]');
+
+        return {
+          hasLipFreezeBtn: !!lipFreezeBtn,
+          hasSmoothCutBtn: !!smoothCutBtn,
+          hasRepeatDeleteBtn: !!repeatDeleteBtn,
+          afterLipFreeze: Boolean(clip.vocalMute),
+          afterSmoothCut: Boolean(clip.smoothCutIn),
+          smoothCutDurationMs: clip.smoothCutDurationMs,
+        };
+      })()
+    `);
+    console.log(`[DOM-1F1] Timeline Lip-Freeze: afterClick = ${finalTimelineBtnCheck.afterLipFreeze} (vocalMute + lipFreeze active: true)`);
+    console.log(`[DOM-1F2] Timeline Smooth Cut: afterClick = ${finalTimelineBtnCheck.afterSmoothCut} (${finalTimelineBtnCheck.smoothCutDurationMs}ms: true)`);
+    console.log(`[DOM-1F3] Timeline Tekrar Sil Button in DOM: ${finalTimelineBtnCheck.hasRepeatDeleteBtn}`);
+    if (!finalTimelineBtnCheck.hasLipFreezeBtn || !finalTimelineBtnCheck.afterLipFreeze) {
+      throw new Error('TEST 1F1 FAILED: Timeline Lip-Freeze button missing or failed to toggle!');
+    }
+    if (!finalTimelineBtnCheck.hasSmoothCutBtn || !finalTimelineBtnCheck.afterSmoothCut) {
+      throw new Error('TEST 1F2 FAILED: Timeline Smooth Cut button missing or failed to toggle!');
+    }
+    if (!finalTimelineBtnCheck.hasRepeatDeleteBtn) {
+      throw new Error('TEST 1F3 FAILED: Timeline Tekrar Sil button missing from DOM!');
+    }
+
+    // 2. Test SubtitlesTab & Descript Text Edit
+    console.log('\n  Testing SubtitlesTab (Descript Metin Kurgu, AI Tekrarlar, Demo Transkript)...');
+    await cdp.eval(`
+      (() => {
+        const subRailBtn = document.querySelector('[data-rail-tab="subtitles"]');
+        if (subRailBtn) subRailBtn.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 300));
+
+    const subtitlesTabResult = await cdp.eval(`
+      (() => {
+        const docTabBtn = document.querySelector('[data-testid="subtitles-tab-doc"]');
+        const dupsTabBtn = document.querySelector('[data-testid="subtitles-tab-duplicates"]');
+        const srtTabBtn = document.querySelector('[data-testid="subtitles-tab-srt"]');
+        const loadDemoBtn = document.querySelector('[data-testid="btn-load-demo-speech"]');
+
+        const hasDocTab = !!docTabBtn;
+        const hasDupsTab = !!dupsTabBtn;
+        const hasSrtTab = !!srtTabBtn;
+        const hasLoadDemoBtn = !!loadDemoBtn;
+
+        // Switch to duplicates tab and then back to doc tab
+        if (dupsTabBtn) dupsTabBtn.click();
+        if (docTabBtn) docTabBtn.click();
+
+        // Load demo speech
+        if (loadDemoBtn) loadDemoBtn.click();
+
+        return {
+          hasDocTab,
+          hasDupsTab,
+          hasSrtTab,
+          hasLoadDemoBtn,
+        };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const checkDemoWords = await cdp.eval(`
+      (() => {
+        const hasDemoWords = Array.from(document.querySelectorAll('*')).some(el =>
+          el.innerText && el.innerText.includes('Herkese')
+        );
+        return { hasDemoWords };
+      })()
+    `);
+    console.log(`[DOM-1F4] SubtitlesTab Descript Metin Kurgu: docTab = ${subtitlesTabResult.hasDocTab}, dupsTab = ${subtitlesTabResult.hasDupsTab}, srtTab = ${subtitlesTabResult.hasSrtTab}`);
+    console.log(`[DOM-1F5] Demo Speech Loaded into Descript Text Editor: ${checkDemoWords.hasDemoWords}`);
+    if (!subtitlesTabResult.hasDocTab || !checkDemoWords.hasDemoWords) {
+      throw new Error('TEST 1F4/1F5 FAILED: Descript Metin Kurgu tab or demo speech loading failed!');
+    }
+
+    // 3. Test VideoPropertiesPanel Lip-Sync -50ms/+50ms buttons
+    console.log('\n  Testing VideoPropertiesPanel Lip-Sync Buttons (-50ms, +50ms)...');
+    // Ensure Klip A is selected so VideoPropertiesPanel shows inspector controls
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.clips.length > 0);
+        const clip = track.clips[0];
+        if (editor.selectClip) editor.selectClip(clip.id);
+        const clipEl = document.querySelector('[data-clip-id="' + clip.id + '"]');
+        if (clipEl) clipEl.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const propertiesLipSyncButtons = await cdp.eval(`
+      (() => {
+        const minus50Btn = document.querySelector('[data-testid="btn-lipsync--50ms"]');
+        const plus50Btn = document.querySelector('[data-testid="btn-lipsync-+50ms"]');
+        const propsSmoothCutBtn = document.querySelector('[data-testid="btn-props-smooth-cut"]');
+        const editor = window.__formaEditor;
+        const clip = editor.project.tracks.flatMap(t => t.clips)[0];
+        const initialOffset = clip?.audioOffsetMs || 0;
+
+        if (minus50Btn) minus50Btn.click();
+        return {
+          hasMinus50Btn: !!minus50Btn,
+          hasPlus50Btn: !!plus50Btn,
+          hasPropsSmoothCutBtn: !!propsSmoothCutBtn,
+          initialOffset,
+        };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const afterMinus50Check = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const clip = editor.project.tracks.flatMap(t => t.clips)[0];
+        const afterMinus50 = clip?.audioOffsetMs;
+
+        // Click +50ms once: -50ms -> 0ms
+        const plus50Btn = document.querySelector('[data-testid="btn-lipsync-+50ms"]');
+        if (plus50Btn) plus50Btn.click();
+        return { afterMinus50 };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const afterZeroCheck = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const clip = editor.project.tracks.flatMap(t => t.clips)[0];
+        const afterZero = clip?.audioOffsetMs;
+
+        // Click +50ms second time: 0ms -> +50ms
+        const plus50Btn = document.querySelector('[data-testid="btn-lipsync-+50ms"]');
+        if (plus50Btn) plus50Btn.click();
+        return { afterZero };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const afterPlus50Check = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const clip = editor.project.tracks.flatMap(t => t.clips)[0];
+        const afterPlus50 = clip?.audioOffsetMs;
+        return { afterPlus50 };
+      })()
+    `);
+
+    const propertiesLipSyncResult = {
+      ...propertiesLipSyncButtons,
+      afterMinus50: afterMinus50Check.afterMinus50,
+      afterZero: afterZeroCheck.afterZero,
+      afterPlus50: afterPlus50Check.afterPlus50,
+    };
+
+    console.log(`[DOM-1F6] Lip-Sync -50ms Click: initial = ${propertiesLipSyncResult.initialOffset}ms -> after = ${propertiesLipSyncResult.afterMinus50}ms`);
+    console.log(`[DOM-1F7] Lip-Sync +50ms Clicks: intermediate = ${propertiesLipSyncResult.afterZero}ms -> after = ${propertiesLipSyncResult.afterPlus50}ms`);
+    if (propertiesLipSyncResult.afterMinus50 !== -50 || propertiesLipSyncResult.afterZero !== 0 || propertiesLipSyncResult.afterPlus50 !== 50) {
+      throw new Error(`TEST 1F6/1F7 FAILED: Lip-Sync offset buttons failed! (minus50: ${propertiesLipSyncResult.afterMinus50}, zero: ${propertiesLipSyncResult.afterZero}, plus50: ${propertiesLipSyncResult.afterPlus50})`);
+    }
+
+    // 4. Test Programmatic & AI Dispatching
+    console.log('\n  Testing AI Intent Dispatching (executeAiAction)...');
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        editor.executeAiAction('Sesi 120ms ileri kaydır (lip-sync)');
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        editor.executeAiAction('Kesikleri yumuşat (smooth cut aç)');
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const aiDispatchResult = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const track = editor.project.tracks.find(t => t.clips.length > 0);
+        const slipOffset = track.clips[0].audioOffsetMs;
+        const smoothCutOk = track.clips.some(c => c.smoothCutIn === true);
+        return {
+          slipOffset,
+          smoothCutOk,
+        };
+      })()
+    `);
+    console.log(`[DOM-1F8] AI Lip-Sync Dispatch: slipOffset = ${aiDispatchResult.slipOffset}ms (expected: 120ms)`);
+    console.log(`[DOM-1F9] AI Smooth Cut Dispatch: smoothCutOk = ${aiDispatchResult.smoothCutOk}`);
+    if (aiDispatchResult.slipOffset !== 120 || !aiDispatchResult.smoothCutOk) {
+      throw new Error('TEST 1F8/1F9 FAILED: executeAiAction did not update project state!');
+    }
+    console.log('✓ TEST 1F PASSED: All Timeline, SubtitlesTab, Properties, and AI dispatcher buttons verified live!');
+    auditReport.results.test1f_dom_buttons = { ...timelineBtnResult, ...subtitlesTabResult, ...propertiesLipSyncResult, ...aiDispatchResult, passed: true };
+
+    // =========================================================================
     // 🧪 TEST 2: AI Son Kare Kırpma (AI Glitch Trim) ve Geçişlerin Gerçek State Kanıtı
     // =========================================================================
     console.log('\n--------------------------------------------------------------------------------');

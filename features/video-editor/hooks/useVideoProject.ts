@@ -1482,7 +1482,8 @@ export function useVideoProject() {
 
   // Toggle Character Vocal Mute with Lip-Freeze Visual Sync
   const toggleClipVocalMute = useCallback(
-    (clipId: string, options?: { lipFreeze?: boolean }) => {
+    (clipId: string, options?: { lipFreeze?: boolean } | boolean) => {
+      const enableLipFreeze = typeof options === 'boolean' ? options : (options?.lipFreeze ?? true);
       commitProjectChange((prev) => ({
         ...prev,
         tracks: prev.tracks.map((track) => ({
@@ -1490,7 +1491,6 @@ export function useVideoProject() {
           clips: track.clips.map((clip) => {
             if (clip.id === clipId) {
               const nextMute = !clip.vocalMute;
-              const enableLipFreeze = options?.lipFreeze ?? true;
               return {
                 ...clip,
                 vocalMute: nextMute,

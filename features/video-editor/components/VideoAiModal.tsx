@@ -7,7 +7,7 @@ interface AiModalProps {
   project: VideoProject;
   isOpen: boolean;
   onClose: () => void;
-  onApplyAction: (updater: (prev: VideoProject) => VideoProject) => void;
+  onApplyAction: (updater: (prev: VideoProject) => VideoProject, action?: AiProposedAction) => void;
 }
 
 const QUICK_PROMPTS = [
@@ -54,7 +54,7 @@ export const VideoAiModal: React.FC<AiModalProps> = ({
 
   const handleConfirmAction = () => {
     if (proposedAction) {
-      onApplyAction(proposedAction.apply);
+      onApplyAction(proposedAction.apply, proposedAction);
       setProposedAction(null);
       setPrompt('');
       onClose();

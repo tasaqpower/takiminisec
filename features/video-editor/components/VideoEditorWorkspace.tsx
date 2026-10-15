@@ -18,6 +18,7 @@ import { ResizableDivider } from './ui/ResizableDivider';
 import { exportEngine } from '../engine/exportEngine';
 import { audioMixer } from '../engine/audioMixer';
 import { renderFrameToCanvas, computeSpeedRampedClipTime } from '../engine/previewRenderer';
+import { parseVideoAiPrompt, AiProposedAction } from '../ai/videoAiDispatcher';
 import { assetDownloader } from '../engine/assetDownloader';
 import { assetCatalog } from '../engine/assetCatalog';
 import { assetPacks } from '../engine/assetPacks';
@@ -142,6 +143,19 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     shuttleBackward,
   } = useVideoPlayback({ project });
 
+  const handleExecuteAiAction = useCallback((actionOrPrompt: string | AiProposedAction) => {
+    let action: AiProposedAction | null = null;
+    if (typeof actionOrPrompt === 'string') {
+      action = parseVideoAiPrompt(actionOrPrompt, project);
+    } else {
+      action = actionOrPrompt;
+    }
+    if (!action) return false;
+
+    commitProjectChange((prev) => action!.apply(prev));
+    return true;
+  }, [project, commitProjectChange]);
+
   useEffect(() => {
     const isDevOrTest =
       process.env.NODE_ENV !== 'production' ||
@@ -162,6 +176,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         play,
         pause,
         currentTime,
+        selectedClipId,
+        setSelectedClipId,
+        selectClip: setSelectedClipId,
         openMediaImport: handleOpenMediaImport,
         isSidebarOpen,
         activeSidebarTab,
@@ -169,7 +186,19 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         audioMixer,
         computeSpeedRampedClipTime,
         renderFrameToCanvas,
+        removeDuplicateRangeFromClip,
+        toggleClipVocalMute,
+        trimClipEndGlitch,
+        trimAllClipsEndGlitch,
+        toggleProjectAutoDucking,
+        toggleProjectCanvasBlurFill,
+        setClipCanvasBlurFill,
+        setClipDelogoPatch,
+        setClipSpeedRamp,
         applyTransitionToAllCuts,
+        toggleProjectAutoWhoosh,
+        addProceduralSfxClip,
+        executeAiAction: handleExecuteAiAction,
         assetDownloader,
         assetCatalog,
         assetPacks,
@@ -179,7 +208,34 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
       delete (window as any).__formaEditor;
       delete (window as any).__audioMixer;
     }
-  }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying, handleOpenMediaImport, isSidebarOpen, activeSidebarTab]);
+  }, [
+    project,
+    setProject,
+    addClip,
+    updateClip,
+    addTimelineTransition,
+    seek,
+    play,
+    pause,
+    currentTime,
+    isPlaying,
+    handleOpenMediaImport,
+    isSidebarOpen,
+    activeSidebarTab,
+    removeDuplicateRangeFromClip,
+    toggleClipVocalMute,
+    trimClipEndGlitch,
+    trimAllClipsEndGlitch,
+    toggleProjectAutoDucking,
+    toggleProjectCanvasBlurFill,
+    setClipCanvasBlurFill,
+    setClipDelogoPatch,
+    setClipSpeedRamp,
+    applyTransitionToAllCuts,
+    toggleProjectAutoWhoosh,
+    addProceduralSfxClip,
+    handleExecuteAiAction,
+  ]);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -368,6 +424,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             onAddTextAnimationSegment={addTextAnimationSegment}
             onSeek={seek}
             onRemoveDuplicateRange={removeDuplicateRangeFromClip}
+            onToggleClipVocalMute={toggleClipVocalMute}
           />
 
           {isSidebarOpen && (
@@ -549,6 +606,10 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onCopyClip={copyClip}
           onPasteClip={(time, trackId) => pasteClip(time ?? currentTime, trackId)}
           onToggleAutoWhoosh={toggleProjectAutoWhoosh}
+          onToggleAutoDucking={toggleProjectAutoDucking}
+          onTrimClipEndGlitch={trimClipEndGlitch}
+          onTrimAllClipsEndGlitch={trimAllClipsEndGlitch}
+          onApplyTransitionToAllCuts={applyTransitionToAllCuts}
           onAddProceduralSfx={(type) => addProceduralSfxClip(type, currentTime)}
           hasClipboard={hasClipboard}
         />
@@ -565,8 +626,12 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           project={project}
           isOpen={isAiModalOpen}
           onClose={() => setIsAiModalOpen(false)}
-          onApplyAction={(updater) => {
-            commitProjectChange((prev) => updater(prev));
+          onApplyAction={(updater, action) => {
+            if (action) {
+              handleExecuteAiAction(action);
+            } else {
+              commitProjectChange((prev) => updater(prev));
+            }
           }}
         />
 

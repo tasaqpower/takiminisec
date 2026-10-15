@@ -182,6 +182,10 @@ interface TimelineProps {
   onCopyClip?: (clipId: string) => void;
   onPasteClip?: (time?: number, trackId?: string) => void;
   onToggleAutoWhoosh?: () => void;
+  onToggleAutoDucking?: () => void;
+  onTrimClipEndGlitch?: (clipId: string) => void;
+  onTrimAllClipsEndGlitch?: () => void;
+  onApplyTransitionToAllCuts?: (transitionType: TransitionType, duration?: number) => number;
   onAddProceduralSfx?: (type: ProceduralSfxType) => void;
   hasClipboard?: boolean;
   className?: string;
@@ -229,10 +233,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onRippleTrimEnd,
   onFreezeFrame,
   onRemoveSilences,
+  onToggleClipVocalMute,
   onRemoveDuplicateRange,
   onCopyClip,
   onPasteClip,
   onToggleAutoWhoosh,
+  onToggleAutoDucking,
+  onTrimClipEndGlitch,
+  onTrimAllClipsEndGlitch,
+  onApplyTransitionToAllCuts,
   onAddProceduralSfx,
   hasClipboard,
   className,
@@ -1192,6 +1201,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Sessizlikleri Kaldır Button */}
           <button
             type="button"
+            data-testid="timeline-btn-silence-delete"
             onClick={() => {
               if (activeTargetClip && onRemoveSilences) {
                 onRemoveSilences(activeTargetClip.id);
@@ -1213,6 +1223,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {onRemoveDuplicateRange && (
             <button
               type="button"
+              data-testid="timeline-btn-repeat-delete"
               onClick={() => {
                 if (activeTargetClip) {
                   handleOpenDuplicateDetector(activeTargetClip);
@@ -1234,6 +1245,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Kareyi Dondur (Freeze Frame) Button */}
           <button
             type="button"
+            data-testid="timeline-btn-freeze-frame"
             onClick={() => {
               if (activeTargetClip && onFreezeFrame) {
                 onFreezeFrame(activeTargetClip.id, currentTime);
@@ -1254,6 +1266,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Ripple Delete Button */}
           <button
             type="button"
+            data-testid="timeline-btn-ripple-delete"
             onClick={() => {
               if (activeTargetClip) onRippleDeleteClip(activeTargetClip.id);
             }}
@@ -1272,6 +1285,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Karakter Sustur (Vocal Suppress + Lip-Freeze) Button */}
           <button
             type="button"
+            data-testid="timeline-btn-vocal-mute"
             onClick={() => {
               if (activeTargetClip) handleToggleVocalMute(activeTargetClip, true);
             }}
@@ -1301,6 +1315,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Quick Censor Speech Button */}
           <button
             type="button"
+            data-testid="timeline-btn-censor-bleep"
             onClick={() => {
               if (activeTargetClip) handleAddCensorBleep(activeTargetClip, 'keep-background');
             }}
@@ -1321,9 +1336,13 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             type="button"
             data-testid="timeline-btn-glitch-trim"
             onClick={() => {
-              if (activeTargetClip && onUpdateClip) {
-                const newDur = Math.max(0.1, parseFloat((activeTargetClip.duration - 0.35).toFixed(2)));
-                onUpdateClip(activeTargetClip.id, { duration: newDur, aiGlitchTrimmed: true });
+              if (activeTargetClip) {
+                if (onTrimClipEndGlitch) {
+                  onTrimClipEndGlitch(activeTargetClip.id);
+                } else if (onUpdateClip) {
+                  const newDur = Math.max(0.1, parseFloat((activeTargetClip.duration - 0.35).toFixed(2)));
+                  onUpdateClip(activeTargetClip.id, { duration: newDur, aiGlitchTrimmed: true });
+                }
               }
             }}
             disabled={!activeTargetClip}
@@ -1338,12 +1357,41 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <span className="text-[11px] font-medium">AI Kırp</span>
           </button>
 
+          {/* Smooth Jump-Cut Toggle */}
+          <button
+            type="button"
+            data-testid="timeline-btn-smooth-cut"
+            onClick={() => {
+              if (activeTargetClip && onUpdateClip) {
+                const nextVal = !activeTargetClip.smoothCutIn;
+                onUpdateClip(activeTargetClip.id, {
+                  smoothCutIn: nextVal,
+                  smoothCutDurationMs: nextVal ? (activeTargetClip.smoothCutDurationMs || 160) : undefined,
+                });
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? activeTargetClip.smoothCutIn
+                  ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/80 shadow-sm'
+                  : 'bg-[#171B21] text-cyan-400 border-cyan-500/40 hover:bg-[#202631] hover:text-cyan-300'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
+            }`}
+            title="Smooth Jump-Cut: Kafa sıçramasını önlemek için 160ms optik mikro harmanlama uygular"
+          >
+            <Sparkles size={12} className={activeTargetClip?.smoothCutIn ? 'text-cyan-300' : 'text-cyan-400'} />
+            <span className="text-[11px] font-medium">Smooth Cut</span>
+          </button>
+
           {/* Auto-Ducking Toggle Button */}
           <button
             type="button"
             data-testid="timeline-btn-auto-ducking"
             onClick={() => {
-              if (onUpdateClip) {
+              if (onToggleAutoDucking) {
+                onToggleAutoDucking();
+              } else if (onUpdateClip) {
                 const nextVal = !project.autoDucking;
                 project.autoDucking = nextVal;
                 if (activeTargetClip) {

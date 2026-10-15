@@ -2375,7 +2375,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </p>
 
           {/* Lip-Freeze Visual Sync Control */}
-          {selectedClip.type === 'video' && (
+          {isVisualMedia && (
             <div className="pt-2 border-t border-[#1c222e]">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
@@ -2455,6 +2455,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <button
                 key={btn.label}
                 type="button"
+                data-testid={`btn-lipsync-${btn.label}`}
                 onClick={() => {
                   if (btn.val === 0) {
                     onUpdateClip(selectedClip.id, { audioOffsetMs: 0 });
@@ -2697,7 +2698,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
 
           {/* Smooth Jump-Cut (AI Kesik Yumuşatma) */}
-          {selectedClip.type === 'video' && (
+          {isVisualMedia && (
             <div className="pt-2.5 border-t border-[#1c222e] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
@@ -2706,6 +2707,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 </span>
                 <button
                   type="button"
+                  data-testid="btn-props-smooth-cut"
                   onClick={() => {
                     const nextVal = !selectedClip.smoothCutIn;
                     onUpdateClip(selectedClip.id, {
@@ -3466,8 +3468,8 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
             {renderAiStabilizationAndMotionBlur()}
             {renderCropAndMask()}
             {renderCompositing()}
-            {selectedClip.type === 'video' && renderSpeed()}
-            {selectedClip.type === 'video' && renderAudioSettings()}
+            {isVisualMedia && renderSpeed()}
+            {isVisualMedia && renderAudioSettings()}
             {renderColorFilters()}
             {renderChromaKey()}
             {renderTransitions()}

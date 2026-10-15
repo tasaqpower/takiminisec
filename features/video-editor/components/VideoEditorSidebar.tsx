@@ -60,6 +60,7 @@ export interface VideoEditorSidebarProps {
     rangeEnd: number,
     action: 'ripple_delete' | 'vocal_mute' | 'censor_bleep'
   ) => boolean;
+  onToggleClipVocalMute?: (clipId: string, enableLipFreeze?: boolean) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -116,6 +117,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
   onAddTextAnimationSegment,
   onSeek,
   onRemoveDuplicateRange,
+  onToggleClipVocalMute,
   className,
   style,
 }) => {
@@ -316,6 +318,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 selectedClipId={selectedClipId}
                 onSeek={onSeek}
                 onRemoveDuplicateRange={onRemoveDuplicateRange}
+                onToggleClipVocalMute={onToggleClipVocalMute}
               />
             )}
 

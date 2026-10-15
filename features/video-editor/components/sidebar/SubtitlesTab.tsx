@@ -41,6 +41,7 @@ export interface SubtitlesTabProps {
     rangeEnd: number,
     action: 'ripple_delete' | 'vocal_mute' | 'censor_bleep'
   ) => boolean;
+  onToggleClipVocalMute?: (clipId: string, enableLipFreeze?: boolean) => void;
 }
 
 export interface FlattenedTranscriptWord {
@@ -116,6 +117,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
   onSeek,
   selectedClipId,
   onRemoveDuplicateRange,
+  onToggleClipVocalMute,
 }) => {
   const srtInputRef = useRef<HTMLInputElement>(null);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
@@ -838,6 +840,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
         <div className="grid grid-cols-3 gap-1 bg-[#171B21] p-0.5 rounded-[4px] border border-[#292F39]">
           <button
             type="button"
+            data-testid="subtitles-tab-doc"
             onClick={() => setViewMode('doc')}
             className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium flex items-center justify-center gap-1 transition-all ${
               viewMode === 'doc'
@@ -850,6 +853,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
           </button>
           <button
             type="button"
+            data-testid="subtitles-tab-duplicates"
             onClick={() => setViewMode('duplicates')}
             className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium flex items-center justify-center gap-1 transition-all ${
               viewMode === 'duplicates'
@@ -867,6 +871,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
           </button>
           <button
             type="button"
+            data-testid="subtitles-tab-srt"
             onClick={() => setViewMode('srt')}
             className={`py-1 px-1.5 rounded-[3px] text-[10px] font-medium flex items-center justify-center gap-1 transition-all ${
               viewMode === 'srt'
@@ -962,6 +967,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
               <div className="space-y-1.5 pt-1">
                 <button
                   type="button"
+                  data-testid="btn-start-transcription"
                   onClick={handleStartRealTranscription}
                   disabled={!activeClip || isTranscribing}
                   className="w-full py-1.5 px-2.5 rounded-[3px] bg-[#4f6bf5] hover:bg-[#3b55d9] disabled:opacity-50 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
@@ -971,6 +977,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                 </button>
                 <button
                   type="button"
+                  data-testid="btn-load-demo-speech"
                   onClick={handleLoadDemoSpeech}
                   className="w-full py-1.5 px-2 rounded-[3px] bg-[#202631] hover:bg-[#28303e] border border-[#292F39] text-[#93c5fd] font-medium text-[10px] flex items-center justify-center gap-1.5 transition-colors"
                 >
