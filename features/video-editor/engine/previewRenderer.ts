@@ -5,7 +5,7 @@
  * exact clip bounding gizmo, full transition support, and typography rasterization.
  */
 
-import type { VideoProject, VideoClip, Keyframe } from '../types';
+import type { VideoProject, VideoClip, Keyframe, SpeedRampPreset } from '../types';
 import {
   buildCanvasFilterString,
   applyCanvasPostEffects,
@@ -14,6 +14,7 @@ import {
   getCachedCubeLut,
   applyCubeLutToCanvas,
   loadAndCacheCubeLut,
+  applyCrispAiSharpness,
 } from './filterEngine';
 import { computeTransitionState, TransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
@@ -165,6 +166,54 @@ function interpolateKeyframeValue(
   }
 
   return defaultValue;
+}
+
+/**
+ * Maps linear playback seconds to non-linear speed-ramped source seconds.
+ * Provides continuous, deterministic frame positions for Montage, Bullet-Time, and Jump-In curves.
+ */
+export function computeSpeedRampedClipTime(
+  clipTimeSec: number,
+  clipDuration: number,
+  preset?: SpeedRampPreset,
+  baseSpeed = 1.0
+): number {
+  if (!preset || preset === 'none') {
+    return clipTimeSec * baseSpeed;
+  }
+  const D = Math.max(0.1, clipDuration);
+  const t = Math.max(0, Math.min(D, clipTimeSec));
+
+  if (preset === 'montage') {
+    // Montage: Fast intro (2.5x), Dramatic slowdown (0.6x), Settle (1.0x)
+    if (t < 0.25 * D) {
+      return t * 2.5 * baseSpeed;
+    } else if (t < 0.75 * D) {
+      return (0.25 * D * 2.5 + (t - 0.25 * D) * 0.6) * baseSpeed;
+    } else {
+      return (0.25 * D * 2.5 + 0.5 * D * 0.6 + (t - 0.75 * D) * 1.0) * baseSpeed;
+    }
+  } else if (preset === 'bullet-time') {
+    // Bullet-Time: Normal (1.0x), Freeze/Ultra slow-mo (0.25x), Resume (1.0x)
+    if (t < 0.25 * D) {
+      return t * 1.0 * baseSpeed;
+    } else if (t < 0.70 * D) {
+      return (0.25 * D * 1.0 + (t - 0.25 * D) * 0.25) * baseSpeed;
+    } else {
+      return (0.25 * D * 1.0 + 0.45 * D * 0.25 + (t - 0.70 * D) * 1.0) * baseSpeed;
+    }
+  } else if (preset === 'jump-in') {
+    // Jump-In: Anticipation slow (0.5x), Speed burst (3.0x), Settle (1.0x)
+    if (t < 0.30 * D) {
+      return t * 0.5 * baseSpeed;
+    } else if (t < 0.70 * D) {
+      return (0.30 * D * 0.5 + (t - 0.30 * D) * 3.0) * baseSpeed;
+    } else {
+      return (0.30 * D * 0.5 + 0.40 * D * 3.0 + (t - 0.70 * D) * 1.0) * baseSpeed;
+    }
+  }
+
+  return clipTimeSec * baseSpeed;
 }
 
 let chromaOffscreenCanvas: HTMLCanvasElement | null = null;
@@ -648,11 +697,17 @@ export function renderScene(renderCtx: RenderContext): void {
         const isTimeInClip = currentTime >= start && (isProjectEnd ? currentTime <= end : currentTime < end);
         if (!isInActiveTransition && !isTimeInClip) continue;
 
-        let clipTime = (currentTime - start) * (clip.speed || 1.0);
+        const rampedClipTime = computeSpeedRampedClipTime(
+          currentTime - start,
+          clip.duration,
+          clip.speedRampPreset,
+          clip.speed || 1.0
+        );
+        let clipTime = rampedClipTime;
         if (isInActiveTransition) {
           const trimIn = clip.trimIn || 0;
           const maxSource = clip.sourceDuration || (trimIn + clip.duration);
-          const rawSourceTime = trimIn + (currentTime - start) * (clip.speed || 1.0);
+          const rawSourceTime = trimIn + rampedClipTime;
           const boundedSourceTime = Math.max(0, Math.min(maxSource, rawSourceTime));
           clipTime = boundedSourceTime - trimIn;
         }
@@ -960,6 +1015,31 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
+            // 9:16 & 1:1 Canvas Blur Fill (CapCut Blur for vertical / square projects)
+            const shouldBlurFill = Boolean(
+              clip.canvasBlurFill || project.canvasBlurFill || project.canvas?.blurBackground
+            );
+            if (shouldBlurFill && (dw < width - 2 || dh < height - 2)) {
+              ctx.save();
+              const bgSource = (isVideoReady && video) ? video : (lipFreezeCanvas || cachedCanvas);
+              if (bgSource) {
+                ctx.filter = 'blur(28px) brightness(0.65)';
+                let bgW = width * sX;
+                let bgH = height * sY;
+                const vRatio = vw / Math.max(1, vh);
+                const cRatio = width / Math.max(1, height);
+                if (vRatio > cRatio) {
+                  bgH = height * sY;
+                  bgW = (height * vRatio) * sX;
+                } else {
+                  bgW = width * sX;
+                  bgH = (width / vRatio) * sY;
+                }
+                ctx.drawImage(bgSource, -bgW / 2, -bgH / 2, bgW, bgH);
+              }
+              ctx.restore();
+            }
+
             // Draw active video or cached frame (with ChromaKey and Lip-Freeze support)
             const chroma = clip.effects?.chromaKey;
             const useChroma = chroma && chroma.enabled;
@@ -1147,6 +1227,57 @@ export function renderScene(renderCtx: RenderContext): void {
                 ctx.fillRect(-dw / 2, y, dw, 1.5);
               }
               ctx.restore();
+            }
+
+            // AI Watermark / Logo Mask (Delogo Patch: Blur / Pixelate)
+            if (clip.delogoPatch && clip.delogoPatch.enabled) {
+              const patch = clip.delogoPatch;
+              const px = -dw / 2 + (patch.x / 100) * dw;
+              const py = -dh / 2 + (patch.y / 100) * dh;
+              const pw = (patch.width / 100) * dw;
+              const ph = (patch.height / 100) * dh;
+
+              if (pw > 2 && ph > 2) {
+                ctx.save();
+                if (patch.mode === 'pixelate') {
+                  try {
+                    const pCanvas = document.createElement('canvas');
+                    pCanvas.width = Math.max(4, Math.floor(pw / 8));
+                    pCanvas.height = Math.max(4, Math.floor(ph / 8));
+                    const pCtx = pCanvas.getContext('2d');
+                    const srcElem = (isVideoReady && video) ? video : (lipFreezeCanvas || cachedCanvas);
+                    if (pCtx && srcElem) {
+                      pCtx.imageSmoothingEnabled = false;
+                      const srcX = (patch.x / 100) * vw;
+                      const srcY = (patch.y / 100) * vh;
+                      const srcW = (patch.width / 100) * vw;
+                      const srcH = (patch.height / 100) * vh;
+                      pCtx.drawImage(srcElem, srcX, srcY, srcW, srcH, 0, 0, pCanvas.width, pCanvas.height);
+                      ctx.imageSmoothingEnabled = false;
+                      ctx.drawImage(pCanvas, 0, 0, pCanvas.width, pCanvas.height, px, py, pw, ph);
+                    }
+                  } catch (_) {}
+                } else {
+                  // Blur patch
+                  ctx.beginPath();
+                  safeRoundRect(ctx, px, py, pw, ph, 4);
+                  ctx.clip();
+                  ctx.filter = 'blur(16px)';
+                  const srcElem = (isVideoReady && video) ? video : (lipFreezeCanvas || cachedCanvas);
+                  if (srcElem) {
+                    ctx.drawImage(srcElem, -dw / 2, -dh / 2, dw, dh);
+                  }
+                }
+                ctx.restore();
+              }
+            }
+
+            // Crisp AI Sharpness: restores high-frequency micro details on AI video footage
+            if (
+              (clip.effects?.sharpness && clip.effects.sharpness > 0) ||
+              (clip.colorFilter && clip.colorFilter.includes('sharp'))
+            ) {
+              applyCrispAiSharpness(ctx, width, height, clip.effects?.sharpness || 0.45);
             }
 
             // Apply any active timed effect segments on this clip
@@ -1835,11 +1966,17 @@ export async function renderFrameToCanvas(
             const isLipFrozen = Boolean(clip.lipFreeze || clip.visualMuteMode === 'lip_freeze');
             const frozenTime = clip.lipFreezeFrameTime ?? (clip.trimIn ?? 0);
 
-            let clipRelSec = (currentTime - start) * (clip.speed || 1.0) + clip.trimIn;
+            const rampedSec = computeSpeedRampedClipTime(
+              currentTime - start,
+              clip.duration,
+              clip.speedRampPreset,
+              clip.speed || 1.0
+            );
+            let clipRelSec = rampedSec + clip.trimIn;
             if (isInActiveTransition) {
               const trimIn = clip.trimIn || 0;
               const maxSource = clip.sourceDuration || (trimIn + clip.duration);
-              const rawSourceTime = trimIn + (currentTime - start) * (clip.speed || 1.0);
+              const rawSourceTime = trimIn + rampedSec;
               clipRelSec = Math.max(0, Math.min(maxSource, rawSourceTime));
             }
 

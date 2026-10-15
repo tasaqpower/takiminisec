@@ -242,8 +242,10 @@ class AudioMixer {
       for (const clip of track.clips) {
         if (clip.muted || (clip.volume !== undefined && clip.volume <= 0)) continue;
 
-        const clipStart = clip.startTime;
-        const clipEnd = clip.startTime + clip.duration;
+        const jCutOffset = clip.jCutOffsetSec || 0;
+        const lCutOffset = clip.lCutOffsetSec || 0;
+        const clipStart = Math.max(0, clip.startTime - jCutOffset);
+        const clipEnd = clip.startTime + clip.duration + lCutOffset;
 
         if (currentTime >= clipStart && currentTime < clipEnd) {
           activeClipIds.add(clip.id);
@@ -386,17 +388,14 @@ class AudioMixer {
     audioCtxTime: number
   ): void {
     const baseVolume = clip.volume ?? 1.0;
-    const fadeIn = clip.fadeIn ?? 0;
-    const fadeOut = clip.fadeOut ?? 0;
+    // Automatic 15ms anti-pop/click micro-fade protection
+    const microFadeSec = 0.015;
+    const fadeIn = Math.max(microFadeSec, clip.fadeIn ?? 0);
+    const fadeOut = Math.max(microFadeSec, clip.fadeOut ?? 0);
     const duration = clip.duration;
 
     const gain = gainNode.gain;
     gain.cancelScheduledValues(audioCtxTime);
-
-    if (fadeIn <= 0 && fadeOut <= 0) {
-      gain.setValueAtTime(baseVolume, audioCtxTime);
-      return;
-    }
 
     // Current volume calculation based on position
     let initialVol = baseVolume;
@@ -464,8 +463,61 @@ class AudioMixer {
 
     let hasAudio = false;
 
+    // Detect speech intervals across timeline for Auto-Ducking
+    const speechIntervals: Array<{ start: number; end: number }> = [];
+    if (project.autoDucking) {
+      for (const track of project.tracks) {
+        if (track.muted) continue;
+        const isMusic =
+          track.name?.toLowerCase().includes('müzik') ||
+          track.name?.toLowerCase().includes('music') ||
+          track.name?.toLowerCase().includes('bg') ||
+          track.name?.toLowerCase().includes('arka plan');
+        if (isMusic) continue;
+
+        for (const clip of track.clips) {
+          if (clip.muted || clip.volume === 0 || clip.vocalMute) continue;
+          const jCut = clip.jCutOffsetSec || 0;
+          const lCut = clip.lCutOffsetSec || 0;
+          const s = Math.max(0, clip.startTime - jCut);
+          const e = clip.startTime + clip.duration + lCut;
+          speechIntervals.push({ start: s, end: e });
+        }
+      }
+      if (project.subtitles && project.subtitles.length > 0) {
+        for (const sub of project.subtitles) {
+          speechIntervals.push({ start: sub.startTime, end: sub.endTime });
+        }
+      }
+    }
+
+    const mergedSpeechIntervals: Array<{ start: number; end: number }> = [];
+    if (speechIntervals.length > 0) {
+      speechIntervals.sort((a, b) => a.start - b.start);
+      let cur = { ...speechIntervals[0] };
+      for (let i = 1; i < speechIntervals.length; i++) {
+        if (speechIntervals[i].start <= cur.end + 0.05) {
+          cur.end = Math.max(cur.end, speechIntervals[i].end);
+        } else {
+          mergedSpeechIntervals.push(cur);
+          cur = { ...speechIntervals[i] };
+        }
+      }
+      mergedSpeechIntervals.push(cur);
+    }
+
+    const duckDb = project.autoDuckingDb ?? -12;
+    const duckRatio = Math.max(0.05, Math.min(1.0, Math.pow(10, duckDb / 20))); // ~0.25 (-12dB)
+    const duckFadeSec = (project.autoDuckingFadeMs ?? 300) / 1000; // 300ms fade
+
     for (const track of project.tracks) {
       if (track.muted || (track.type !== 'audio' && track.type !== 'video')) continue;
+
+      const isMusicTrack =
+        track.name?.toLowerCase().includes('müzik') ||
+        track.name?.toLowerCase().includes('music') ||
+        track.name?.toLowerCase().includes('bg') ||
+        track.name?.toLowerCase().includes('arka plan');
 
       const trackTransitions = [
         ...(track.transitions || []),
@@ -502,14 +554,17 @@ class AudioMixer {
             Math.abs(clip.startTime - tr.cutTime) < 0.25
         );
 
+        const jCutOffset = clip.jCutOffsetSec || 0;
+        const lCutOffset = clip.lCutOffsetSec || 0;
         const audioOffsetSec = (clip.audioOffsetMs || 0) / 1000;
-        let actualStartTime = startTime;
-        const rawOffset = (clip.trimIn || 0) + audioOffsetSec;
+
+        let actualStartTime = Math.max(0, startTime - jCutOffset);
+        const rawOffset = (clip.trimIn || 0) + audioOffsetSec - jCutOffset;
         let actualOffset = Math.max(0, rawOffset);
         if (rawOffset < 0) {
-          // Negative slip with insufficient trimIn delays the audio start on timeline
           actualStartTime = startTime - rawOffset;
         }
+
         let preRoll = 0;
         let extension = 0;
 
@@ -523,8 +578,8 @@ class AudioMixer {
               : incomingTrans.cutTime - transDur / 2;
           const leftHandle = Math.max(0, clip.trimIn || 0);
           preRoll = Math.min(leftHandle, Math.max(0, startTime - tStart));
-          actualStartTime = startTime - preRoll;
-          actualOffset = Math.max(0, (clip.trimIn || 0) - preRoll + audioOffsetSec);
+          actualStartTime = Math.max(0, startTime - preRoll - jCutOffset);
+          actualOffset = Math.max(0, (clip.trimIn || 0) - preRoll + audioOffsetSec - jCutOffset);
         }
 
         if (outgoingTrans) {
@@ -541,9 +596,15 @@ class AudioMixer {
           extension = Math.min(rightHandle, Math.max(0, tEnd - (startTime + clipDuration)));
         }
 
-        const totalPlayDuration = (clipDuration + preRoll + extension) * (clip.speed || 1.0);
+        const totalPlayDuration =
+          (clipDuration + preRoll + extension + jCutOffset + lCutOffset) * (clip.speed || 1.0);
 
-        // Gain schedule
+        // 15ms Micro-Fade Anti-Pop protection
+        const microFadeSec = 0.015;
+        const effectiveFadeIn = Math.max(microFadeSec, clip.fadeIn ?? 0);
+        const effectiveFadeOut = Math.max(microFadeSec, clip.fadeOut ?? 0);
+
+        // Gain schedule with micro-fade and crossfade transitions
         if (incomingTrans && preRoll > 0) {
           const transDur = incomingTrans.duration || 1.0;
           const tStart =
@@ -555,11 +616,31 @@ class AudioMixer {
           const tEnd = tStart + transDur;
           gainNode.gain.setValueAtTime(0, actualStartTime);
           gainNode.gain.linearRampToValueAtTime(baseVolume, tEnd);
-        } else if (clip.fadeIn && clip.fadeIn > 0) {
-          gainNode.gain.setValueAtTime(0, actualStartTime);
-          gainNode.gain.linearRampToValueAtTime(baseVolume, actualStartTime + clip.fadeIn);
         } else {
-          gainNode.gain.setValueAtTime(baseVolume, actualStartTime);
+          gainNode.gain.setValueAtTime(0, actualStartTime);
+          gainNode.gain.linearRampToValueAtTime(baseVolume, actualStartTime + effectiveFadeIn);
+        }
+
+        // Auto-Ducking on background music during speech
+        const isMusic =
+          isMusicTrack || (clip.assetId && clip.assetId.includes('music')) || (clip.name && clip.name.toLowerCase().includes('müzik'));
+        if (project.autoDucking && isMusic && mergedSpeechIntervals.length > 0) {
+          const clipEndSec = actualStartTime + totalPlayDuration;
+          for (const sp of mergedSpeechIntervals) {
+            if (sp.end <= actualStartTime || sp.start >= clipEndSec) continue;
+
+            const duckStart = Math.max(actualStartTime + effectiveFadeIn, sp.start - duckFadeSec);
+            const duckLowStart = Math.max(actualStartTime, sp.start);
+            const duckLowEnd = Math.min(clipEndSec - effectiveFadeOut, sp.end);
+            const duckRecoverEnd = Math.min(clipEndSec, sp.end + duckFadeSec);
+
+            if (duckLowStart < duckLowEnd) {
+              gainNode.gain.setValueAtTime(baseVolume, duckStart);
+              gainNode.gain.linearRampToValueAtTime(baseVolume * duckRatio, duckLowStart);
+              gainNode.gain.setValueAtTime(baseVolume * duckRatio, duckLowEnd);
+              gainNode.gain.linearRampToValueAtTime(baseVolume, duckRecoverEnd);
+            }
+          }
         }
 
         if (outgoingTrans && extension > 0) {
@@ -573,10 +654,12 @@ class AudioMixer {
           const tEnd = tStart + transDur;
           gainNode.gain.setValueAtTime(baseVolume, tStart);
           gainNode.gain.linearRampToValueAtTime(0, tEnd);
-        } else if (clip.fadeOut && clip.fadeOut > 0) {
-          const fadeStart = startTime + clipDuration - clip.fadeOut;
-          gainNode.gain.setValueAtTime(baseVolume, Math.max(startTime, fadeStart));
-          gainNode.gain.linearRampToValueAtTime(0, startTime + clipDuration);
+        } else {
+          const fadeStart = actualStartTime + totalPlayDuration - effectiveFadeOut;
+          if (fadeStart > actualStartTime + effectiveFadeIn) {
+            gainNode.gain.setValueAtTime(baseVolume, fadeStart);
+            gainNode.gain.linearRampToValueAtTime(0, actualStartTime + totalPlayDuration);
+          }
         }
 
         if (totalPlayDuration > buffer.duration) {

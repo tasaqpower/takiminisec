@@ -794,42 +794,168 @@ export function renderTextLayer(
     ctx.shadowOffsetY = shadowOffsetY;
   }
 
-  // Draw Lines
+  // Draw Lines (Standard or Word-by-Word Karaoke Subtitles)
   const startY = -(totalTextHeight / 2) + lineHeight / 2;
+  const isKaraokeSubtitle = Boolean(
+    (layer.subtitleStyle && layer.subtitleStyle !== 'classic') ||
+    (layer.subtitleWords && layer.subtitleWords.length > 0)
+  );
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const y = startY + i * lineHeight;
+  if (isKaraokeSubtitle) {
+    const subStyle = layer.subtitleStyle || 'hormozi';
+    const allWords =
+      layer.subtitleWords && layer.subtitleWords.length > 0
+        ? layer.subtitleWords
+        : lines.join(' ').trim().split(/\s+/).filter(Boolean).map((w, idx, arr) => ({
+            word: w,
+            start: (idx / Math.max(1, arr.length)) * clipDuration,
+            end: ((idx + 1) / Math.max(1, arr.length)) * clipDuration,
+          }));
 
-    // Stroke
-    if (layer.strokeColor && (layer.strokeWidth || 0) > 0) {
-      ctx.lineWidth = layer.strokeWidth || 2;
-      ctx.strokeStyle = layer.strokeColor;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(line, 0, y);
-    }
+    let globalWordIdx = 0;
 
-    // Fill
-    ctx.fillStyle = layer.fillColor || layer.color || '#ffffff';
-    ctx.fillText(line, 0, y);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineWords = line.trim().split(/\s+/).filter(Boolean);
+      if (lineWords.length === 0) continue;
 
-    // Underline
-    if (layer.underline) {
-      const lineWidth = ctx.measureText(line).width;
-      let lineStartX = -lineWidth / 2;
+      const y = startY + i * lineHeight;
+      const spaceW = ctx.measureText(' ').width;
+      const wordWidths = lineWords.map((w) => ctx.measureText(w).width);
+      const totalLineWidth = wordWidths.reduce((a, b) => a + b, 0) + (lineWords.length - 1) * spaceW;
+
+      let curX = -totalLineWidth / 2;
       const align = layer.textAlign || layer.alignment || 'center';
-      if (align === 'left') lineStartX = 0;
-      else if (align === 'right') lineStartX = -lineWidth;
+      if (align === 'left') curX = 0;
+      else if (align === 'right') curX = -totalLineWidth;
 
-      const underlineY = y + fontSize * 0.52;
-      ctx.save();
-      ctx.strokeStyle = layer.fillColor || layer.color || '#ffffff';
-      ctx.lineWidth = Math.max(1, fontSize * 0.06);
-      ctx.beginPath();
-      ctx.moveTo(lineStartX, underlineY);
-      ctx.lineTo(lineStartX + lineWidth, underlineY);
-      ctx.stroke();
-      ctx.restore();
+      for (let wIdx = 0; wIdx < lineWords.length; wIdx++) {
+        const wordText = lineWords[wIdx];
+        const wWidth = wordWidths[wIdx];
+        const wordTiming = allWords[globalWordIdx] || {
+          word: wordText,
+          start: (globalWordIdx / Math.max(1, allWords.length)) * clipDuration,
+          end: ((globalWordIdx + 1) / Math.max(1, allWords.length)) * clipDuration,
+        };
+
+        const isActive = timeInClip >= wordTiming.start && timeInClip < wordTiming.end;
+        const isPast = timeInClip >= wordTiming.end;
+
+        ctx.save();
+
+        if (subStyle === 'hormozi') {
+          // 1. Hormozi Bold: Canary Yellow pop, thick black outline, heavy drop shadow
+          if (isActive) {
+            ctx.translate(curX + wWidth / 2, y);
+            const popScale = layer.activeWordScale || 1.15;
+            ctx.scale(popScale, popScale);
+            ctx.lineWidth = Math.max(4, fontSize * 0.12);
+            ctx.strokeStyle = '#000000';
+            ctx.lineJoin = 'round';
+            ctx.strokeText(wordText, -wWidth / 2, 0);
+            ctx.fillStyle = layer.activeWordColor || '#FFE600';
+            ctx.shadowColor = 'rgba(0,0,0,0.95)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
+            ctx.fillText(wordText, -wWidth / 2, 0);
+          } else {
+            ctx.lineWidth = Math.max(2.5, fontSize * 0.08);
+            ctx.strokeStyle = '#000000';
+            ctx.lineJoin = 'round';
+            ctx.strokeText(wordText, curX, y);
+            ctx.fillStyle = isPast ? '#FFFFFF' : 'rgba(255, 255, 255, 0.75)';
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(wordText, curX, y);
+          }
+        } else if (subStyle === 'neon-glow') {
+          // 2. Neon Glow: Vibrant pink/magenta active glow, cyan base
+          if (isActive) {
+            ctx.translate(curX + wWidth / 2, y);
+            ctx.scale(1.08, 1.08);
+            ctx.shadowColor = layer.activeWordColor || '#FF007F';
+            ctx.shadowBlur = 24;
+            ctx.lineWidth = Math.max(2, fontSize * 0.06);
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.strokeText(wordText, -wWidth / 2, 0);
+            ctx.fillStyle = layer.activeWordColor || '#FF007F';
+            ctx.fillText(wordText, -wWidth / 2, 0);
+          } else {
+            ctx.shadowColor = '#00F0FF';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = isPast ? '#E0F2FE' : 'rgba(224, 242, 254, 0.6)';
+            ctx.fillText(wordText, curX, y);
+          }
+        } else if (subStyle === 'minimal-box') {
+          // 3. Minimal Box: High-contrast rounded pill box behind active word
+          if (isActive) {
+            const pad = 6;
+            ctx.fillStyle = layer.activeWordBoxColor || 'rgba(15, 23, 42, 0.95)';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            safeRoundRect(ctx, curX - pad, y - fontSize * 0.8, wWidth + pad * 2, fontSize * 1.05, 5);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(wordText, curX, y);
+          } else {
+            ctx.fillStyle = isPast ? '#F8FAFC' : 'rgba(148, 163, 184, 0.7)';
+            ctx.fillText(wordText, curX, y);
+          }
+        } else if (subStyle === 'typewriter') {
+          // 4. Typewriter: Terminal green text typing out with blinking cursor
+          if (timeInClip >= wordTiming.start) {
+            ctx.fillStyle = '#22C55E';
+            ctx.fillText(wordText, curX, y);
+            if (isActive && Math.sin(timeInClip * 10) > 0) {
+              ctx.fillStyle = '#4ADE80';
+              ctx.fillText('|', curX + wWidth + 2, y);
+            }
+          }
+        }
+
+        ctx.restore();
+        curX += wWidth + spaceW;
+        globalWordIdx++;
+      }
+    }
+  } else {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const y = startY + i * lineHeight;
+
+      // Stroke
+      if (layer.strokeColor && (layer.strokeWidth || 0) > 0) {
+        ctx.lineWidth = layer.strokeWidth || 2;
+        ctx.strokeStyle = layer.strokeColor;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(line, 0, y);
+      }
+
+      // Fill
+      ctx.fillStyle = layer.fillColor || layer.color || '#ffffff';
+      ctx.fillText(line, 0, y);
+
+      // Underline
+      if (layer.underline) {
+        const lineWidth = ctx.measureText(line).width;
+        let lineStartX = -lineWidth / 2;
+        const align = layer.textAlign || layer.alignment || 'center';
+        if (align === 'left') lineStartX = 0;
+        else if (align === 'right') lineStartX = -lineWidth;
+
+        const underlineY = y + fontSize * 0.52;
+        ctx.save();
+        ctx.strokeStyle = layer.fillColor || layer.color || '#ffffff';
+        ctx.lineWidth = Math.max(1, fontSize * 0.06);
+        ctx.beginPath();
+        ctx.moveTo(lineStartX, underlineY);
+        ctx.lineTo(lineStartX + lineWidth, underlineY);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 

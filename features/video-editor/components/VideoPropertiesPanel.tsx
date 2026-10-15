@@ -14,7 +14,7 @@ import {
   TextOutAnimationType,
   TextEasingType,
 } from '../types';
-import { COLOR_PRESETS, VISUAL_EFFECT_DEFINITIONS } from '../engine/filterEngine';
+import { COLOR_PRESETS, VISUAL_EFFECT_DEFINITIONS, calculateColorMatchAdjustments } from '../engine/filterEngine';
 import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { audioMixer } from '../engine/audioMixer';
 import { TEXT_STYLE_PRESETS } from '../engine/textRasterizer';
@@ -93,6 +93,9 @@ interface PropertiesPanelProps {
   onDeleteEffectSegment?: (segmentId: string) => void;
   onDeselectTransition?: () => void;
   onDeselectEffectSegment?: () => void;
+  onToggleAutoDucking?: (enabled?: boolean) => void;
+  onToggleCanvasBlurFill?: (enabled?: boolean) => void;
+  onTrimEndGlitch?: (clipId: string, trimSec?: number) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -223,6 +226,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDeleteEffectSegment,
   onDeselectTransition,
   onDeselectEffectSegment,
+  onToggleAutoDucking,
+  onToggleCanvasBlurFill,
+  onTrimEndGlitch,
   className,
   style,
 }) => {
@@ -939,6 +945,49 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
     });
   };
 
+  const handleAutoColorMatch = () => {
+    if (!selectedClip) return;
+    const track = project.tracks.find((t) => t.id === selectedClip.trackId);
+    const clips = (track?.clips || []).slice().sort((a, b) => a.startTime - b.startTime);
+    const idx = clips.findIndex((c) => c.id === selectedClip.id);
+    const prevClip = idx > 0 ? clips[idx - 1] : null;
+
+    if (prevClip) {
+      const prevEffects = prevClip.effects || {};
+      const targetEffects = selectedClip.effects || {};
+      const matched = calculateColorMatchAdjustments(
+        {
+          r: 128 + (targetEffects.temperature || 0) * 1.5,
+          g: 128,
+          b: 128 - (targetEffects.temperature || 0) * 1.5,
+          luminance: 128 * (1 + (targetEffects.brightness || 0)),
+          contrast: 128 * (targetEffects.contrast || 1.0),
+          saturation: 128 * (targetEffects.saturation || 1.0),
+        },
+        {
+          r: 128 + (prevEffects.temperature || 0) * 1.5,
+          g: 128,
+          b: 128 - (prevEffects.temperature || 0) * 1.5,
+          luminance: 128 * (1 + (prevEffects.brightness || 0)),
+          contrast: 128 * (prevEffects.contrast || 1.0),
+          saturation: 128 * (prevEffects.saturation || 1.0),
+        }
+      );
+      updateEffects({
+        ...matched,
+        lutFilter: prevEffects.lutFilter,
+      });
+    } else {
+      updateEffects({
+        brightness: 0.05,
+        contrast: 1.1,
+        saturation: 1.05,
+        temperature: 2,
+      });
+    }
+    notifyCanvasNeedsRedraw();
+  };
+
   const updateTextData = (partial: Partial<TextLayerData>) => {
     if (!selectedClip.textData) return;
     onUpdateClip(selectedClip.id, {
@@ -1207,6 +1256,76 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </div>
             </div>
           )}
+
+          {/* AI Glitch Trimmer & J/L Cut */}
+          <div className="pt-2 border-t border-[#292F39] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-[#929AA8] uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={11} className="text-amber-400" />
+                <span>AI Son Kare Düzeltici & J/L-Cut</span>
+              </span>
+              {selectedClip.aiGlitchTrimmed && (
+                <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-500/50">
+                  TEMİZLENDİ
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              data-testid="btn-ai-glitch-trim"
+              onClick={() => {
+                if (onTrimEndGlitch) {
+                  onTrimEndGlitch(selectedClip.id, 0.35);
+                } else {
+                  const newDur = Math.max(0.1, parseFloat((selectedClip.duration - 0.35).toFixed(2)));
+                  onUpdateClip(selectedClip.id, { duration: newDur, aiGlitchTrimmed: true });
+                }
+                notifyCanvasNeedsRedraw();
+              }}
+              className="w-full py-1.5 px-2 rounded-[3px] bg-[#1a1714] hover:bg-[#261f18] text-amber-300 border border-amber-500/40 hover:border-amber-400 text-[10px] font-semibold transition-colors flex items-center justify-center gap-1.5"
+              title="AI videolarının sonundaki bozulma ve morphing karelerini (0.35s) tek tıkla keser"
+            >
+              <Scissors size={12} className="text-amber-400" />
+              <span>🧹 AI Son Kare Bozulmalarını Kırp (-0.35s)</span>
+            </button>
+
+            {/* J-Cut / L-Cut */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+              <button
+                type="button"
+                data-testid="btn-j-cut"
+                onClick={() => {
+                  const next = selectedClip.jCutOffsetSec ? 0 : 0.4;
+                  onUpdateClip(selectedClip.id, { jCutOffsetSec: next });
+                }}
+                className={`py-1 px-1.5 rounded-[2px] text-[9px] font-semibold border transition-colors flex items-center justify-center gap-1 ${
+                  selectedClip.jCutOffsetSec
+                    ? 'bg-indigo-950/80 text-indigo-300 border-indigo-500 shadow-sm'
+                    : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+                }`}
+                title="Görüntüden önce sesin erken girmesini sağlar (0.4s)"
+              >
+                <span>✂️ J-Cut {selectedClip.jCutOffsetSec ? '(0.4s Aktif)' : '(Erken Ses)'}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="btn-l-cut"
+                onClick={() => {
+                  const next = selectedClip.lCutOffsetSec ? 0 : 0.4;
+                  onUpdateClip(selectedClip.id, { lCutOffsetSec: next });
+                }}
+                className={`py-1 px-1.5 rounded-[2px] text-[9px] font-semibold border transition-colors flex items-center justify-center gap-1 ${
+                  selectedClip.lCutOffsetSec
+                    ? 'bg-purple-950/80 text-purple-300 border-purple-500 shadow-sm'
+                    : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+                }`}
+                title="Görüntü kesildikten sonra sesin geç çıkmasını sağlar (0.4s)"
+              >
+                <span>✂️ L-Cut {selectedClip.lCutOffsetSec ? '(0.4s Aktif)' : '(Geç Ses)'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </InspectorSection>
     );
@@ -1387,7 +1506,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const renderSpeed = () => (
     <InspectorSection
       title="Oynatma Hızı (Speed)"
-      defaultOpen={false}
+      defaultOpen={true}
       badge={`${selectedClip.speed || 1}x`}
       onReset={() => onUpdateClip(selectedClip.id, { speed: 1.0 })}
     >
@@ -1418,6 +1537,38 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           defaultValue={1.0}
           onChange={(speed) => onUpdateClip(selectedClip.id, { speed })}
         />
+
+        {/* Speed Ramping Presets */}
+        <div className="space-y-1.5 pt-2 border-t border-[#292F39]">
+          <label className="text-[#929AA8] text-[10px] block uppercase font-bold tracking-wider">
+            ⚡ Hız Rampası Eğrileri (Speed Ramping)
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { id: 'montage', name: '🎬 Montaj (2.5x->0.6x->1x)' },
+              { id: 'bullet-time', name: '⏳ Mermi Zamanı (1x->0.25x->1x)' },
+              { id: 'jump-in', name: '⚡ Sıçrama (0.5x->3x->1x)' },
+              { id: undefined, name: 'Düz Hız (Normal)' },
+            ].map((ramp) => (
+              <button
+                key={ramp.name}
+                type="button"
+                data-testid={`btn-speed-ramp-${ramp.id || 'none'}`}
+                onClick={() => {
+                  onUpdateClip(selectedClip.id, { speedRampPreset: ramp.id as any });
+                  notifyCanvasNeedsRedraw();
+                }}
+                className={`py-1 px-1.5 rounded-[3px] text-[9px] border text-left transition-colors truncate ${
+                  selectedClip.speedRampPreset === ramp.id
+                    ? 'bg-[#202631] text-[#38bdf8] border-[#38bdf8] font-bold shadow-sm'
+                    : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+                }`}
+              >
+                {ramp.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </InspectorSection>
   );
@@ -1521,7 +1672,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
     return (
       <InspectorSection
         title="Kompozitleme (Compositing)"
-        defaultOpen={false}
+        defaultOpen={true}
         onReset={() => {
           onUpdateClip(selectedClip.id, { blendMode: 'normal' } as any);
         }}
@@ -1545,6 +1696,148 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <option value="color-dodge">Renk Soldurma (Color Dodge)</option>
               <option value="difference">Fark (Difference)</option>
             </select>
+          </div>
+
+          {/* 9:16 Canvas Blur Fill (CapCut Blur) */}
+          <div className="pt-2 border-t border-[#292F39] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                <span>📱</span>
+                <span>Arka Planı Bulanık Doldur (CapCut Blur)</span>
+              </span>
+              <button
+                type="button"
+                data-testid="btn-canvas-blur-fill"
+                onClick={() => {
+                  const next = !selectedClip.canvasBlurFill;
+                  onUpdateClip(selectedClip.id, { canvasBlurFill: next });
+                  notifyCanvasNeedsRedraw();
+                }}
+                className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                  selectedClip.canvasBlurFill
+                    ? 'bg-[#4f6bf5] text-white border-indigo-400 shadow-sm'
+                    : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+                }`}
+              >
+                {selectedClip.canvasBlurFill ? 'AKTİF' : 'KAPALI'}
+              </button>
+            </div>
+            <p className="text-[10px] text-[#8e98a8] leading-tight">
+              9:16 veya 1:1 dikey formatlarda üstte ve altta kalan siyah boşlukları klibin 28px bulanık kopyasıyla doldurur.
+            </p>
+          </div>
+
+          {/* AI Watermark Delogo Patch */}
+          <div className="pt-2 border-t border-[#292F39] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                <span>🩹</span>
+                <span>Filigran / Logo Gizle (AI Delogo)</span>
+              </span>
+              <button
+                type="button"
+                data-testid="btn-delogo-toggle"
+                onClick={() => {
+                  const cur = selectedClip.delogoPatch;
+                  const nextEnabled = !cur?.enabled;
+                  onUpdateClip(selectedClip.id, {
+                    delogoPatch: {
+                      enabled: nextEnabled,
+                      xPercent: cur?.xPercent ?? 80,
+                      yPercent: cur?.yPercent ?? 88,
+                      widthPercent: cur?.widthPercent ?? 18,
+                      heightPercent: cur?.heightPercent ?? 10,
+                      blurRadius: cur?.blurRadius ?? 16,
+                      type: cur?.type ?? 'blur',
+                    },
+                  });
+                  notifyCanvasNeedsRedraw();
+                }}
+                className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                  selectedClip.delogoPatch?.enabled
+                    ? 'bg-rose-600 text-white border-rose-400 shadow-sm'
+                    : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+                }`}
+              >
+                {selectedClip.delogoPatch?.enabled ? 'AKTİF' : 'KAPALI'}
+              </button>
+            </div>
+
+            {selectedClip.delogoPatch?.enabled && (
+              <div className="p-2 rounded bg-[#111419] border border-[#292F39] space-y-2">
+                {/* Presets */}
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { label: 'Sağ Alt (Runway/Kling)', x: 80, y: 88, w: 18, h: 10 },
+                    { label: 'Sağ Üst (Sora)', x: 80, y: 3, w: 18, h: 10 },
+                    { label: 'Sol Alt', x: 2, y: 88, w: 18, h: 10 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        onUpdateClip(selectedClip.id, {
+                          delogoPatch: {
+                            ...(selectedClip.delogoPatch || { enabled: true }),
+                            xPercent: p.x,
+                            yPercent: p.y,
+                            widthPercent: p.w,
+                            heightPercent: p.h,
+                          },
+                        });
+                        notifyCanvasNeedsRedraw();
+                      }}
+                      className="py-1 px-1 rounded bg-[#171B21] hover:bg-[#202631] text-[9px] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] truncate"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Delogo Type */}
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-[#929AA8]">Tür:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateClip(selectedClip.id, {
+                        delogoPatch: {
+                          ...(selectedClip.delogoPatch || { enabled: true }),
+                          type: 'blur',
+                        },
+                      });
+                      notifyCanvasNeedsRedraw();
+                    }}
+                    className={`px-2 py-0.5 rounded text-[9px] ${
+                      selectedClip.delogoPatch?.type !== 'pixelate'
+                        ? 'bg-[#202631] text-[#E7EAF0] border border-[#4f6bf5]'
+                        : 'text-[#929AA8]'
+                    }`}
+                  >
+                    Bulanıklaştır (Blur)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateClip(selectedClip.id, {
+                        delogoPatch: {
+                          ...(selectedClip.delogoPatch || { enabled: true }),
+                          type: 'pixelate',
+                        },
+                      });
+                      notifyCanvasNeedsRedraw();
+                    }}
+                    className={`px-2 py-0.5 rounded text-[9px] ${
+                      selectedClip.delogoPatch?.type === 'pixelate'
+                        ? 'bg-[#202631] text-[#E7EAF0] border border-[#4f6bf5]'
+                        : 'text-[#929AA8]'
+                    }`}
+                  >
+                    Mozaikle (Pixelate)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </InspectorSection>
@@ -1678,7 +1971,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const renderColorFilters = () => (
     <InspectorSection
       title="Renk & Filtreler (Color & LUTs)"
-      defaultOpen={false}
+      defaultOpen={true}
       onReset={() =>
         updateEffects({
           brightness: 0,
@@ -1690,10 +1983,27 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
       }
     >
       <div className="p-2.5 space-y-2.5">
+        {/* AI Auto Color Match Button */}
+        <div className="bg-[#111419] p-2 rounded-[3px] border border-[#292F39] space-y-1.5">
+          <button
+            type="button"
+            data-testid="btn-ai-color-match"
+            onClick={handleAutoColorMatch}
+            className="w-full py-1.5 px-2 rounded-[3px] bg-gradient-to-r from-indigo-900/60 to-purple-900/60 hover:from-indigo-800/80 hover:to-purple-800/80 text-[#E7EAF0] border border-indigo-500/40 hover:border-indigo-400 text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            title="Önceki klibin renk sıcaklığı, parlaklık ve kontrastını analiz edip bu klibe eşitler"
+          >
+            <Sparkles size={12} className="text-indigo-400 animate-pulse" />
+            <span>🎨 Önceki Kliple Rengi Eşitle (AI Color Match)</span>
+          </button>
+          <p className="text-[9px] text-[#7E8695] leading-tight">
+            AI klipleri arasındaki ışık ve renk tutarsızlığını önceki klibin ortalama tonuna göre otomatik dengeler.
+          </p>
+        </div>
+
         {/* Presets */}
         <div>
           <label className="text-[#929AA8] text-[10px] block mb-1.5 uppercase font-bold tracking-wider">
-            Hazır Renk Şablonları (Presets)
+            Sinematik LUT & Renk Şablonları (Presets)
           </label>
           <div className="grid grid-cols-2 gap-1.5">
             {COLOR_PRESETS.map((preset) => (
@@ -1816,6 +2126,37 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
             defaultValue={0}
             onChange={(fadeOut) => onUpdateClip(selectedClip.id, { fadeOut })}
           />
+        </div>
+
+        {/* Auto Audio Ducking */}
+        <div className="p-2 rounded-[3px] bg-[#151921] border border-indigo-500/30 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1.5">
+              <span>🦆</span>
+              <span>Auto-Ducking (Müziği -12dB Kıs)</span>
+            </span>
+            <button
+              type="button"
+              data-testid="btn-auto-ducking"
+              onClick={() => {
+                if (onToggleAutoDucking) {
+                  onToggleAutoDucking(!project.autoDucking);
+                } else {
+                  (project as any).autoDucking = !project.autoDucking;
+                }
+              }}
+              className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                project.autoDucking
+                  ? 'bg-indigo-500 text-white border-indigo-400 shadow-sm'
+                  : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+              }`}
+            >
+              {project.autoDucking ? 'AKTİF (-12dB)' : 'KAPALI'}
+            </button>
+          </div>
+          <p className="text-[10px] text-[#8e98a8] leading-tight">
+            Konuşma veya diyalog başladığında arka plan müziğinin sesini otomatik -12dB kısar; konuşma bitince 300ms yumuşak rampayla geri yükseltir.
+          </p>
         </div>
 
         {/* Karakter / İnsan Sesi Susturma (Vocal Suppression) */}

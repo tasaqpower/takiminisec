@@ -287,6 +287,12 @@ export interface TextLayerData {
     duration?: number;
     [key: string]: any;
   } | string;
+  // CapCut / Hormozi Style Karaoke Word-by-Word Subtitles
+  subtitleStyle?: 'classic' | 'hormozi' | 'neon-glow' | 'minimal-box' | 'typewriter';
+  subtitleWords?: { word: string; start: number; end: number }[];
+  activeWordColor?: string;
+  activeWordScale?: number;
+  activeWordBoxColor?: string;
 }
 
 export interface SubtitleItem {
@@ -315,6 +321,17 @@ export interface CropSettings {
   left: number;   // % 0-50
 }
 
+export interface DelogoPatchSettings {
+  enabled: boolean;
+  x: number; // percentage 0-100 from left
+  y: number; // percentage 0-100 from top
+  width: number; // percentage 0-100
+  height: number; // percentage 0-100
+  mode: 'blur' | 'pixelate';
+}
+
+export type SpeedRampPreset = 'none' | 'montage' | 'bullet-time' | 'jump-in';
+
 export interface ClipEffects {
   brightness?: number;   // -1 to 1 or 0 to 2
   contrast?: number;     // 0 to 3
@@ -332,6 +349,7 @@ export interface ClipEffects {
   chromaKey?: ChromaKeySettings;
   mask?: MaskSettings;
   crop?: CropSettings;
+  lutFilter?: string;    // Sinematik LUT / Renk Filtresi
 }
 
 export interface Keyframe {
@@ -403,6 +421,12 @@ export interface VideoClip {
   lipFreezeFrameTime?: number; // İsteğe bağlı özel dondurma karesi zamanı (default: trimIn)
   visualMuteMode?: 'lip_freeze' | 'none' | 'blur_mouth'; // Görsel susturma modu
   audioOffsetMs?: number; // Lip-Sync Audio Slip Offset in ms (-500ms to +500ms)
+  jCutOffsetSec?: number; // Sesi erken başlatma (J-Cut, örn: 0.4s)
+  lCutOffsetSec?: number; // Sesi geç bitirme (L-Cut, örn: 0.4s)
+  canvasBlurFill?: boolean; // 9:16 veya 1:1 formatta arka planı bulanık doldurma
+  delogoPatch?: DelogoPatchSettings; // AI watermark/logo gizleyici yama
+  speedRampPreset?: SpeedRampPreset; // Hız rampası eğrisi
+  aiGlitchTrimmed?: boolean; // AI son kare bozulması temizlendi mi
   fadeIn?: number;
   fadeOut?: number;
 
@@ -483,6 +507,10 @@ export interface VideoProject {
   fps: number;
   resolution: { width: number; height: number };
   backgroundColor?: string;
+  autoDucking?: boolean; // Müzik sesini konuşmada otomatik kıs (-12dB)
+  autoDuckingDb?: number; // Ducking zayıflatma desibeli (varsayılan: -12dB)
+  autoDuckingFadeMs?: number; // Ducking geçiş süresi ms (varsayılan: 300ms)
+  canvasBlurFill?: boolean; // 9:16 ve 1:1 dikey projelerde arka planı videonun bulanık kopyasıyla doldur
   tracks: TimelineTrack[];
 
   // Global transitions & effect segments (for fast indexing)

@@ -79,6 +79,15 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     removeSilencesFromClip,
     removeDuplicateRangeFromClip,
     toggleClipVocalMute,
+    trimClipEndGlitch,
+    trimAllClipsEndGlitch,
+    setClipJCut,
+    setClipLCut,
+    toggleProjectAutoDucking,
+    toggleProjectCanvasBlurFill,
+    setClipCanvasBlurFill,
+    setClipDelogoPatch,
+    setClipSpeedRamp,
     addTextClip,
     addTimelineTransition,
     updateTimelineTransition,
@@ -384,6 +393,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             onDeleteEffectSegment={deleteEffectSegment}
             onDeselectTransition={() => setSelectedTransitionId(null)}
             onDeselectEffectSegment={() => setSelectedEffectSegmentId(null)}
+            onToggleAutoDucking={toggleProjectAutoDucking}
+            onToggleCanvasBlurFill={toggleProjectCanvasBlurFill}
+            onTrimEndGlitch={trimClipEndGlitch}
           />
         </div>
 

@@ -1309,6 +1309,54 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <span className="text-[11px] font-medium">Bip Ekle (Arka Plan Kalsın)</span>
           </button>
 
+          {/* AI Glitch Trim (Son Kare Bozulması) */}
+          <button
+            type="button"
+            data-testid="timeline-btn-glitch-trim"
+            onClick={() => {
+              if (activeTargetClip && onUpdateClip) {
+                const newDur = Math.max(0.1, parseFloat((activeTargetClip.duration - 0.35).toFixed(2)));
+                onUpdateClip(activeTargetClip.id, { duration: newDur, aiGlitchTrimmed: true });
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-amber-300 border-amber-500/40 hover:bg-[#202631] hover:text-amber-200'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="AI Son Kare Bozulmalarını Kırp: Klibin sonundaki 0.35s morphing/bozuk kareleri siler"
+          >
+            <Scissors size={12} className="text-amber-400" />
+            <span className="text-[11px] font-medium">Bozulmaları Kırp (-0.35s)</span>
+          </button>
+
+          {/* Auto-Ducking Toggle Button */}
+          <button
+            type="button"
+            data-testid="timeline-btn-auto-ducking"
+            onClick={() => {
+              if (onUpdateClip) {
+                const nextVal = !project.autoDucking;
+                project.autoDucking = nextVal;
+                if (activeTargetClip) {
+                  onUpdateClip(activeTargetClip.id, {});
+                }
+              }
+            }}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              project.autoDucking
+                ? 'bg-indigo-950/80 text-indigo-300 border-indigo-500 shadow-sm'
+                : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+            }`}
+            title="Auto-Ducking: Konuşma başladığında arka plan müziğini -12dB kısar"
+          >
+            <span className="text-xs">🦆</span>
+            <span className="text-[11px] font-medium">
+              Auto-Ducking: {project.autoDucking ? 'Açık' : 'Kapalı'}
+            </span>
+          </button>
+
           {/* Delete Button */}
           <button
             type="button"
@@ -1920,6 +1968,57 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                               >
                                 <span>SYNC</span>
                                 <span>{clip.audioOffsetMs > 0 ? `+${clip.audioOffsetMs}` : clip.audioOffsetMs}ms</span>
+                              </span>
+                            )}
+                            {clip.jCutOffsetSec && clip.jCutOffsetSec > 0 && (
+                              <span
+                                title={`J-Cut: Ses ${clip.jCutOffsetSec}s erken giriyor`}
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-indigo-950/90 text-indigo-300 border border-indigo-500/80 font-mono"
+                              >
+                                <span>J-CUT</span>
+                                <span>{clip.jCutOffsetSec}s</span>
+                              </span>
+                            )}
+                            {clip.lCutOffsetSec && clip.lCutOffsetSec > 0 && (
+                              <span
+                                title={`L-Cut: Ses ${clip.lCutOffsetSec}s geç çıkıyor`}
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-purple-950/90 text-purple-300 border border-purple-500/80 font-mono"
+                              >
+                                <span>L-CUT</span>
+                                <span>{clip.lCutOffsetSec}s</span>
+                              </span>
+                            )}
+                            {clip.speedRampPreset && (
+                              <span
+                                title={`Hız Rampası: ${clip.speedRampPreset}`}
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-sky-950/90 text-sky-300 border border-sky-500/80 uppercase font-mono"
+                              >
+                                <span>⚡</span>
+                                <span>{clip.speedRampPreset}</span>
+                              </span>
+                            )}
+                            {clip.canvasBlurFill && (
+                              <span
+                                title="9:16 Canvas Blur Fill Aktif"
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-blue-950/90 text-blue-300 border border-blue-500/80 uppercase font-mono"
+                              >
+                                <span>BLUR-FILL</span>
+                              </span>
+                            )}
+                            {clip.delogoPatch?.enabled && (
+                              <span
+                                title="AI Delogo Filigran Yaması Aktif"
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-rose-950/90 text-rose-300 border border-rose-500/80 uppercase font-mono"
+                              >
+                                <span>🩹 DELOGO</span>
+                              </span>
+                            )}
+                            {clip.aiGlitchTrimmed && (
+                              <span
+                                title="AI Son Kare Bozulmaları Temizlendi (-0.35s)"
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold shadow-sm bg-amber-950/90 text-amber-300 border border-amber-500/80 uppercase font-mono"
+                              >
+                                <span>TRIMMED</span>
                               </span>
                             )}
                             <span>{clip.name}</span>

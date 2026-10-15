@@ -224,6 +224,78 @@ export const COLOR_PRESETS: FilterPreset[] = [
     },
   },
   {
+    id: 'cinematic-teal-orange',
+    name: 'Cinematic Teal & Orange',
+    category: 'Sinema',
+    description: 'Hollywood renk derecelendirmesi: sıcak ten tonları ve derin turkuaz gölgeler',
+    thumbnailColor: '#0ea5e9',
+    effects: {
+      contrast: 1.3,
+      saturation: 1.25,
+      temperature: -20,
+      tint: 12,
+      exposure: 0.06,
+      vignette: 0.35,
+    },
+  },
+  {
+    id: 'dark-moody',
+    name: 'Dark Moody Sinema',
+    category: 'Sinema',
+    description: 'Derin gölgeler, düşük doygunluk ve sinematik karanlık atmosfer',
+    thumbnailColor: '#1e293b',
+    effects: {
+      contrast: 1.4,
+      saturation: 0.75,
+      brightness: -0.05,
+      temperature: -10,
+      exposure: -0.1,
+      vignette: 0.45,
+    },
+  },
+  {
+    id: 'cyberpunk-neon',
+    name: 'Cyberpunk Neon',
+    category: 'Modern',
+    description: 'Fütüristik mor-mavi neon ışıltısı ve ultra canlı renk doygunluğu',
+    thumbnailColor: '#ec4899',
+    effects: {
+      saturation: 1.6,
+      contrast: 1.35,
+      temperature: -35,
+      tint: -25,
+      vignette: 0.3,
+    },
+  },
+  {
+    id: 'vintage-film',
+    name: 'Vintage Film 35mm',
+    category: 'Retro',
+    description: 'Analog 35mm film tonları, sıcak sepya ve yumuşak gren kontrastı',
+    thumbnailColor: '#b45309',
+    effects: {
+      sepia: 0.3,
+      contrast: 1.15,
+      saturation: 0.9,
+      temperature: 28,
+      tint: 8,
+      vignette: 0.28,
+    },
+  },
+  {
+    id: 'crisp-ai-sharpness',
+    name: 'Crisp AI Sharpness',
+    category: 'AI İyileştirme',
+    description: 'Runway/Sora/Kling bulanıklığını gideren yüksek detay ve mikro kontrast keskinleştirme',
+    thumbnailColor: '#06b6d4',
+    effects: {
+      contrast: 1.25,
+      sharpness: 0.85,
+      exposure: 0.04,
+      saturation: 1.1,
+    },
+  },
+  {
     id: 'scandi-cold',
     name: 'İskandinav Soğuk (Nordic)',
     category: 'Minimal',
@@ -243,19 +315,22 @@ export function getEffectsForColorFilter(colorFilterId?: string | null): Partial
   if (!colorFilterId || colorFilterId === 'normal') return null;
   const normalized = colorFilterId.toLowerCase();
   if (normalized.includes('teal') || normalized.includes('cinematic')) {
-    return { contrast: 1.35, saturation: 1.3, temperature: -20, tint: 15, exposure: 0.08, vignette: 0.35 };
+    return { contrast: 1.3, saturation: 1.25, temperature: -20, tint: 12, exposure: 0.06, vignette: 0.35 };
+  }
+  if (normalized.includes('dark') || normalized.includes('moody')) {
+    return { contrast: 1.4, saturation: 0.75, brightness: -0.05, temperature: -10, exposure: -0.1, vignette: 0.45 };
+  }
+  if (normalized.includes('cyberpunk') || normalized.includes('neon')) {
+    return { saturation: 1.6, contrast: 1.35, temperature: -35, tint: -25, vignette: 0.3 };
+  }
+  if (normalized.includes('vintage') || normalized.includes('film') || normalized.includes('retro')) {
+    return { sepia: 0.3, contrast: 1.15, saturation: 0.9, temperature: 28, tint: 8, vignette: 0.28 };
+  }
+  if (normalized.includes('crisp') || normalized.includes('sharp')) {
+    return { contrast: 1.25, sharpness: 0.85, exposure: 0.04, saturation: 1.1 };
   }
   if (normalized.includes('noir') || normalized.includes('bw') || normalized.includes('black')) {
     return { grayscale: 1, contrast: 1.4, brightness: 0.05, vignette: 0.4 };
-  }
-  if (normalized.includes('vintage') || normalized.includes('70s') || normalized.includes('warm')) {
-    return { sepia: 0.5, temperature: 35, contrast: 1.15, saturation: 1.1, vignette: 0.3 };
-  }
-  if (normalized.includes('golden') || normalized.includes('hour')) {
-    return { temperature: 40, tint: 10, saturation: 1.25, brightness: 0.05, contrast: 1.1 };
-  }
-  if (normalized.includes('cyberpunk') || normalized.includes('neon')) {
-    return { saturation: 1.5, contrast: 1.3, tint: 30, temperature: -25 };
   }
   const preset = COLOR_PRESETS.find((p) => p.id === colorFilterId);
   return preset ? preset.effects : null;
@@ -1064,4 +1139,173 @@ export async function loadAndCacheCubeLut(idOrPath: string): Promise<CubeLut3D |
   } catch (_) {}
   return null;
 }
+
+// =========================================================================
+// AI AUTO COLOR MATCH & CRISP SHARPNESS UTILITIES
+// =========================================================================
+
+export interface ColorStats {
+  avgR: number;
+  avgG: number;
+  avgB: number;
+  luminance: number; // 0-255
+  contrast: number;  // standard deviation
+  saturation: number;// 0-1
+}
+
+/**
+ * Analyzes color statistics (RGB averages, luminance, contrast, saturation)
+ * of any canvas or video source frame for histogram matching.
+ */
+export function analyzeCanvasColorStats(
+  source: CanvasImageSource | HTMLVideoElement | HTMLCanvasElement | HTMLImageElement
+): ColorStats {
+  const sampleW = 160;
+  const sampleH = 90;
+  if (typeof document === 'undefined') {
+    return { avgR: 128, avgG: 128, avgB: 128, luminance: 128, contrast: 40, saturation: 1.0 };
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sampleW;
+  canvas.height = sampleH;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    return { avgR: 128, avgG: 128, avgB: 128, luminance: 128, contrast: 40, saturation: 1.0 };
+  }
+
+  try {
+    ctx.drawImage(source, 0, 0, sampleW, sampleH);
+    const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+    let sumR = 0;
+    let sumG = 0;
+    let sumB = 0;
+    let sumLum = 0;
+    let sumSat = 0;
+    const totalPixels = sampleW * sampleH;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      sumR += r;
+      sumG += g;
+      sumB += b;
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      sumLum += lum;
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      sumSat += maxC === 0 ? 0 : (maxC - minC) / maxC;
+    }
+
+    const avgR = sumR / totalPixels;
+    const avgG = sumG / totalPixels;
+    const avgB = sumB / totalPixels;
+    const luminance = sumLum / totalPixels;
+    const saturation = sumSat / totalPixels;
+
+    // Standard deviation of luminance for contrast measure
+    let varSum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+      const diff = lum - luminance;
+      varSum += diff * diff;
+    }
+    const contrast = Math.sqrt(varSum / totalPixels);
+
+    return { avgR, avgG, avgB, luminance, contrast, saturation };
+  } catch {
+    return { avgR: 128, avgG: 128, avgB: 128, luminance: 128, contrast: 40, saturation: 1.0 };
+  }
+}
+
+/**
+ * Calculates compensating adjustments (exposure, contrast, temperature, tint, saturation)
+ * so that the current clip matches the previous target clip's aesthetic color balance.
+ */
+export function calculateColorMatchAdjustments(
+  currentStats: ColorStats,
+  targetStats: ColorStats,
+  currentEffects: Partial<ClipEffects> = {}
+): Partial<ClipEffects> {
+  // Luminance delta -> Exposure & Brightness
+  const lumDelta = (targetStats.luminance - currentStats.luminance) / 255;
+  const newExposure = Math.max(-0.5, Math.min(0.5, (currentEffects.exposure || 0) + lumDelta * 0.7));
+  const newBrightness = Math.max(-0.35, Math.min(0.35, (currentEffects.brightness || 0) + lumDelta * 0.35));
+
+  // Contrast ratio
+  const contrastRatio = targetStats.contrast / Math.max(10, currentStats.contrast);
+  const currentContrast = currentEffects.contrast ?? 1.0;
+  const newContrast = Math.max(0.7, Math.min(1.8, currentContrast * (0.6 + 0.4 * contrastRatio)));
+
+  // Temperature (R vs B warmth balance)
+  const currentWarmth = currentStats.avgR - currentStats.avgB;
+  const targetWarmth = targetStats.avgR - targetStats.avgB;
+  const tempDelta = (targetWarmth - currentWarmth) * 0.45;
+  const newTemp = Math.max(-45, Math.min(45, (currentEffects.temperature || 0) + tempDelta));
+
+  // Tint (Green balance)
+  const currentTint = currentStats.avgG - (currentStats.avgR + currentStats.avgB) / 2;
+  const targetTint = targetStats.avgG - (targetStats.avgR + targetStats.avgB) / 2;
+  const tintDelta = (targetTint - currentTint) * 0.25;
+  const newTint = Math.max(-25, Math.min(25, (currentEffects.tint || 0) + tintDelta));
+
+  // Saturation ratio
+  const satRatio = targetStats.saturation / Math.max(0.05, currentStats.saturation);
+  const currentSat = currentEffects.saturation ?? 1.0;
+  const newSat = Math.max(0.65, Math.min(1.5, currentSat * (0.6 + 0.4 * satRatio)));
+
+  return {
+    ...currentEffects,
+    exposure: Math.round(newExposure * 100) / 100,
+    brightness: Math.round(newBrightness * 100) / 100,
+    contrast: Math.round(newContrast * 100) / 100,
+    temperature: Math.round(newTemp),
+    tint: Math.round(newTint),
+    saturation: Math.round(newSat * 100) / 100,
+  };
+}
+
+/**
+ * Applies unsharp micro-contrast convolution on the target canvas to restore sharpness to AI videos
+ */
+export function applyCrispAiSharpness(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  intensity = 0.4
+): void {
+  try {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    const w = width;
+    const h = height;
+    const copy = new Uint8ClampedArray(data);
+    const k = Math.max(0.1, Math.min(0.7, intensity));
+
+    // Fast 3x3 unsharp convolution kernel
+    for (let y = 1; y < h - 1; y += 2) {
+      const rowOffset = y * w;
+      const topOffset = (y - 1) * w;
+      const btmOffset = (y + 1) * w;
+
+      for (let x = 1; x < w - 1; x += 2) {
+        const idx = (rowOffset + x) * 4;
+        const topIdx = (topOffset + x) * 4;
+        const btmIdx = (btmOffset + x) * 4;
+        const lftIdx = (rowOffset + (x - 1)) * 4;
+        const rgtIdx = (rowOffset + (x + 1)) * 4;
+
+        for (let c = 0; c < 3; c++) {
+          const val =
+            (1 + 4 * k) * copy[idx + c] -
+            k * (copy[topIdx + c] + copy[btmIdx + c] + copy[lftIdx + c] + copy[rgtIdx + c]);
+          data[idx + c] = Math.max(0, Math.min(255, val));
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (_) {}
+}
+
 

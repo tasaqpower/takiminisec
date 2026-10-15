@@ -1504,6 +1504,215 @@ export function useVideoProject() {
     [commitProjectChange]
   );
 
+  // 1. AI End-Glitch Trimmer (AI Son Kare Bozulmalarını Kırpma + Ripple Delete)
+  const trimClipEndGlitch = useCallback(
+    (clipId: string, durationSec = 0.35) => {
+      commitProjectChange((prev) => {
+        let trimmedTrackId: string | null = null;
+        let originalEndTime = 0;
+        let actualTrimAmount = 0;
+
+        // Step 1: Find clip and reduce its duration
+        const updatedTracks = prev.tracks.map((track) => {
+          const clipIdx = track.clips.findIndex((c) => c.id === clipId);
+          if (clipIdx === -1) return track;
+
+          trimmedTrackId = track.id;
+          const targetClip = track.clips[clipIdx];
+          actualTrimAmount = Math.min(durationSec, Math.max(0, targetClip.duration - 0.2));
+          if (actualTrimAmount <= 0) return track;
+
+          originalEndTime = targetClip.startTime + targetClip.duration;
+          const newDuration = targetClip.duration - actualTrimAmount;
+          const newTrimOut = Math.max(0.1, (targetClip.trimOut ?? targetClip.duration) - actualTrimAmount);
+
+          const newClips = [...track.clips];
+          newClips[clipIdx] = {
+            ...targetClip,
+            duration: newDuration,
+            trimOut: newTrimOut,
+            aiGlitchTrimmed: true,
+          };
+
+          // Step 2: Ripple delete subsequent clips on this track & apply smooth cut
+          for (let i = 0; i < newClips.length; i++) {
+            if (i === clipIdx) continue;
+            const c = newClips[i];
+            if (c.startTime >= originalEndTime - 0.05) {
+              const isDirectNext = Math.abs(c.startTime - originalEndTime) < 0.1;
+              newClips[i] = {
+                ...c,
+                startTime: Math.max(0, c.startTime - actualTrimAmount),
+                smoothCutIn: isDirectNext ? true : c.smoothCutIn,
+                smoothCutDurationMs: isDirectNext ? 160 : c.smoothCutDurationMs,
+              };
+            }
+          }
+
+          return { ...track, clips: newClips };
+        });
+
+        return { ...prev, tracks: updatedTracks };
+      });
+    },
+    [commitProjectChange]
+  );
+
+  // Trim all video clips' morphing glitches at once
+  const trimAllClipsEndGlitch = useCallback(
+    (durationSec = 0.35) => {
+      commitProjectChange((prev) => {
+        const newTracks = prev.tracks.map((track) => {
+          if (track.type !== 'video') return track;
+          let shiftAccumulator = 0;
+          const sortedClips = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+
+          const updatedClips = sortedClips.map((clip, idx) => {
+            const trimAmt = Math.min(durationSec, Math.max(0, clip.duration - 0.25));
+            const newStartTime = Math.max(0, clip.startTime - shiftAccumulator);
+            const newDuration = clip.duration - trimAmt;
+            const newTrimOut = Math.max(0.1, (clip.trimOut ?? clip.duration) - trimAmt);
+            shiftAccumulator += trimAmt;
+
+            return {
+              ...clip,
+              startTime: newStartTime,
+              duration: newDuration,
+              trimOut: newTrimOut,
+              aiGlitchTrimmed: true,
+              smoothCutIn: idx > 0 ? true : clip.smoothCutIn,
+              smoothCutDurationMs: idx > 0 ? 160 : clip.smoothCutDurationMs,
+            };
+          });
+
+          return { ...track, clips: updatedClips };
+        });
+
+        return { ...prev, tracks: newTracks };
+      });
+    },
+    [commitProjectChange]
+  );
+
+  // 2. J-Cut / L-Cut Audio Split Overlay
+  const setClipJCut = useCallback(
+    (clipId: string, offsetSec = 0.4) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId
+              ? { ...clip, jCutOffsetSec: clip.jCutOffsetSec === offsetSec ? 0 : offsetSec }
+              : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  const setClipLCut = useCallback(
+    (clipId: string, offsetSec = 0.4) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId
+              ? { ...clip, lCutOffsetSec: clip.lCutOffsetSec === offsetSec ? 0 : offsetSec }
+              : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  // 3. Project & Clip Canvas Blur Fill (9:16 / 1:1 CapCut Blur)
+  const toggleProjectCanvasBlurFill = useCallback(() => {
+    commitProjectChange((prev) => ({
+      ...prev,
+      canvasBlurFill: !prev.canvasBlurFill,
+    }));
+  }, [commitProjectChange]);
+
+  const setClipCanvasBlurFill = useCallback(
+    (clipId: string, enabled?: boolean) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId
+              ? { ...clip, canvasBlurFill: enabled ?? !clip.canvasBlurFill }
+              : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  // 4. AI Watermark / Delogo Patch
+  const setClipDelogoPatch = useCallback(
+    (clipId: string, patch: Partial<DelogoPatchSettings>) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id === clipId) {
+              const currentPatch = clip.delogoPatch || {
+                enabled: true,
+                x: 75,
+                y: 85,
+                width: 22,
+                height: 12,
+                mode: 'blur',
+              };
+              return {
+                ...clip,
+                delogoPatch: {
+                  ...currentPatch,
+                  ...patch,
+                },
+              };
+            }
+            return clip;
+          }),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
+  // 5. Auto Audio Ducking Toggle
+  const toggleProjectAutoDucking = useCallback(() => {
+    commitProjectChange((prev) => ({
+      ...prev,
+      autoDucking: !prev.autoDucking,
+      autoDuckingDb: prev.autoDuckingDb ?? -12,
+      autoDuckingFadeMs: prev.autoDuckingFadeMs ?? 300,
+    }));
+  }, [commitProjectChange]);
+
+  // 6. Speed Ramping Preset
+  const setClipSpeedRamp = useCallback(
+    (clipId: string, preset: SpeedRampPreset) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, speedRampPreset: preset } : clip
+          ),
+        })),
+      }));
+    },
+    [commitProjectChange]
+  );
+
   // Text helpers
   const addTextClip = useCallback(
     (trackId: string, text: string, startTime = 0, duration = 3, initialData?: Partial<TextLayerData>): VideoClip => {
@@ -2140,6 +2349,15 @@ export function useVideoProject() {
     removeSilencesFromClip,
     removeDuplicateRangeFromClip,
     toggleClipVocalMute,
+    trimClipEndGlitch,
+    trimAllClipsEndGlitch,
+    setClipJCut,
+    setClipLCut,
+    toggleProjectAutoDucking,
+    toggleProjectCanvasBlurFill,
+    setClipCanvasBlurFill,
+    setClipDelogoPatch,
+    setClipSpeedRamp,
     addTextClip,
     // Transition ops
     addTimelineTransition,

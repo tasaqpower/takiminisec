@@ -142,6 +142,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
   const [editingSegText, setEditingSegText] = useState<string>('');
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [pastedScript, setPastedScript] = useState('');
+  const [selectedSubtitleStyle, setSelectedSubtitleStyle] = useState<'hormozi' | 'neon-glow' | 'minimal-box' | 'typewriter'>('hormozi');
 
   // Update segment text manually and re-partition words proportionally
   const handleUpdateSegmentText = (segId: string, newText: string) => {
@@ -617,6 +618,13 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
     const clipStart = activeClip.startTime;
 
     speechSegments.forEach((item, idx) => {
+      // Relative word timestamps relative to subtitle clip start
+      const relWords = (item.words || []).map((w) => ({
+        word: w.word,
+        startSec: Math.max(0, parseFloat((w.startSec - item.startSec).toFixed(3))),
+        endSec: Math.max(0, parseFloat((w.endSec - item.startSec).toFixed(3))),
+      }));
+
       onAddClip(subTrackId, {
         name: (item.text || `Konuşma ${idx + 1}`).substring(0, 24),
         type: 'subtitle',
@@ -625,12 +633,17 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
         sourceDuration: parseFloat(item.duration.toFixed(2)),
         textData: {
           text: item.text || `Konuşma ${idx + 1}`,
-          fontSize: 32,
-          fontFamily: 'Plus Jakarta Sans',
-          color: '#FFFFFF',
-          backgroundColor: 'rgba(0,0,0,0.7)',
+          fontSize: selectedSubtitleStyle === 'hormozi' ? 36 : 30,
+          fontFamily: selectedSubtitleStyle === 'typewriter' ? 'Courier New' : 'Plus Jakarta Sans',
+          color: selectedSubtitleStyle === 'neon-glow' ? '#38bdf8' : '#FFFFFF',
+          backgroundColor: selectedSubtitleStyle === 'minimal-box' ? 'rgba(0,0,0,0.85)' : undefined,
           textAlign: 'center',
           lineHeight: 1.2,
+          subtitleStyle: selectedSubtitleStyle,
+          subtitleWords: relWords,
+          activeWordColor: selectedSubtitleStyle === 'hormozi' ? '#facc15' : selectedSubtitleStyle === 'neon-glow' ? '#4ade80' : '#ffffff',
+          activeWordScale: selectedSubtitleStyle === 'hormozi' ? 1.15 : 1.05,
+          activeWordBoxColor: selectedSubtitleStyle === 'minimal-box' ? '#4f6bf5' : undefined,
         },
       });
     });
@@ -1008,6 +1021,37 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                   >
                     <Trash2 size={11} />
                   </button>
+                </div>
+              </div>
+
+              {/* CapCut / Hormozi Subtitle Style Selector */}
+              <div className="px-2.5 py-1.5 bg-[#12151B] border-b border-[#292F39] flex items-center justify-between text-[10px]">
+                <span className="text-[#929AA8] font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+                  <span>🎬</span>
+                  <span>Altyazı Stili (CapCut & Hormozi):</span>
+                </span>
+                <div className="flex items-center gap-1">
+                  {[
+                    { id: 'hormozi', label: '⚡ Hormozi Bold', desc: 'Sarı aktif kelime + Pop-up büyüme' },
+                    { id: 'neon-glow', label: '✨ Neon Glow', desc: 'Neon yeşil parlama efekti' },
+                    { id: 'minimal-box', label: '📦 Minimal Box', desc: 'Mavi kutulu kelime vurgusu' },
+                    { id: 'typewriter', label: '⌨️ Typewriter', desc: 'Daktilo harf harf akış' },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      data-testid={`btn-subtitle-style-${st.id}`}
+                      onClick={() => setSelectedSubtitleStyle(st.id as any)}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors ${
+                        selectedSubtitleStyle === st.id
+                          ? 'bg-[#4f6bf5] text-white border-indigo-400 shadow-sm'
+                          : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
+                      }`}
+                      title={st.desc}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
