@@ -53,6 +53,13 @@ export interface VideoEditorSidebarProps {
   onAddTimelineTransition?: (transition: Omit<TimelineTransition, 'id'>) => TimelineTransition;
   onAddEffectSegment?: (segment: Omit<EffectSegment, 'id' | 'createdAt'>) => EffectSegment;
   onAddTextAnimationSegment?: (clipId: string, segment: Omit<TextAnimationSegment, 'id'>) => TextAnimationSegment;
+  onSeek?: (time: number) => void;
+  onRemoveDuplicateRange?: (
+    clipId: string,
+    rangeStart: number,
+    rangeEnd: number,
+    action: 'ripple_delete' | 'vocal_mute'
+  ) => boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -107,6 +114,8 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
   onAddTimelineTransition,
   onAddEffectSegment,
   onAddTextAnimationSegment,
+  onSeek,
+  onRemoveDuplicateRange,
   className,
   style,
 }) => {
@@ -310,6 +319,9 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 onAddTrack={onAddTrack}
                 onAddClip={onAddClip}
                 findTrack={findTrack}
+                selectedClipId={selectedClipId}
+                onSeek={onSeek}
+                onRemoveDuplicateRange={onRemoveDuplicateRange}
               />
             )}
 

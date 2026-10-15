@@ -76,6 +76,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     rippleTrimEnd,
     freezeFrame,
     removeSilencesFromClip,
+    removeDuplicateRangeFromClip,
     addTextClip,
     addTimelineTransition,
     updateTimelineTransition,
@@ -294,6 +295,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
             onAddTimelineTransition={addTimelineTransition}
             onAddEffectSegment={addEffectSegment}
             onAddTextAnimationSegment={addTextAnimationSegment}
+            onSeek={seek}
+            onRemoveDuplicateRange={removeDuplicateRangeFromClip}
           />
 
           {isSidebarOpen && (
@@ -465,6 +468,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onRemoveSilences={(clipId) => {
             removeSilencesFromClip(clipId);
           }}
+          onRemoveDuplicateRange={removeDuplicateRangeFromClip}
           onCopyClip={copyClip}
           onPasteClip={(time, trackId) => pasteClip(time ?? currentTime, trackId)}
           hasClipboard={hasClipboard}

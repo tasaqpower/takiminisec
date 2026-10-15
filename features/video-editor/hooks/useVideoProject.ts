@@ -1277,6 +1277,154 @@ export function useVideoProject() {
     [commitProjectChange, project]
   );
 
+  // Remove or mute a specific duplicate range from a clip (AI Duplicate & Stutter cleaner)
+  const removeDuplicateRangeFromClip = useCallback(
+    (
+      clipId: string,
+      rangeStartRelSec: number,
+      rangeEndRelSec: number,
+      action: 'ripple_delete' | 'vocal_mute' = 'ripple_delete'
+    ): boolean => {
+      let success = false;
+
+      commitProjectChange((prev) => {
+        let curClip: VideoClip | null = null;
+        let curTrackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            curClip = c;
+            curTrackId = t.id;
+            break;
+          }
+        }
+
+        if (!curClip) return prev;
+
+        const speed = curClip.speed || 1.0;
+        const clipStart = curClip.startTime;
+        const initialTrimIn = curClip.trimIn ?? 0;
+        const originalDuration = curClip.duration;
+
+        // Ensure range is within clip bounds
+        const safeStart = Math.max(0, Math.min(originalDuration - 0.05, rangeStartRelSec));
+        const safeEnd = Math.max(safeStart + 0.05, Math.min(originalDuration, rangeEndRelSec));
+        const rangeDuration = safeEnd - safeStart;
+
+        if (rangeDuration <= 0.04) return prev;
+
+        if (action === 'vocal_mute') {
+          const segments: VideoClip[] = [];
+
+          if (safeStart > 0.05) {
+            segments.push({
+              ...curClip,
+              id: curClip.id,
+              startTime: clipStart,
+              duration: safeStart,
+              trimIn: initialTrimIn,
+              trimOut: initialTrimIn + safeStart * speed,
+              vocalMute: curClip.vocalMute,
+            });
+          }
+
+          const midClipId = 'clip-muted-' + Math.random().toString(36).substring(2, 9);
+          segments.push({
+            ...curClip,
+            id: safeStart <= 0.05 ? curClip.id : midClipId,
+            name: `${curClip.name} (Susturuldu)`,
+            startTime: clipStart + safeStart,
+            duration: rangeDuration,
+            trimIn: initialTrimIn + safeStart * speed,
+            trimOut: initialTrimIn + safeEnd * speed,
+            vocalMute: true,
+          });
+
+          if (safeEnd < originalDuration - 0.05) {
+            const rightClipId = 'clip-' + Math.random().toString(36).substring(2, 9);
+            segments.push({
+              ...curClip,
+              id: rightClipId,
+              startTime: clipStart + safeEnd,
+              duration: originalDuration - safeEnd,
+              trimIn: initialTrimIn + safeEnd * speed,
+              trimOut: curClip.trimOut,
+              vocalMute: curClip.vocalMute,
+            });
+          }
+
+          success = true;
+          return {
+            ...prev,
+            tracks: prev.tracks.map((track) => {
+              if (track.id === curTrackId) {
+                const others = track.clips.filter((c) => c.id !== curClip!.id);
+                const combined = [...others, ...segments].sort((a, b) => a.startTime - b.startTime);
+                return { ...track, clips: combined };
+              }
+              return track;
+            }),
+          };
+        } else {
+          // Ripple delete: excises [safeStart, safeEnd] and pulls following clips left by rangeDuration
+          const remainingClips: VideoClip[] = [];
+
+          // Left part
+          if (safeStart > 0.05) {
+            remainingClips.push({
+              ...curClip,
+              id: curClip.id,
+              startTime: clipStart,
+              duration: safeStart,
+              trimIn: initialTrimIn,
+              trimOut: initialTrimIn + safeStart * speed,
+            });
+          }
+
+          // Right part
+          if (safeEnd < originalDuration - 0.05) {
+            const rightClipId = safeStart <= 0.05 ? curClip.id : 'clip-' + Math.random().toString(36).substring(2, 9);
+            remainingClips.push({
+              ...curClip,
+              id: rightClipId,
+              startTime: clipStart + safeStart,
+              duration: originalDuration - safeEnd,
+              trimIn: initialTrimIn + safeEnd * speed,
+              trimOut: curClip.trimOut,
+            });
+          }
+
+          success = true;
+          return {
+            ...prev,
+            tracks: prev.tracks.map((track) => {
+              if (track.id === curTrackId) {
+                const others = track.clips
+                  .filter((c) => c.id !== curClip!.id)
+                  .map((c) => {
+                    if (c.startTime >= clipStart + originalDuration - 0.01) {
+                      return {
+                        ...c,
+                        startTime: Math.max(0, c.startTime - rangeDuration),
+                      };
+                    }
+                    return c;
+                  });
+                const combined = [...others, ...remainingClips].sort((a, b) => a.startTime - b.startTime);
+                return { ...track, clips: combined };
+              }
+              return track;
+            }),
+          };
+        }
+      });
+
+      return success;
+    },
+    [commitProjectChange]
+  );
+
   // Text helpers
   const addTextClip = useCallback(
     (trackId: string, text: string, startTime = 0, duration = 3, initialData?: Partial<TextLayerData>): VideoClip => {
@@ -1910,6 +2058,7 @@ export function useVideoProject() {
     rippleTrimEnd,
     freezeFrame,
     removeSilencesFromClip,
+    removeDuplicateRangeFromClip,
     addTextClip,
     // Transition ops
     addTimelineTransition,

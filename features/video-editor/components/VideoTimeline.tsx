@@ -15,6 +15,7 @@ import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragD
 import { generateSfxBlob } from '../engine/sfxGenerator';
 import { saveAssetBlob } from '../db';
 import { audioMixer } from '../engine/audioMixer';
+import { duplicateSpeechDetector, DetectedDuplicate } from '../engine/duplicateSpeechDetector';
 import {
   Scissors,
   Trash2,
@@ -170,6 +171,12 @@ interface TimelineProps {
   onRippleTrimEnd?: (clipId: string, trimTime: number) => void;
   onFreezeFrame?: (clipId: string, freezeTime: number) => void;
   onRemoveSilences?: (clipId: string) => void;
+  onRemoveDuplicateRange?: (
+    clipId: string,
+    rangeStart: number,
+    rangeEnd: number,
+    action: 'ripple_delete' | 'vocal_mute'
+  ) => boolean;
   onCopyClip?: (clipId: string) => void;
   onPasteClip?: (time?: number, trackId?: string) => void;
   hasClipboard?: boolean;
@@ -218,6 +225,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onRippleTrimEnd,
   onFreezeFrame,
   onRemoveSilences,
+  onRemoveDuplicateRange,
   onCopyClip,
   onPasteClip,
   hasClipboard,
@@ -245,6 +253,80 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     x: number;
     y: number;
   } | null>(null);
+
+  // AI Duplicate Speech & Stutter Cleaner state
+  const [duplicateModalClip, setDuplicateModalClip] = useState<VideoClip | null>(null);
+  const [isScanningDuplicates, setIsScanningDuplicates] = useState<boolean>(false);
+  const [detectedDuplicates, setDetectedDuplicates] = useState<DetectedDuplicate[]>([]);
+  const [duplicateStatusText, setDuplicateStatusText] = useState<string | null>(null);
+
+  const handleOpenDuplicateDetector = useCallback(async (clip: VideoClip) => {
+    setDuplicateModalClip(clip);
+    setIsScanningDuplicates(true);
+    setDetectedDuplicates([]);
+    setDuplicateStatusText('Akustik dalga boyu ve konuşma korelasyonu taranıyor...');
+    try {
+      const dups = await duplicateSpeechDetector.detectDuplicates(clip, {
+        minRepeatDurationSec: 0.5,
+        maxRepeatDurationSec: 10.0,
+        correlationThreshold: 0.70,
+      });
+      setDetectedDuplicates(dups);
+      if (dups.length === 0) {
+        setDuplicateStatusText('Temiz! Klipte tekrar eden cümle veya kekeleme tespit edilmedi.');
+      } else {
+        setDuplicateStatusText(`${dups.length} adet tekrar eden cümle/kekeleme tespit edildi.`);
+      }
+    } catch (err: any) {
+      console.error('[VideoTimeline] Duplicate scan error:', err);
+      setDuplicateStatusText('Tekrar analizi sırasında hata: ' + (err?.message || 'Bilinmeyen hata'));
+    } finally {
+      setIsScanningDuplicates(false);
+    }
+  }, []);
+
+  const handleApplyDuplicateAction = useCallback(
+    (
+      dup: DetectedDuplicate,
+      targetOccurrence: 'first' | 'second',
+      action: 'ripple_delete' | 'vocal_mute'
+    ) => {
+      if (!duplicateModalClip || !onRemoveDuplicateRange) return;
+      const range = targetOccurrence === 'first' ? dup.firstOccurrence : dup.duplicateOccurrence;
+      const ok = onRemoveDuplicateRange(duplicateModalClip.id, range.startSec, range.endSec, action);
+      if (ok) {
+        setDetectedDuplicates((prev) => prev.filter((d) => d.id !== dup.id));
+        setDuplicateStatusText(
+          action === 'ripple_delete'
+            ? 'Tekrar eden kısım başarıyla kesilip çizelge kapatıldı.'
+            : 'Tekrar eden kısım başarıyla sessize alındı.'
+        );
+      }
+    },
+    [duplicateModalClip, onRemoveDuplicateRange]
+  );
+
+  const handleCleanAllDuplicates = useCallback(() => {
+    if (!duplicateModalClip || !onRemoveDuplicateRange || detectedDuplicates.length === 0) return;
+    const sorted = [...detectedDuplicates].sort(
+      (a, b) => b.duplicateOccurrence.startSec - a.duplicateOccurrence.startSec
+    );
+    let count = 0;
+    for (const dup of sorted) {
+      const ok = onRemoveDuplicateRange(
+        duplicateModalClip.id,
+        dup.duplicateOccurrence.startSec,
+        dup.duplicateOccurrence.endSec,
+        'ripple_delete'
+      );
+      if (ok) count++;
+    }
+    setDetectedDuplicates([]);
+    setDuplicateStatusText(`${count} adet tekrar başarıyla temizlendi!`);
+    setTimeout(() => {
+      setDuplicateModalClip(null);
+    }, 1200);
+  }, [duplicateModalClip, onRemoveDuplicateRange, detectedDuplicates]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1111,6 +1193,28 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <Wand2 size={12} className="text-purple-400" />
             <span className="text-[11px] font-medium">Sessizlikleri Kaldır</span>
           </button>
+
+          {/* AI Tekrarları Temizle Button */}
+          {onRemoveDuplicateRange && (
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTargetClip) {
+                  handleOpenDuplicateDetector(activeTargetClip);
+                }
+              }}
+              disabled={!activeTargetClip}
+              className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+                activeTargetClip
+                  ? 'bg-[#171B21] text-emerald-300 border-emerald-500/40 hover:bg-[#202631] hover:text-emerald-200'
+                  : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+              }`}
+              title="AI Tekrar Eden Cümleleri ve Kekelemeleri Tara & Temizle"
+            >
+              <Sparkles size={12} className="text-emerald-400" />
+              <span className="text-[11px] font-medium">Tekrarları Temizle</span>
+            </button>
+          )}
 
           {/* Kareyi Dondur (Freeze Frame) Button */}
           <button
@@ -2267,6 +2371,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             </button>
           )}
 
+          {/* AI Tekrarları Temizle Action */}
+          {onRemoveDuplicateRange && (
+            <button
+              onClick={() => {
+                handleOpenDuplicateDetector(contextMenu.clip);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white text-emerald-300 transition-colors text-left"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>AI Tekrarları ve Kekelemeleri Temizle</span>
+            </button>
+          )}
+
           {/* Karakter Sustur Action */}
           <button
             onClick={() => {
@@ -2447,6 +2565,165 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 <span className="truncate">{tr.name}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. AI Duplicate Speech & Stutter Modal */}
+      {duplicateModalClip && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          onClick={() => setDuplicateModalClip(null)}
+        >
+          <div
+            className="bg-[#101319] border border-[#232936] rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1c222e] bg-[#141822]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white text-sm">AI Tekrar & Kekeleme Temizleyici</h3>
+                  <p className="text-[11px] text-gray-400">
+                    Klip: <span className="text-gray-200 font-medium">{duplicateModalClip.name}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDuplicateModalClip(null)}
+                className="text-gray-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Status & Info */}
+            <div className="px-5 py-3 border-b border-[#1c222e] bg-[#0c0e14] flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                {isScanningDuplicates ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-gray-300 font-medium">{duplicateStatusText || 'Taranıyor...'}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-300 font-medium">{duplicateStatusText}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenDuplicateDetector(duplicateModalClip)}
+                disabled={isScanningDuplicates}
+                className="px-2.5 py-1 text-[11px] rounded bg-[#181d28] hover:bg-[#202736] text-gray-200 border border-[#273042] disabled:opacity-50 transition-colors"
+              >
+                Yeniden Tara
+              </button>
+            </div>
+
+            {/* List of Detected Duplicates */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3 custom-scrollbar max-h-[50vh]">
+              {!isScanningDuplicates && detectedDuplicates.length === 0 && (
+                <div className="text-center py-8 px-4 border border-dashed border-[#232936] rounded-lg">
+                  <Sparkles size={28} className="mx-auto text-emerald-400/60 mb-2" />
+                  <p className="text-sm font-medium text-gray-200">Tekrar Eden Cümle Bulunamadı</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Bu klipte peş peşe tekrarlanan veya kekeleme oluşturan cümle tespit edilmedi.
+                  </p>
+                </div>
+              )}
+
+              {detectedDuplicates.map((dup, index) => (
+                <div
+                  key={dup.id || index}
+                  className="p-3.5 rounded-lg bg-[#141822] border border-[#222a3a] hover:border-[#2e394e] transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] flex items-center justify-center font-mono">
+                        {index + 1}
+                      </span>
+                      <span>Tekrar Eden Bölüm</span>
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 font-medium">
+                      %{dup.confidence} Eşleşme ({dup.type === 'acoustic_correlation' ? 'Akustik Dalga' : dup.type === 'text_repeat' ? 'Metin Tekrarı' : 'Hibrit'})
+                    </span>
+                  </div>
+
+                  {dup.textSnippet && (
+                    <div className="p-2 rounded bg-[#0b0d12] border border-[#1a1f2c] text-xs text-gray-300 italic mb-2.5">
+                      "{dup.textSnippet}"
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] mb-3">
+                    <div className="p-2 rounded bg-[#10131a] border border-[#1e2433]">
+                      <span className="text-gray-400 block text-[10px] mb-0.5">1. Okuma (Orijinal)</span>
+                      <span className="font-mono text-gray-200">
+                        {dup.firstOccurrence.startSec.toFixed(2)}s – {dup.firstOccurrence.endSec.toFixed(2)}s
+                      </span>
+                    </div>
+                    <div className="p-2 rounded bg-amber-950/20 border border-amber-900/30">
+                      <span className="text-amber-400/90 block text-[10px] mb-0.5">2. Okuma (Tekrar / Hatalı)</span>
+                      <span className="font-mono text-amber-200">
+                        {dup.duplicateOccurrence.startSec.toFixed(2)}s – {dup.duplicateOccurrence.endSec.toFixed(2)}s
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1e2433]">
+                    <button
+                      type="button"
+                      onClick={() => onSeek(duplicateModalClip.startTime + dup.duplicateOccurrence.startSec)}
+                      className="px-2.5 py-1 text-xs rounded bg-[#191e2b] hover:bg-[#222a3c] text-gray-300 border border-[#273042] transition-colors"
+                    >
+                      Dinle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDuplicateAction(dup, 'second', 'vocal_mute')}
+                      className="px-2.5 py-1 text-xs rounded bg-amber-950/50 hover:bg-amber-900/60 text-amber-300 border border-amber-800/40 transition-colors"
+                      title="Karakter sesini bu aralıkta susturur, arka plan müziğini kesmez"
+                    >
+                      Sustur (Vocal Mute)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDuplicateAction(dup, 'second', 'ripple_delete')}
+                      className="px-2.5 py-1 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1 shadow-sm"
+                      title="Hatalı tekrarı keser ve zaman çizelgesindeki boşluğu otomatik kapatır"
+                    >
+                      <Scissors size={12} />
+                      <span>2. Tekrarı Kes (Ripple)</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer with Batch Actions */}
+            <div className="px-5 py-3 border-t border-[#1c222e] bg-[#141822] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setDuplicateModalClip(null)}
+                className="px-4 py-1.5 text-xs rounded bg-[#1a1f2b] hover:bg-[#232a3b] text-gray-300 border border-[#283244] transition-colors"
+              >
+                Kapat
+              </button>
+
+              {detectedDuplicates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCleanAllDuplicates}
+                  className="px-4 py-1.5 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-950/50"
+                >
+                  <Scissors size={13} />
+                  <span>Tüm Tekrarları Otomatik Kes & Kapat ({detectedDuplicates.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
