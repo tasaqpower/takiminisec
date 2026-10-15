@@ -69,6 +69,10 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     rippleDeleteClip,
     duplicateClip,
     detachAudio,
+    rippleTrimStart,
+    rippleTrimEnd,
+    freezeFrame,
+    removeSilencesFromClip,
     addTextClip,
     addTimelineTransition,
     updateTimelineTransition,
@@ -208,6 +212,28 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     onJumpStart: () => seek(0),
     onJumpEnd: () => seek(project.duration),
     onDeselect: () => setSelectedClipId(null),
+    onRippleTrimStart: () => {
+      const targetId =
+        selectedClipId ||
+        project.tracks
+          .flatMap((t) => t.clips)
+          .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration)?.id;
+      if (targetId) {
+        const newPlayhead = rippleTrimStart(targetId, currentTime);
+        if (newPlayhead !== null) seek(newPlayhead);
+      }
+    },
+    onRippleTrimEnd: () => {
+      const targetId =
+        selectedClipId ||
+        project.tracks
+          .flatMap((t) => t.clips)
+          .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration)?.id;
+      if (targetId) {
+        const newPlayhead = rippleTrimEnd(targetId, currentTime);
+        if (newPlayhead !== null) seek(newPlayhead);
+      }
+    },
   });
 
   return (
@@ -411,6 +437,20 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onAddTextAnimationSegment={addTextAnimationSegment}
           onUpdateTextAnimationSegment={updateTextAnimationSegment}
           onDeleteTextAnimationSegment={deleteTextAnimationSegment}
+          onRippleTrimStart={(clipId, trimTime) => {
+            const newPlayhead = rippleTrimStart(clipId, trimTime);
+            if (newPlayhead !== null) seek(newPlayhead);
+          }}
+          onRippleTrimEnd={(clipId, trimTime) => {
+            const newPlayhead = rippleTrimEnd(clipId, trimTime);
+            if (newPlayhead !== null) seek(newPlayhead);
+          }}
+          onFreezeFrame={(clipId, freezeTime) => {
+            freezeFrame(clipId, freezeTime, 2.0);
+          }}
+          onRemoveSilences={(clipId) => {
+            removeSilencesFromClip(clipId);
+          }}
         />
 
         {/* 4. MODALS */}

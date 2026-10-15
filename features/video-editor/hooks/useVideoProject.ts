@@ -771,6 +771,428 @@ export function useVideoProject() {
     [commitProjectChange]
   );
 
+  // Ripple Trim Start (Q): Trims from clip start to trimTime, shifts clip and following clips left
+  const rippleTrimStart = useCallback(
+    (clipId: string, trimTime: number): number | null => {
+      let newPlayheadTime: number | null = null;
+
+      commitProjectChange((prev) => {
+        let targetClip: VideoClip | null = null;
+        let trackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            targetClip = c;
+            trackId = t.id;
+            break;
+          }
+        }
+
+        if (!targetClip) return prev;
+
+        const clipStart = targetClip.startTime;
+        const clipEnd = clipStart + targetClip.duration;
+
+        if (trimTime <= clipStart + 0.04 || trimTime >= clipEnd - 0.04) {
+          return prev;
+        }
+
+        const cutDuration = trimTime - clipStart;
+        newPlayheadTime = clipStart;
+        const speed = targetClip.speed || 1.0;
+        const newTrimIn = (targetClip.trimIn ?? 0) + cutDuration * speed;
+        const newDuration = targetClip.duration - cutDuration;
+
+        const updatedClip: VideoClip = {
+          ...targetClip,
+          trimIn: newTrimIn,
+          duration: newDuration,
+          transitionIn: undefined,
+        };
+
+        return {
+          ...prev,
+          tracks: prev.tracks.map((track) => {
+            if (track.id === trackId) {
+              const newClips = track.clips.map((c) => {
+                if (c.id === clipId) {
+                  return updatedClip;
+                }
+                if (c.startTime >= clipEnd - 0.01) {
+                  return {
+                    ...c,
+                    startTime: Math.max(0, c.startTime - cutDuration),
+                  };
+                }
+                return c;
+              });
+              return { ...track, clips: newClips };
+            }
+            return track;
+          }),
+          transitions: prev.transitions
+            ?.filter((tr) => tr.leftClipId !== clipId)
+            .map((tr) => {
+              if (tr.cutTime >= clipEnd - 0.01) {
+                return { ...tr, cutTime: Math.max(0, tr.cutTime - cutDuration) };
+              }
+              return tr;
+            }),
+        };
+      });
+
+      return newPlayheadTime;
+    },
+    [commitProjectChange]
+  );
+
+  // Ripple Trim End (W): Trims from trimTime to clip end, pulls subsequent clips left
+  const rippleTrimEnd = useCallback(
+    (clipId: string, trimTime: number): number | null => {
+      let newPlayheadTime: number | null = null;
+
+      commitProjectChange((prev) => {
+        let targetClip: VideoClip | null = null;
+        let trackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            targetClip = c;
+            trackId = t.id;
+            break;
+          }
+        }
+
+        if (!targetClip) return prev;
+
+        const clipStart = targetClip.startTime;
+        const clipEnd = clipStart + targetClip.duration;
+
+        if (trimTime <= clipStart + 0.04 || trimTime >= clipEnd - 0.04) {
+          return prev;
+        }
+
+        const cutDuration = clipEnd - trimTime;
+        newPlayheadTime = trimTime;
+        const speed = targetClip.speed || 1.0;
+        const newDuration = trimTime - clipStart;
+        const newTrimOut = (targetClip.trimIn ?? 0) + newDuration * speed;
+
+        const updatedClip: VideoClip = {
+          ...targetClip,
+          duration: newDuration,
+          trimOut: newTrimOut,
+          transitionOut: undefined,
+        };
+
+        return {
+          ...prev,
+          tracks: prev.tracks.map((track) => {
+            if (track.id === trackId) {
+              const newClips = track.clips.map((c) => {
+                if (c.id === clipId) {
+                  return updatedClip;
+                }
+                if (c.startTime >= clipEnd - 0.01) {
+                  return {
+                    ...c,
+                    startTime: Math.max(0, c.startTime - cutDuration),
+                  };
+                }
+                return c;
+              });
+              return { ...track, clips: newClips };
+            }
+            return track;
+          }),
+          transitions: prev.transitions
+            ?.filter((tr) => tr.rightClipId !== clipId)
+            .map((tr) => {
+              if (tr.cutTime >= clipEnd - 0.01) {
+                return { ...tr, cutTime: Math.max(0, tr.cutTime - cutDuration) };
+              }
+              return tr;
+            }),
+        };
+      });
+
+      return newPlayheadTime;
+    },
+    [commitProjectChange]
+  );
+
+  // Freeze Frame: Splits clip at freezeTime, inserts a still image clip with duration, shifts subsequent clips right
+  const freezeFrame = useCallback(
+    async (
+      clipId: string,
+      freezeTime: number,
+      freezeDuration: number = 2.0,
+      imageBlob?: Blob
+    ): Promise<string | null> => {
+      let createdClipId: string | null = null;
+      let targetClip: VideoClip | null = null;
+      let trackId = '';
+
+      for (const t of project.tracks) {
+        const c = t.clips.find((clip) => clip.id === clipId);
+        if (c) {
+          targetClip = c;
+          trackId = t.id;
+          break;
+        }
+      }
+
+      if (!targetClip) return null;
+
+      let assetId = 'asset-freeze-' + Date.now();
+      let sourceUrl = '';
+      if (imageBlob) {
+        const { saveAssetBlob } = await import('../db');
+        await saveAssetBlob(assetId, imageBlob);
+        sourceUrl = URL.createObjectURL(imageBlob);
+      } else {
+        try {
+          const { exportEngine } = await import('../engine/exportEngine');
+          const blob = await exportEngine.exportProject(
+            project,
+            {
+              format: 'png',
+              resolution: project.resolution,
+              fps: project.fps,
+              quality: 'high',
+              filename: `freeze_${Date.now()}.png`,
+            },
+            freezeTime,
+            () => {}
+          );
+          if (blob) {
+            const { saveAssetBlob } = await import('../db');
+            await saveAssetBlob(assetId, blob);
+            sourceUrl = URL.createObjectURL(blob);
+          }
+        } catch (err) {
+          console.warn('Freeze frame snapshot capture failed:', err);
+        }
+      }
+
+      commitProjectChange((prev) => {
+        let curClip: VideoClip | null = null;
+        let curTrackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            curClip = c;
+            curTrackId = t.id;
+            break;
+          }
+        }
+
+        if (!curClip) return prev;
+
+        const clipStart = curClip.startTime;
+        const clipEnd = clipStart + curClip.duration;
+        const speed = curClip.speed || 1.0;
+        const splitOffset = Math.max(0.01, Math.min(curClip.duration - 0.01, freezeTime - clipStart));
+        const effectiveSplitTime = clipStart + splitOffset;
+
+        const leftDuration = splitOffset;
+        const rightDuration = curClip.duration - splitOffset;
+
+        const leftTrimIn = curClip.trimIn ?? 0;
+        const leftTrimOut = leftTrimIn + leftDuration * speed;
+
+        const rightTrimIn = leftTrimOut;
+        const rightTrimOut = curClip.trimOut ?? (rightTrimIn + rightDuration * speed);
+
+        const leftClip: VideoClip = {
+          ...curClip,
+          id: curClip.id,
+          duration: leftDuration,
+          trimIn: leftTrimIn,
+          trimOut: leftTrimOut,
+        };
+
+        createdClipId = 'clip-freeze-' + Math.random().toString(36).substring(2, 9);
+        const freezeClip: VideoClip = {
+          id: createdClipId,
+          trackId: curTrackId,
+          assetId,
+          sourceUrl,
+          name: `${curClip.name} (Dondurulmuş Kare)`,
+          type: 'image',
+          startTime: effectiveSplitTime,
+          duration: freezeDuration,
+          sourceDuration: freezeDuration,
+          trimIn: 0,
+          trimOut: freezeDuration,
+        };
+
+        const rightClipId = 'clip-' + Math.random().toString(36).substring(2, 9);
+        const rightClip: VideoClip = {
+          ...curClip,
+          id: rightClipId,
+          name: `${curClip.name} (Devam)`,
+          startTime: effectiveSplitTime + freezeDuration,
+          duration: rightDuration,
+          trimIn: rightTrimIn,
+          trimOut: rightTrimOut,
+        };
+
+        return {
+          ...prev,
+          tracks: prev.tracks.map((track) => {
+            if (track.id === curTrackId) {
+              const otherClips = track.clips
+                .filter((c) => c.id !== curClip!.id)
+                .map((c) => {
+                  if (c.startTime >= clipEnd - 0.01) {
+                    return {
+                      ...c,
+                      startTime: c.startTime + freezeDuration,
+                    };
+                  }
+                  return c;
+                });
+              const newClips = [...otherClips, leftClip, freezeClip, rightClip].sort(
+                (a, b) => a.startTime - b.startTime
+              );
+              return { ...track, clips: newClips };
+            }
+            return track;
+          }),
+        };
+      });
+
+      if (createdClipId) {
+        setSelectedClipId(createdClipId);
+      }
+      return createdClipId;
+    },
+    [commitProjectChange, project]
+  );
+
+  // Remove silences from clip: analyzes silence intervals and packs spoken parts together
+  const removeSilencesFromClip = useCallback(
+    async (clipId: string, minDurationSec = 0.35): Promise<boolean> => {
+      let targetClip: VideoClip | null = null;
+
+      for (const t of project.tracks) {
+        const c = t.clips.find((clip) => clip.id === clipId);
+        if (c) {
+          targetClip = c;
+          break;
+        }
+      }
+
+      if (!targetClip) return false;
+
+      const { audioMixer } = await import('../engine/audioMixer');
+      const silences = await audioMixer.detectSilenceIntervals(targetClip, minDurationSec);
+
+      const validSilences = silences.filter((s) => s.duration >= minDurationSec);
+      if (validSilences.length === 0) {
+        return false;
+      }
+
+      commitProjectChange((prev) => {
+        let curClip: VideoClip | null = null;
+        let curTrackId = '';
+
+        for (const t of prev.tracks) {
+          const c = t.clips.find((clip) => clip.id === clipId);
+          if (c) {
+            curClip = c;
+            curTrackId = t.id;
+            break;
+          }
+        }
+
+        if (!curClip) return prev;
+
+        const speed = curClip.speed || 1.0;
+        const clipStart = curClip.startTime;
+        const initialTrimIn = curClip.trimIn ?? 0;
+
+        const speechSegments: { startSec: number; endSec: number }[] = [];
+        let cursor = 0;
+
+        for (const sil of validSilences) {
+          if (sil.startSec > cursor + 0.1) {
+            speechSegments.push({
+              startSec: cursor,
+              endSec: sil.startSec,
+            });
+          }
+          cursor = Math.max(cursor, sil.endSec);
+        }
+
+        if (cursor < curClip.duration - 0.1) {
+          speechSegments.push({
+            startSec: cursor,
+            endSec: curClip.duration,
+          });
+        }
+
+        if (speechSegments.length === 0) return prev;
+
+        let runningTimelineTime = clipStart;
+        const newSpeechClips: VideoClip[] = [];
+
+        speechSegments.forEach((seg, idx) => {
+          const segDuration = seg.endSec - seg.startSec;
+          const segTrimIn = initialTrimIn + seg.startSec * speed;
+          const segTrimOut = segTrimIn + segDuration * speed;
+
+          const clipObj: VideoClip = {
+            ...curClip!,
+            id: idx === 0 ? curClip!.id : 'clip-' + Math.random().toString(36).substring(2, 9),
+            name: `${curClip!.name} (Konuşma ${idx + 1})`,
+            startTime: runningTimelineTime,
+            duration: segDuration,
+            trimIn: segTrimIn,
+            trimOut: segTrimOut,
+          };
+          newSpeechClips.push(clipObj);
+          runningTimelineTime += segDuration;
+        });
+
+        const totalOriginalDuration = curClip.duration;
+        const totalNewDuration = runningTimelineTime - clipStart;
+        const totalSavedGap = totalOriginalDuration - totalNewDuration;
+
+        return {
+          ...prev,
+          tracks: prev.tracks.map((track) => {
+            if (track.id === curTrackId) {
+              const otherClips = track.clips
+                .filter((c) => c.id !== curClip!.id)
+                .map((c) => {
+                  if (c.startTime >= clipStart + totalOriginalDuration - 0.01) {
+                    return {
+                      ...c,
+                      startTime: Math.max(0, c.startTime - totalSavedGap),
+                    };
+                  }
+                  return c;
+                });
+              const combined = [...otherClips, ...newSpeechClips].sort(
+                (a, b) => a.startTime - b.startTime
+              );
+              return { ...track, clips: combined };
+            }
+            return track;
+          }),
+        };
+      });
+
+      return true;
+    },
+    [commitProjectChange, project]
+  );
+
   // Text helpers
   const addTextClip = useCallback(
     (trackId: string, text: string, startTime = 0, duration = 3, initialData?: Partial<TextLayerData>): VideoClip => {
@@ -1397,6 +1819,10 @@ export function useVideoProject() {
     rippleDeleteClip,
     duplicateClip,
     detachAudio,
+    rippleTrimStart,
+    rippleTrimEnd,
+    freezeFrame,
+    removeSilencesFromClip,
     addTextClip,
     // Transition ops
     addTimelineTransition,

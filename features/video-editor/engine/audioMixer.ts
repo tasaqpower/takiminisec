@@ -30,6 +30,7 @@ class AudioMixer {
 
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
+  private waveformPeakCache: Map<string, number[]> = new Map();
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -750,12 +751,153 @@ class AudioMixer {
   }
 
   /**
+   * Computes normalized audio waveform peaks for a clip.
+   * Works for both audio clips and video clips with embedded audio.
+   */
+  public async getWaveformPeaks(clip: VideoClip, numBars: number = 72): Promise<number[]> {
+    const speed = clip.speed || 1.0;
+    const trimIn = clip.trimIn ?? 0;
+    const duration = clip.duration;
+    const cacheKey = `${clip.assetId || clip.sourceUrl || clip.id}_${trimIn.toFixed(2)}_${duration.toFixed(2)}_${speed}_${numBars}`;
+
+    if (this.waveformPeakCache.has(cacheKey)) {
+      return this.waveformPeakCache.get(cacheKey)!;
+    }
+
+    try {
+      const buffer = await this.getAudioBuffer(clip);
+      if (!buffer || buffer.length === 0) {
+        return [];
+      }
+
+      const channelData = buffer.getChannelData(0);
+      const sampleRate = buffer.sampleRate;
+      const startSec = trimIn;
+      const endSec = Math.min(buffer.duration, trimIn + duration * speed);
+      const startSample = Math.floor(Math.max(0, startSec * sampleRate));
+      const endSample = Math.floor(Math.min(channelData.length, endSec * sampleRate));
+      const totalSamples = endSample - startSample;
+
+      if (totalSamples <= 0) {
+        return [];
+      }
+
+      const peaks: number[] = new Array(numBars);
+      const samplesPerBar = totalSamples / numBars;
+      let maxPeak = 0.0001;
+
+      for (let i = 0; i < numBars; i++) {
+        const bStart = Math.floor(startSample + i * samplesPerBar);
+        const bEnd = Math.floor(Math.min(endSample, bStart + samplesPerBar));
+        let sumSq = 0;
+        let count = 0;
+        const step = Math.max(1, Math.floor((bEnd - bStart) / 100));
+        for (let s = bStart; s < bEnd; s += step) {
+          const val = channelData[s];
+          sumSq += val * val;
+          count++;
+        }
+        const rms = count > 0 ? Math.sqrt(sumSq / count) : 0;
+        peaks[i] = rms;
+        if (rms > maxPeak) maxPeak = rms;
+      }
+
+      // Normalize between 0.08 and 1.0
+      const normalized = peaks.map((p) => Math.max(0.08, Math.min(1.0, p / maxPeak)));
+      this.waveformPeakCache.set(cacheKey, normalized);
+      return normalized;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Scans audio track for silence intervals (RMS below threshold for at least minDurationSec).
+   * Returns array of silence intervals in clip timeline seconds (relative to clip.startTime).
+   */
+  public async detectSilenceIntervals(
+    clip: VideoClip,
+    minDurationSec: number = 0.35,
+    silenceThresholdRms: number = 0.016
+  ): Promise<{ startSec: number; endSec: number; duration: number }[]> {
+    try {
+      const buffer = await this.getAudioBuffer(clip);
+      if (!buffer || buffer.length === 0) return [];
+
+      const channelData = buffer.getChannelData(0);
+      const sampleRate = buffer.sampleRate;
+      const speed = clip.speed || 1.0;
+      const trimIn = clip.trimIn ?? 0;
+      const clipDuration = clip.duration;
+      const startSec = trimIn;
+      const endSec = Math.min(buffer.duration, trimIn + clipDuration * speed);
+      const startSample = Math.floor(Math.max(0, startSec * sampleRate));
+      const endSample = Math.floor(Math.min(channelData.length, endSec * sampleRate));
+
+      const chunkSizeSec = 0.05; // 50ms chunk
+      const chunkSizeSamples = Math.floor(sampleRate * chunkSizeSec);
+      if (chunkSizeSamples <= 0) return [];
+
+      const silences: { startSec: number; endSec: number; duration: number }[] = [];
+      let currentSilenceStartSec: number | null = null;
+
+      for (let s = startSample; s < endSample; s += chunkSizeSamples) {
+        const chunkEnd = Math.min(endSample, s + chunkSizeSamples);
+        let sumSq = 0;
+        let count = 0;
+        for (let i = s; i < chunkEnd; i += 4) {
+          const v = channelData[i];
+          sumSq += v * v;
+          count++;
+        }
+        const rms = count > 0 ? Math.sqrt(sumSq / count) : 0;
+        const offsetSecFromClipStart = ((s - startSample) / sampleRate) / speed;
+
+        if (rms < silenceThresholdRms) {
+          if (currentSilenceStartSec === null) {
+            currentSilenceStartSec = offsetSecFromClipStart;
+          }
+        } else {
+          if (currentSilenceStartSec !== null) {
+            const silenceDur = offsetSecFromClipStart - currentSilenceStartSec;
+            if (silenceDur >= minDurationSec) {
+              silences.push({
+                startSec: currentSilenceStartSec,
+                endSec: offsetSecFromClipStart,
+                duration: silenceDur,
+              });
+            }
+            currentSilenceStartSec = null;
+          }
+        }
+      }
+
+      if (currentSilenceStartSec !== null) {
+        const finalSec = clipDuration;
+        const silenceDur = finalSec - currentSilenceStartSec;
+        if (silenceDur >= minDurationSec) {
+          silences.push({
+            startSec: currentSilenceStartSec,
+            endSec: finalSec,
+            duration: silenceDur,
+          });
+        }
+      }
+
+      return silences;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Clear cache
    */
   public clearCache(): void {
     this.stopAll();
     this.bufferCache.clear();
     this.pendingDecodes.clear();
+    this.waveformPeakCache.clear();
   }
 }
 

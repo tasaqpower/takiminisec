@@ -15,6 +15,8 @@ interface ShortcutHandlers {
   onJumpStart: () => void;
   onJumpEnd: () => void;
   onDeselect: () => void;
+  onRippleTrimStart?: () => void;
+  onRippleTrimEnd?: () => void;
 }
 
 export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
@@ -73,6 +75,24 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
         if (!cmdOrCtrl) {
           e.preventDefault();
           handlers.onSplit();
+          return;
+        }
+      }
+
+      // Q: Ripple trim playhead to clip start (Top)
+      if (e.key === 'q' || e.key === 'Q') {
+        if (!cmdOrCtrl) {
+          e.preventDefault();
+          handlers.onRippleTrimStart?.();
+          return;
+        }
+      }
+
+      // W: Ripple trim playhead to clip end (Tail)
+      if (e.key === 'w' || e.key === 'W') {
+        if (!cmdOrCtrl) {
+          e.preventDefault();
+          handlers.onRippleTrimEnd?.();
           return;
         }
       }

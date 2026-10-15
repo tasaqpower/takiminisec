@@ -26,6 +26,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
       icon: <Scissors className="w-3.5 h-3.5 text-amber-400" />,
       items: [
         { keys: ['S'], desc: 'Seçili Klibi Oynatma Çizgisinden Böl (Split)' },
+        { keys: ['Q'], desc: 'Başı Kırp & Boşluğu Kapat (Ripple Trim In)' },
+        { keys: ['W'], desc: 'Sonu Kırp & Boşluğu Kapat (Ripple Trim Out)' },
         { keys: ['Delete'], desc: 'Seçili Klibi Zaman Çizelgesinden Sil' },
         { keys: ['Shift', 'Delete'], desc: 'Boşluğu Kapatıp Sil (Ripple Delete)' },
         { keys: ['Ctrl', 'D'], desc: 'Seçili Klibin Birebir Kopyasını Oluştur' },

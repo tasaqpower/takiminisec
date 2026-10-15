@@ -14,6 +14,7 @@ import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
 import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
 import { generateSfxBlob } from '../engine/sfxGenerator';
 import { saveAssetBlob } from '../db';
+import { audioMixer } from '../engine/audioMixer';
 import {
   Scissors,
   Trash2,
@@ -42,8 +43,90 @@ import {
   Layers,
   ArrowLeftRight,
   ChevronDown,
+  Camera,
+  Wand2,
 } from 'lucide-react';
 import { TimelineTrackHeader } from './ui/TimelineTrackHeader';
+
+/**
+ * Real Audio Waveform Visualizer
+ * Analyzes decoded audio buffer peaks and displays true waveform bars
+ * for both audio clips and video clips with embedded audio.
+ */
+const TimelineClipWaveform: React.FC<{
+  clip: VideoClip;
+  width: number;
+  isOverlay?: boolean;
+}> = ({ clip, width, isOverlay = false }) => {
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const numBars = Math.max(16, Math.min(140, Math.floor(width / 5)));
+    audioMixer.getWaveformPeaks(clip, numBars).then((res) => {
+      if (active && res && res.length > 0) {
+        setPeaks(res);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [clip.id, clip.assetId, clip.sourceUrl, clip.trimIn, clip.duration, clip.speed, width]);
+
+  const barColor = clip.muted
+    ? '#64748b'
+    : clip.vocalMute
+    ? '#f59e0b'
+    : isOverlay
+    ? '#38bdf8'
+    : '#34d399';
+
+  const opacityClass = isOverlay
+    ? clip.muted
+      ? 'opacity-15'
+      : 'opacity-40'
+    : clip.muted
+    ? 'opacity-25'
+    : 'opacity-65';
+
+  if (!peaks || peaks.length === 0) {
+    if (isOverlay) return null;
+    return (
+      <div className={`absolute inset-0 ${opacityClass} pointer-events-none flex items-center overflow-hidden px-1 z-0`}>
+        <div className="w-full h-1 bg-emerald-500/20 rounded" />
+      </div>
+    );
+  }
+
+  const barCount = peaks.length;
+  const barWidth = 100 / barCount;
+
+  return (
+    <div
+      className={`absolute inset-0 ${opacityClass} pointer-events-none flex items-center overflow-hidden px-0.5 z-0 ${
+        isOverlay ? 'top-1.5 bottom-1.5' : ''
+      }`}
+    >
+      <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 32">
+        {peaks.map((p, i) => {
+          const barH = Math.max(2, p * 28);
+          const y = (32 - barH) / 2;
+          return (
+            <rect
+              key={i}
+              x={i * barWidth + barWidth * 0.15}
+              y={y}
+              width={barWidth * 0.7}
+              height={barH}
+              rx={0.6}
+              fill={barColor}
+            />
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
 
 interface TimelineProps {
   project: VideoProject;
@@ -82,6 +165,10 @@ interface TimelineProps {
   onAddTextAnimationSegment?: (clipId: string, segment: Omit<TextAnimationSegment, 'id'>) => TextAnimationSegment;
   onUpdateTextAnimationSegment?: (clipId: string, segmentId: string, updates: Partial<TextAnimationSegment>) => void;
   onDeleteTextAnimationSegment?: (clipId: string, segmentId: string) => void;
+  onRippleTrimStart?: (clipId: string, trimTime: number) => void;
+  onRippleTrimEnd?: (clipId: string, trimTime: number) => void;
+  onFreezeFrame?: (clipId: string, freezeTime: number) => void;
+  onRemoveSilences?: (clipId: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -123,6 +210,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onAddTextAnimationSegment,
   onUpdateTextAnimationSegment,
   onDeleteTextAnimationSegment,
+  onRippleTrimStart,
+  onRippleTrimEnd,
+  onFreezeFrame,
+  onRemoveSilences,
   className,
   style,
 }) => {
@@ -942,6 +1033,86 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <span className="font-semibold text-xs">Böl (S)</span>
           </button>
 
+          {/* Ripple Trim Head (Q) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip && onRippleTrimStart) {
+                onRippleTrimStart(activeTargetClip.id, currentTime);
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Oynatma Çizgisinden Öncesini Kırp ve Boşluğu Kapat (Q)"
+          >
+            <span className="font-semibold text-xs text-[#38bdf8]">Q</span>
+            <span className="text-[11px] font-medium">Başı Kırp</span>
+          </button>
+
+          {/* Ripple Trim Tail (W) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip && onRippleTrimEnd) {
+                onRippleTrimEnd(activeTargetClip.id, currentTime);
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Oynatma Çizgisinden Sonrasını Kırp ve Boşluğu Kapat (W)"
+          >
+            <span className="font-semibold text-xs text-[#38bdf8]">W</span>
+            <span className="text-[11px] font-medium">Sonu Kırp</span>
+          </button>
+
+          {/* Sessizlikleri Kaldır Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip && onRemoveSilences) {
+                onRemoveSilences(activeTargetClip.id);
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-purple-300 border-purple-500/40 hover:bg-[#202631] hover:text-purple-200'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="AI Konuşma Arasındaki Boşlukları ve Sessizlikleri Otomatik Bulup Kaldırır"
+          >
+            <Wand2 size={12} className="text-purple-400" />
+            <span className="text-[11px] font-medium">Sessizlikleri Kaldır</span>
+          </button>
+
+          {/* Kareyi Dondur (Freeze Frame) Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip && onFreezeFrame) {
+                onFreezeFrame(activeTargetClip.id, currentTime);
+              }
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-sky-300 border-sky-500/40 hover:bg-[#202631] hover:text-sky-200'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Mevcut Kareyi 2 Saniyelik Hareketsiz Görsel Olarak Araya Dondurur"
+          >
+            <Camera size={12} className="text-sky-400" />
+            <span className="text-[11px] font-medium">Kareyi Dondur</span>
+          </button>
+
           {/* Ripple Delete Button */}
           <button
             type="button"
@@ -1397,27 +1568,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                       >
                         {/* 1. Background Visuals: Audio Waveform, Video Filmstrip, or Text Preview */}
                         {clip.type === 'audio' && (
-                          <div className="absolute inset-0 opacity-45 pointer-events-none flex items-center overflow-hidden px-1 z-0">
-                            <svg className="w-full h-8" preserveAspectRatio="none" viewBox="0 0 100 32">
-                              {Array.from({ length: 48 }).map((_, i) => {
-                                const seed = (clip.id.charCodeAt(clip.id.length - 1) || 1) * 31 + i * 17;
-                                const heightRatio = 0.2 + 0.8 * Math.abs(Math.sin(seed * 0.45));
-                                const barH = Math.max(3, heightRatio * 28);
-                                const y = (32 - barH) / 2;
-                                return (
-                                  <rect
-                                    key={i}
-                                    x={i * 2.08}
-                                    y={y}
-                                    width={1.4}
-                                    height={barH}
-                                    rx={0.6}
-                                    fill="#34d399"
-                                  />
-                                );
-                              })}
-                            </svg>
-                          </div>
+                          <TimelineClipWaveform clip={clip} width={width} />
                         )}
 
                         {clip.type === 'video' && (
@@ -1447,6 +1598,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 ))}
                               </div>
                             )}
+
+                            {/* Real Speech/Audio Waveform Overlay on Video */}
+                            <TimelineClipWaveform clip={clip} width={width} isOverlay={true} />
                           </>
                         )}
 
@@ -1961,17 +2115,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {contextMenu.clip.type === 'video' && onUpdateClipSpeed && (
             <div className="px-2.5 py-1.5 border-t border-b border-[#191d26] my-1">
               <span className="text-[10px] text-gray-400 block mb-1">Oynatma Hızı</span>
-              <div className="flex items-center gap-1">
-                {[0.5, 1.0, 1.5, 2.0].map((s) => (
+              <div className="grid grid-cols-6 gap-1">
+                {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((s) => (
                   <button
                     key={s}
                     onClick={() => {
                       onUpdateClipSpeed(contextMenu.clip.id, s);
                       setContextMenu(null);
                     }}
-                    className={`flex-1 py-0.5 rounded text-[10px] font-mono border ${
+                    className={`py-0.5 rounded text-[10px] font-mono border text-center ${
                       (contextMenu.clip.speed || 1) === s
-                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        ? 'bg-indigo-600 text-white border-indigo-500 font-semibold'
                         : 'bg-[#13161c] text-gray-300 border-[#202531] hover:bg-[#181c24]'
                     }`}
                   >
@@ -1983,6 +2137,34 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           )}
 
           <div className="border-t border-[#191d26] my-1" />
+
+          {/* Kareyi Dondur (Freeze Frame) Action */}
+          {onFreezeFrame && (
+            <button
+              onClick={() => {
+                onFreezeFrame(contextMenu.clip.id, currentTime);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white text-sky-300 transition-colors text-left"
+            >
+              <Camera className="w-3.5 h-3.5 text-sky-400" />
+              <span>Kareyi Dondur (2 sn)</span>
+            </button>
+          )}
+
+          {/* Sessizlikleri Kaldır Action */}
+          {onRemoveSilences && (
+            <button
+              onClick={() => {
+                onRemoveSilences(contextMenu.clip.id);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white text-purple-300 transition-colors text-left"
+            >
+              <Wand2 className="w-3.5 h-3.5 text-purple-400" />
+              <span>Sessizlikleri Kaldır (Boşlukları Temizle)</span>
+            </button>
+          )}
 
           {/* Karakter Sustur Action */}
           <button
