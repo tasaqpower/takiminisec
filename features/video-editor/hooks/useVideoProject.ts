@@ -1283,7 +1283,7 @@ export function useVideoProject() {
       clipId: string,
       rangeStartRelSec: number,
       rangeEndRelSec: number,
-      action: 'ripple_delete' | 'vocal_mute' = 'ripple_delete'
+      action: 'ripple_delete' | 'vocal_mute' | 'censor_bleep' = 'ripple_delete'
     ): boolean => {
       let success = false;
 
@@ -1314,7 +1314,8 @@ export function useVideoProject() {
 
         if (rangeDuration <= 0.04) return prev;
 
-        if (action === 'vocal_mute') {
+        if (action === 'vocal_mute' || action === 'censor_bleep') {
+          const isBleep = action === 'censor_bleep';
           const segments: VideoClip[] = [];
 
           if (safeStart > 0.05) {
@@ -1329,19 +1330,22 @@ export function useVideoProject() {
             });
           }
 
-          const midClipId = 'clip-muted-' + Math.random().toString(36).substring(2, 9);
+          const midClipId = isBleep
+            ? 'clip-bleep-' + Math.random().toString(36).substring(2, 9)
+            : 'clip-muted-' + Math.random().toString(36).substring(2, 9);
           segments.push({
             ...curClip,
             id: safeStart <= 0.05 ? curClip.id : midClipId,
-            name: `${curClip.name} (Susturuldu + Lip-Freeze)`,
+            name: isBleep ? `${curClip.name} [Sansür Bip]` : `${curClip.name} (Susturuldu + Lip-Freeze)`,
             startTime: clipStart + safeStart,
             duration: rangeDuration,
             trimIn: initialTrimIn + safeStart * speed,
             trimOut: initialTrimIn + safeEnd * speed,
             vocalMute: true,
-            lipFreeze: true,
-            lipFreezeFrameTime: initialTrimIn + safeStart * speed,
-            visualMuteMode: 'lip_freeze',
+            lipFreeze: !isBleep,
+            lipFreezeFrameTime: isBleep ? undefined : initialTrimIn + safeStart * speed,
+            visualMuteMode: isBleep ? 'none' : 'lip_freeze',
+            volume: isBleep ? 0.35 : (curClip.volume ?? 1.0),
           });
 
           if (safeEnd < originalDuration - 0.05) {
@@ -1358,16 +1362,58 @@ export function useVideoProject() {
           }
 
           success = true;
+
+          // If censor bleep, also add the 1000Hz bleep audio clip onto an audio track
+          let updatedTracks = prev.tracks.map((track) => {
+            if (track.id === curTrackId) {
+              const others = track.clips.filter((c) => c.id !== curClip!.id);
+              const combined = [...others, ...segments].sort((a, b) => a.startTime - b.startTime);
+              return { ...track, clips: combined };
+            }
+            return track;
+          });
+
+          if (isBleep) {
+            let audioTrack = updatedTracks.find((t) => t.type === 'audio');
+            const bleepClip: VideoClip = {
+              id: 'censor-bleep-' + Math.random().toString(36).substring(2, 9),
+              trackId: audioTrack ? audioTrack.id : 'track-audio-bleep',
+              type: 'audio',
+              name: 'Sansür Bip Sesi (1000Hz)',
+              startTime: clipStart + safeStart,
+              duration: rangeDuration,
+              trimIn: 0,
+              trimOut: rangeDuration,
+              sourceDuration: rangeDuration,
+              assetId: 'sfx-censor-bleep',
+              volume: 1.0,
+            };
+
+            if (audioTrack) {
+              updatedTracks = updatedTracks.map((t) =>
+                t.id === audioTrack!.id
+                  ? { ...t, clips: [...t.clips, bleepClip].sort((a, b) => a.startTime - b.startTime) }
+                  : t
+              );
+            } else {
+              updatedTracks = [
+                ...updatedTracks,
+                {
+                  id: 'track-audio-bleep',
+                  name: 'Sansür Kanalı',
+                  type: 'audio',
+                  clips: [bleepClip],
+                  muted: false,
+                  locked: false,
+                  visible: true,
+                },
+              ];
+            }
+          }
+
           return {
             ...prev,
-            tracks: prev.tracks.map((track) => {
-              if (track.id === curTrackId) {
-                const others = track.clips.filter((c) => c.id !== curClip!.id);
-                const combined = [...others, ...segments].sort((a, b) => a.startTime - b.startTime);
-                return { ...track, clips: combined };
-              }
-              return track;
-            }),
+            tracks: updatedTracks,
           };
         } else {
           // Ripple delete: excises [safeStart, safeEnd] and pulls following clips left by rangeDuration

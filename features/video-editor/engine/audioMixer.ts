@@ -150,6 +150,18 @@ class AudioMixer {
         }
 
         if (!blob) {
+          if (clip.assetId?.includes('censor-bleep') || clip.name?.toLowerCase().includes('sansür')) {
+            const ctx = this.getAudioContext();
+            const sampleRate = ctx.sampleRate || 44100;
+            const bleepDur = Math.max(0.1, clip.duration || 1.0);
+            const buffer = ctx.createBuffer(1, Math.floor(sampleRate * bleepDur), sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+              data[i] = Math.sin(2 * Math.PI * 1000 * (i / sampleRate)) * 0.75;
+            }
+            this.bufferCache.set(cacheKey, buffer);
+            return buffer;
+          }
           this.bufferCache.set(cacheKey, null);
           return null;
         }

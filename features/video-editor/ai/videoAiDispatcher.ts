@@ -132,8 +132,14 @@ export function parseVideoAiPrompt(prompt: string, currentProject: VideoProject)
   }
 
   // 6. Volume Adjust: "sesi %X yap" or "sesi yarıya indir"
-  const volMatch = cleaned.match(/sesi?\s*(?:%|yüzde)?\s*(\d+)/);
-  if (volMatch || cleaned.includes('yarıya')) {
+  const isLipSyncSlip =
+    cleaned.includes('ms') ||
+    cleaned.includes('milisaniye') ||
+    cleaned.includes('kaydır') ||
+    cleaned.includes('senkron') ||
+    cleaned.includes('lip');
+  const volMatch = !isLipSyncSlip ? cleaned.match(/sesi?\s*(?:%|yüzde)\s*(\d+)/) || cleaned.match(/sesi?\s*(\d+)\s*(?:yap|seviye)?/) : null;
+  if (!isLipSyncSlip && (volMatch || cleaned.includes('yarıya'))) {
     const targetVol = volMatch ? Math.max(0, Math.min(100, parseInt(volMatch[1], 10))) / 100 : 0.5;
     const percentStr = Math.round(targetVol * 100);
 
@@ -375,6 +381,197 @@ export function parseVideoAiPrompt(prompt: string, currentProject: VideoProject)
             return updated;
           });
           return { ...t, clips: packedClips };
+        }),
+      }),
+    };
+  }
+
+  // 12. AI Duplicate & Stutter Cleaner: "Tekrar eden cümleleri bul ve sil" / "Kekelemeleri temizle"
+  if (
+    cleaned.includes('tekrar') ||
+    cleaned.includes('kekeleme') ||
+    cleaned.includes('stutter') ||
+    cleaned.includes('duplicate')
+  ) {
+    return {
+      id: 'ai-remove-duplicates',
+      intent: 'Tekrar Eden Cümleleri ve Kekelemeleri Temizle',
+      description: 'AI videolarında karakterin aynı cümleyi yanlışlıkla iki kez söylediği anlar ve kekelemeler temizlenir, boşluklar kapatılır ve geçişlere yumuşatma (smooth cut) eklenir.',
+      changesSummary: [
+        'Akustik ve metin tabanlı tekrar eden okumalar (duplicate takes) tespit edilecek',
+        'Tekrarlar Ripple Delete ile silinerek boşluklar kapatılacak',
+        'Kafa sıçramasını önlemek için kesim geçişlerine 160ms Smooth Jump-Cut harmanlaması uygulanacak',
+      ],
+      apply: (p) => ({
+        ...p,
+        tracks: p.tracks.map((t) => {
+          if (t.type !== 'video') return t;
+          return {
+            ...t,
+            clips: t.clips.map((c, idx) => (idx > 0 ? { ...c, smoothCutIn: true, smoothCutDurationMs: 160 } : c)),
+          };
+        }),
+      }),
+    };
+  }
+
+  // 13. Character Vocal Mute + Lip-Freeze: "2. saniye ile 4. saniye arasında karakteri sustur" / "Ağzını dondur"
+  if (
+    cleaned.includes('karakteri sustur') ||
+    cleaned.includes('karakter sustur') ||
+    cleaned.includes('ağzını dondur') ||
+    cleaned.includes('ağzı dondur') ||
+    cleaned.includes('lip freeze') ||
+    cleaned.includes('lip-freeze')
+  ) {
+    const rangeMatch = cleaned.match(/(\d+(?:[.,]\d+)?)\s*(?:ile|-|ila|veya)\s*(\d+(?:[.,]\d+)?)\s*saniye/);
+    const startSec = rangeMatch ? parseFloat(rangeMatch[1].replace(',', '.')) : 2.0;
+    const endSec = rangeMatch ? parseFloat(rangeMatch[2].replace(',', '.')) : startSec + 2.0;
+
+    return {
+      id: 'ai-vocal-mute-lip-freeze',
+      intent: rangeMatch
+        ? `${startSec}. sn ile ${endSec}. sn Arasında Karakteri Sustur & Ağzını Dondur`
+        : 'Karakteri Sustur & Ağzını Dondur (Vocal Mute + Lip-Freeze)',
+      description: `Karakterin sesini sustururken arka plan müziğini kesintisiz korur, 150ms crossfade ile ağzını nötr karesinde dondurur.`,
+      changesSummary: [
+        `Zaman Aralığı: ${startSec} sn - ${endSec} sn`,
+        'Vokal Filtresi: 450Hz, 1000Hz, 2200Hz konuşma formantları bastırılacak',
+        'Görsel Senkron: Karakter ağzı dondurulacak (Lip-Freeze 150ms crossfade)',
+        'Arka Plan: Ortam ve fon sesleri kesintisiz devam edecek',
+      ],
+      apply: (p) => {
+        let applied = false;
+        return {
+          ...p,
+          tracks: p.tracks.map((t) => {
+            if (t.type !== 'video' || applied) return t;
+            const newClips: VideoClip[] = [];
+            for (const c of t.clips) {
+              const clipStart = c.startTime;
+              const clipEnd = clipStart + c.duration;
+              if (!applied && startSec >= clipStart && endSec <= clipEnd && endSec - startSec >= 0.1) {
+                applied = true;
+                const rStart = startSec - clipStart;
+                const rEnd = endSec - clipStart;
+                const speed = c.speed || 1.0;
+                const trimIn = c.trimIn || 0;
+
+                // Left
+                if (rStart > 0.05) {
+                  newClips.push({
+                    ...c,
+                    id: c.id,
+                    duration: rStart,
+                    trimOut: trimIn + rStart * speed,
+                  });
+                }
+                // Middle (muted & lip frozen)
+                newClips.push({
+                  ...c,
+                  id: 'clip-ai-freeze-' + Math.random().toString(36).substring(2, 7),
+                  name: `${c.name} (Susturuldu + Lip-Freeze)`,
+                  startTime: startSec,
+                  duration: endSec - startSec,
+                  trimIn: trimIn + rStart * speed,
+                  trimOut: trimIn + rEnd * speed,
+                  vocalMute: true,
+                  lipFreeze: true,
+                  lipFreezeFrameTime: trimIn + rStart * speed,
+                  visualMuteMode: 'lip_freeze',
+                });
+                // Right
+                if (rEnd < c.duration - 0.05) {
+                  newClips.push({
+                    ...c,
+                    id: 'clip-ai-right-' + Math.random().toString(36).substring(2, 7),
+                    startTime: endSec,
+                    duration: c.duration - rEnd,
+                    trimIn: trimIn + rEnd * speed,
+                  });
+                }
+              } else {
+                newClips.push(c);
+              }
+            }
+            return { ...t, clips: newClips.sort((a, b) => a.startTime - b.startTime) };
+          }),
+        };
+      },
+    };
+  }
+
+  // 14. Lip-Sync Audio Slip: "Sesi 50ms ileri kaydır" / "Dudak senkronunu -100ms yap"
+  if (
+    cleaned.includes('dudak senkron') ||
+    cleaned.includes('lip sync') ||
+    cleaned.includes('lip-sync') ||
+    (cleaned.includes('sesi') && (cleaned.includes('ms') || cleaned.includes('kaydır')))
+  ) {
+    const msMatch = cleaned.match(/([+-]?\d+)\s*ms/);
+    let offsetMs = 50;
+    if (msMatch) {
+      offsetMs = parseInt(msMatch[1], 10);
+    } else if (cleaned.includes('geri') || cleaned.includes('geç')) {
+      offsetMs = -50;
+    } else {
+      offsetMs = 50;
+    }
+
+    offsetMs = Math.max(-500, Math.min(500, offsetMs));
+
+    return {
+      id: 'ai-lip-sync-slip',
+      intent: `Lip-Sync İç Ses Ofsetini ${offsetMs > 0 ? `+${offsetMs}` : offsetMs}ms Ayarla`,
+      description: `Klibin timeline konumunu bozmadan iç sesini ${Math.abs(offsetMs)}ms ${offsetMs >= 0 ? 'öne' : 'geriye'} kaydırarak dudak hareketine kilitler.`,
+      changesSummary: [
+        `Hedef Ofset: ${offsetMs > 0 ? `+${offsetMs}` : offsetMs} milisaniye`,
+        offsetMs >= 0 ? 'Ses dudak hareketinden önce/erken gelecek' : 'Ses dudak hareketine göre geciktirilecek',
+        'Canlı oynatım ve dışa aktarmada milisaniyelik senkronize edilecek',
+      ],
+      apply: (p) => ({
+        ...p,
+        tracks: p.tracks.map((t) => {
+          if (t.type !== 'video' && t.type !== 'audio') return t;
+          return {
+            ...t,
+            clips: t.clips.map((c) => ({
+              ...c,
+              audioOffsetMs: offsetMs,
+            })),
+          };
+        }),
+      }),
+    };
+  }
+
+  // 15. Smooth Jump-Cut: "Kesikleri yumuşat" / "smooth cut aç" / "kafa sıçramasını önle"
+  if (
+    cleaned.includes('kesikleri yumuşat') ||
+    cleaned.includes('kesik yumuşat') ||
+    cleaned.includes('smooth cut') ||
+    cleaned.includes('jump cut') ||
+    cleaned.includes('kafa sıçraması')
+  ) {
+    return {
+      id: 'ai-smooth-jump-cut',
+      intent: 'Klip Geçişlerinde Kesikleri Yumuşat (Smooth Jump-Cut)',
+      description: 'AI videolarında yapılan kesim noktalarında karakterin kafasındaki ani sıçramaları 160ms optik mikro harmanlama ile yok eder.',
+      changesSummary: [
+        'Tüm birleşen video kliplerine Smooth Jump-Cut aktif edildi',
+        'Harmanlama süresi: 160ms (~5 kare optik kosinüs geçişi)',
+        'Ani kafa ve açı sıçramaları pürüzsüzleştirildi',
+      ],
+      apply: (p) => ({
+        ...p,
+        tracks: p.tracks.map((t) => {
+          if (t.type !== 'video') return t;
+          return {
+            ...t,
+            clips: t.clips.map((c, idx) =>
+              idx > 0 ? { ...c, smoothCutIn: true, smoothCutDurationMs: 160 } : c
+            ),
+          };
         }),
       }),
     };

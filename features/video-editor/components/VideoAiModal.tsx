@@ -11,6 +11,10 @@ interface AiModalProps {
 }
 
 const QUICK_PROMPTS = [
+  'Tekrar eden cümleleri ve kekelemeleri temizle',
+  '2 ile 4. saniye arasında karakteri sustur (lip-freeze)',
+  'Sesi 50ms ileri kaydır (lip-sync)',
+  'Kesikleri yumuşat (smooth cut aç)',
   '9:16 dikey format yap',
   'İlk 3 saniyesini kırp',
   'Tüm sesleri kapat',

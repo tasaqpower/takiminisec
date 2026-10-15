@@ -58,7 +58,7 @@ export interface VideoEditorSidebarProps {
     clipId: string,
     rangeStart: number,
     rangeEnd: number,
-    action: 'ripple_delete' | 'vocal_mute'
+    action: 'ripple_delete' | 'vocal_mute' | 'censor_bleep'
   ) => boolean;
   className?: string;
   style?: React.CSSProperties;
