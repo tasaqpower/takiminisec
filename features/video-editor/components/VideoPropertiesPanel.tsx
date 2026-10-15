@@ -1845,6 +1845,39 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <p className="text-[10px] text-[#8e98a8] leading-tight">
             Yapay zekanın kekelemesini ve tekrar eden konuşmaları yok eder; arkadaki müzik ve ortam sesleri kesilmeden çalmaya devam eder.
           </p>
+
+          {/* Lip-Freeze Visual Sync Control */}
+          {selectedClip.type === 'video' && (
+            <div className="pt-2 border-t border-[#1c222e]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                  <span className="text-xs">❄️</span>
+                  <span>Lip-Freeze (Görsel Ağız Dondurma)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextVal = !selectedClip.lipFreeze;
+                    onUpdateClip(selectedClip.id, {
+                      lipFreeze: nextVal,
+                      visualMuteMode: nextVal ? 'lip_freeze' : 'none',
+                      lipFreezeFrameTime: nextVal ? (selectedClip.trimIn ?? 0) : undefined,
+                    });
+                  }}
+                  className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                    selectedClip.lipFreeze
+                      ? 'bg-sky-500 text-black border-sky-400 shadow-sm'
+                      : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+                  }`}
+                >
+                  {selectedClip.lipFreeze ? 'AKTİF' : 'KAPALI'}
+                </button>
+              </div>
+              <p className="text-[10px] text-[#8e98a8] leading-tight">
+                Karakter susturulduğunda ağzının oynamasını engeller. Karakterin nötr karesini 150ms yumuşak geçişle ekranda tutar.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-1">

@@ -34,6 +34,17 @@ export interface RenderContext {
 // Retain last known good frame per clip to completely eliminate black flashes during seeking
 const lastFrameCanvasCache = new Map<string, HTMLCanvasElement>();
 
+// Retain frozen onset frames for Lip-Freeze visual character sync
+const lipFreezeCanvasCache = new Map<string, HTMLCanvasElement>();
+
+export function clearLipFreezeCache(clipId?: string): void {
+  if (clipId) {
+    lipFreezeCanvasCache.delete(clipId);
+  } else {
+    lipFreezeCanvasCache.clear();
+  }
+}
+
 type RedrawCallback = () => void;
 const redrawCallbacks = new Set<RedrawCallback>();
 
@@ -940,11 +951,46 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
-            // Draw active video or cached frame (with ChromaKey support)
+            // Draw active video or cached frame (with ChromaKey and Lip-Freeze support)
             const chroma = clip.effects?.chromaKey;
             const useChroma = chroma && chroma.enabled;
 
-            if (isVideoReady && video) {
+            // Lip-Freeze (Visual Character Sync):
+            // Freezes the character's closed/neutral mouth frame during vocal mute with 150ms gentle crossfade
+            const isLipFrozen = Boolean(clip.lipFreeze || clip.visualMuteMode === 'lip_freeze');
+            let lipFreezeCanvas = lipFreezeCanvasCache.get(clip.id);
+
+            if (isLipFrozen && !lipFreezeCanvas && isVideoReady && video) {
+              try {
+                lipFreezeCanvas = document.createElement('canvas');
+                lipFreezeCanvas.width = video.videoWidth || 1920;
+                lipFreezeCanvas.height = video.videoHeight || 1080;
+                const fCtx = lipFreezeCanvas.getContext('2d');
+                if (fCtx) {
+                  fCtx.drawImage(video, 0, 0);
+                  lipFreezeCanvasCache.set(clip.id, lipFreezeCanvas);
+                }
+              } catch {}
+            }
+
+            const clipRelSec = currentTime - (clip.startTime ?? clip.start ?? 0);
+            const fadeDur = Math.min(0.15, (clip.duration || 1) * 0.35);
+
+            let freezeBlend = 0;
+            if (isLipFrozen && lipFreezeCanvas) {
+              if (clipRelSec < fadeDur) {
+                freezeBlend = Math.max(0, Math.min(1, clipRelSec / fadeDur));
+              } else if (clipRelSec > clip.duration - fadeDur) {
+                freezeBlend = Math.max(0, Math.min(1, (clip.duration - clipRelSec) / fadeDur));
+              } else {
+                freezeBlend = 1.0;
+              }
+            }
+
+            if (freezeBlend >= 0.999 && lipFreezeCanvas) {
+              // Full Lip-Freeze: Character mouth is held in pristine neutral frame
+              drawMediaWithLut(ctx, lipFreezeCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+            } else if (isVideoReady && video) {
               try {
                 if (useChroma) {
                   const processedCanvas = applyChromaKeyFrame(
@@ -964,6 +1010,14 @@ export function renderScene(renderCtx: RenderContext): void {
                   drawMediaWithLut(ctx, video, -dw / 2, -dh / 2, dw, dh, clip);
                 }
 
+                // If crossfading into/out of lip freeze, blend frozen frame on top
+                if (freezeBlend > 0.001 && lipFreezeCanvas) {
+                  ctx.save();
+                  ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity * freezeBlend));
+                  drawMediaWithLut(ctx, lipFreezeCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                  ctx.restore();
+                }
+
                 // Update offscreen frame cache ONLY with valid decoded pixels when NOT seeking
                 if (!video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
                   if (!cachedCanvas) {
@@ -981,10 +1035,14 @@ export function renderScene(renderCtx: RenderContext): void {
                 }
               } catch (drawErr) {
                 console.warn('[FORMA] Video frame draw exception, fallback to cache:', drawErr);
-                if (cachedCanvas) {
+                if (lipFreezeCanvas) {
+                  drawMediaWithLut(ctx, lipFreezeCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                } else if (cachedCanvas) {
                   drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
                 }
               }
+            } else if (lipFreezeCanvas) {
+              drawMediaWithLut(ctx, lipFreezeCanvas, -dw / 2, -dh / 2, dw, dh, clip);
             } else if (cachedCanvas) {
               // Frame retention fallback: video is seeking, buffering or decoding
               drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
@@ -1724,12 +1782,20 @@ export async function renderFrameToCanvas(
 
         if (elem) {
           if (elem instanceof HTMLVideoElement) {
+            const isLipFrozen = Boolean(clip.lipFreeze || clip.visualMuteMode === 'lip_freeze');
+            const frozenTime = clip.lipFreezeFrameTime ?? (clip.trimIn ?? 0);
+
             let clipRelSec = (currentTime - start) * (clip.speed || 1.0) + clip.trimIn;
             if (isInActiveTransition) {
               const trimIn = clip.trimIn || 0;
               const maxSource = clip.sourceDuration || (trimIn + clip.duration);
               const rawSourceTime = trimIn + (currentTime - start) * (clip.speed || 1.0);
               clipRelSec = Math.max(0, Math.min(maxSource, rawSourceTime));
+            }
+
+            // Lip-Freeze: If frozen and snapshot not yet taken, prime video element at the neutral onset frame
+            if (isLipFrozen && !lipFreezeCanvasCache.has(clip.id)) {
+              clipRelSec = frozenTime;
             }
 
             if (isPlaying) {

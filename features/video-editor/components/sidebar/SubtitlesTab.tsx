@@ -618,10 +618,10 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                           type="button"
                           onClick={() => handleCleanDuplicateRange(dup, 'second', 'vocal_mute')}
                           className="py-1 px-1 rounded-[2px] bg-amber-950/50 hover:bg-amber-900/60 text-amber-300 border border-amber-500/40 text-[9px] font-medium transition-colors flex items-center justify-center gap-1"
-                          title="Görüntüyü kesmeden sadece karakterin sesini o aralıkta sustur"
+                          title="Karakterin sesini susturur ve ağzını dondurur, arka plan müziği kesilmez"
                         >
                           <VolumeX size={9} />
-                          <span>Sustur (Mute)</span>
+                          <span>Sustur + Lip-Freeze</span>
                         </button>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import { VideoProject, ExportOptions } from '../types';
-import { renderFrameToCanvas } from './previewRenderer';
+import { renderFrameToCanvas, clearLipFreezeCache } from './previewRenderer';
 import { audioMixer } from './audioMixer';
 import { getAssetBlob } from '../db';
 import { loadAndCacheCubeLut } from './filterEngine';
@@ -34,6 +34,7 @@ class ExportEngine {
     onProgress: ExportProgressCallback
   ): Promise<Blob | null> {
     this.isCancelled = false;
+    clearLipFreezeCache();
 
     // 1. PNG Snapshot
     if (options.format === 'png') {

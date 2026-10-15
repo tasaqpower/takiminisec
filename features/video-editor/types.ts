@@ -399,6 +399,9 @@ export interface VideoClip {
   volume?: number;
   muted?: boolean;
   vocalMute?: boolean; // Karakter / İnsan Sesi Susturma (Arka Plan Seslerini Koruma)
+  lipFreeze?: boolean; // Görsel Ağız / Karakter Dondurma (Karakter susturulduğunda ağzının oynamasını engelleme)
+  lipFreezeFrameTime?: number; // İsteğe bağlı özel dondurma karesi zamanı (default: trimIn)
+  visualMuteMode?: 'lip_freeze' | 'none' | 'blur_mouth'; // Görsel susturma modu
   fadeIn?: number;
   fadeOut?: number;
 

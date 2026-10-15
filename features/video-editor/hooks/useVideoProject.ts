@@ -1333,12 +1333,15 @@ export function useVideoProject() {
           segments.push({
             ...curClip,
             id: safeStart <= 0.05 ? curClip.id : midClipId,
-            name: `${curClip.name} (Susturuldu)`,
+            name: `${curClip.name} (Susturuldu + Lip-Freeze)`,
             startTime: clipStart + safeStart,
             duration: rangeDuration,
             trimIn: initialTrimIn + safeStart * speed,
             trimOut: initialTrimIn + safeEnd * speed,
             vocalMute: true,
+            lipFreeze: true,
+            lipFreezeFrameTime: initialTrimIn + safeStart * speed,
+            visualMuteMode: 'lip_freeze',
           });
 
           if (safeEnd < originalDuration - 0.05) {
@@ -1421,6 +1424,34 @@ export function useVideoProject() {
       });
 
       return success;
+    },
+    [commitProjectChange]
+  );
+
+  // Toggle Character Vocal Mute with Lip-Freeze Visual Sync
+  const toggleClipVocalMute = useCallback(
+    (clipId: string, options?: { lipFreeze?: boolean }) => {
+      commitProjectChange((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id === clipId) {
+              const nextMute = !clip.vocalMute;
+              const enableLipFreeze = options?.lipFreeze ?? true;
+              return {
+                ...clip,
+                vocalMute: nextMute,
+                lipFreeze: nextMute ? enableLipFreeze : false,
+                lipFreezeFrameTime: nextMute ? (clip.trimIn ?? 0) : undefined,
+                visualMuteMode: nextMute ? (enableLipFreeze ? 'lip_freeze' : 'none') : 'none',
+                muted: false,
+              };
+            }
+            return clip;
+          }),
+        })),
+      }));
     },
     [commitProjectChange]
   );
@@ -2059,6 +2090,7 @@ export function useVideoProject() {
     freezeFrame,
     removeSilencesFromClip,
     removeDuplicateRangeFromClip,
+    toggleClipVocalMute,
     addTextClip,
     // Transition ops
     addTimelineTransition,

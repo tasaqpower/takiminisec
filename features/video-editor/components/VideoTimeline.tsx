@@ -1012,12 +1012,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId)
     : clipUnderPlayhead;
 
-  // 1. Toggle Karakter / İnsan Sesi Susturma (Vocal Suppression while keeping background audio)
-  const handleToggleVocalMute = (clip: VideoClip) => {
+  // 1. Toggle Karakter / İnsan Sesi Susturma + Lip-Freeze (Vocal Suppression + Visual Neutral Freeze)
+  const handleToggleVocalMute = (clip: VideoClip, enableLipFreeze = true) => {
     if (onUpdateClip) {
       const nextVocalMute = !clip.vocalMute;
       onUpdateClip(clip.id, {
         vocalMute: nextVocalMute,
+        lipFreeze: nextVocalMute ? enableLipFreeze : false,
+        lipFreezeFrameTime: nextVocalMute ? (clip.trimIn ?? 0) : undefined,
+        visualMuteMode: nextVocalMute ? (enableLipFreeze ? 'lip_freeze' : 'none') : 'none',
         muted: false, // Ensure audio continues playing!
         volume: clip.volume && clip.volume > 0 ? clip.volume : 1.0,
       });
@@ -1254,25 +1257,32 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <span className="text-[11px] font-medium">Boşluksuz Sil</span>
           </button>
 
-          {/* Karakter Sustur (Vocal Suppress) Button */}
+          {/* Karakter Sustur (Vocal Suppress + Lip-Freeze) Button */}
           <button
             type="button"
             onClick={() => {
-              if (activeTargetClip) handleToggleVocalMute(activeTargetClip);
+              if (activeTargetClip) handleToggleVocalMute(activeTargetClip, true);
             }}
             disabled={!activeTargetClip}
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
               activeTargetClip
                 ? activeTargetClip.vocalMute
-                  ? 'bg-amber-950/80 text-amber-300 border-amber-500/80'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-500/80 shadow-sm'
                   : 'bg-[#171B21] text-amber-400 border-amber-500/40 hover:bg-[#202631] hover:text-amber-300'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
-            title="Karakter Sustur: AI kekelemesi veya konuşmayı yok eder, arka plan müziği kesintisiz çalar"
+            title="Karakter Sustur & Lip-Freeze: Karakterin vokalini kısar, ağzını nötr karede dondurur; arka plan müziği kesintisiz çalar"
           >
             <MicOff size={12} className={activeTargetClip?.vocalMute ? 'text-amber-300' : 'text-amber-400'} />
-            <span className="text-[11px] font-medium">
-              {activeTargetClip?.vocalMute ? 'Karakter Susturuldu' : 'Karakter Sustur (Vocal)'}
+            <span className="text-[11px] font-medium flex items-center gap-1">
+              <span>
+                {activeTargetClip?.vocalMute
+                  ? activeTargetClip?.lipFreeze
+                    ? 'Susturuldu (Lip-Freeze)'
+                    : 'Karakter Susturuldu'
+                  : 'Karakteri Sustur (Vocal + Lip-Freeze)'}
+              </span>
+              {activeTargetClip?.lipFreeze && <span className="text-[10px]">❄️</span>}
             </span>
           </button>
 
@@ -1736,9 +1746,23 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             ? 'ring-1 ring-[#4f6bf5] border-[#4f6bf5] shadow-md z-20'
                             : isAdjacentToHoveredCut
                             ? 'ring-2 ring-amber-400 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)] z-20 brightness-110'
+                            : clip.vocalMute
+                            ? clip.lipFreeze
+                              ? 'border-amber-400/90 shadow-[0_0_10px_rgba(245,158,11,0.35)] hover:brightness-110 z-10'
+                              : 'border-amber-500/70 hover:brightness-110 z-10'
                             : 'hover:brightness-110 z-10'
                         }`}
                       >
+                        {/* Lip-Freeze / Vocal Mute Striped Warning Banner Overlay */}
+                        {clip.vocalMute && (
+                          <div
+                            className={`absolute inset-0 pointer-events-none z-10 opacity-20 ${
+                              clip.lipFreeze
+                                ? 'bg-[repeating-linear-gradient(45deg,#f59e0b,#f59e0b_10px,transparent_10px,transparent_20px)]'
+                                : 'bg-[repeating-linear-gradient(45deg,#d97706,#d97706_8px,transparent_8px,transparent_16px)]'
+                            }`}
+                          />
+                        )}
                         {/* 1. Background Visuals: Audio Waveform, Video Filmstrip, or Text Preview */}
                         {clip.type === 'audio' && (
                           <TimelineClipWaveform clip={clip} width={width} />
@@ -1859,11 +1883,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                             )}
                             {clip.vocalMute && (
                               <span
-                                title="Karakter / İnsan Sesi Susturuldu (Arka Plan Sesleri Açık)"
-                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-amber-950/90 text-amber-300 border border-amber-500/80 shadow-sm"
+                                title={
+                                  clip.lipFreeze
+                                    ? "Karakter Sesi Susturuldu + Ağız Nötr Karede Donduruldu (Lip-Freeze 150ms Crossfade)"
+                                    : "Karakter / İnsan Sesi Susturuldu (Arka Plan Sesleri Açık)"
+                                }
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm ${
+                                  clip.lipFreeze
+                                    ? "bg-amber-500/25 text-amber-200 border border-amber-400/90"
+                                    : "bg-amber-950/90 text-amber-300 border border-amber-500/80"
+                                }`}
                               >
                                 <MicOff className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                                <span>Karakter Susturuldu</span>
+                                {clip.lipFreeze && <span className="text-[9px]">❄️</span>}
+                                <span>{clip.lipFreeze ? 'Susturuldu (Lip-Freeze)' : 'Karakter Susturuldu'}</span>
                               </span>
                             )}
                             <span>{clip.name}</span>
@@ -2385,20 +2418,23 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             </button>
           )}
 
-          {/* Karakter Sustur Action */}
+          {/* Karakter Sustur (Vocal Mute + Lip-Freeze) Action */}
           <button
             onClick={() => {
-              handleToggleVocalMute(contextMenu.clip);
+              handleToggleVocalMute(contextMenu.clip, true);
               setContextMenu(null);
             }}
             className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
           >
             <span className="flex items-center gap-2">
               <MicOff className="w-3.5 h-3.5 text-amber-400" />
-              <span>Karakter Sesini Sustur (Arka Planı Koru)</span>
+              <span>Karakteri Sustur (Vocal + Lip-Freeze)</span>
             </span>
             {contextMenu.clip.vocalMute && (
-              <span className="text-[10px] text-amber-400 font-mono font-bold">AÇIK</span>
+              <span className="text-[10px] text-amber-400 font-mono font-bold flex items-center gap-1">
+                <span>{contextMenu.clip.lipFreeze ? 'LIP-FREEZE' : 'VOKAL'}</span>
+                {contextMenu.clip.lipFreeze && <span>❄️</span>}
+              </span>
             )}
           </button>
 
@@ -2684,10 +2720,11 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                     <button
                       type="button"
                       onClick={() => handleApplyDuplicateAction(dup, 'second', 'vocal_mute')}
-                      className="px-2.5 py-1 text-xs rounded bg-amber-950/50 hover:bg-amber-900/60 text-amber-300 border border-amber-800/40 transition-colors"
-                      title="Karakter sesini bu aralıkta susturur, arka plan müziğini kesmez"
+                      className="px-2.5 py-1 text-xs rounded bg-amber-950/50 hover:bg-amber-900/60 text-amber-300 border border-amber-800/40 transition-colors flex items-center gap-1"
+                      title="Karakterin sesini bu aralıkta kısar ve ağzını nötr karede dondurur, arka plan müziğini kesmez"
                     >
-                      Sustur (Vocal Mute)
+                      <VolumeX size={12} />
+                      <span>Sustur (Vocal + Lip-Freeze)</span>
                     </button>
                     <button
                       type="button"
