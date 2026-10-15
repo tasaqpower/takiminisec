@@ -108,6 +108,8 @@ export function useVideoProject() {
   const undoStackRef = useRef<VideoProject[]>([]);
   const redoStackRef = useRef<VideoProject[]>([]);
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clipboardRef = useRef<VideoClip | null>(null);
+  const [hasClipboard, setHasClipboard] = useState(false);
   const isInitialMount = useRef(true);
 
   // Check for existing saved project in IndexedDB on first load
@@ -683,6 +685,88 @@ export function useVideoProject() {
           }),
         };
       });
+    },
+    [commitProjectChange]
+  );
+
+  // Copy clip into clipboard
+  const copyClip = useCallback(
+    (clipId?: string | null): boolean => {
+      const targetId = clipId || selectedClipId;
+      if (!targetId) return false;
+      let foundClip: VideoClip | null = null;
+      for (const t of project.tracks) {
+        const c = t.clips.find((clip) => clip.id === targetId);
+        if (c) {
+          foundClip = c;
+          break;
+        }
+      }
+      if (!foundClip) return false;
+      const cloned: VideoClip = JSON.parse(JSON.stringify(foundClip));
+      clipboardRef.current = cloned;
+      setHasClipboard(true);
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          window.sessionStorage.setItem('forma_clipboard_clip', JSON.stringify(cloned));
+        } catch {}
+      }
+      return true;
+    },
+    [project.tracks, selectedClipId]
+  );
+
+  // Paste clip from clipboard at targetTime onto targetTrack
+  const pasteClip = useCallback(
+    (targetTime?: number, targetTrackId?: string): VideoClip | null => {
+      let sourceClip = clipboardRef.current;
+      if (!sourceClip && typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          const stored = window.sessionStorage.getItem('forma_clipboard_clip');
+          if (stored) sourceClip = JSON.parse(stored);
+        } catch {}
+      }
+      if (!sourceClip) return null;
+
+      let createdClip: VideoClip | null = null;
+      const pasteTime = typeof targetTime === 'number' && targetTime >= 0 ? targetTime : 0;
+
+      commitProjectChange((prev) => {
+        let destTrack = prev.tracks.find((t) => t.id === targetTrackId && t.type === sourceClip!.type);
+        if (!destTrack) {
+          destTrack = prev.tracks.find((t) => t.type === sourceClip!.type && !t.locked);
+        }
+        if (!destTrack) {
+          destTrack = prev.tracks.find((t) => !t.locked) || prev.tracks[0];
+        }
+        if (!destTrack) return prev;
+
+        const newId = 'clip-' + Math.random().toString(36).substring(2, 9);
+        const newClip: VideoClip = {
+          ...sourceClip!,
+          id: newId,
+          trackId: destTrack.id,
+          name: `${sourceClip!.name} (Kopya)`,
+          startTime: pasteTime,
+        };
+        createdClip = newClip;
+
+        return {
+          ...prev,
+          tracks: prev.tracks.map((track) => {
+            if (track.id === destTrack!.id) {
+              const newClips = [...track.clips, newClip].sort((a, b) => a.startTime - b.startTime);
+              return { ...track, clips: newClips };
+            }
+            return track;
+          }),
+        };
+      });
+
+      if (createdClip) {
+        setSelectedClipId((createdClip as VideoClip).id);
+      }
+      return createdClip;
     },
     [commitProjectChange]
   );
@@ -1818,6 +1902,9 @@ export function useVideoProject() {
     deleteClip,
     rippleDeleteClip,
     duplicateClip,
+    copyClip,
+    pasteClip,
+    hasClipboard,
     detachAudio,
     rippleTrimStart,
     rippleTrimEnd,

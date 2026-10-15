@@ -68,6 +68,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     deleteClip,
     rippleDeleteClip,
     duplicateClip,
+    copyClip,
+    pasteClip,
+    hasClipboard,
     detachAudio,
     rippleTrimStart,
     rippleTrimEnd,
@@ -233,6 +236,17 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         const newPlayhead = rippleTrimEnd(targetId, currentTime);
         if (newPlayhead !== null) seek(newPlayhead);
       }
+    },
+    onCopy: () => {
+      const targetId =
+        selectedClipId ||
+        project.tracks
+          .flatMap((t) => t.clips)
+          .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration)?.id;
+      if (targetId) copyClip(targetId);
+    },
+    onPaste: () => {
+      pasteClip(currentTime, selectedClip?.trackId);
     },
   });
 
@@ -451,6 +465,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           onRemoveSilences={(clipId) => {
             removeSilencesFromClip(clipId);
           }}
+          onCopyClip={copyClip}
+          onPasteClip={(time, trackId) => pasteClip(time ?? currentTime, trackId)}
+          hasClipboard={hasClipboard}
         />
 
         {/* 4. MODALS */}

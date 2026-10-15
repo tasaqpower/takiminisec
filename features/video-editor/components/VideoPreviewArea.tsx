@@ -6,6 +6,7 @@ import { audioMixer } from '../engine/audioMixer';
 import { calculateClipBounds, isPointInClip, getGizmoHandleAt, GizmoHandleType } from '../engine/clipBounds';
 import { preloadPopularFonts } from '../engine/fontCatalog';
 import { useEditorDragDrop, DragPayload } from '../context/DragDropContext';
+import { parseTimecode } from '../utils/timecode';
 import {
   SkipBack,
   SkipForward,
@@ -89,6 +90,10 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   // In-canvas Direct Text Editing
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
+
+  // Interactive timecode jumping state
+  const [isEditingTimecode, setIsEditingTimecode] = useState(false);
+  const [timecodeInput, setTimecodeInput] = useState('');
 
   const { isDragging, activePayload, endDrag, updateDragPosition, registerDropTarget } = useEditorDragDrop();
   const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
@@ -719,11 +724,86 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
 
       {/* Playback Controls Footer (Compact 34px NLE bar) */}
       <div className="h-[34px] bg-[#111419] border-t border-[#292F39] px-3 flex items-center justify-between text-xs text-[#929AA8] shrink-0">
-        {/* Left: Timecode in Monospace Tabular Format */}
-        <div className="flex items-center gap-1.5 font-mono forma-tnum text-xs select-text">
-          <span className="text-[#E7EAF0] font-semibold">{formatTimecode(currentTime, project.fps)}</span>
+        {/* Left: Interactive Monospace Timecode with Direct Jumping & Stepping */}
+        <div className="flex items-center gap-1.5 font-mono forma-tnum text-xs">
+          {isEditingTimecode ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                autoFocus
+                value={timecodeInput}
+                onChange={(e) => setTimecodeInput(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseTimecode(timecodeInput, project.fps);
+                  if (parsed !== null) onSeek(Math.min(project.duration, Math.max(0, parsed)));
+                  setIsEditingTimecode(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const parsed = parseTimecode(timecodeInput, project.fps);
+                    if (parsed !== null) onSeek(Math.min(project.duration, Math.max(0, parsed)));
+                    setIsEditingTimecode(false);
+                  } else if (e.key === 'Escape') {
+                    setIsEditingTimecode(false);
+                  }
+                }}
+                className="w-24 h-5 px-1.5 bg-[#171B21] border border-[#4f6bf5] rounded-[2px] text-white font-mono text-[11px] outline-none"
+                placeholder="00:00:00:00"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setTimecodeInput(formatTimecode(currentTime, project.fps));
+                setIsEditingTimecode(true);
+              }}
+              className="px-1 py-0.5 rounded-[2px] hover:bg-[#171B21] hover:text-[#4f6bf5] transition-colors flex items-center gap-1 group text-left cursor-text"
+              title="Tam zamana atlamak için tıklayın (Örn: 05.20 veya 00:01:10)"
+            >
+              <span className="text-[#E7EAF0] font-semibold group-hover:text-[#4f6bf5]">
+                {formatTimecode(currentTime, project.fps)}
+              </span>
+            </button>
+          )}
           <span className="text-[#5A6270]">/</span>
           <span className="text-[#929AA8]">{formatTimecode(project.duration, project.fps)}</span>
+
+          {/* Quick Step Buttons right beside timecode */}
+          <div className="hidden sm:flex items-center gap-0.5 ml-2 border-l border-[#292F39] pl-2 text-[10px]">
+            <button
+              type="button"
+              onClick={() => onStepBackward(1.0)}
+              className="px-1 py-0.5 rounded-[2px] text-[#929AA8] hover:text-white hover:bg-[#171B21] transition-colors"
+              title="1 Saniye Geri"
+            >
+              -1s
+            </button>
+            <button
+              type="button"
+              onClick={() => onStepBackward(1 / project.fps)}
+              className="px-1 py-0.5 rounded-[2px] text-[#929AA8] hover:text-white hover:bg-[#171B21] transition-colors font-medium"
+              title="1 Kare Geri"
+            >
+              -1k
+            </button>
+            <button
+              type="button"
+              onClick={() => onStepForward(1 / project.fps)}
+              className="px-1 py-0.5 rounded-[2px] text-[#929AA8] hover:text-white hover:bg-[#171B21] transition-colors font-medium"
+              title="1 Kare İleri"
+            >
+              +1k
+            </button>
+            <button
+              type="button"
+              onClick={() => onStepForward(1.0)}
+              className="px-1 py-0.5 rounded-[2px] text-[#929AA8] hover:text-white hover:bg-[#171B21] transition-colors"
+              title="1 Saniye İleri"
+            >
+              +1s
+            </button>
+          </div>
         </div>
 
         {/* Center: Desktop Playback Controls */}

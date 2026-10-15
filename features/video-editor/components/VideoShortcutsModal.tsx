@@ -30,6 +30,8 @@ export const VideoShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onC
         { keys: ['W'], desc: 'Sonu Kırp & Boşluğu Kapat (Ripple Trim Out)' },
         { keys: ['Delete'], desc: 'Seçili Klibi Zaman Çizelgesinden Sil' },
         { keys: ['Shift', 'Delete'], desc: 'Boşluğu Kapatıp Sil (Ripple Delete)' },
+        { keys: ['Ctrl', 'C'], desc: 'Seçili Klibi Panoya Kopyala' },
+        { keys: ['Ctrl', 'V'], desc: 'Kopyalanan Klibi Çizgiye Yapıştır' },
         { keys: ['Ctrl', 'D'], desc: 'Seçili Klibin Birebir Kopyasını Oluştur' },
         { keys: ['Esc'], desc: 'Klip Seçimini Temizle' },
       ],

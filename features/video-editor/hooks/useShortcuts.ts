@@ -17,6 +17,8 @@ interface ShortcutHandlers {
   onDeselect: () => void;
   onRippleTrimStart?: () => void;
   onRippleTrimEnd?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
 }
 
 export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
@@ -60,6 +62,20 @@ export function useShortcuts(handlers: ShortcutHandlers, enabled = true) {
       if (cmdOrCtrl && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         handlers.onDuplicate();
+        return;
+      }
+
+      // Copy: Ctrl+C
+      if (cmdOrCtrl && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        handlers.onCopy?.();
+        return;
+      }
+
+      // Paste: Ctrl+V
+      if (cmdOrCtrl && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        handlers.onPaste?.();
         return;
       }
 

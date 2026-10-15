@@ -62,7 +62,9 @@ import {
   CheckCircle2,
   Search,
   Info,
+  Scissors,
 } from 'lucide-react';
+import { formatTimecode } from '../utils/timecode';
 import { InspectorRow } from './ui/InspectorRow';
 import { SectionHeader } from './ui/SectionHeader';
 import { EmptyState } from './ui/EmptyState';
@@ -954,6 +956,261 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const isTextLike = selectedClip.type === 'text' || selectedClip.type === 'subtitle';
   const isVisualMedia = selectedClip.type === 'video' || selectedClip.type === 'image';
   const isAudioOnly = selectedClip.type === 'audio';
+
+  const renderTimingAndTrimming = () => {
+    const fps = project.fps || 30;
+    const clipStart = selectedClip.startTime ?? selectedClip.start ?? 0;
+    const clipDuration = selectedClip.duration ?? 0;
+    const clipEnd = clipStart + clipDuration;
+    const trimIn = selectedClip.trimIn ?? 0;
+    const sourceDuration = selectedClip.sourceDuration;
+
+    return (
+      <InspectorSection
+        title="Zamanlama & Hassas Kırpma"
+        defaultOpen={true}
+        badge={`${clipDuration.toFixed(2)}s (${Math.round(clipDuration * fps)} Kare)`}
+      >
+        <div className="p-2.5 space-y-3">
+          {/* Quick Playhead Sync & Jump Tools */}
+          <div className="bg-[#111419] p-2 rounded-[3px] border border-[#292F39] space-y-2">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-[#929AA8] flex items-center gap-1">
+                <Clock size={11} className="text-[#4f6bf5]" />
+                <span>Oynatma Çizgisi:</span>
+              </span>
+              <span className="font-mono text-[#E7EAF0] font-semibold">
+                {currentTime.toFixed(2)}s ({formatTimecode(currentTime, fps)})
+              </span>
+            </div>
+
+            {/* Jump Buttons */}
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                onClick={() => onSeek?.(clipStart)}
+                className="py-1 px-1.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] text-[9px] font-medium transition-colors truncate"
+                title="Oynatma çizgisini klibin başına getir"
+              >
+                ◀ Başa Git
+              </button>
+              <button
+                type="button"
+                onClick={() => onSeek?.(clipStart + clipDuration / 2)}
+                className="py-1 px-1.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] text-[9px] font-medium transition-colors truncate"
+                title="Oynatma çizgisini klibin tam ortasına getir"
+              >
+                Ortaya Git
+              </button>
+              <button
+                type="button"
+                onClick={() => onSeek?.(clipEnd)}
+                className="py-1 px-1.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] text-[9px] font-medium transition-colors truncate"
+                title="Oynatma çizgisini klibin sonuna getir"
+              >
+                Sona Git ▶
+              </button>
+            </div>
+          </div>
+
+          {/* 1. Başlangıç Zamanı (Start Time) */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-semibold text-[#929AA8] uppercase tracking-wider">
+                Başlangıç Zamanı
+              </label>
+              <span className="text-[10px] font-mono text-[#5A6270]">
+                {formatTimecode(clipStart, fps)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min="0"
+                max={project.duration}
+                step="0.01"
+                value={Number(clipStart.toFixed(2))}
+                onChange={(e) => {
+                  const val = Math.max(0, parseFloat(e.target.value) || 0);
+                  onUpdateClip(selectedClip.id, { startTime: val, start: val });
+                }}
+                className="flex-1 h-7 px-2 rounded-[3px] bg-[#111419] border border-[#292F39] text-[#E7EAF0] outline-none focus:border-[#4f6bf5] font-mono text-xs"
+              />
+              <span className="text-[11px] text-[#5A6270] font-mono">sn</span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateClip(selectedClip.id, { startTime: currentTime, start: currentTime });
+                }}
+                className="h-7 px-2 rounded-[3px] bg-[#171B21] hover:bg-[#202631] text-[#38bdf8] border border-[#38bdf8]/40 hover:border-[#38bdf8] text-[10px] font-semibold transition-colors flex items-center gap-1 shrink-0"
+                title="Klibin başlangıcını oynatma çizgisine yapıştır"
+              >
+                <span>◀ Çizgiye Hizala</span>
+              </button>
+            </div>
+
+            {/* Nudge buttons for Start Time */}
+            <div className="flex items-center gap-1 pt-0.5">
+              <span className="text-[9px] text-[#5A6270] mr-1">Kaydır:</span>
+              {[-1, -0.1, 0.1, 1].map((delta) => (
+                <button
+                  key={delta}
+                  type="button"
+                  onClick={() => {
+                    const newStart = Math.max(0, parseFloat((clipStart + delta).toFixed(2)));
+                    onUpdateClip(selectedClip.id, { startTime: newStart, start: newStart });
+                  }}
+                  className="px-1.5 py-0.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] font-mono text-[9px] transition-colors"
+                >
+                  {delta > 0 ? `+${delta}s` : `${delta}s`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. Klip Süresi (Duration) */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-semibold text-[#929AA8] uppercase tracking-wider">
+                Klip Süresi
+              </label>
+              <span className="text-[10px] font-mono text-[#5A6270]">
+                {Math.round(clipDuration * fps)} Kare
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min="0.05"
+                max="3600"
+                step="0.01"
+                value={Number(clipDuration.toFixed(2))}
+                onChange={(e) => {
+                  const val = Math.max(0.05, parseFloat(e.target.value) || 0.1);
+                  onUpdateClip(selectedClip.id, { duration: val });
+                }}
+                className="flex-1 h-7 px-2 rounded-[3px] bg-[#111419] border border-[#292F39] text-[#E7EAF0] outline-none focus:border-[#4f6bf5] font-mono text-xs"
+              />
+              <span className="text-[11px] text-[#5A6270] font-mono">sn</span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentTime > clipStart + 0.05) {
+                    const newDur = parseFloat((currentTime - clipStart).toFixed(2));
+                    onUpdateClip(selectedClip.id, { duration: newDur });
+                  }
+                }}
+                disabled={currentTime <= clipStart + 0.05}
+                className={`h-7 px-2 rounded-[3px] text-[10px] font-semibold transition-colors flex items-center gap-1 shrink-0 ${
+                  currentTime > clipStart + 0.05
+                    ? 'bg-[#171B21] hover:bg-[#202631] text-[#f59e0b] border border-[#f59e0b]/40 hover:border-[#f59e0b]'
+                    : 'bg-[#111419] text-[#5A6270] border border-transparent cursor-not-allowed opacity-50'
+                }`}
+                title="Klibin sonunu oynatma çizgisine hizala (süreyi ayarlar)"
+              >
+                <span>Sonu Çizgiye Hizala ▶</span>
+              </button>
+            </div>
+
+            {/* Nudge buttons for Duration */}
+            <div className="flex items-center gap-1 pt-0.5">
+              <span className="text-[9px] text-[#5A6270] mr-1">Süre:</span>
+              {[-1, -0.1, 0.1, 1].map((delta) => (
+                <button
+                  key={delta}
+                  type="button"
+                  onClick={() => {
+                    const newDur = Math.max(0.05, parseFloat((clipDuration + delta).toFixed(2)));
+                    onUpdateClip(selectedClip.id, { duration: newDur });
+                  }}
+                  className="px-1.5 py-0.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] font-mono text-[9px] transition-colors"
+                >
+                  {delta > 0 ? `+${delta}s` : `${delta}s`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. Bitiş Zamanı (End Time Display) */}
+          <div className="flex items-center justify-between bg-[#111419] px-2.5 py-1.5 rounded-[3px] border border-[#292F39] text-[11px]">
+            <span className="text-[#929AA8]">Klip Bitişi:</span>
+            <span className="font-mono text-[#E7EAF0] font-semibold">
+              {clipEnd.toFixed(2)}s ({formatTimecode(clipEnd, fps)})
+            </span>
+          </div>
+
+          {/* 4. Kırpma / Kaynak Ofseti (Trim In / Out for video & audio) */}
+          {(selectedClip.type === 'video' || selectedClip.type === 'audio') && (
+            <div className="space-y-2 pt-2 border-t border-[#292F39]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-[#929AA8] uppercase tracking-wider flex items-center gap-1">
+                  <Scissors size={10} className="text-[#38bdf8]" />
+                  <span>Kırpma Noktaları (Trim)</span>
+                </span>
+                {sourceDuration ? (
+                  <span className="text-[9px] font-mono text-[#5A6270]">
+                    Kaynak: {sourceDuration.toFixed(1)}s
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Trim In */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-[#929AA8]">Trim In (Başlangıç Ofseti):</span>
+                  <span className="font-mono text-[#5A6270]">{trimIn.toFixed(2)}s</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={Number(trimIn.toFixed(2))}
+                    onChange={(e) => {
+                      const val = Math.max(0, parseFloat(e.target.value) || 0);
+                      onUpdateClip(selectedClip.id, { trimIn: val });
+                    }}
+                    className="flex-1 h-7 px-2 rounded-[3px] bg-[#111419] border border-[#292F39] text-[#E7EAF0] outline-none focus:border-[#4f6bf5] font-mono text-xs"
+                  />
+                  <span className="text-[11px] text-[#5A6270] font-mono">sn</span>
+
+                  <button
+                    type="button"
+                    onClick={() => onUpdateClip(selectedClip.id, { trimIn: 0 })}
+                    className="h-7 px-2 rounded-[3px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] text-[10px] font-medium transition-colors"
+                    title="Kırpmayı sıfırla (orijinal başına çek)"
+                  >
+                    0s Yap
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1 pt-0.5">
+                  <span className="text-[9px] text-[#5A6270] mr-1">Trim In:</span>
+                  {[-1, -0.1, 0.1, 1].map((delta) => (
+                    <button
+                      key={delta}
+                      type="button"
+                      onClick={() => {
+                        const newTrimIn = Math.max(0, parseFloat((trimIn + delta).toFixed(2)));
+                        onUpdateClip(selectedClip.id, { trimIn: newTrimIn });
+                      }}
+                      className="px-1.5 py-0.5 rounded-[2px] bg-[#171B21] hover:bg-[#202631] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39] font-mono text-[9px] transition-colors"
+                    >
+                      {delta > 0 ? `+${delta}s` : `${delta}s`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </InspectorSection>
+    );
+  };
 
   const renderTransform = () => (
     <InspectorSection
@@ -1863,6 +2120,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
       />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Timing & Precision Trimming - universal across all clips */}
+        {renderTimingAndTrimming()}
+
         {/* ============================================================== */}
         {/* ADVANCED TEXT LAYER SECTION                                    */}
         {/* ============================================================== */}

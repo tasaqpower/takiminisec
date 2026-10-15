@@ -45,6 +45,7 @@ import {
   ChevronDown,
   Camera,
   Wand2,
+  Clipboard,
 } from 'lucide-react';
 import { TimelineTrackHeader } from './ui/TimelineTrackHeader';
 
@@ -169,6 +170,9 @@ interface TimelineProps {
   onRippleTrimEnd?: (clipId: string, trimTime: number) => void;
   onFreezeFrame?: (clipId: string, freezeTime: number) => void;
   onRemoveSilences?: (clipId: string) => void;
+  onCopyClip?: (clipId: string) => void;
+  onPasteClip?: (time?: number, trackId?: string) => void;
+  hasClipboard?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -214,6 +218,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
   onRippleTrimEnd,
   onFreezeFrame,
   onRemoveSilences,
+  onCopyClip,
+  onPasteClip,
+  hasClipboard,
   className,
   style,
 }) => {
@@ -225,6 +232,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     y: number;
     clip: VideoClip;
     track: TimelineTrack;
+  } | null>(null);
+  const [trackMenu, setTrackMenu] = useState<{
+    x: number;
+    y: number;
+    time: number;
+    trackId: string;
   } | null>(null);
   const [transitionMenu, setTransitionMenu] = useState<{
     clipId: string;
@@ -860,10 +873,16 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
   // Close context menu on external click or Escape
   useEffect(() => {
-    if (!contextMenu) return;
-    const handleClose = () => setContextMenu(null);
+    if (!contextMenu && !trackMenu) return;
+    const handleClose = () => {
+      setContextMenu(null);
+      setTrackMenu(null);
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenu(null);
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+        setTrackMenu(null);
+      }
     };
     window.addEventListener('click', handleClose);
     window.addEventListener('keydown', handleKeyDown);
@@ -871,7 +890,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       window.removeEventListener('click', handleClose);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [contextMenu]);
+  }, [contextMenu, trackMenu]);
 
   const totalWidth = Math.max(1200, (project.duration + 5) * zoom);
 
@@ -1205,6 +1224,42 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <Copy size={12} />
           </button>
 
+          {/* Copy (Ctrl+C) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedClipId && onCopyClip) onCopyClip(selectedClipId);
+            }}
+            disabled={!selectedClipId}
+            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
+              selectedClipId
+                ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Klibi Panoya Kopyala (Ctrl+C)"
+          >
+            <Copy size={12} />
+            <span className="text-[11px] font-medium hidden sm:inline">Kopyala</span>
+          </button>
+
+          {/* Paste (Ctrl+V) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onPasteClip) onPasteClip(currentTime);
+            }}
+            disabled={!hasClipboard}
+            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
+              hasClipboard
+                ? 'bg-[#171B21] text-[#38bdf8] border-[#38bdf8]/40 hover:border-[#38bdf8] hover:text-white hover:bg-[#202631]'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Kopyalanan Klibi Çizgiye Yapıştır (Ctrl+V)"
+          >
+            <Clipboard size={12} />
+            <span className="text-[11px] font-medium hidden sm:inline">Yapıştır</span>
+          </button>
+
           <div className="h-4 w-[1px] bg-[#292F39] mx-1" />
 
           {/* Add Track Dropdown */}
@@ -1491,6 +1546,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 <div
                   key={track.id}
                   className="h-16 border-b border-[#21262d] relative bg-[#090d13] flex items-center"
+                  onContextMenu={(e) => {
+                    const isDirect = e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('pointer-events-none');
+                    if (isDirect) {
+                      e.preventDefault();
+                      const clickSec = clientXToTime(e.clientX);
+                      setContextMenu(null);
+                      setTrackMenu({
+                        x: Math.min(window.innerWidth - 200, e.clientX),
+                        y: Math.min(window.innerHeight - 150, e.clientY),
+                        time: clickSec,
+                        trackId: track.id,
+                      });
+                    }
+                  }}
                 >
                   {/* Background grid line ticks */}
                   <div className="absolute inset-0 pointer-events-none opacity-5">
@@ -2077,6 +2146,38 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+D</kbd>
           </button>
 
+          {onCopyClip && (
+            <button
+              onClick={() => {
+                onCopyClip(contextMenu.clip.id);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
+            >
+              <span className="flex items-center gap-2">
+                <Copy className="w-3.5 h-3.5 text-blue-400" />
+                <span>Kopyala</span>
+              </span>
+              <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+C</kbd>
+            </button>
+          )}
+
+          {hasClipboard && onPasteClip && (
+            <button
+              onClick={() => {
+                onPasteClip(currentTime, contextMenu.track?.id);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left text-sky-400"
+            >
+              <span className="flex items-center gap-2">
+                <Clipboard className="w-3.5 h-3.5" />
+                <span>Yapıştır</span>
+              </span>
+              <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+V</kbd>
+            </button>
+          )}
+
           {contextMenu.clip.type === 'video' && onDetachAudio && (
             <button
               onClick={() => {
@@ -2247,6 +2348,45 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               <span>Boşluğu Kapatıp Sil</span>
             </span>
             <kbd className="text-[10px] font-mono">Shift+Del</kbd>
+          </button>
+        </div>
+      )}
+
+      {/* 5. Floating Track Context Menu */}
+      {trackMenu && (
+        <div
+          style={{ top: `${trackMenu.y}px`, left: `${trackMenu.x}px` }}
+          className="fixed z-50 min-w-[190px] bg-[#0e1014] border border-[#202531] rounded-lg shadow-2xl p-1 text-xs text-gray-200 select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 border-b border-[#191d26] uppercase truncate mb-1">
+            Zaman: {trackMenu.time.toFixed(2)}s
+          </div>
+
+          {hasClipboard && onPasteClip && (
+            <button
+              onClick={() => {
+                onPasteClip(trackMenu.time, trackMenu.trackId);
+                setTrackMenu(null);
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left text-sky-400"
+            >
+              <span className="flex items-center gap-2">
+                <Clipboard className="w-3.5 h-3.5" />
+                <span>Buraya Yapıştır</span>
+              </span>
+              <kbd className="text-[10px] text-gray-400 font-mono">Ctrl+V</kbd>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              onSeek(trackMenu.time);
+              setTrackMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left text-gray-300"
+          >
+            <span>Çizgiyi Buraya Taşı</span>
           </button>
         </div>
       )}
