@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-058-callout-v2",
+  "name": "Açıklama & Not Kartı Şablonu (Model 2)",
+  "category": "Açıklama & Not Kartı",
+  "style": "callout",
+  "variant": 2,
+  "textData": {
+    "text": "AÇIKLAMA & NOT KARTI — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Inter, sans-serif",
+    "fontSize": 46,
+    "fontWeight": "700",
+    "color": "#f59e0b",
+    "fillColor": "#f59e0b",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "slide-up",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

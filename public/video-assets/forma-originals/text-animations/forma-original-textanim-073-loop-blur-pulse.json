@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-073-loop-blur-pulse",
+  "name": "Metin Döngüsü: BLUR PULSE",
+  "animKind": "loop",
+  "technicalId": "loop-blur-pulse",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 46152
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-013-synthwave",
+  "name": "Retro Synthwave Sunline",
+  "type": "synthwave",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#2e0854",
+    "#d946ef",
+    "#f97316"
+  ],
+  "proceduralShader": "renderMotionBackground(\"synthwave\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

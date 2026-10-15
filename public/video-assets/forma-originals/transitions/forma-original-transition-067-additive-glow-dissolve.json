@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-067-additive-glow-dissolve",
+  "name": "Katkısal Parlama Erimesi (Additive)",
+  "category": "Temel",
+  "technicalId": "additive-glow-dissolve",
+  "defaultDuration": 0.7,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 64482
+  }
+}

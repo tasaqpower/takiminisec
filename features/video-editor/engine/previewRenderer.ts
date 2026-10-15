@@ -6,7 +6,15 @@
  */
 
 import type { VideoProject, VideoClip, Keyframe } from '../types';
-import { buildCanvasFilterString, applyCanvasPostEffects, applyVisualEffectSegment } from './filterEngine';
+import {
+  buildCanvasFilterString,
+  applyCanvasPostEffects,
+  applyVisualEffectSegment,
+  getEffectsForColorFilter,
+  getCachedCubeLut,
+  applyCubeLutToCanvas,
+  loadAndCacheCubeLut,
+} from './filterEngine';
 import { computeTransitionState, TransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
 import { calculateClipBounds } from './clipBounds';
@@ -51,7 +59,12 @@ export function notifyCanvasNeedsRedraw(): void {
  */
 export function isVideoFrameReady(video: HTMLVideoElement | null | undefined): boolean {
   if (!video) return false;
-  return video.readyState >= 2 && !video.seeking && video.videoWidth > 0 && video.videoHeight > 0;
+  return (
+    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+    !video.seeking &&
+    video.videoWidth > 0 &&
+    video.videoHeight > 0
+  );
 }
 
 /**
@@ -203,38 +216,86 @@ function applyChromaKeyFrame(
  * - Klip A (440 Hz): Rich blue canvas with clear circular badge and bold white 'A'
  * - Klip B (880 Hz): Rich orange canvas with clear square badge and bold white 'B'
  */
-function drawProceduralClipContent(
+function renderProceduralClipInner(
   ctx: CanvasRenderingContext2D,
   clip: VideoClip,
   dw: number,
-  dh: number
+  dh: number,
+  currentTime = 0
 ): void {
-  const isKlipA = /440|klip[-_ ]?a|^a$/i.test(clip.name || clip.id);
-  const isKlipB = /880|klip[-_ ]?b|^b$/i.test(clip.name || clip.id);
+  const isKlipA = /440|[kc]lip[-_ ]?a|^a$/i.test(clip.name || clip.id);
+  const isKlipB = /880|[kc]lip[-_ ]?b|^b$/i.test(clip.name || clip.id);
+  const t = currentTime || 0;
 
   ctx.save();
   if (isKlipA) {
-    // Deep royal blue gradient
-    const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
+    // Dynamic animated royal blue gradient rotating continuously across frame
+    const angle = (t * 0.45) % (Math.PI * 2);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const grad = ctx.createLinearGradient(-dw * cos / 2, -dh * sin / 2, dw * cos / 2, dh * sin / 2);
     grad.addColorStop(0, '#1e3a8a');
     grad.addColorStop(0.5, '#2563eb');
     grad.addColorStop(1, '#1d4ed8');
     ctx.fillStyle = grad;
     ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
 
-    // Subtle technical grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    // Continuous dynamic moving technical grid (drifting every frame to prevent static macroblocks)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1;
     const step = Math.max(24, Math.round(dh / 10));
-    for (let x = -dw / 2; x < dw / 2; x += step) {
+    const gridShiftX = (t * 140) % step;
+    const gridShiftY = (t * 90) % step;
+    for (let x = -dw / 2 + gridShiftX - step; x < dw / 2 + step; x += step) {
       ctx.beginPath(); ctx.moveTo(x, -dh / 2); ctx.lineTo(x, dh / 2); ctx.stroke();
     }
-    for (let y = -dh / 2; y < dh / 2; y += step) {
+    for (let y = -dh / 2 + gridShiftY - step; y < dh / 2 + step; y += step) {
       ctx.beginPath(); ctx.moveTo(-dw / 2, y); ctx.lineTo(dw / 2, y); ctx.stroke();
     }
 
+    // High-contrast rotating multi-arm turbine rays in motion graphic ROI
+    ctx.save();
+    ctx.translate(0, -dh * 0.05);
+    const turbineAngle = t * 3.8;
+    ctx.rotate(turbineAngle);
+    const rayCount = 12;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+    for (let i = 0; i < rayCount; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      const a1 = (i * 2 * Math.PI) / rayCount;
+      const a2 = a1 + (Math.PI / rayCount) * 0.6;
+      const rRay = Math.min(dw, dh) * 0.42;
+      ctx.lineTo(Math.cos(a1) * rRay, Math.sin(a1) * rRay);
+      ctx.lineTo(Math.cos(a2) * rRay, Math.sin(a2) * rRay);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Continuous multi-frequency wave ribbons spanning entire width across motion ROI
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let x = -dw / 2; x <= dw / 2; x += 16) {
+      const waveY = -dh * 0.18 + Math.sin(x * 0.012 + t * 9.5) * 55 + Math.cos(x * 0.024 + t * 14.2) * 28;
+      if (x === -dw / 2) ctx.moveTo(x, waveY);
+      else ctx.lineTo(x, waveY);
+    }
+    ctx.stroke();
+
+    // 24 Active Spectrum Equalizer Bars across upper ROI (moving aggressively each frame)
+    const eqCount = 28;
+    const eqW = (dw * 0.7) / eqCount;
+    const eqStartX = -dw * 0.35;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    for (let i = 0; i < eqCount; i++) {
+      const barH = Math.abs(Math.sin(t * 8.2 + i * 0.42)) * (dh * 0.18) + 12;
+      ctx.fillRect(eqStartX + i * eqW + 2, -dh * 0.38 - barH / 2, eqW - 4, barH);
+    }
+
     // Center circular badge with 'A'
-    const radius = Math.min(dw, dh) * 0.26;
+    const radius = Math.min(dw, dh) * 0.24;
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
@@ -249,32 +310,107 @@ function drawProceduralClipContent(
     ctx.textBaseline = 'middle';
     ctx.fillText('A', 0, 0);
 
-    // Label banner
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.05))}px sans-serif`;
-    ctx.fillText('KLİP A • 440 Hz SİNÜS', 0, radius + Math.round(dh * 0.08));
+    // High-contrast dynamic moving fixture (sweeping circular radar)
+    const sweepRadius = Math.min(dw, dh) * 0.16;
+    const sweepX = -dw / 2 + ((t * 500) % (dw - 360)) + 180;
+    const sweepY = dh * 0.18 + Math.sin(t * 3.5) * (dh * 0.15);
+    ctx.beginPath();
+    ctx.arc(sweepX, sweepY, sweepRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Dynamic moving fixture: timecode and frame counter
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = `bold ${Math.max(14, Math.round(dh * 0.05))}px monospace`;
+    ctx.fillText(`KLİP A • KARE: ${Math.floor(t * 30).toString().padStart(3, '0')} / 300 • ${t.toFixed(3)}s`, 0, radius + Math.round(dh * 0.08));
+
+    // Dynamic progress bar across bottom
+    const barW = ((t * 30) % 300) / 300 * dw;
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(-dw / 2, dh / 2 - 14, barW, 14);
   } else if (isKlipB) {
-    // Deep fiery orange gradient
-    const grad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
+    // Dynamic animated fiery orange gradient rotating continuously across frame
+    const angle = (t * 0.45) % (Math.PI * 2);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const grad = ctx.createLinearGradient(-dw * cos / 2, -dh * sin / 2, dw * cos / 2, dh * sin / 2);
     grad.addColorStop(0, '#9a3412');
     grad.addColorStop(0.5, '#ea580c');
     grad.addColorStop(1, '#c2410c');
     ctx.fillStyle = grad;
     ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
 
-    // Subtle technical grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    // Continuous dynamic moving technical grid (drifting every frame to prevent static macroblocks)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1;
     const step = Math.max(24, Math.round(dh / 10));
-    for (let x = -dw / 2; x < dw / 2; x += step) {
+    const gridShiftX = -(t * 140) % step;
+    const gridShiftY = -(t * 90) % step;
+    for (let x = -dw / 2 + gridShiftX - step; x < dw / 2 + step; x += step) {
       ctx.beginPath(); ctx.moveTo(x, -dh / 2); ctx.lineTo(x, dh / 2); ctx.stroke();
     }
-    for (let y = -dh / 2; y < dh / 2; y += step) {
+    for (let y = -dh / 2 + gridShiftY - step; y < dh / 2 + step; y += step) {
       ctx.beginPath(); ctx.moveTo(-dw / 2, y); ctx.lineTo(dw / 2, y); ctx.stroke();
     }
 
+    // High-contrast rotating multi-arm turbine rays in motion graphic ROI
+    ctx.save();
+    ctx.translate(0, -dh * 0.05);
+    const turbineAngle = -t * 3.8;
+    ctx.rotate(turbineAngle);
+    const rayCount = 12;
+    ctx.fillStyle = 'rgba(251, 146, 60, 0.25)';
+    for (let i = 0; i < rayCount; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      const a1 = (i * 2 * Math.PI) / rayCount;
+      const a2 = a1 + (Math.PI / rayCount) * 0.6;
+      const rRay = Math.min(dw, dh) * 0.42;
+      ctx.lineTo(Math.cos(a1) * rRay, Math.sin(a1) * rRay);
+      ctx.lineTo(Math.cos(a2) * rRay, Math.sin(a2) * rRay);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Continuous multi-frequency wave ribbons spanning entire width across motion ROI
+    ctx.strokeStyle = '#fb923c';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let x = -dw / 2; x <= dw / 2; x += 16) {
+      const waveY = -dh * 0.18 + Math.cos(x * 0.012 + t * 9.5) * 55 + Math.sin(x * 0.024 + t * 14.2) * 28;
+      if (x === -dw / 2) ctx.moveTo(x, waveY);
+      else ctx.lineTo(x, waveY);
+    }
+    ctx.stroke();
+
+    // 24 Active Spectrum Equalizer Bars across upper ROI (moving aggressively each frame)
+    const eqCount = 28;
+    const eqW = (dw * 0.7) / eqCount;
+    const eqStartX = -dw * 0.35;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    for (let i = 0; i < eqCount; i++) {
+      const barH = Math.abs(Math.cos(t * 8.2 + i * 0.42)) * (dh * 0.18) + 12;
+      ctx.fillRect(eqStartX + i * eqW + 2, -dh * 0.38 - barH / 2, eqW - 4, barH);
+    }
+
+    // High-contrast dynamic moving fixture (sweeping circular radar)
+    const sweepRadius = Math.min(dw, dh) * 0.16;
+    const sweepX = -dw / 2 + ((t * 500) % (dw - 360)) + 180;
+    const sweepY = dh * 0.18 + Math.sin(t * 3.5) * (dh * 0.15);
+    ctx.beginPath();
+    ctx.arc(sweepX, sweepY, sweepRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#fb923c';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
     // Center rounded square badge with 'B'
-    const size = Math.min(dw, dh) * 0.48;
+    const size = Math.min(dw, dh) * 0.46;
     const r = size * 0.18;
     safeRoundRect(ctx, -size / 2, -size / 2, size, size, r);
     ctx.fillStyle = '#ffffff';
@@ -289,10 +425,15 @@ function drawProceduralClipContent(
     ctx.textBaseline = 'middle';
     ctx.fillText('B', 0, 0);
 
-    // Label banner
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.05))}px sans-serif`;
-    ctx.fillText('KLİP B • 880 Hz SİNÜS', 0, size / 2 + Math.round(dh * 0.08));
+    // Dynamic moving fixture: timecode and frame counter
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = `bold ${Math.max(14, Math.round(dh * 0.05))}px monospace`;
+    ctx.fillText(`KLİP B • KARE: ${Math.floor(t * 30).toString().padStart(3, '0')} / 300 • ${t.toFixed(3)}s`, 0, size / 2 + Math.round(dh * 0.08));
+
+    // Dynamic progress bar across bottom
+    const barW = ((t * 30) % 300) / 300 * dw;
+    ctx.fillStyle = '#f97316';
+    ctx.fillRect(-dw / 2, dh / 2 - 14, barW, 14);
   } else {
     const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const hue = (hash * 137) % 360;
@@ -306,6 +447,85 @@ function drawProceduralClipContent(
     ctx.fillText(clip.name || clip.id || 'Medya Klibi', 0, 0);
   }
   ctx.restore();
+}
+
+function drawProceduralClipContent(
+  ctx: CanvasRenderingContext2D,
+  clip: VideoClip,
+  dw: number,
+  dh: number,
+  currentTime = 0
+): void {
+  const colorFilter = clip.colorFilter;
+  const activeLut = colorFilter ? getCachedCubeLut(colorFilter) : null;
+  const intensity = (clip.effects as any)?.lutIntensity ?? 1.0;
+
+  if (activeLut && typeof document !== 'undefined') {
+    if (!lutOffscreenCanvas) {
+      lutOffscreenCanvas = document.createElement('canvas');
+    }
+    const targetW = Math.max(1, Math.round(dw));
+    const targetH = Math.max(1, Math.round(dh));
+    if (lutOffscreenCanvas.width !== targetW || lutOffscreenCanvas.height !== targetH) {
+      lutOffscreenCanvas.width = targetW;
+      lutOffscreenCanvas.height = targetH;
+    }
+    const offCtx = lutOffscreenCanvas.getContext('2d', { willReadFrequently: true });
+    if (offCtx) {
+      offCtx.clearRect(0, 0, targetW, targetH);
+      offCtx.save();
+      offCtx.translate(targetW / 2, targetH / 2);
+      renderProceduralClipInner(offCtx, clip, dw, dh, currentTime);
+      offCtx.restore();
+      applyCubeLutToCanvas(lutOffscreenCanvas, activeLut, intensity);
+      ctx.drawImage(lutOffscreenCanvas, -dw / 2, -dh / 2, dw, dh);
+      return;
+    }
+  }
+
+  renderProceduralClipInner(ctx, clip, dw, dh, currentTime);
+}
+
+let lutOffscreenCanvas: HTMLCanvasElement | null = null;
+
+export function drawMediaWithLut(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  clip: VideoClip
+): void {
+  const colorFilter = clip.colorFilter;
+  const activeLut = colorFilter ? getCachedCubeLut(colorFilter) : null;
+  const intensity = (clip.effects as any)?.lutIntensity ?? 1.0;
+
+  if (activeLut) {
+    if (!lutOffscreenCanvas && typeof document !== 'undefined') {
+      lutOffscreenCanvas = document.createElement('canvas');
+    }
+    if (lutOffscreenCanvas) {
+      const targetW = Math.max(1, Math.round(dw));
+      const targetH = Math.max(1, Math.round(dh));
+      if (lutOffscreenCanvas.width !== targetW || lutOffscreenCanvas.height !== targetH) {
+        lutOffscreenCanvas.width = targetW;
+        lutOffscreenCanvas.height = targetH;
+      }
+      const offCtx = lutOffscreenCanvas.getContext('2d', { willReadFrequently: true });
+      if (offCtx) {
+        offCtx.clearRect(0, 0, targetW, targetH);
+        offCtx.drawImage(source, 0, 0, targetW, targetH);
+        applyCubeLutToCanvas(lutOffscreenCanvas, activeLut, intensity);
+        ctx.drawImage(lutOffscreenCanvas, dx, dy, dw, dh);
+        return;
+      }
+    }
+  } else if (colorFilter && !colorFilter.startsWith('normal') && typeof window !== 'undefined') {
+    loadAndCacheCubeLut(colorFilter).catch(() => {});
+  }
+
+  ctx.drawImage(source, dx, dy, dw, dh);
 }
 
 /**
@@ -574,7 +794,10 @@ export function renderScene(renderCtx: RenderContext): void {
             ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
 
             // Safe Filters & Transition blur
-            let filterStr = buildCanvasFilterString(clip.effects);
+            const hasActiveLut = Boolean(clip.colorFilter && getCachedCubeLut(clip.colorFilter));
+            const presetEffects = !hasActiveLut ? getEffectsForColorFilter(clip.colorFilter) : null;
+            const mergedEffects = { ...presetEffects, ...clip.effects };
+            let filterStr = buildCanvasFilterString(mergedEffects);
             if (transBlur > 0) {
               filterStr = filterStr ? `${filterStr} blur(${transBlur}px)` : `blur(${transBlur}px)`;
             }
@@ -731,40 +954,42 @@ export function renderScene(renderCtx: RenderContext): void {
                     chroma.smoothness || 0.1
                   );
                   if (processedCanvas) {
-                    ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
+                    drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
                   } else {
-                    ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+                    drawMediaWithLut(ctx, video, -dw / 2, -dh / 2, dw, dh, clip);
                   }
                 } else {
-                  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+                  drawMediaWithLut(ctx, video, -dw / 2, -dh / 2, dw, dh, clip);
                 }
 
-                // Update offscreen frame cache ONLY with valid decoded pixels
-                if (!cachedCanvas) {
-                  cachedCanvas = document.createElement('canvas');
-                  lastFrameCanvasCache.set(clip.id, cachedCanvas);
-                  if (clip.assetId) lastFrameCanvasCache.set(clip.assetId, cachedCanvas);
-                }
-                if (cachedCanvas.width !== video.videoWidth || cachedCanvas.height !== video.videoHeight) {
-                  cachedCanvas.width = video.videoWidth;
-                  cachedCanvas.height = video.videoHeight;
-                }
-                const cCtx = cachedCanvas.getContext('2d');
-                if (cCtx) {
-                  cCtx.drawImage(video, 0, 0);
+                // Update offscreen frame cache ONLY with valid decoded pixels when NOT seeking
+                if (!video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+                  if (!cachedCanvas) {
+                    cachedCanvas = document.createElement('canvas');
+                    lastFrameCanvasCache.set(clip.id, cachedCanvas);
+                    if (clip.assetId) lastFrameCanvasCache.set(clip.assetId, cachedCanvas);
+                  }
+                  if (cachedCanvas.width !== video.videoWidth || cachedCanvas.height !== video.videoHeight) {
+                    cachedCanvas.width = video.videoWidth;
+                    cachedCanvas.height = video.videoHeight;
+                  }
+                  const cCtx = cachedCanvas.getContext('2d');
+                  if (cCtx) {
+                    cCtx.drawImage(video, 0, 0);
+                  }
                 }
               } catch (drawErr) {
                 console.warn('[FORMA] Video frame draw exception, fallback to cache:', drawErr);
                 if (cachedCanvas) {
-                  ctx.drawImage(cachedCanvas, -dw / 2, -dh / 2, dw, dh);
+                  drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
                 }
               }
             } else if (cachedCanvas) {
               // Frame retention fallback: video is seeking, buffering or decoding
-              ctx.drawImage(cachedCanvas, -dw / 2, -dh / 2, dw, dh);
+              drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
             } else {
               // Procedural / test clip fallback
-              drawProceduralClipContent(ctx, clip, dw, dh);
+              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
             }
 
             // Transition color overlay (e.g. dip to black/white)
@@ -835,7 +1060,7 @@ export function renderScene(renderCtx: RenderContext): void {
               );
             }
 
-            applyCanvasPostEffects(ctx, width, height, clip.effects);
+            applyCanvasPostEffects(ctx, width, height, mergedEffects);
             ctx.restore();
           }
       } else if (clip.type === 'image') {
@@ -998,15 +1223,15 @@ export function renderScene(renderCtx: RenderContext): void {
                   chroma.smoothness || 0.1
                 );
                 if (processedCanvas) {
-                  ctx.drawImage(processedCanvas, -dw / 2, -dh / 2, dw, dh);
+                  drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
                 } else {
-                  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+                  drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
                 }
               } else {
-                ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+                drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
               }
             } else {
-              drawProceduralClipContent(ctx, clip, dw, dh);
+              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
             }
 
             if (transOverlay && transOverlay.a > 0) {
@@ -1084,6 +1309,12 @@ export function renderScene(renderCtx: RenderContext): void {
       } else if ((clip.type === 'text' || clip.type === 'subtitle') && clip.textData) {
         try {
           let effectiveTextData = { ...clip.textData };
+          if ((clip as any).inAnimation) {
+            effectiveTextData.inAnimation = (clip as any).inAnimation;
+          }
+          if ((clip as any).inDuration !== undefined) {
+            effectiveTextData.inDuration = (clip as any).inDuration;
+          }
           if (clip.animationSegments && clip.animationSegments.length > 0) {
             for (const seg of clip.animationSegments) {
               if (seg.type === 'in') {
@@ -1313,7 +1544,8 @@ export async function renderFrameToCanvas(
   project: VideoProject,
   currentTime: number,
   selectedClipIdOrShowGizmo?: string | boolean | null,
-  isPlaying = false
+  isPlaying = false,
+  preloadedElements?: Map<string, HTMLVideoElement | HTMLImageElement>
 ): Promise<void> {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -1382,7 +1614,10 @@ export async function renderFrameToCanvas(
 
       if (isInActiveTransition || (currentTime >= start && currentTime <= start + clip.duration)) {
         const assetKey = clip.assetId || clip.id;
-        let elem = elementCache.get(assetKey);
+        let elem =
+          preloadedElements?.get(clip.id) ||
+          preloadedElements?.get(clip.assetId || '') ||
+          elementCache.get(assetKey);
 
         if (!elem && (clip.sourceUrl || clip.assetId)) {
           let url = clip.sourceUrl;
@@ -1396,6 +1631,20 @@ export async function renderFrameToCanvas(
             }
           }
 
+          if (!url && clip.assetId) {
+            if (clip.assetId.startsWith('broll-')) {
+              url = `/video-assets/broll/${clip.assetId}.webm`;
+            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
+              url = `/video-assets/sample-video.webm`;
+            } else if (clip.assetId.startsWith('overlay-')) {
+              const name = clip.assetId.replace('overlay-', '');
+              url = `/video-assets/overlays/${name}.svg`;
+            } else if (clip.assetId.startsWith('element-')) {
+              const name = clip.assetId.replace('element-', '');
+              url = `/video-assets/elements/${name}.svg`;
+            }
+          }
+
           if (url) {
             if (clip.type === 'video') {
               const v = document.createElement('video');
@@ -1405,6 +1654,25 @@ export async function renderFrameToCanvas(
               v.preload = 'auto';
               v.autoplay = false;
               v.src = url;
+
+              if (typeof document !== 'undefined' && document.body) {
+                let hiddenContainer = document.getElementById('forma-offscreen-media-container');
+                if (!hiddenContainer) {
+                  hiddenContainer = document.createElement('div');
+                  hiddenContainer.id = 'forma-offscreen-media-container';
+                  hiddenContainer.style.position = 'fixed';
+                  hiddenContainer.style.left = '-9999px';
+                  hiddenContainer.style.top = '-9999px';
+                  hiddenContainer.style.width = '1px';
+                  hiddenContainer.style.height = '1px';
+                  hiddenContainer.style.opacity = '0';
+                  hiddenContainer.style.pointerEvents = 'none';
+                  document.body.appendChild(hiddenContainer);
+                }
+                if (!v.parentElement) {
+                  hiddenContainer.appendChild(v);
+                }
+              }
 
               // Reactive listeners so canvas redraws the moment decoded frames become ready
               const onFrameEvent = () => {
@@ -1506,7 +1774,10 @@ export async function renderFrameToCanvas(
         }
       } else {
         const assetKey = clip.assetId || clip.id;
-        const elem = elementCache.get(assetKey);
+        const elem =
+          preloadedElements?.get(clip.id) ||
+          preloadedElements?.get(clip.assetId || '') ||
+          elementCache.get(assetKey);
         if (elem && elem instanceof HTMLVideoElement && !elem.paused) {
           elem.pause();
         }

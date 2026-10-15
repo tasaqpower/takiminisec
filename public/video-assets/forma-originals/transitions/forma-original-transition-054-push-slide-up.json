@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-054-push-slide-up",
+  "name": "İtme Yukarı (Slide Push Up)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "push-slide-up",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 51781
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-018-fog-v3",
+  "name": "FOG Procedural Overlay (Varyant 3)",
+  "category": "fog",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 7794
+  },
+  "renderCode": "renderProceduralOverlay(\"fog\", intensity, speed, seed)"
+}

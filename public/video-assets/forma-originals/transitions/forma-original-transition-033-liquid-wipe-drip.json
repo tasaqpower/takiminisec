@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-033-liquid-wipe-drip",
+  "name": "Sıvı Damlama Silmesi (Liquid Drip)",
+  "category": "Silme ve Maske",
+  "technicalId": "liquid-wipe-drip",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 31264
+  }
+}

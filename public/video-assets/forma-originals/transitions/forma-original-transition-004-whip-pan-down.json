@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-004-whip-pan-down",
+  "name": "Whip Pan Aşağı",
+  "category": "Kamera ve Hareket",
+  "technicalId": "whip-pan-down",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 2931
+  }
+}

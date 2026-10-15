@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-092-out-pop-out",
+  "name": "Metin Çıkışı: POP OUT",
+  "animKind": "out",
+  "technicalId": "out-pop-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 58331
+  }
+}

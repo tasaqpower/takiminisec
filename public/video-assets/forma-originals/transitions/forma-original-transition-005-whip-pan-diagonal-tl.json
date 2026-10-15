@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-005-whip-pan-diagonal-tl",
+  "name": "Whip Pan Çapraz Sol-Üst",
+  "category": "Kamera ve Hareket",
+  "technicalId": "whip-pan-diagonal-tl",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 3908
+  }
+}

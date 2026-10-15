@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-040-in-stomp-in",
+  "name": "Metin Girişi: STOMP IN",
+  "animKind": "in",
+  "technicalId": "in-stomp-in",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 24999
+  }
+}

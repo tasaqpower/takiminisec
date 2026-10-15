@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-066-soft-dissolve-film",
+  "name": "Yumuşak Erime (Soft Dissolve)",
+  "category": "Temel",
+  "technicalId": "soft-dissolve-film",
+  "defaultDuration": 1.1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 63505
+  }
+}

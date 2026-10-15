@@ -764,7 +764,9 @@ export function computeTransitionState(
 
     case 'crossfade':
       return {
-        opacity: isIncoming ? p : 1 - p,
+        // Mathematical offscreen composite: Outgoing remains at 1.0, Incoming blends with p
+        // Result on opaque background: Output = B * p + A * (1 - p). Luminance loss = 0%.
+        opacity: isIncoming ? p : 1.0,
         offsetX: 0,
         offsetY: 0,
         scale: 1,
@@ -2166,7 +2168,7 @@ export function renderTransitionAB(
     }
 
     default: {
-      drawSurface(surfA, 1 - p);
+      drawSurface(surfA, 1);
       drawSurface(surfB, p);
       break;
     }

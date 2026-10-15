@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-110-out-snap-fold",
+  "name": "Metin Çıkışı: SNAP FOLD",
+  "animKind": "out",
+  "technicalId": "out-snap-fold",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 69869
+  }
+}

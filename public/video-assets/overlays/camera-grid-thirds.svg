@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+      <g stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="8 8" opacity="0.45">
+        <line x1="640" y1="0" x2="640" y2="1080"/>
+        <line x1="1280" y1="0" x2="1280" y2="1080"/>
+        <line x1="0" y1="360" x2="1920" y2="360"/>
+        <line x1="0" y1="720" x2="1920" y2="720"/>
+      </g>
+    </svg>

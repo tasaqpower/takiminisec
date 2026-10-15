@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-058-motion-tile-mirror",
+  "name": "Aynalı Hareket Karosu (Motion Tile)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "motion-tile-mirror",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 55689
+  }
+}

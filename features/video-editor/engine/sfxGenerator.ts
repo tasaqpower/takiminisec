@@ -11,7 +11,8 @@ export type SfxType =
   | 'shutter'
   | 'typewriter'
   | 'bass-drop'
-  | 'lofi-chord';
+  | 'lofi-chord'
+  | 'censor-bleep';
 
 export interface BuiltinSfxItem {
   id: SfxType;
@@ -23,6 +24,14 @@ export interface BuiltinSfxItem {
 }
 
 export const BUILTIN_SFX_LIST: BuiltinSfxItem[] = [
+  {
+    id: 'censor-bleep',
+    name: 'Sansür Bip Sesi (1000Hz Bleep)',
+    category: 'sfx',
+    icon: '🛑',
+    duration: 1.5,
+    description: 'Konuşma ve küfür sansürleme için klasik 1000 Hz TV test/sansür tonu',
+  },
   {
     id: 'whoosh',
     name: 'Hızlı Geçiş (Woosh)',
@@ -317,6 +326,25 @@ export async function generateSfxBlob(type: SfxType): Promise<Blob> {
         osc.stop(chordStart + chordDuration);
       });
     });
+  } else if (type === 'censor-bleep') {
+    // Standard 1000 Hz TV Censor Tone (clean sine wave with 5ms anti-click ramps)
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1000, 0);
+
+    const gain = ctx.createGain();
+    const attack = 0.005;
+    const release = 0.005;
+    gain.gain.setValueAtTime(0.0001, 0);
+    gain.gain.linearRampToValueAtTime(0.85, attack);
+    gain.gain.setValueAtTime(0.85, Math.max(attack, duration - release));
+    gain.gain.linearRampToValueAtTime(0.0001, duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(0);
+    osc.stop(duration);
   }
 
   const renderedBuffer = await ctx.startRendering();

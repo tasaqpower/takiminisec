@@ -162,7 +162,7 @@ export function useVideoProject() {
 
   // Recalculate duration automatically when clips change
   const updateProjectDuration = useCallback((tracks: TimelineTrack[]): number => {
-    let maxTime = 5;
+    let maxTime = 10;
     for (const track of tracks) {
       for (const clip of track.clips) {
         const clipEnd = clip.startTime + clip.duration;
@@ -188,7 +188,7 @@ export function useVideoProject() {
 
         const updated: VideoProject = {
           ...next,
-          duration: Math.max(next.duration, computedDuration),
+          duration: computedDuration,
           updatedAt: Date.now(),
         };
 
@@ -451,34 +451,74 @@ export function useVideoProject() {
 
   // Split clip at playhead time
   const splitClip = useCallback(
-    (clipId: string, splitTime: number): { leftClip: VideoClip; rightClip: VideoClip } | null => {
+    (clipId?: string | null, splitTime?: number): { leftClip: VideoClip; rightClip: VideoClip } | null => {
       let result: { leftClip: VideoClip; rightClip: VideoClip } | null = null;
 
       commitProjectChange((prev) => {
         let foundTrackId = '';
         let targetClip: VideoClip | null = null;
+        const targetSplitTime = splitTime ?? 0;
 
-        for (const track of prev.tracks) {
-          const c = track.clips.find((clip) => clip.id === clipId);
-          if (c) {
-            targetClip = c;
-            foundTrackId = track.id;
-            break;
+        if (clipId) {
+          for (const track of prev.tracks) {
+            const c = track.clips.find((clip) => clip.id === clipId);
+            if (c) {
+              targetClip = c;
+              foundTrackId = track.id;
+              break;
+            }
+          }
+        }
+
+        // Auto-find clip under splitTime if clipId was omitted or does not cover splitTime
+        if (
+          !targetClip ||
+          targetSplitTime <= targetClip.startTime ||
+          targetSplitTime >= targetClip.startTime + targetClip.duration
+        ) {
+          for (const track of prev.tracks) {
+            if (track.type === 'video' || track.type === 'audio') {
+              const c = track.clips.find(
+                (clip) =>
+                  targetSplitTime > clip.startTime + 0.04 &&
+                  targetSplitTime < clip.startTime + clip.duration - 0.04
+              );
+              if (c) {
+                targetClip = c;
+                foundTrackId = track.id;
+                break;
+              }
+            }
+          }
+          if (!targetClip) {
+            for (const track of prev.tracks) {
+              const c = track.clips.find(
+                (clip) =>
+                  targetSplitTime > clip.startTime + 0.04 &&
+                  targetSplitTime < clip.startTime + clip.duration - 0.04
+              );
+              if (c) {
+                targetClip = c;
+                foundTrackId = track.id;
+                break;
+              }
+            }
           }
         }
 
         if (!targetClip) return prev;
 
+        const effectiveSplit = targetSplitTime;
         const clipStart = targetClip.startTime;
         const clipEnd = clipStart + targetClip.duration;
 
         // Split time must be strictly inside the clip bounds
-        if (splitTime <= clipStart + 0.05 || splitTime >= clipEnd - 0.05) {
+        if (effectiveSplit <= clipStart + 0.04 || effectiveSplit >= clipEnd - 0.04) {
           return prev;
         }
 
-        const leftDuration = splitTime - clipStart;
-        const rightDuration = clipEnd - splitTime;
+        const leftDuration = effectiveSplit - clipStart;
+        const rightDuration = clipEnd - effectiveSplit;
         const speed = targetClip.speed || 1.0;
 
         const leftTrimIn = targetClip.trimIn;
@@ -500,7 +540,7 @@ export function useVideoProject() {
           ...targetClip,
           id: 'clip-' + Math.random().toString(36).substring(2, 9),
           name: `${targetClip.name} (Bölüm 2)`,
-          startTime: splitTime,
+          startTime: effectiveSplit,
           duration: rightDuration,
           trimIn: rightTrimIn,
           trimOut: rightTrimOut,
@@ -514,7 +554,7 @@ export function useVideoProject() {
           tracks: prev.tracks.map((track) => {
             if (track.id === foundTrackId) {
               const newClips = track.clips
-                .filter((c) => c.id !== clipId)
+                .filter((c) => c.id !== targetClip!.id)
                 .concat([leftClip, rightClip])
                 .sort((a, b) => a.startTime - b.startTime);
               return { ...track, clips: newClips };
@@ -525,7 +565,14 @@ export function useVideoProject() {
       });
 
       if (result) {
-        setSelectedClipId((result as { leftClip: VideoClip; rightClip: VideoClip }).rightClip.id);
+        const { leftClip, rightClip } = result as { leftClip: VideoClip; rightClip: VideoClip };
+        // Smart selection: if leftClip starts after 0s (a middle section in a multi-cut scene),
+        // select leftClip so user can immediately press Delete or Ripple Delete!
+        if (leftClip.startTime > 0.05) {
+          setSelectedClipId(leftClip.id);
+        } else {
+          setSelectedClipId(rightClip.id);
+        }
       }
       return result;
     },
@@ -540,6 +587,9 @@ export function useVideoProject() {
           ...track,
           clips: track.clips.filter((c) => c.id !== clipId),
         })),
+        transitions: prev.transitions?.filter(
+          (tr) => tr.leftClipId !== clipId && tr.rightClipId !== clipId
+        ),
       }));
       if (selectedClipId === clipId) setSelectedClipId(null);
     },
@@ -586,6 +636,14 @@ export function useVideoProject() {
             }
             return track;
           }),
+          transitions: prev.transitions
+            ?.filter((tr) => tr.leftClipId !== clipId && tr.rightClipId !== clipId)
+            .map((tr) => {
+              if (tr.cutTime > gapStart) {
+                return { ...tr, cutTime: Math.max(0, tr.cutTime - gapDuration) };
+              }
+              return tr;
+            }),
         };
       });
 

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-050-spin-fast-cw",
+  "name": "Hızlı Saat Yönü Fırıldak Dönüşü",
+  "category": "Kamera ve Hareket",
+  "technicalId": "spin-fast-cw",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 47873
+  }
+}

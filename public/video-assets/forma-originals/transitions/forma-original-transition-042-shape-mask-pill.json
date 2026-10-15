@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-042-shape-mask-pill",
+  "name": "Kapsül Şekil Maskesi (Pill Reveal)",
+  "category": "Silme ve Maske",
+  "technicalId": "shape-mask-pill",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 40057
+  }
+}

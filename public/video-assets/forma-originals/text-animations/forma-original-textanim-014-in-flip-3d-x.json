@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-014-in-flip-3d-x",
+  "name": "Metin Girişi: FLIP 3D X",
+  "animKind": "in",
+  "technicalId": "in-flip-3d-x",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 8333
+  }
+}

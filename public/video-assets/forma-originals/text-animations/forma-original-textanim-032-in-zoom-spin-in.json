@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-032-in-zoom-spin-in",
+  "name": "Metin Girişi: ZOOM SPIN IN",
+  "animKind": "in",
+  "technicalId": "in-zoom-spin-in",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 19871
+  }
+}

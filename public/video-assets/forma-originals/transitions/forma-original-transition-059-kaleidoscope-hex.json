@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-059-kaleidoscope-hex",
+  "name": "Altıgen Kaleydoskop Geçişi",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "kaleidoscope-hex",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 56666
+  }
+}

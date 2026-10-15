@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-027-light-leak-rainbow",
+  "name": "Gökkuşağı Prizma Sızıntısı",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "light-leak-rainbow",
+  "defaultDuration": 0.95,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 25402
+  }
+}

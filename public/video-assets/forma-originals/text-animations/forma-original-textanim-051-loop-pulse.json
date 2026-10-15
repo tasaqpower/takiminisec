@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-051-loop-pulse",
+  "name": "Metin Döngüsü: PULSE",
+  "animKind": "loop",
+  "technicalId": "loop-pulse",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 32050
+  }
+}

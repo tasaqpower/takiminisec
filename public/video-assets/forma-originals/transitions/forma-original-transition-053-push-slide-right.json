@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-053-push-slide-right",
+  "name": "İtme Sağ (Slide Push Right)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "push-slide-right",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 50804
+  }
+}

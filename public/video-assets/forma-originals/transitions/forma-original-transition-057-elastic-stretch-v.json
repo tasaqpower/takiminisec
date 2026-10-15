@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-057-elastic-stretch-v",
+  "name": "Elastik Esneme Dikey (Elastic Stretch)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "elastic-stretch-v",
+  "defaultDuration": 0.7,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 54712
+  }
+}

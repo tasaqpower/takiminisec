@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-111-out-kinetic-recoil-out",
+  "name": "Metin Çıkışı: KINETIC RECOIL OUT",
+  "animKind": "out",
+  "technicalId": "out-kinetic-recoil-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 70510
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-070-checkerboard-clean",
+  "name": "Dama Tahtası Geçişi (Checkerboard)",
+  "category": "Silme ve Maske",
+  "technicalId": "checkerboard-clean",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 67413
+  }
+}

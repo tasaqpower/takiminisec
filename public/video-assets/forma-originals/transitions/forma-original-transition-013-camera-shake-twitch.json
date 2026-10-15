@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-013-camera-shake-twitch",
+  "name": "Mikro Twitch Sarsıntısı",
+  "category": "Kamera ve Hareket",
+  "technicalId": "camera-shake-twitch",
+  "defaultDuration": 0.35,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 11724
+  }
+}

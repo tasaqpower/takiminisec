@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-029-luma-fade-bright",
+  "name": "Parlaklık Erimesi (Luma Fade Bright)",
+  "category": "Temel",
+  "technicalId": "luma-fade-bright",
+  "defaultDuration": 1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 27356
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-065-dip-white-flash",
+  "name": "Beyaza Parlama (Dip to White)",
+  "category": "Temel",
+  "technicalId": "dip-white-flash",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 62528
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-011-camera-shake-earthquake",
+  "name": "Kamera Depremi Sarsıntısı",
+  "category": "Kamera ve Hareket",
+  "technicalId": "camera-shake-earthquake",
+  "defaultDuration": 0.55,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 9770
+  }
+}

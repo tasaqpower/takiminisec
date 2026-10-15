@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-099-out-glitch-out",
+  "name": "Metin Çıkışı: GLITCH OUT",
+  "animKind": "out",
+  "technicalId": "out-glitch-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 62818
+  }
+}

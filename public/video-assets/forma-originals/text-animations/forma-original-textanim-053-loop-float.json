@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-053-loop-float",
+  "name": "Metin Döngüsü: FLOAT",
+  "animKind": "loop",
+  "technicalId": "loop-float",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 33332
+  }
+}

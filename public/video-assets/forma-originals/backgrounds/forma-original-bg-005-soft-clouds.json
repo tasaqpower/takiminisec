@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-005-soft-clouds",
+  "name": "Soft Velvet Clouds Sunrise",
+  "type": "soft-clouds",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#f59e0b",
+    "#f43f5e",
+    "#6366f1"
+  ],
+  "proceduralShader": "renderMotionBackground(\"soft-clouds\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

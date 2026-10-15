@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-051-spin-vortex",
+  "name": "Girdap Dönüşü (Vortex Spin)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "spin-vortex",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 48850
+  }
+}

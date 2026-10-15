@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-039-datamosh-vector-drag",
+  "name": "Datamosh Vektör Sürükleme",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "datamosh-vector-drag",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 37126
+  }
+}

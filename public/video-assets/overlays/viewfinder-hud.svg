@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+      <g stroke="#FFFFFF" stroke-width="3" fill="none" opacity="0.8">
+        <path d="M 60 120 L 60 60 L 120 60"/>
+        <path d="M 1860 120 L 1860 60 L 1800 60"/>
+        <path d="M 60 960 L 60 1020 L 120 1020"/>
+        <path d="M 1860 960 L 1860 1020 L 1800 1020"/>
+        <circle cx="960" cy="540" r="16"/>
+        <line x1="940" y1="540" x2="980" y2="540"/>
+        <line x1="960" y1="520" x2="960" y2="560"/>
+      </g>
+      <circle cx="120" cy="120" r="10" fill="#FF0000"/>
+      <text x="145" y="128" fill="#FFFFFF" font-family="Arial, sans-serif" font-weight="bold" font-size="24">REC [4K 60FPS]</text>
+    </svg>

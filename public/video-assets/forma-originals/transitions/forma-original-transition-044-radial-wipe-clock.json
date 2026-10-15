@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-044-radial-wipe-clock",
+  "name": "Saat Yönü Radyal Silme (Clock Wipe)",
+  "category": "Silme ve Maske",
+  "technicalId": "radial-wipe-clock",
+  "defaultDuration": 0.9,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 42011
+  }
+}

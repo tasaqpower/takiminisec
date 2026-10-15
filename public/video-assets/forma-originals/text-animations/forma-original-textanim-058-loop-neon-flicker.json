@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-058-loop-neon-flicker",
+  "name": "Metin Döngüsü: NEON FLICKER",
+  "animKind": "loop",
+  "technicalId": "loop-neon-flicker",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 36537
+  }
+}

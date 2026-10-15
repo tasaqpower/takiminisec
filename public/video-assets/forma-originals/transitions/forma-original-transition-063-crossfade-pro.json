@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-063-crossfade-pro",
+  "name": "Klasik Çapraz Erime (Crossfade Pro)",
+  "category": "Temel",
+  "technicalId": "crossfade-pro",
+  "defaultDuration": 1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 60574
+  }
+}

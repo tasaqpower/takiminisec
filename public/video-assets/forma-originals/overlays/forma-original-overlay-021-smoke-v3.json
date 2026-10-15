@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-021-smoke-v3",
+  "name": "SMOKE Procedural Overlay (Varyant 3)",
+  "category": "smoke",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 9093
+  },
+  "renderCode": "renderProceduralOverlay(\"smoke\", intensity, speed, seed)"
+}

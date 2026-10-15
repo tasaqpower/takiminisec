@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-054-sub-v2",
+  "name": "Altyazı & Diyalog Şablonu (Model 2)",
+  "category": "Altyazı & Diyalog",
+  "style": "subtitle",
+  "variant": 2,
+  "textData": {
+    "text": "ALTYAZI & DIYALOG — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Plus Jakarta Sans, sans-serif",
+    "fontSize": 46,
+    "fontWeight": "700",
+    "color": "#f59e0b",
+    "fillColor": "#f59e0b",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "slide-up",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

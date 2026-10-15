@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-059-loop-glow-breathe",
+  "name": "Metin Döngüsü: GLOW BREATHE",
+  "animKind": "loop",
+  "technicalId": "loop-glow-breathe",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 37178
+  }
+}

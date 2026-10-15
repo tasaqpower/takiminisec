@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-018-lens-distortion-fisheye",
+  "name": "Balıkgözü Küresel Bozulma",
+  "category": "Kamera ve Hareket",
+  "technicalId": "lens-distortion-fisheye",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 16609
+  }
+}

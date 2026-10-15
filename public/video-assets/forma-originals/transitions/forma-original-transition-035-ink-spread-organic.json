@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-035-ink-spread-organic",
+  "name": "Organik Mürekkep Yayılımı (Ink Spread)",
+  "category": "Silme ve Maske",
+  "technicalId": "ink-spread-organic",
+  "defaultDuration": 1.1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 33218
+  }
+}

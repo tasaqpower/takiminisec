@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-115-out-shutter-snap-out",
+  "name": "Metin Çıkışı: SHUTTER SNAP OUT",
+  "animKind": "out",
+  "technicalId": "out-shutter-snap-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 73074
+  }
+}

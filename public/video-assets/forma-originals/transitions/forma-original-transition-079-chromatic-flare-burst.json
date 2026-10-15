@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-079-chromatic-flare-burst",
+  "name": "Kromatik Mercek Parlaması",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "chromatic-flare-burst",
+  "defaultDuration": 0.65,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 76206
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-007-ink-motion",
+  "name": "Organic Ink Motion Diffusion",
+  "type": "ink-motion",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#18181b",
+    "#3f3f46",
+    "#e4e4e7"
+  ],
+  "proceduralShader": "renderMotionBackground(\"ink-motion\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

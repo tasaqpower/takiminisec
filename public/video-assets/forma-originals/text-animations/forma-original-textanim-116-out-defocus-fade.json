@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-116-out-defocus-fade",
+  "name": "Metin Çıkışı: DEFOCUS FADE",
+  "animKind": "out",
+  "technicalId": "out-defocus-fade",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 73715
+  }
+}

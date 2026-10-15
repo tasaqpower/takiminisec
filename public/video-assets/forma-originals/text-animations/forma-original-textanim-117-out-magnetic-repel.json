@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-117-out-magnetic-repel",
+  "name": "Metin Çıkışı: MAGNETIC REPEL",
+  "animKind": "out",
+  "technicalId": "out-magnetic-repel",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 74356
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-034-in-curtain-open",
+  "name": "Metin Girişi: CURTAIN OPEN",
+  "animKind": "in",
+  "technicalId": "in-curtain-open",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 21153
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-061-loop-subtle-zoom",
+  "name": "Metin Döngüsü: SUBTLE ZOOM",
+  "animKind": "loop",
+  "technicalId": "loop-subtle-zoom",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 38460
+  }
+}

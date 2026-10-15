@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-026-snow-v2",
+  "name": "SNOW Procedural Overlay (Varyant 2)",
+  "category": "snow",
+  "variant": 2,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.91,
+    "speed": 1.4,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 11258
+  },
+  "renderCode": "renderProceduralOverlay(\"snow\", intensity, speed, seed)"
+}

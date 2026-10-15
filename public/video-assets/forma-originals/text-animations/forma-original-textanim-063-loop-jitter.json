@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-063-loop-jitter",
+  "name": "Metin Döngüsü: JITTER",
+  "animKind": "loop",
+  "technicalId": "loop-jitter",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 39742
+  }
+}

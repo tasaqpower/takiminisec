@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-120-out-elastic-fling",
+  "name": "Metin Çıkışı: ELASTIC FLING",
+  "animKind": "out",
+  "technicalId": "out-elastic-fling",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 76279
+  }
+}

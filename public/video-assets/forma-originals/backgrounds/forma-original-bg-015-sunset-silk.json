@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-015-sunset-silk",
+  "name": "Warm Sunset Horizon Silk",
+  "type": "sunset-silk",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#7c2d12",
+    "#ea580c",
+    "#fbbf24"
+  ],
+  "proceduralShader": "renderMotionBackground(\"sunset-silk\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

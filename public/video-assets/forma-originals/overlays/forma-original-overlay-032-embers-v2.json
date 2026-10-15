@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-032-embers-v2",
+  "name": "EMBERS Procedural Overlay (Varyant 2)",
+  "category": "embers",
+  "variant": 2,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.91,
+    "speed": 1.4,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 13856
+  },
+  "renderCode": "renderProceduralOverlay(\"embers\", intensity, speed, seed)"
+}

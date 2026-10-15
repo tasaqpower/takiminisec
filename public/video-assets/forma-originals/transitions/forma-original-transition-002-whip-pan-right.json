@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-002-whip-pan-right",
+  "name": "Whip Pan Sağ",
+  "category": "Kamera ve Hareket",
+  "technicalId": "whip-pan-right",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 977
+  }
+}

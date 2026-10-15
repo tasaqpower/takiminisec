@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-022-glitch-line-tear",
+  "name": "Satır Yırtılması Glitch",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "glitch-line-tear",
+  "defaultDuration": 0.35,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 20517
+  }
+}

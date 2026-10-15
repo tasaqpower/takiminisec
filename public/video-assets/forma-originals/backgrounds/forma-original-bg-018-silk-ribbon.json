@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-018-silk-ribbon",
+  "name": "Silk Ribbon Motion Sweep",
+  "type": "silk-ribbon",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#831843",
+    "#db2777",
+    "#f472b6"
+  ],
+  "proceduralShader": "renderMotionBackground(\"silk-ribbon\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

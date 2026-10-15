@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-084-loop-water-ripple-text",
+  "name": "Metin Döngüsü: WATER RIPPLE TEXT",
+  "animKind": "loop",
+  "technicalId": "loop-water-ripple-text",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 53203
+  }
+}

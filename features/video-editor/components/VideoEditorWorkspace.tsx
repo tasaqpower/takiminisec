@@ -15,6 +15,10 @@ import { VideoRecoveryModal } from './VideoRecoveryModal';
 import { VideoShortcutsModal } from './VideoShortcutsModal';
 import { EditorDragDropProvider } from '../context/DragDropContext';
 import { ResizableDivider } from './ui/ResizableDivider';
+import { exportEngine } from '../engine/exportEngine';
+import { assetDownloader } from '../engine/assetDownloader';
+import { assetCatalog } from '../engine/assetCatalog';
+import { assetPacks } from '../engine/assetPacks';
 import '../theme/video-editor.css';
 
 interface WorkspaceProps {
@@ -102,18 +106,34 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
   } = useVideoPlayback({ project });
 
   useEffect(() => {
-    (window as any).__formaEditor = {
-      project,
-      setProject,
-      addClip,
-      updateClip,
-      addTimelineTransition,
-      seek,
-      play,
-      pause,
-      currentTime,
-      isPlaying,
-    };
+    const isDevOrTest =
+      process.env.NODE_ENV !== 'production' ||
+      (typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        Boolean((window as any).__FORMA_TEST__)
+      ));
+
+    if (isDevOrTest && typeof window !== 'undefined') {
+      (window as any).__formaEditor = {
+        project,
+        setProject,
+        addClip,
+        updateClip,
+        addTimelineTransition,
+        seek,
+        play,
+        pause,
+        currentTime,
+        isPlaying,
+        exportEngine,
+        assetDownloader,
+        assetCatalog,
+        assetPacks,
+      };
+    } else if (typeof window !== 'undefined' && (window as any).__formaEditor) {
+      delete (window as any).__formaEditor;
+    }
   }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying]);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -168,9 +188,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
   useShortcuts({
     onTogglePlay: togglePlay,
     onSplit: () => {
-      if (selectedClipId) {
-        splitClip(selectedClipId, currentTime);
-      }
+      splitClip(selectedClipId, currentTime);
     },
     onDelete: () => {
       if (selectedClipId) deleteClip(selectedClipId);

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-025-film-burn-edge",
+  "name": "Kenar Film Yanığı Flash",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "film-burn-edge",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 23448
+  }
+}

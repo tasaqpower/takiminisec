@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-113-out-fly-away-bottom",
+  "name": "Metin Çıkışı: FLY AWAY BOTTOM",
+  "animKind": "out",
+  "technicalId": "out-fly-away-bottom",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 71792
+  }
+}

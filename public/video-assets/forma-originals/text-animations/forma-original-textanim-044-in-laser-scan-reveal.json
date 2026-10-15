@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-044-in-laser-scan-reveal",
+  "name": "Metin Girişi: LASER SCAN REVEAL",
+  "animKind": "in",
+  "technicalId": "in-laser-scan-reveal",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 27563
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-052-push-slide-left",
+  "name": "İtme Sol (Slide Push Left)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "push-slide-left",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 49827
+  }
+}

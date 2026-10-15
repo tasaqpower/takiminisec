@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-094-out-rotate-out",
+  "name": "Metin Çıkışı: ROTATE OUT",
+  "animKind": "out",
+  "technicalId": "out-rotate-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 59613
+  }
+}

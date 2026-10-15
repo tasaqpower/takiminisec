@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-017-lens-distortion-pincushion",
+  "name": "Mercek Bükülmesi (İğne Bozulması)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "lens-distortion-pincushion",
+  "defaultDuration": 0.7,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 15632
+  }
+}

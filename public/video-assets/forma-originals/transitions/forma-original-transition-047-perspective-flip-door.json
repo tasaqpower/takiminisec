@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-047-perspective-flip-door",
+  "name": "3D Kapı Açılışı (Door Swing)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "perspective-flip-door",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 44942
+  }
+}

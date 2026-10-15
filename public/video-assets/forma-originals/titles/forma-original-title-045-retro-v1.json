@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-045-retro-v1",
+  "name": "Retro & Nostalji Şablonu (Model 1)",
+  "category": "Retro & Nostalji",
+  "style": "retro",
+  "variant": 1,
+  "textData": {
+    "text": "RETRO & NOSTALJI — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Georgia, serif",
+    "fontSize": 58,
+    "fontWeight": "bold",
+    "color": "#ffffff",
+    "fillColor": "#ffffff",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "fade",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

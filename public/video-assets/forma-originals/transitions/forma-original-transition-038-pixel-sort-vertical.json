@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-038-pixel-sort-vertical",
+  "name": "Dikey Piksel Sıralama (Pixel Sort)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "pixel-sort-vertical",
+  "defaultDuration": 0.55,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 36149
+  }
+}

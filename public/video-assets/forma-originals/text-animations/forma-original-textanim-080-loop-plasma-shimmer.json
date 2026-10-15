@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-080-loop-plasma-shimmer",
+  "name": "Metin Döngüsü: PLASMA SHIMMER",
+  "animKind": "loop",
+  "technicalId": "loop-plasma-shimmer",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 50639
+  }
+}

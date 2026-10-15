@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-062-loop-color-sweep",
+  "name": "Metin Döngüsü: COLOR SWEEP",
+  "animKind": "loop",
+  "technicalId": "loop-color-sweep",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 39101
+  }
+}

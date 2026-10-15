@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-032-displacement-ripple",
+  "name": "Dalga Halka Kaydırma (Ripple)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "displacement-ripple",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 30287
+  }
+}

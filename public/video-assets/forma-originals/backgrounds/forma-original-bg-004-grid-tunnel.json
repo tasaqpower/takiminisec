@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-004-grid-tunnel",
+  "name": "Sci-Fi Grid Tunnel Infinite",
+  "type": "grid-tunnel",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#020617",
+    "#22c55e",
+    "#06b6d4"
+  ],
+  "proceduralShader": "renderMotionBackground(\"grid-tunnel\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

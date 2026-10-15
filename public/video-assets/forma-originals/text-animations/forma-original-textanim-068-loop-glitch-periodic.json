@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-068-loop-glitch-periodic",
+  "name": "Metin Döngüsü: GLITCH PERIODIC",
+  "animKind": "loop",
+  "technicalId": "loop-glitch-periodic",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 42947
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-119-out-evaporate",
+  "name": "Metin Çıkışı: EVAPORATE",
+  "animKind": "out",
+  "technicalId": "out-evaporate",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 75638
+  }
+}

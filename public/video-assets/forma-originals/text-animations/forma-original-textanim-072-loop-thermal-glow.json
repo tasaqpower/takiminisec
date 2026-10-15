@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-072-loop-thermal-glow",
+  "name": "Metin Döngüsü: THERMAL GLOW",
+  "animKind": "loop",
+  "technicalId": "loop-thermal-glow",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 45511
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-077-loop-radar-sweep",
+  "name": "Metin Döngüsü: RADAR SWEEP",
+  "animKind": "loop",
+  "technicalId": "loop-radar-sweep",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 48716
+  }
+}

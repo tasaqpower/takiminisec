@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-067-loop-rainbow-cycle",
+  "name": "Metin Döngüsü: RAINBOW CYCLE",
+  "animKind": "loop",
+  "technicalId": "loop-rainbow-cycle",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 42306
+  }
+}

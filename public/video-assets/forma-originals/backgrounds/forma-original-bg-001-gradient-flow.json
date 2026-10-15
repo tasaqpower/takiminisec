@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-001-gradient-flow",
+  "name": "Gradient Flow Horizon",
+  "type": "gradient-flow",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#1e3a8a",
+    "#3b82f6",
+    "#06b6d4"
+  ],
+  "proceduralShader": "renderMotionBackground(\"gradient-flow\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

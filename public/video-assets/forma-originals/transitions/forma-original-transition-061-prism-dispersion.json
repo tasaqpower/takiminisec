@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-061-prism-dispersion",
+  "name": "Optik Prizma Dağılması",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "prism-dispersion",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 58620
+  }
+}

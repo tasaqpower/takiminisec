@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-069-counter-v1",
+  "name": "Sayaç & İstatistik Şablonu (Model 1)",
+  "category": "Sayaç & İstatistik",
+  "style": "counter",
+  "variant": 1,
+  "textData": {
+    "text": "SAYAÇ & İSTATISTIK — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Plus Jakarta Sans, sans-serif",
+    "fontSize": 58,
+    "fontWeight": "bold",
+    "color": "#ffffff",
+    "fillColor": "#ffffff",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "fade",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

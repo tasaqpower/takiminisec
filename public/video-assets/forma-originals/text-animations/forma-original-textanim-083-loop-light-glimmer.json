@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-083-loop-light-glimmer",
+  "name": "Metin Döngüsü: LIGHT GLIMMER",
+  "animKind": "loop",
+  "technicalId": "loop-light-glimmer",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 52562
+  }
+}

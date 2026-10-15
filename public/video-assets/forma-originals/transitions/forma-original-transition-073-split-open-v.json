@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-073-split-open-v",
+  "name": "Ortadan Dikey Yarılma (Split Open V)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "split-open-v",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 70344
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-060-kaleidoscope-mandala",
+  "name": "Mandala Kaleydoskop Geçişi",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "kaleidoscope-mandala",
+  "defaultDuration": 0.9,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 57643
+  }
+}

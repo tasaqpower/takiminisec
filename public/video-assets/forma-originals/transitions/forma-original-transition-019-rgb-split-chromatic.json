@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-019-rgb-split-chromatic",
+  "name": "RGB Kromatik Yarılma (Split)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "rgb-split-chromatic",
+  "defaultDuration": 0.45,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 17586
+  }
+}

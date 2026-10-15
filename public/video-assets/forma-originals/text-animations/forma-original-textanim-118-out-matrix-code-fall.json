@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-118-out-matrix-code-fall",
+  "name": "Metin Çıkışı: MATRIX CODE FALL",
+  "animKind": "out",
+  "technicalId": "out-matrix-code-fall",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 74997
+  }
+}

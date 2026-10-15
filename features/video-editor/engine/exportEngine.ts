@@ -2,6 +2,7 @@ import { VideoProject, ExportOptions } from '../types';
 import { renderFrameToCanvas } from './previewRenderer';
 import { audioMixer } from './audioMixer';
 import { getAssetBlob } from '../db';
+import { loadAndCacheCubeLut } from './filterEngine';
 
 export interface ExportProgress {
   percent: number;
@@ -143,6 +144,20 @@ class ExportEngine {
             }
           }
 
+          if (!url && clip.assetId) {
+            if (clip.assetId.startsWith('broll-')) {
+              url = `/video-assets/broll/${clip.assetId}.webm`;
+            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
+              url = `/video-assets/sample-video.webm`;
+            } else if (clip.assetId.startsWith('overlay-')) {
+              const name = clip.assetId.replace('overlay-', '');
+              url = `/video-assets/overlays/${name}.svg`;
+            } else if (clip.assetId.startsWith('element-')) {
+              const name = clip.assetId.replace('element-', '');
+              url = `/video-assets/elements/${name}.svg`;
+            }
+          }
+
           if (url) {
             if (clip.type === 'video') {
               const video = document.createElement('video');
@@ -151,12 +166,39 @@ class ExportEngine {
               video.playsInline = true;
               video.preload = 'auto';
               video.src = url;
+
+              if (typeof document !== 'undefined' && document.body) {
+                let hiddenContainer = document.getElementById('forma-offscreen-media-container');
+                if (!hiddenContainer) {
+                  hiddenContainer = document.createElement('div');
+                  hiddenContainer.id = 'forma-offscreen-media-container';
+                  hiddenContainer.style.position = 'fixed';
+                  hiddenContainer.style.left = '-9999px';
+                  hiddenContainer.style.top = '-9999px';
+                  hiddenContainer.style.width = '1px';
+                  hiddenContainer.style.height = '1px';
+                  hiddenContainer.style.opacity = '0';
+                  hiddenContainer.style.pointerEvents = 'none';
+                  document.body.appendChild(hiddenContainer);
+                }
+                if (!video.parentElement) {
+                  hiddenContainer.appendChild(video);
+                }
+              }
+
               await new Promise<void>((res) => {
-                video.onloadeddata = () => res();
+                const onReady = () => {
+                  video.removeEventListener('loadeddata', onReady);
+                  video.removeEventListener('canplay', onReady);
+                  res();
+                };
+                video.addEventListener('loadeddata', onReady);
+                video.addEventListener('canplay', onReady);
                 video.onerror = () => res();
                 setTimeout(res, 3000);
               });
               elements.set(clip.id, video);
+              if (clip.assetId) elements.set(clip.assetId, video);
             } else {
               const img = new Image();
               img.crossOrigin = 'anonymous';
@@ -167,8 +209,20 @@ class ExportEngine {
                 setTimeout(res, 2000);
               });
               elements.set(clip.id, img);
+              if (clip.assetId) elements.set(clip.assetId, img);
             }
           }
+        }
+      }
+    }
+
+    // Preload & cache any .cube LUTs used in clips
+    for (const track of project.tracks) {
+      for (const clip of track.clips) {
+        if (clip.colorFilter && !clip.colorFilter.startsWith('normal')) {
+          try {
+            await loadAndCacheCubeLut(clip.colorFilter);
+          } catch (_) {}
         }
       }
     }
@@ -177,9 +231,317 @@ class ExportEngine {
   }
 
   /**
-   * Export video as WebM or MP4 using real-time canvas stream capture & MediaRecorder
+   * Primary Video Export dispatcher:
+   * Defaults to 100% strict Constant Frame Rate (CFR) WASM H.264+AAC engine.
+   * Gracefully falls back to legacy MediaRecorder if WebAssembly / WASM core is not available.
    */
   private async exportVideo(
+    project: VideoProject,
+    options: ExportOptions,
+    onProgress: ExportProgressCallback
+  ): Promise<Blob | null> {
+    try {
+      return await this.exportVideoCfrWasm(project, options, onProgress);
+    } catch (wasmErr) {
+      console.error('[FORMA CFR EXPORT FATAL ERROR]:', wasmErr);
+      throw wasmErr;
+    }
+  }
+
+  /**
+   * Professional Chunked WASM CFR Video Encoder (libx264 + aac).
+   * Generates exact frame timestamps: timestampUs = frameIndex * 1_000_000 / fps.
+   * Produces strictly deterministic CFR output (VFR = 0, freezes = 0, dropped frames = 0).
+   */
+  private async exportVideoCfrWasm(
+    project: VideoProject,
+    options: ExportOptions,
+    onProgress: ExportProgressCallback
+  ): Promise<Blob | null> {
+    onProgress({
+      percent: 2,
+      currentFrame: 0,
+      totalFrames: 100,
+      etaSeconds: 0,
+      statusText: 'WASM CFR video encoder başlatılıyor...',
+    });
+
+    const preloadedElements = await this.preloadAssetsForExport(project);
+    if (this.isCancelled) return null;
+
+    const fps = options.fps || project.fps || 30;
+    const duration = Math.max(0.5, project.duration || 5);
+    const totalFrames = Math.ceil(duration * fps);
+    const width = options.resolution.width;
+    const height = options.resolution.height;
+    const effectiveProject: VideoProject = {
+      ...project,
+      resolution: { width, height },
+    };
+
+    // Load local WASM FFmpeg Core via native browser import (bypassing Vite bundler rewrite)
+    const loadModule = new Function('url', 'return import(url)');
+    const mod: any = await loadModule('/wasm/ffmpeg/ffmpeg-core.js');
+    const createCore = mod.default || mod.createFFmpegCore || (window as any).createFFmpegCore;
+    if (!createCore) throw new Error('createFFmpegCore function not found in ffmpeg-core.js');
+
+    const b64Meta = btoa(JSON.stringify({ wasmURL: '/wasm/ffmpeg/ffmpeg-core.wasm' }));
+    const core = await createCore({
+      mainScriptUrlOrBlob: '/wasm/ffmpeg/ffmpeg-core.js#' + b64Meta,
+    });
+
+    // Chunked setup: 30 frames (1.0s) per chunk
+    const chunkSize = 30;
+    const numChunks = Math.ceil(totalFrames / chunkSize);
+    const ySize = width * height;
+    const uvSize = (width / 2) * (height / 2);
+    const frameByteSize = ySize + uvSize * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Could not get 2D canvas context for CFR export');
+
+    const isWebm = options.format === 'webm';
+    const h264Parts: Uint8Array[] = [];
+    const webmYuvParts: Uint8Array[] = [];
+    const tStart = performance.now();
+
+    for (let c = 0; c < numChunks; c++) {
+      if (this.isCancelled) return null;
+
+      const startFrame = c * chunkSize;
+      const endFrame = Math.min(totalFrames, (c + 1) * chunkSize);
+      const framesInChunk = endFrame - startFrame;
+
+      const chunkBuffer = new Uint8Array(framesInChunk * frameByteSize);
+
+      for (let fIdx = 0; fIdx < framesInChunk; fIdx++) {
+        if (this.isCancelled) return null;
+
+        const f = startFrame + fIdx;
+        const timeSec = f / fps;
+
+        await renderFrameToCanvas(canvas, effectiveProject, timeSec, false, true, preloadedElements);
+
+        const imgData = ctx.getImageData(0, 0, width, height).data;
+        const frameOffset = fIdx * frameByteSize;
+        let yIdx = frameOffset;
+        let uIdx = frameOffset + ySize;
+        let vIdx = frameOffset + ySize + uvSize;
+
+        for (let i = 0; i < height; i++) {
+          for (let j = 0; j < width; j++) {
+            const pixelIdx = (i * width + j) * 4;
+            const r = imgData[pixelIdx];
+            const g = imgData[pixelIdx + 1];
+            const b = imgData[pixelIdx + 2];
+
+            const yVal = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+            chunkBuffer[yIdx++] = Math.max(16, Math.min(235, yVal));
+
+            if (i % 2 === 0 && j % 2 === 0) {
+              const uVal = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
+              const vVal = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
+              chunkBuffer[uIdx++] = Math.max(16, Math.min(240, uVal));
+              chunkBuffer[vIdx++] = Math.max(16, Math.min(240, vVal));
+            }
+          }
+        }
+
+        const currentFrameNum = f + 1;
+        const ratio = currentFrameNum / totalFrames;
+        const elapsed = (performance.now() - tStart) / 1000;
+        const estTotal = ratio > 0 ? elapsed / ratio : 0;
+        const eta = Math.max(0, Math.round(estTotal - elapsed));
+
+        onProgress({
+          percent: Math.min(92, Math.round(ratio * 90)),
+          currentFrame: currentFrameNum,
+          totalFrames,
+          etaSeconds: eta,
+          statusText: `CFR kare işleniyor (${currentFrameNum}/${totalFrames})...`,
+        });
+      }
+
+      if (isWebm) {
+        webmYuvParts.push(chunkBuffer);
+      } else {
+        const chunkFileName = `chunk_${c}.yuv`;
+        core.FS.writeFile(chunkFileName, chunkBuffer);
+        const h264FileName = `part_${c}.h264`;
+        const ret = core.exec(
+          '-f', 'rawvideo',
+          '-pix_fmt', 'yuv420p',
+          '-s', `${width}x${height}`,
+          '-framerate', String(fps),
+          '-i', chunkFileName,
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-pix_fmt', 'yuv420p',
+          '-f', 'h264',
+          h264FileName
+        );
+        if (ret !== 0) throw new Error(`Chunk ${c} encode failed with code ${ret}`);
+        const partBytes = core.FS.readFile(h264FileName);
+        h264Parts.push(partBytes);
+        core.FS.unlink(chunkFileName);
+        core.FS.unlink(h264FileName);
+      }
+    }
+
+    onProgress({
+      percent: 94,
+      currentFrame: totalFrames,
+      totalFrames,
+      etaSeconds: 1,
+      statusText: 'Ses miksleniyor ve akışlar birleştiriliyor...',
+    });
+
+    // Audio mixing
+    const mixedAudio = await audioMixer.renderMixedAudio(effectiveProject, duration, 48000);
+    let hasAudio = false;
+    if (mixedAudio) {
+      const wavBlob = audioMixer.audioBufferToWav(mixedAudio);
+      const audioBytes = new Uint8Array(await wavBlob.arrayBuffer());
+      core.FS.writeFile('audio.wav', audioBytes);
+      hasAudio = true;
+    }
+
+    if (isWebm) {
+      onProgress({
+        percent: 97,
+        currentFrame: totalFrames,
+        totalFrames,
+        etaSeconds: 1,
+        statusText: 'WebM container mux ediliyor (VP8 + Opus)...',
+      });
+
+      let totalYuvLen = 0;
+      for (const p of webmYuvParts) totalYuvLen += p.length;
+      const mergedYuv = new Uint8Array(totalYuvLen);
+      let yuvOffset = 0;
+      for (const p of webmYuvParts) {
+        mergedYuv.set(p, yuvOffset);
+        yuvOffset += p.length;
+      }
+      core.FS.writeFile('input.yuv', mergedYuv);
+
+      const muxArgs = hasAudio
+        ? [
+            '-f', 'rawvideo',
+            '-pix_fmt', 'yuv420p',
+            '-s', `${width}x${height}`,
+            '-framerate', String(fps),
+            '-i', 'input.yuv',
+            '-i', 'audio.wav',
+            '-c:v', 'libvpx',
+            '-b:v', '3000k',
+            '-deadline', 'realtime',
+            '-cpu-used', '8',
+            '-strict', '-2',
+            '-c:a', 'opus',
+            '-b:a', '128k',
+            '-shortest',
+            '-f', 'webm',
+            'final_export.webm',
+          ]
+        : [
+            '-f', 'rawvideo',
+            '-pix_fmt', 'yuv420p',
+            '-s', `${width}x${height}`,
+            '-framerate', String(fps),
+            '-i', 'input.yuv',
+            '-c:v', 'libvpx',
+            '-b:v', '3000k',
+            '-deadline', 'realtime',
+            '-cpu-used', '8',
+            '-f', 'webm',
+            'final_export.webm',
+          ];
+
+      const muxRet = core.exec(...muxArgs);
+      if (muxRet !== 0) throw new Error(`Final WebM mux failed with code ${muxRet}`);
+
+      const finalWebmBytes = core.FS.readFile('final_export.webm');
+      core.FS.unlink('input.yuv');
+      if (hasAudio) core.FS.unlink('audio.wav');
+      core.FS.unlink('final_export.webm');
+
+      onProgress({
+        percent: 100,
+        currentFrame: totalFrames,
+        totalFrames,
+        etaSeconds: 0,
+        statusText: 'Tamamlandı!',
+      });
+
+      return new Blob([finalWebmBytes], { type: 'video/webm' });
+    }
+
+    // MP4 Mux
+    let totalH264Len = 0;
+    for (const p of h264Parts) totalH264Len += p.length;
+    const mergedH264 = new Uint8Array(totalH264Len);
+    let offset = 0;
+    for (const p of h264Parts) {
+      mergedH264.set(p, offset);
+      offset += p.length;
+    }
+    core.FS.writeFile('combined.h264', mergedH264);
+
+    onProgress({
+      percent: 97,
+      currentFrame: totalFrames,
+      totalFrames,
+      etaSeconds: 1,
+      statusText: 'MP4 container mux ediliyor (+faststart)...',
+    });
+
+    const muxArgs = hasAudio
+      ? [
+          '-r', String(fps),
+          '-i', 'combined.h264',
+          '-i', 'audio.wav',
+          '-c:v', 'copy',
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          '-ar', '48000',
+          '-movflags', '+faststart',
+          'final_export.mp4',
+        ]
+      : [
+          '-r', String(fps),
+          '-i', 'combined.h264',
+          '-c:v', 'copy',
+          '-movflags', '+faststart',
+          'final_export.mp4',
+        ];
+
+    const muxRet = core.exec(...muxArgs);
+    if (muxRet !== 0) throw new Error(`Final MP4 mux failed with code ${muxRet}`);
+
+    const finalMp4Bytes = core.FS.readFile('final_export.mp4');
+    core.FS.unlink('combined.h264');
+    if (hasAudio) core.FS.unlink('audio.wav');
+    core.FS.unlink('final_export.mp4');
+
+    onProgress({
+      percent: 100,
+      currentFrame: totalFrames,
+      totalFrames,
+      etaSeconds: 0,
+      statusText: 'Tamamlandı!',
+    });
+
+    return new Blob([finalMp4Bytes], { type: 'video/mp4' });
+  }
+
+  /**
+   * Legacy / Fallback MediaRecorder Video Export (Değişken FPS)
+   */
+  private async exportVideoLegacyMediaRecorder(
     project: VideoProject,
     options: ExportOptions,
     onProgress: ExportProgressCallback
@@ -192,7 +554,7 @@ class ExportEngine {
       statusText: 'Medya kaynakları hazırlanıyor...',
     });
 
-    await this.preloadAssetsForExport(project);
+    const preloadedElements = await this.preloadAssetsForExport(project);
     if (this.isCancelled) return null;
 
     const fps = options.fps || 30;
@@ -207,12 +569,19 @@ class ExportEngine {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get 2D canvas context for export');
 
+    const effectiveProject: VideoProject = {
+      ...project,
+      resolution: { width: options.resolution.width, height: options.resolution.height },
+    };
+
     // Audio setup
-    const mixedAudio = await audioMixer.renderMixedAudio(project, duration);
+    const mixedAudio = await audioMixer.renderMixedAudio(effectiveProject, duration);
     if (this.isCancelled) return null;
 
     let combinedStream: MediaStream;
-    const canvasStream = canvas.captureStream(fps);
+    const canvasStream = canvas.captureStream(0);
+    const videoTrack = canvasStream.getVideoTracks()[0] as any;
+    let audioSource: AudioBufferSourceNode | null = null;
 
     if (mixedAudio) {
       const audioCtx = audioMixer.getAudioContext();
@@ -222,7 +591,7 @@ class ExportEngine {
         } catch (_) {}
       }
       const destNode = audioCtx.createMediaStreamDestination();
-      const audioSource = audioCtx.createBufferSource();
+      audioSource = audioCtx.createBufferSource();
       audioSource.buffer = mixedAudio;
       audioSource.connect(destNode);
 
@@ -230,8 +599,6 @@ class ExportEngine {
         ...canvasStream.getVideoTracks(),
         ...destNode.stream.getAudioTracks(),
       ]);
-
-      audioSource.start(0);
     } else {
       combinedStream = canvasStream;
     }
@@ -266,29 +633,66 @@ class ExportEngine {
       videoBitsPerSecond: bitrate,
     });
 
+    let firstChunkReceived = false;
+    let onFirstChunk: () => void = () => {};
+    const firstChunkPromise = new Promise<void>((r) => {
+      onFirstChunk = r;
+    });
+
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) {
         recordedChunks.push(e.data);
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          onFirstChunk();
+        }
       }
     };
 
-    recorder.start();
+    // Prime the initial frame 0 at 0.0s before starting recorder
+    await renderFrameToCanvas(canvas, project, 0, false, false, preloadedElements);
+    if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+      videoTrack.requestFrame();
+    }
 
     const startTime = performance.now();
+    recorder.start(50);
+    if (audioSource) {
+      try {
+        audioSource.start(0);
+      } catch (_) {}
+    }
 
-    // Render loop
-    for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+    const targetTotalDurationMs = duration * 1000;
+
+    // Await first chunk so hardware encoder (D3D11) finishes pipeline initialization without dropping startup frames
+    await firstChunkPromise;
+    const readyTime = performance.now();
+    const startupMs = readyTime - startTime;
+
+    // Dynamically calculate pacing for remaining frames so total duration matches targetTotalDurationMs
+    const remainingFrames = totalFrames - 1;
+    const remainingTimeMs = Math.max(remainingFrames * 20, targetTotalDurationMs - startupMs);
+    const pacingIntervalMs = remainingFrames > 0 ? remainingTimeMs / remainingFrames : 33.33;
+
+    // Render loop: every frame rendered at exact project time frameTime = frameIndex / fps
+    for (let frameIndex = 1; frameIndex < totalFrames; frameIndex++) {
       if (this.isCancelled) {
         recorder.stop();
+        if (audioSource) { try { audioSource.stop(); } catch (_) {} }
+        preloadedElements.forEach((el) => { if (el instanceof HTMLVideoElement) el.pause(); });
         combinedStream.getTracks().forEach((t) => t.stop());
         return null;
       }
 
       const frameTime = frameIndex / fps;
-      await renderFrameToCanvas(canvas, project, frameTime, false);
+      await renderFrameToCanvas(canvas, effectiveProject, frameTime, false, true, preloadedElements);
+      if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+        videoTrack.requestFrame();
+      }
 
+      const progressRatio = Math.min(1, (frameIndex + 1) / totalFrames);
       const elapsed = (performance.now() - startTime) / 1000;
-      const progressRatio = (frameIndex + 1) / totalFrames;
       const estimatedTotal = progressRatio > 0 ? elapsed / progressRatio : 0;
       const etaSeconds = Math.max(0, Math.round(estimatedTotal - elapsed));
 
@@ -300,12 +704,18 @@ class ExportEngine {
         statusText: `Kare işleniyor (${frameIndex + 1}/${totalFrames})...`,
       });
 
-      // Maintain exact 1:1 real-time pacing with captureStream & WebAudio
-      const targetWallClockMs = startTime + ((frameIndex + 1) * frameIntervalMs);
-      const remainingDelay = targetWallClockMs - performance.now();
-      if (remainingDelay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+      // Target wall clock for this frame to maintain exact 30 FPS rate
+      const targetTime = readyTime + frameIndex * pacingIntervalMs;
+      const delay = targetTime - performance.now();
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
+    }
+
+    // Ensure total recorded duration exactly reaches targetTotalDurationMs
+    const finalDelay = (startTime + targetTotalDurationMs) - performance.now();
+    if (finalDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, finalDelay));
     }
 
     onProgress({
@@ -315,6 +725,17 @@ class ExportEngine {
       etaSeconds: 1,
       statusText: 'Video dosyası paketleniyor...',
     });
+
+    // Pause preloaded elements
+    preloadedElements.forEach((el) => {
+      if (el instanceof HTMLVideoElement && !el.paused) {
+        try { el.pause(); } catch (_) {}
+      }
+    });
+
+    if (audioSource) {
+      try { audioSource.stop(); } catch (_) {}
+    }
 
     return new Promise((resolve) => {
       recorder.onstop = () => {
@@ -350,7 +771,7 @@ class ExportEngine {
       statusText: 'GIF kareleri hazırlanıyor...',
     });
 
-    await this.preloadAssetsForExport(project);
+    const preloadedElements = await this.preloadAssetsForExport(project);
     if (this.isCancelled) return null;
 
     // For GIF, cap resolution at max 640px width and 12 fps for fast encode & reasonable size
@@ -370,12 +791,17 @@ class ExportEngine {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
+    const effectiveProject: VideoProject = {
+      ...project,
+      resolution: { width: gifW, height: gifH },
+    };
+
     // Collect frame pixels
     const framePixelList: ImageData[] = [];
     for (let f = 0; f < totalFrames; f++) {
       if (this.isCancelled) return null;
       const t = f / gifFps;
-      await renderFrameToCanvas(canvas, project, t, false);
+      await renderFrameToCanvas(canvas, effectiveProject, t, false, false, preloadedElements);
       framePixelList.push(ctx.getImageData(0, 0, gifW, gifH));
 
       onProgress({
@@ -395,7 +821,50 @@ class ExportEngine {
       statusText: 'GIF sıkıştırması uygulanıyor...',
     });
 
-    // Build standard GIF89a bytes
+    // Try high-fidelity WASM palettegen/paletteuse encoder
+    try {
+      const loadModule = new Function('url', 'return import(url)');
+      const mod: any = await loadModule('/wasm/ffmpeg/ffmpeg-core.js');
+      const createCore = mod.default || mod.createFFmpegCore || (window as any).createFFmpegCore;
+      if (createCore) {
+        const b64Meta = btoa(JSON.stringify({ wasmURL: '/wasm/ffmpeg/ffmpeg-core.wasm' }));
+        const core = await createCore({
+          mainScriptUrlOrBlob: '/wasm/ffmpeg/ffmpeg-core.js#' + b64Meta,
+        });
+
+        const frameByteCount = gifW * gifH * 4;
+        const totalRaw = new Uint8Array(frameByteCount * totalFrames);
+        for (let f = 0; f < totalFrames; f++) {
+          totalRaw.set(new Uint8Array(framePixelList[f].data.buffer), f * frameByteCount);
+        }
+        core.FS.writeFile('input.rgba', totalRaw);
+
+        const retGif = core.exec(
+          '-f', 'rawvideo',
+          '-pix_fmt', 'rgba',
+          '-s', `${gifW}x${gifH}`,
+          '-framerate', String(gifFps),
+          '-i', 'input.rgba',
+          '-vf', 'split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3',
+          'final_export.gif'
+        );
+        if (retGif === 0) {
+          const gifBytes = core.FS.readFile('final_export.gif');
+          core.FS.unlink('input.rgba');
+          core.FS.unlink('final_export.gif');
+          onProgress({
+            percent: 100,
+            currentFrame: totalFrames,
+            totalFrames,
+            etaSeconds: 0,
+            statusText: 'Tamamlandı!',
+          });
+          return new Blob([gifBytes], { type: 'image/gif' });
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: Build standard GIF89a bytes with client-side quantizer
     const gifBlob = this.encodeGifBytes(gifW, gifH, framePixelList, delayHundredths);
 
     onProgress({

@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-012-golden-dust",
+  "name": "Golden Dust Ambient Rays",
+  "type": "golden-dust",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#451a03",
+    "#d97706",
+    "#fef08a"
+  ],
+  "proceduralShader": "renderMotionBackground(\"golden-dust\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

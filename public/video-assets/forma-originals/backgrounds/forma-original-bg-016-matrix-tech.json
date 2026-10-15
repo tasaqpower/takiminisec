@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-016-matrix-tech",
+  "name": "Dark Techno Matrix Code",
+  "type": "matrix-tech",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#022c22",
+    "#059669",
+    "#6ee7b7"
+  ],
+  "proceduralShader": "renderMotionBackground(\"matrix-tech\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

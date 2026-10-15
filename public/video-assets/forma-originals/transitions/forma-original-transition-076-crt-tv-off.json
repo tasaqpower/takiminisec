@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-076-crt-tv-off",
+  "name": "CRT TV Kapanış Çizgisi",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "crt-tv-off",
+  "defaultDuration": 0.4,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 73275
+  }
+}

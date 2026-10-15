@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-090-out-slide-right",
+  "name": "Metin Çıkışı: SLIDE RIGHT",
+  "animKind": "out",
+  "technicalId": "out-slide-right",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 57049
+  }
+}

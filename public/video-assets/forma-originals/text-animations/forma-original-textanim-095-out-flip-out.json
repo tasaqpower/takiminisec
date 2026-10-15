@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-095-out-flip-out",
+  "name": "Metin Çıkışı: FLIP OUT",
+  "animKind": "out",
+  "technicalId": "out-flip-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 60254
+  }
+}

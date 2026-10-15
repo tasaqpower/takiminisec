@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-057-loop-breathing",
+  "name": "Metin Döngüsü: BREATHING",
+  "animKind": "loop",
+  "technicalId": "loop-breathing",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 35896
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-031-displacement-noise",
+  "name": "Gürültü Kaydırma (Displacement Noise)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "displacement-noise",
+  "defaultDuration": 0.7,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 29310
+  }
+}

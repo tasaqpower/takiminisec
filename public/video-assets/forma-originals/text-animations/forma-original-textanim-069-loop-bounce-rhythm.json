@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-069-loop-bounce-rhythm",
+  "name": "Metin Döngüsü: BOUNCE RHYTHM",
+  "animKind": "loop",
+  "technicalId": "loop-bounce-rhythm",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 43588
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-071-loop-shadow-orbit",
+  "name": "Metin Döngüsü: SHADOW ORBIT",
+  "animKind": "loop",
+  "technicalId": "loop-shadow-orbit",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 44870
+  }
+}

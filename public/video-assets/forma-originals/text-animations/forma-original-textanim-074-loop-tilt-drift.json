@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-074-loop-tilt-drift",
+  "name": "Metin Döngüsü: TILT DRIFT",
+  "animKind": "loop",
+  "technicalId": "loop-tilt-drift",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 46793
+  }
+}

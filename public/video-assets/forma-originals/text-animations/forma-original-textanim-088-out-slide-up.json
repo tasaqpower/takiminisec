@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-088-out-slide-up",
+  "name": "Metin Çıkışı: SLIDE UP",
+  "animKind": "out",
+  "technicalId": "out-slide-up",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 55767
+  }
+}

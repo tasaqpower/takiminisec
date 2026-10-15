@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-062-cut-clean",
+  "name": "Sert Kesim (Hard Cut)",
+  "category": "Temel",
+  "technicalId": "cut-clean",
+  "defaultDuration": 0.1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 59597
+  }
+}

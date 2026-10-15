@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-021-glitch-digital-blocks",
+  "name": "Dijital Blok Glitch",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "glitch-digital-blocks",
+  "defaultDuration": 0.4,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 19540
+  }
+}

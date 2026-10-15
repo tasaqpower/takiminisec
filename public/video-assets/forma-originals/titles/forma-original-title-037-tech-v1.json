@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-037-tech-v1",
+  "name": "Teknoloji & Kod Şablonu (Model 1)",
+  "category": "Teknoloji & Kod",
+  "style": "tech",
+  "variant": 1,
+  "textData": {
+    "text": "TEKNOLOJI & KOD — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Courier New, monospace",
+    "fontSize": 58,
+    "fontWeight": "bold",
+    "color": "#ffffff",
+    "fillColor": "#ffffff",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "fade",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

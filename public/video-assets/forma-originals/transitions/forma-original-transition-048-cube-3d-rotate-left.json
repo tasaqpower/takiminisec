@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-048-cube-3d-rotate-left",
+  "name": "3D Küp Sola Dönüş (Cube Rotate)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "cube-3d-rotate-left",
+  "defaultDuration": 0.9,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 45919
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-045-radial-wipe-dual",
+  "name": "Çift Kanatlı Fan Silme",
+  "category": "Silme ve Maske",
+  "technicalId": "radial-wipe-dual",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 42988
+  }
+}

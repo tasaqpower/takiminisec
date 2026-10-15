@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-022-kids-v2",
+  "name": "Çocuk & Eğlence Şablonu (Model 2)",
+  "category": "Çocuk & Eğlence",
+  "style": "playful",
+  "variant": 2,
+  "textData": {
+    "text": "ÇOCUK & EĞLENCE — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Comic Sans MS, cursive, sans-serif",
+    "fontSize": 46,
+    "fontWeight": "700",
+    "color": "#f59e0b",
+    "fillColor": "#f59e0b",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "slide-up",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

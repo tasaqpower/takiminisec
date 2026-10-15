@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-055-loop-wiggle",
+  "name": "Metin Döngüsü: WIGGLE",
+  "animKind": "loop",
+  "technicalId": "loop-wiggle",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 34614
+  }
+}

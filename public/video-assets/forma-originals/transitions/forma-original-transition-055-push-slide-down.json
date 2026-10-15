@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-055-push-slide-down",
+  "name": "İtme Aşağı (Slide Push Down)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "push-slide-down",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 52758
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-045-vhs-noise-v3",
+  "name": "VHS NOISE Procedural Overlay (Varyant 3)",
+  "category": "vhs-noise",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 19485
+  },
+  "renderCode": "renderProceduralOverlay(\"vhs-noise\", intensity, speed, seed)"
+}

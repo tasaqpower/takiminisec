@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-100-out-crash-out",
+  "name": "Metin Çıkışı: CRASH OUT",
+  "animKind": "out",
+  "technicalId": "out-crash-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 63459
+  }
+}

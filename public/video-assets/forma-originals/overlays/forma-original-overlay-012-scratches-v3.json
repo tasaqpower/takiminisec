@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-012-scratches-v3",
+  "name": "SCRATCHES Procedural Overlay (Varyant 3)",
+  "category": "scratches",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 5196
+  },
+  "renderCode": "renderProceduralOverlay(\"scratches\", intensity, speed, seed)"
+}

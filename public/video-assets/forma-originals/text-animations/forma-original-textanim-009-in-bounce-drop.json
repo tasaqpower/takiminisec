@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-009-in-bounce-drop",
+  "name": "Metin Girişi: BOUNCE DROP",
+  "animKind": "in",
+  "technicalId": "in-bounce-drop",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 5128
+  }
+}

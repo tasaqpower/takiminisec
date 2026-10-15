@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-020-chromatic-pulse",
+  "name": "Kromatik Nabız Parlaması",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "chromatic-pulse",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 18563
+  }
+}

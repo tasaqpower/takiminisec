@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-011-bioluminescence",
+  "name": "Deep Sea Bioluminescence",
+  "type": "bioluminescence",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#030712",
+    "#0284c7",
+    "#34d399"
+  ],
+  "proceduralShader": "renderMotionBackground(\"bioluminescence\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

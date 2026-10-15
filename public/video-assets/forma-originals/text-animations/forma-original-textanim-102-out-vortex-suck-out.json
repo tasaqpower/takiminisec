@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-102-out-vortex-suck-out",
+  "name": "Metin Çıkışı: VORTEX SUCK OUT",
+  "animKind": "out",
+  "technicalId": "out-vortex-suck-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 64741
+  }
+}

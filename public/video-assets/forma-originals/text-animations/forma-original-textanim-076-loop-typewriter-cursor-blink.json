@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-076-loop-typewriter-cursor-blink",
+  "name": "Metin Döngüsü: TYPEWRITER CURSOR BLINK",
+  "animKind": "loop",
+  "technicalId": "loop-typewriter-cursor-blink",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 48075
+  }
+}

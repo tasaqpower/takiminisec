@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-028-in-wave-rise",
+  "name": "Metin Girişi: WAVE RISE",
+  "animKind": "in",
+  "technicalId": "in-wave-rise",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 17307
+  }
+}

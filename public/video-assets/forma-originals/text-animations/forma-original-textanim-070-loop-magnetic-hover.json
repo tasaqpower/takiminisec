@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-070-loop-magnetic-hover",
+  "name": "Metin Döngüsü: MAGNETIC HOVER",
+  "animKind": "loop",
+  "technicalId": "loop-magnetic-hover",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 44229
+  }
+}

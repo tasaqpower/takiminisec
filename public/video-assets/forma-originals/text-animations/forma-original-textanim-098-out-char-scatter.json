@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-098-out-char-scatter",
+  "name": "Metin Çıkışı: CHAR SCATTER",
+  "animKind": "out",
+  "technicalId": "out-char-scatter",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 62177
+  }
+}

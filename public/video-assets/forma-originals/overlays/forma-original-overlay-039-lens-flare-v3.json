@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-039-lens-flare-v3",
+  "name": "LENS FLARE Procedural Overlay (Varyant 3)",
+  "category": "lens-flare",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "screen",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 16887
+  },
+  "renderCode": "renderProceduralOverlay(\"lens-flare\", intensity, speed, seed)"
+}

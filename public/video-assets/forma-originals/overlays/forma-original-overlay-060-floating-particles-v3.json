@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-060-floating-particles-v3",
+  "name": "FLOATING PARTICLES Procedural Overlay (Varyant 3)",
+  "category": "floating-particles",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 25980
+  },
+  "renderCode": "renderProceduralOverlay(\"floating-particles\", intensity, speed, seed)"
+}

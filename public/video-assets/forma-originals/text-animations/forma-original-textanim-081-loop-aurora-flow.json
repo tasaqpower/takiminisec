@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-081-loop-aurora-flow",
+  "name": "Metin Döngüsü: AURORA FLOW",
+  "animKind": "loop",
+  "technicalId": "loop-aurora-flow",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 51280
+  }
+}

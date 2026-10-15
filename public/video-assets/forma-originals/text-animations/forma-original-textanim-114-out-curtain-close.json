@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-114-out-curtain-close",
+  "name": "Metin Çıkışı: CURTAIN CLOSE",
+  "animKind": "out",
+  "technicalId": "out-curtain-close",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 72433
+  }
+}

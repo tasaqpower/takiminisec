@@ -542,7 +542,7 @@ export function renderTextLayer(
         animOpacity = progress;
         break;
       case 'crash-zoom':
-        animScale = 2.8 - applyEasing(rawProgress, 'ease-out') * 1.8;
+        animScale = (14 / 5) - applyEasing(rawProgress, 'ease-out') * 1.8;
         animOpacity = progress;
         animBlur = (1 - progress) * 12;
         break;

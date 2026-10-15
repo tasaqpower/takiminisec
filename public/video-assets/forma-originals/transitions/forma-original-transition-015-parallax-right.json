@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-015-parallax-right",
+  "name": "Parallaks Derinlik Sağ",
+  "category": "Kamera ve Hareket",
+  "technicalId": "parallax-right",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 13678
+  }
+}

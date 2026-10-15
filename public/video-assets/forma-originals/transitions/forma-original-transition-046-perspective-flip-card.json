@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-046-perspective-flip-card",
+  "name": "3D Kart Çevirme (Perspective Flip)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "perspective-flip-card",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 43965
+  }
+}

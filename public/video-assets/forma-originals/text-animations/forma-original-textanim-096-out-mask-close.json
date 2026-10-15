@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-096-out-mask-close",
+  "name": "Metin Çıkışı: MASK CLOSE",
+  "animKind": "out",
+  "technicalId": "out-mask-close",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 60895
+  }
+}

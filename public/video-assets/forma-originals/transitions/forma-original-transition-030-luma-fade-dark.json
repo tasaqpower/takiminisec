@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-030-luma-fade-dark",
+  "name": "Gölgeler Erimesi (Luma Fade Dark)",
+  "category": "Temel",
+  "technicalId": "luma-fade-dark",
+  "defaultDuration": 1,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 28333
+  }
+}

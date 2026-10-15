@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-051-paper-texture-v3",
+  "name": "PAPER TEXTURE Procedural Overlay (Varyant 3)",
+  "category": "paper-texture",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "overlay",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 22083
+  },
+  "renderCode": "renderProceduralOverlay(\"paper-texture\", intensity, speed, seed)"
+}

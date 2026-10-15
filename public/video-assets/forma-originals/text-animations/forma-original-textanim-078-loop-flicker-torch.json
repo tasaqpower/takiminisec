@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-078-loop-flicker-torch",
+  "name": "Metin Döngüsü: FLICKER TORCH",
+  "animKind": "loop",
+  "technicalId": "loop-flicker-torch",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 49357
+  }
+}

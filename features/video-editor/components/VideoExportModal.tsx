@@ -53,6 +53,16 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
       });
 
       if (blob) {
+        const isDevOrTest =
+          process.env.NODE_ENV !== 'production' ||
+          (typeof window !== 'undefined' && (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            Boolean((window as any).__FORMA_TEST__)
+          ));
+        if (isDevOrTest && typeof window !== 'undefined') {
+          (window as any).__lastExportedBlob = blob;
+        }
         exportEngine.downloadBlob(blob, `${filename}.${format}`);
         setTimeout(() => {
           setIsExporting(false);
@@ -266,6 +276,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                 Vazgeç
               </button>
               <button
+                data-action="start-export"
                 onClick={handleStartExport}
                 className="px-4 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-sm transition-all flex items-center gap-1.5"
               >

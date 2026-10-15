@@ -70,7 +70,8 @@ export type TransitionType =
   | 'vhs-distortion'
   | 'blur-dissolve'
   | 'prism-dissolve'
-  | 'flash';
+  | 'flash'
+  | (string & {});
 
 export interface Transition {
   type: TransitionType;
@@ -180,7 +181,8 @@ export type TextInAnimationType =
   | 'neon-flicker-in'
   | 'neon-flash'
   | 'wave'
-  | 'crash-zoom';
+  | 'crash-zoom'
+  | (string & {});
 
 export type TextLoopAnimationType =
   | 'none'
@@ -198,7 +200,8 @@ export type TextLoopAnimationType =
   | 'color-sweep'
   | 'jitter'
   | 'strobe'
-  | 'spin-slow';
+  | 'spin-slow'
+  | (string & {});
 
 export type TextOutAnimationType =
   | 'none'
@@ -216,7 +219,8 @@ export type TextOutAnimationType =
   | 'typewriter-erase'
   | 'char-scatter'
   | 'glitch-out'
-  | 'crash-out';
+  | 'crash-out'
+  | (string & {});
 
 export type TextEasingType =
   | 'linear'
@@ -394,6 +398,7 @@ export interface VideoClip {
   // Audio
   volume?: number;
   muted?: boolean;
+  vocalMute?: boolean; // Karakter / İnsan Sesi Susturma (Arka Plan Seslerini Koruma)
   fadeIn?: number;
   fadeOut?: number;
 
@@ -426,6 +431,7 @@ export interface VideoClip {
   flipV?: boolean;
   fitMode?: 'fit' | 'fill' | 'custom';
   cornerRadius?: number;
+  colorFilter?: string;
 }
 
 export interface TimelineTrack {

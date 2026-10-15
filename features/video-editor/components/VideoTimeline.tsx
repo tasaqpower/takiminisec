@@ -25,6 +25,7 @@ import {
   Maximize2,
   Volume2,
   VolumeX,
+  MicOff,
   Lock,
   Unlock,
   Eye,
@@ -261,15 +262,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           newStart = snapTime(newStart);
           const actualShift = newStart - trimmingClip.initialStartTime;
           const newDuration = Math.max(0.2, trimmingClip.initialDuration - actualShift);
-          const newTrimIn = Math.max(0, trimmingClip.initialTrimIn + actualShift);
+          const newTrimIn = Math.max(0, (trimmingClip.initialTrimIn ?? 0) + actualShift);
           onTrimClip(trimmingClip.clipId, newTrimIn, trimmingClip.initialTrimOut, newStart, newDuration);
         } else {
           // Adjust duration and trimOut
           let newDuration = Math.max(0.2, trimmingClip.initialDuration + deltaSec);
           const newEnd = snapTime(trimmingClip.initialStartTime + newDuration);
           newDuration = Math.max(0.2, newEnd - trimmingClip.initialStartTime);
-          const newTrimOut = trimmingClip.initialTrimIn + newDuration;
-          onTrimClip(trimmingClip.clipId, trimmingClip.initialTrimIn, newTrimOut, trimmingClip.initialStartTime, newDuration);
+          const newTrimOut = (trimmingClip.initialTrimIn ?? 0) + newDuration;
+          onTrimClip(trimmingClip.clipId, trimmingClip.initialTrimIn ?? 0, newTrimOut, trimmingClip.initialStartTime, newDuration);
         }
       } else if (resizingTransition) {
         const deltaX = e.clientX - resizingTransition.initialMouseX;
@@ -492,8 +493,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           (hoveredClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === hoveredClipId) : null) ||
           (selectedClipId ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId) : null) ||
           project.tracks.flatMap((t) => t.clips)[0];
-        if (target && payload.data?.effects && onUpdateClip) {
-          onUpdateClip(target.id, { effects: payload.data.effects });
+        if (target && onUpdateClip) {
+          const updates: Partial<VideoClip> = {};
+          if (payload.data?.colorFilter || payload.id?.startsWith('lut-')) {
+            updates.colorFilter = payload.data?.colorFilter || payload.id;
+          }
+          if (payload.data?.effects) {
+            updates.effects = payload.data.effects;
+          }
+          if (Object.keys(updates).length > 0) {
+            onUpdateClip(target.id, updates);
+          }
         }
       } else if (payload.type === 'audio-sfx') {
         const audioTrack =
@@ -548,9 +558,16 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           project.tracks.find((t) => t.type === 'video') ||
           project.tracks[0];
         if (videoTrack && onAddClip) {
+          const sourceUrl =
+            payload.data?.sourceUrl ||
+            payload.data?.downloadUrl ||
+            payload.data?.filePath ||
+            payload.data?.previewUrl;
           const newClip = onAddClip(videoTrack.id, {
+            assetId: payload.id,
             name: payload.name,
-            type: 'image',
+            type: payload.data?.type === 'video' ? 'video' : 'image',
+            sourceUrl,
             startTime: dropTime,
             duration: payload.duration || 4.0,
             sourceDuration: payload.duration || 4.0,
@@ -565,11 +582,30 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           project.tracks.find((t) => t.type === targetType) ||
           project.tracks[0];
         if (targetTrack && onAddClip) {
+          let sourceUrl =
+            payload.data?.sourceUrl ||
+            payload.data?.downloadUrl ||
+            payload.data?.filePath ||
+            payload.data?.url ||
+            (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined);
+
+          let assetId = payload.id;
+          if (!sourceUrl && payload.data?.svg) {
+            try {
+              const svgBlob = new Blob([payload.data.svg], { type: 'image/svg+xml;charset=utf-8' });
+              assetId = 'element-' + (payload.id || 'svg') + '-' + Date.now();
+              await saveAssetBlob(assetId, svgBlob);
+              sourceUrl = URL.createObjectURL(svgBlob);
+            } catch (err) {
+              console.warn('Failed to save dropped SVG blob:', err);
+            }
+          }
+
           const newClip = onAddClip(targetTrack.id, {
-            assetId: payload.id,
+            assetId,
             name: payload.name,
             type: payload.type,
-            sourceUrl: payload.data?.url || (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined),
+            sourceUrl,
             startTime: dropTime,
             duration: payload.duration || (payload.type === 'image' ? 4 : 5),
             sourceDuration: payload.duration || (payload.type === 'image' ? 4 : 5),
@@ -776,6 +812,103 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     return ticks;
   };
 
+  // Find clip directly under playhead for quick split even without manual selection
+  const clipUnderPlayhead = project.tracks.flatMap((t) => t.clips).find(
+    (c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration
+  );
+  const activeTargetClip = selectedClipId
+    ? project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId)
+    : clipUnderPlayhead;
+
+  // 1. Toggle Karakter / İnsan Sesi Susturma (Vocal Suppression while keeping background audio)
+  const handleToggleVocalMute = (clip: VideoClip) => {
+    if (onUpdateClip) {
+      const nextVocalMute = !clip.vocalMute;
+      onUpdateClip(clip.id, {
+        vocalMute: nextVocalMute,
+        muted: false, // Ensure audio continues playing!
+        volume: clip.volume && clip.volume > 0 ? clip.volume : 1.0,
+      });
+    }
+  };
+
+  // 2. Add 1000 Hz Censor Bleep while preserving background audio (ducking or vocal mute)
+  const handleAddCensorBleep = async (
+    clip: VideoClip,
+    mode: 'keep-background' | 'vocal-mute-and-bleep' | 'full-mute' = 'keep-background'
+  ) => {
+    try {
+      if (onUpdateClip) {
+        if (mode === 'vocal-mute-and-bleep') {
+          // Suppress voice but keep background music
+          onUpdateClip(clip.id, { vocalMute: true, muted: false, volume: 1.0 });
+        } else if (mode === 'keep-background') {
+          // Gently dip video audio to 35% so 1000 Hz bleep is loud and clear, but background music NEVER cuts out!
+          onUpdateClip(clip.id, { muted: false, volume: 0.35 });
+        } else if (mode === 'full-mute') {
+          onUpdateClip(clip.id, { muted: true, volume: 0 });
+        }
+      }
+
+      const bleepBlob = await generateSfxBlob('censor-bleep');
+      const bleepAssetId = 'sfx-censor-bleep-' + Date.now();
+      await saveAssetBlob(bleepAssetId, bleepBlob);
+      const bleepUrl = URL.createObjectURL(bleepBlob);
+
+      const audioTrack =
+        project.tracks.find((t) => t.type === 'audio') ||
+        project.tracks[0];
+
+      if (audioTrack && onAddClip) {
+        onAddClip(audioTrack.id, {
+          assetId: bleepAssetId,
+          name: 'Sansür Bip Sesi (1000Hz)',
+          type: 'audio',
+          sourceUrl: bleepUrl,
+          startTime: clip.startTime,
+          duration: clip.duration,
+          sourceDuration: clip.duration,
+          volume: 1.0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to add censor bleep:', err);
+    }
+  };
+
+  // Quick Censor Bar overlay action (Adds Black Censor Bar SVG on overlay video track)
+  const handleAddCensorBar = async (clip: VideoClip) => {
+    try {
+      const barSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+        <rect width="320" height="80" rx="4" fill="#000000" stroke="#1f2937" stroke-width="2"/>
+        <text x="160" y="48" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-weight="900" font-size="24" letter-spacing="4">[ SANSÜR ]</text>
+      </svg>`;
+      const blob = new Blob([barSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const assetId = 'element-censor-bar-' + Date.now();
+      await saveAssetBlob(assetId, blob);
+      const objectUrl = URL.createObjectURL(blob);
+
+      const overlayTrack =
+        project.tracks.find((t) => t.type === 'video' && t.id !== project.tracks[0]?.id) ||
+        project.tracks.find((t) => t.type === 'video') ||
+        project.tracks[0];
+
+      if (overlayTrack && onAddClip) {
+        onAddClip(overlayTrack.id, {
+          assetId,
+          name: 'Siyah Sansür Bandı',
+          type: 'image',
+          sourceUrl: objectUrl,
+          startTime: clip.startTime,
+          duration: clip.duration,
+          sourceDuration: clip.duration,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to add censor bar:', err);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -793,13 +926,13 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (selectedClipId) {
-                onSplitClip(selectedClipId, currentTime);
+              if (activeTargetClip) {
+                onSplitClip(activeTargetClip.id, currentTime);
               }
             }}
-            disabled={!selectedClipId}
+            disabled={!activeTargetClip}
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
-              selectedClipId
+              activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#4f6bf5] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
@@ -813,11 +946,11 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (selectedClipId) onRippleDeleteClip(selectedClipId);
+              if (activeTargetClip) onRippleDeleteClip(activeTargetClip.id);
             }}
-            disabled={!selectedClipId}
+            disabled={!activeTargetClip}
             className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
-              selectedClipId
+              activeTargetClip
                 ? 'bg-[#171B21] text-[#f59e0b] border-[#f59e0b]/40 hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
             }`}
@@ -825,6 +958,46 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           >
             <ArrowLeftRight size={12} className="text-[#f59e0b]" />
             <span className="text-[11px] font-medium">Boşluksuz Sil</span>
+          </button>
+
+          {/* Karakter Sustur (Vocal Suppress) Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip) handleToggleVocalMute(activeTargetClip);
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? activeTargetClip.vocalMute
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-500/80'
+                  : 'bg-[#171B21] text-amber-400 border-amber-500/40 hover:bg-[#202631] hover:text-amber-300'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Karakter Sustur: AI kekelemesi veya konuşmayı yok eder, arka plan müziği kesintisiz çalar"
+          >
+            <MicOff size={12} className={activeTargetClip?.vocalMute ? 'text-amber-300' : 'text-amber-400'} />
+            <span className="text-[11px] font-medium">
+              {activeTargetClip?.vocalMute ? 'Karakter Susturuldu' : 'Karakter Sustur (Vocal)'}
+            </span>
+          </button>
+
+          {/* Quick Censor Speech Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTargetClip) handleAddCensorBleep(activeTargetClip, 'keep-background');
+            }}
+            disabled={!activeTargetClip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              activeTargetClip
+                ? 'bg-[#171B21] text-red-400 border-red-500/40 hover:bg-[#202631] hover:text-red-300'
+                : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-50'
+            }`}
+            title="Sansür Bip Sesi: Arka plan sesini kapatmadan üzerine 1000 Hz Bip Sesi ekler"
+          >
+            <VolumeX size={12} className="text-red-400" />
+            <span className="text-[11px] font-medium">Bip Ekle (Arka Plan Kalsın)</span>
           </button>
 
           {/* Delete Button */}
@@ -1180,6 +1353,9 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                         key={clip.id}
                         data-clip-id={clip.id}
                         data-clip-type={clip.type}
+                        data-track-id={track.id}
+                        data-start-time={clip.startTime}
+                        data-duration={clip.duration}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectClip(clip.id);
@@ -1334,8 +1510,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 edge: 'left',
                                 initialStartTime: clip.startTime,
                                 initialDuration: clip.duration,
-                                initialTrimIn: clip.trimIn,
-                                initialTrimOut: clip.trimOut,
+                                initialTrimIn: clip.trimIn ?? 0,
+                                initialTrimOut: clip.trimOut ?? clip.duration,
                                 initialMouseX: e.clientX,
                               });
                             }
@@ -1350,8 +1526,17 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                         <div className="flex-1 min-w-0 mx-2 pointer-events-none flex flex-col justify-center relative z-10">
                           <p className="text-xs font-semibold truncate text-[#E7EAF0] drop-shadow-sm flex items-center gap-1">
                             {clip.muted && (
-                              <span title="Sessize Alındı" className="inline-flex items-center">
+                              <span title="Tamamen Sessize Alındı" className="inline-flex items-center">
                                 <VolumeX className="w-3 h-3 text-red-400 shrink-0" />
+                              </span>
+                            )}
+                            {clip.vocalMute && (
+                              <span
+                                title="Karakter / İnsan Sesi Susturuldu (Arka Plan Sesleri Açık)"
+                                className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-amber-950/90 text-amber-300 border border-amber-500/80 shadow-sm"
+                              >
+                                <MicOff className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                                <span>Karakter Susturuldu</span>
                               </span>
                             )}
                             <span>{clip.name}</span>
@@ -1467,8 +1652,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                                 edge: 'right',
                                 initialStartTime: clip.startTime,
                                 initialDuration: clip.duration,
-                                initialTrimIn: clip.trimIn,
-                                initialTrimOut: clip.trimOut,
+                                initialTrimIn: clip.trimIn ?? 0,
+                                initialTrimOut: clip.trimOut ?? clip.duration,
                                 initialMouseX: e.clientX,
                               });
                             }
@@ -1528,8 +1713,10 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               <div className="absolute inset-0 pointer-events-none z-30">
                 {project.transitions.map((tr) => {
                   const isSelected = selectedTransitionId === tr.id;
-                  const trWidth = Math.max(36, tr.duration * zoom);
-                  const trLeft = (tr.cutTime - tr.duration / 2) * zoom;
+                  const trDuration = typeof tr.duration === 'number' && !isNaN(tr.duration) ? tr.duration : 1.0;
+                  const trCutTime = typeof tr.cutTime === 'number' && !isNaN(tr.cutTime) ? tr.cutTime : 0.0;
+                  const trWidth = Math.max(36, trDuration * zoom);
+                  const trLeft = (trCutTime - trDuration / 2) * zoom;
                   const trDef = TRANSITION_DEFINITIONS.find((d) => d.id === tr.type);
 
                   const trackIdx = project.tracks.findIndex((t) => t.id === tr.trackId);
@@ -1556,7 +1743,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black z-40'
                           : 'hover:brightness-125'
                       }`}
-                      title={`${trDef?.name || tr.type} (${tr.duration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
+                      title={`${trDef?.name || tr.type} (${trDuration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
                     >
                       {/* Duration Region Overlay */}
                       <div className="absolute inset-0 bg-amber-500/10 border-t border-b border-amber-500/30 rounded-[2px] pointer-events-none" />
@@ -1577,7 +1764,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           </svg>
                         </div>
                         <span className="text-[8px] font-mono text-amber-300 font-bold px-1 py-0 bg-black/80 rounded leading-none border border-amber-500/40 shadow-sm mt-0.5">
-                          {tr.duration.toFixed(1)} sn
+                          {trDuration.toFixed(1)} sn
                         </span>
                       </div>
 
@@ -1794,6 +1981,63 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               </div>
             </div>
           )}
+
+          <div className="border-t border-[#191d26] my-1" />
+
+          {/* Karakter Sustur Action */}
+          <button
+            onClick={() => {
+              handleToggleVocalMute(contextMenu.clip);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <MicOff className="w-3.5 h-3.5 text-amber-400" />
+              <span>Karakter Sesini Sustur (Arka Planı Koru)</span>
+            </span>
+            {contextMenu.clip.vocalMute && (
+              <span className="text-[10px] text-amber-400 font-mono font-bold">AÇIK</span>
+            )}
+          </button>
+
+          {/* Bip Ekle (Arka Plan Sesini Kapatmadan) Action */}
+          <button
+            onClick={() => {
+              handleAddCensorBleep(contextMenu.clip, 'keep-background');
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white text-indigo-300 transition-colors text-left"
+          >
+            <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Bip Sesi Ekle (Arka Plan Sesini Kapatmadan)</span>
+          </button>
+
+          {/* Bip + Karakter Sustur (TV Sansürü) Action */}
+          <button
+            onClick={() => {
+              handleAddCensorBleep(contextMenu.clip, 'vocal-mute-and-bleep');
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-red-950/40 hover:text-white text-red-400 transition-colors text-left"
+          >
+            <VolumeX className="w-3.5 h-3.5 text-red-400" />
+            <span>TV Sansürü (Karakter Sustur + Bip Sesi)</span>
+          </button>
+
+          {/* Siyah Sansür Bandı Ekle Action */}
+          <button
+            onClick={() => {
+              handleAddCensorBar(contextMenu.clip);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#1a1f29] hover:text-white text-gray-300 transition-colors text-left"
+          >
+            <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+            <span>Siyah Sansür Bandı Ekle</span>
+          </button>
+
+          <div className="border-t border-[#191d26] my-1" />
 
           <button
             onClick={() => {

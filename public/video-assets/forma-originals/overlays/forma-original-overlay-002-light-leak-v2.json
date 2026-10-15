@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-002-light-leak-v2",
+  "name": "LIGHT LEAK Procedural Overlay (Varyant 2)",
+  "category": "light-leak",
+  "variant": 2,
+  "type": "procedural-shader",
+  "blendMode": "screen",
+  "parameters": {
+    "intensity": 0.91,
+    "speed": 1.4,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 866
+  },
+  "renderCode": "renderProceduralOverlay(\"light-leak\", intensity, speed, seed)"
+}

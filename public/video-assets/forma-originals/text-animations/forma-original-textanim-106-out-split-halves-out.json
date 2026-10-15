@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-106-out-split-halves-out",
+  "name": "Metin Çıkışı: SPLIT HALVES OUT",
+  "animKind": "out",
+  "technicalId": "out-split-halves-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 67305
+  }
+}

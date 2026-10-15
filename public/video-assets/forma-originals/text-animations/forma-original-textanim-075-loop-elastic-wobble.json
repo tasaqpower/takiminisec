@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-075-loop-elastic-wobble",
+  "name": "Metin Döngüsü: ELASTIC WOBBLE",
+  "animKind": "loop",
+  "technicalId": "loop-elastic-wobble",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 47434
+  }
+}

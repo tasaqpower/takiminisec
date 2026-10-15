@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-020-hyperspace",
+  "name": "Vortex Tunnel Hyperspace",
+  "type": "hyperspace",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#000000",
+    "#6366f1",
+    "#e0e7ff"
+  ],
+  "proceduralShader": "renderMotionBackground(\"hyperspace\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

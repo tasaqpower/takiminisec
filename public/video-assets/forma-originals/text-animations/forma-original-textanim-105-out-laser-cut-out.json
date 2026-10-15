@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-105-out-laser-cut-out",
+  "name": "Metin Çıkışı: LASER CUT OUT",
+  "animKind": "out",
+  "technicalId": "out-laser-cut-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 66664
+  }
+}

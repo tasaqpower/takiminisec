@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-054-loop-gentle-shake",
+  "name": "Metin Döngüsü: GENTLE SHAKE",
+  "animKind": "loop",
+  "technicalId": "loop-gentle-shake",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 33973
+  }
+}

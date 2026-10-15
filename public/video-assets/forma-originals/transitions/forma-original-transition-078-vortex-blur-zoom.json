@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-078-vortex-blur-zoom",
+  "name": "Girdap Odak Bulanıklığı (Vortex Blur)",
+  "category": "Kamera ve Hareket",
+  "technicalId": "vortex-blur-zoom",
+  "defaultDuration": 0.7,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 75229
+  }
+}

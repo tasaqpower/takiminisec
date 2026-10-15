@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-065-loop-spin-slow",
+  "name": "Metin Döngüsü: SPIN SLOW",
+  "animKind": "loop",
+  "technicalId": "loop-spin-slow",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 41024
+  }
+}

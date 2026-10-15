@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-093-out-blur-out",
+  "name": "Metin Çıkışı: BLUR OUT",
+  "animKind": "out",
+  "technicalId": "out-blur-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 58972
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "forma-original-title-079-iyilik-v3",
+  "name": "İYİLİK +1 Oyunlaştırma Şablonu (Model 3)",
+  "category": "İYİLİK +1 Oyunlaştırma",
+  "style": "gamification",
+  "variant": 3,
+  "textData": {
+    "text": "İYİLİK +1 OYUNLAŞTIRMA — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Plus Jakarta Sans, sans-serif",
+    "fontSize": 40,
+    "fontWeight": "bold",
+    "color": "#38bdf8",
+    "fillColor": "#38bdf8",
+    "backgroundColor": "rgba(15, 23, 42, 0.85)",
+    "backgroundOpacity": 0.85,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "pop",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

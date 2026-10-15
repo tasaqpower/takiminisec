@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-048-crt-scanline-v3",
+  "name": "CRT SCANLINE Procedural Overlay (Varyant 3)",
+  "category": "crt-scanline",
+  "variant": 3,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.99,
+    "speed": 1.6,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 20784
+  },
+  "renderCode": "renderProceduralOverlay(\"crt-scanline\", intensity, speed, seed)"
+}

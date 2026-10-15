@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-028-anamorphic-streak",
+  "name": "Anamorfik Işık Çizgisi Streak",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "anamorphic-streak",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 26379
+  }
+}

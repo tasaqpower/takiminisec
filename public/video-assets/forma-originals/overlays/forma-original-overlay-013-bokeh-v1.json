@@ -1,0 +1,16 @@
+{
+  "id": "forma-original-overlay-013-bokeh-v1",
+  "name": "BOKEH Procedural Overlay (Varyant 1)",
+  "category": "bokeh",
+  "variant": 1,
+  "type": "procedural-shader",
+  "blendMode": "source-over",
+  "parameters": {
+    "intensity": 0.83,
+    "speed": 1.2,
+    "scale": 1,
+    "color": "#38bdf8",
+    "seed": 5629
+  },
+  "renderCode": "renderProceduralOverlay(\"bokeh\", intensity, speed, seed)"
+}

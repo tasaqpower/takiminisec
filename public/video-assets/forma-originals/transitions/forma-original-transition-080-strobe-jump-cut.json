@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-080-strobe-jump-cut",
+  "name": "Zaman Atlama Titremesi (Strobe Cut)",
+  "category": "Temel",
+  "technicalId": "strobe-jump-cut",
+  "defaultDuration": 0.3,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 77183
+  }
+}

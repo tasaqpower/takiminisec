@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-025-in-glitch-block",
+  "name": "Metin Girişi: GLITCH BLOCK",
+  "animKind": "in",
+  "technicalId": "in-glitch-block",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 15384
+  }
+}

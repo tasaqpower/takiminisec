@@ -27,6 +27,7 @@ import {
   Palette,
   Volume2,
   VolumeX,
+  MicOff,
   Type,
   Trash2,
   Copy,
@@ -276,10 +277,12 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
       // Handle calculations & Safe Duration
       const leftHandleSec = leftClip?.sourceDuration
-        ? Math.max(0, leftClip.sourceDuration - (leftClip.trimIn + leftClip.duration))
+        ? Math.max(0, leftClip.sourceDuration - ((leftClip.trimIn || 0) + (leftClip.duration || 0)))
         : 0;
-      const rightHandleSec = rightClip ? rightClip.trimIn : 0;
-      const requiredHalf = tr.duration / 2;
+      const rightHandleSec = rightClip ? (rightClip.trimIn || 0) : 0;
+      const trDuration = typeof tr.duration === 'number' && !isNaN(tr.duration) ? tr.duration : 1.0;
+      const trCutTime = typeof tr.cutTime === 'number' && !isNaN(tr.cutTime) ? tr.cutTime : 0.0;
+      const requiredHalf = trDuration / 2;
 
       // Calculate max safe duration without freezing frames
       const isBetweenBlocked = leftHandleSec <= 0.001 || rightHandleSec <= 0.001;
@@ -294,17 +297,17 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           tr.alignment === 'between'
             ? (leftHandleSec < requiredHalf || rightHandleSec < requiredHalf || isBetweenBlocked)
             : tr.alignment === 'in'
-            ? rightHandleSec < tr.duration
-            : leftHandleSec < tr.duration
+            ? rightHandleSec < trDuration
+            : leftHandleSec < trDuration
         )
       );
 
       // Telemetry
       const audioCurve = tr.audioCurve || 'constant-power';
       const telemetry = audioMixer.getCrossfadeTelemetry(0.5, audioCurve);
-      const gainOutDb = (20 * Math.log10(Math.max(0.001, telemetry.gainOut))).toFixed(1);
-      const gainInDb = (20 * Math.log10(Math.max(0.001, telemetry.gainIn))).toFixed(1);
-      const powerDb = (10 * Math.log10(Math.max(0.001, telemetry.totalPower))).toFixed(1);
+      const gainOutDb = (20 * Math.log10(Math.max(0.001, telemetry?.gainOut ?? 0.5))).toFixed(1);
+      const gainInDb = (20 * Math.log10(Math.max(0.001, telemetry?.gainIn ?? 0.5))).toFixed(1);
+      const powerDb = (10 * Math.log10(Math.max(0.001, telemetry?.totalPower ?? 1.0))).toFixed(1);
 
       // Filter transitions for type selector
       const availableTransitions = TRANSITION_DEFINITIONS.filter((t) => {
@@ -318,9 +321,9 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
       });
 
       // Calculate start and end times on timeline
-      const halfDur = tr.duration / 2;
-      const startTime = tr.alignment === 'in' ? tr.cutTime : tr.alignment === 'out' ? tr.cutTime - tr.duration : tr.cutTime - halfDur;
-      const endTime = tr.alignment === 'in' ? tr.cutTime + tr.duration : tr.alignment === 'out' ? tr.cutTime : tr.cutTime + halfDur;
+      const halfDur = trDuration / 2;
+      const startTime = tr.alignment === 'in' ? trCutTime : tr.alignment === 'out' ? trCutTime - trDuration : trCutTime - halfDur;
+      const endTime = tr.alignment === 'in' ? trCutTime + trDuration : tr.alignment === 'out' ? trCutTime : trCutTime + halfDur;
 
       return (
         <aside
@@ -358,11 +361,11 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-[#232934] text-[#929AA8]">
                 <div>
                   <span className="block text-[#5A6270] text-[9px]">Kesim Zamanı</span>
-                  <span className="font-mono text-[#cbd5e1] font-semibold">{tr.cutTime.toFixed(2)}s</span>
+                  <span className="font-mono text-[#cbd5e1] font-semibold">{(trCutTime || 0).toFixed(2)}s</span>
                 </div>
                 <div>
                   <span className="block text-[#5A6270] text-[9px]">Geçiş Aralığı</span>
-                  <span className="font-mono text-[#cbd5e1] font-semibold">{Math.max(0, startTime).toFixed(2)}s – {endTime.toFixed(2)}s</span>
+                  <span className="font-mono text-[#cbd5e1] font-semibold">{Math.max(0, startTime || 0).toFixed(2)}s – {(endTime || 0).toFixed(2)}s</span>
                 </div>
               </div>
             </div>
@@ -382,12 +385,12 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-[9px] font-mono bg-black/40 p-1.5 rounded border border-amber-500/20 text-[#cbd5e1]">
-                  <div>Sol Ek Kare: <span className="text-amber-300">{leftHandleSec.toFixed(2)}s</span></div>
-                  <div>Sağ Ek Kare: <span className="text-amber-300">{rightHandleSec.toFixed(2)}s</span></div>
+                  <div>Sol Ek Kare: <span className="text-amber-300">{(leftHandleSec || 0).toFixed(2)}s</span></div>
+                  <div>Sağ Ek Kare: <span className="text-amber-300">{(rightHandleSec || 0).toFixed(2)}s</span></div>
                 </div>
                 <div className="pt-1 flex items-center justify-between gap-1">
                   <span className="text-[10px] text-amber-300 font-medium">
-                    Güvenli Süre: <span className="font-mono font-bold">{maxSafeDuration.toFixed(2)}s</span>
+                    Güvenli Süre: <span className="font-mono font-bold">{(maxSafeDuration || 0).toFixed(2)}s</span>
                   </span>
                   {maxSafeDuration > 0 ? (
                     <button
@@ -395,7 +398,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       onClick={() => onUpdateTimelineTransition?.(tr.id, { duration: maxSafeDuration })}
                       className="px-2 py-1 rounded-[2px] bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-bold shadow transition-colors shrink-0"
                     >
-                      Süreyi {maxSafeDuration.toFixed(1)} sn&apos;ye İndir
+                      Süreyi {(maxSafeDuration || 0).toFixed(1)} sn&apos;ye İndir
                     </button>
                   ) : (
                     <span className="px-2 py-1 rounded-[2px] bg-rose-950/60 border border-rose-500/50 text-rose-300 text-[9px] font-bold shrink-0">
@@ -416,7 +419,7 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <span className="text-[#929AA8] font-medium text-[11px] block">Süre ve Hizalama</span>
               <NumericField
                 label="Geçiş Süresi"
-                value={parseFloat(tr.duration.toFixed(2))}
+                value={parseFloat((trDuration || 1).toFixed(2))}
                 min={0.1}
                 max={5.0}
                 step={0.05}
@@ -1558,8 +1561,37 @@ export const VideoPropertiesPanel: React.FC<PropertiesPanelProps> = ({
           />
         </div>
 
+        {/* Karakter / İnsan Sesi Susturma (Vocal Suppression) */}
+        <div className="p-2 rounded-[3px] bg-[#151921] border border-amber-500/30 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-amber-300 flex items-center gap-1.5">
+              <MicOff size={13} className="text-amber-400" />
+              <span>Karakter / İnsan Sesini Sustur</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateClip(selectedClip.id, {
+                  vocalMute: !selectedClip.vocalMute,
+                  muted: false,
+                });
+              }}
+              className={`px-2 py-0.5 rounded-[2px] text-[10px] font-bold border transition-colors ${
+                selectedClip.vocalMute
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-sm'
+                  : 'bg-[#1e232d] text-[#929AA8] border-[#2c3340] hover:text-white'
+              }`}
+            >
+              {selectedClip.vocalMute ? 'AKTİF' : 'KAPALI'}
+            </button>
+          </div>
+          <p className="text-[10px] text-[#8e98a8] leading-tight">
+            Yapay zekanın kekelemesini ve tekrar eden konuşmaları yok eder; arkadaki müzik ve ortam sesleri kesilmeden çalmaya devam eder.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-[#929AA8]">Klibi Sessize Al (Mute)</span>
+          <span className="text-[11px] text-[#929AA8]">Klibi Tamamen Sessize Al (Mute All)</span>
           <button
             type="button"
             onClick={() => onUpdateClip(selectedClip.id, { muted: !selectedClip.muted })}

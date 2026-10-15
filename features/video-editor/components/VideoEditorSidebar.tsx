@@ -9,6 +9,7 @@ import {
 } from '../types';
 import {
   FolderOpen,
+  Sparkles,
   Type,
   Music,
   Shuffle,
@@ -20,6 +21,7 @@ import {
 import { ToolRailButton } from './ui/ToolRailButton';
 import { PanelHeader } from './ui/PanelHeader';
 import { MediaTab } from './sidebar/MediaTab';
+import { AssetsTab } from './sidebar/AssetsTab';
 import { TextTab } from './sidebar/TextTab';
 import { AudioTab } from './sidebar/AudioTab';
 import { TransitionsTab } from './sidebar/TransitionsTab';
@@ -28,7 +30,7 @@ import { ElementsTab } from './sidebar/ElementsTab';
 import { SubtitlesTab } from './sidebar/SubtitlesTab';
 import { SettingsTab } from './sidebar/SettingsTab';
 
-export type TabType = 'media' | 'text' | 'audio' | 'transitions' | 'filters' | 'elements' | 'subtitles' | 'settings';
+export type TabType = 'media' | 'assets' | 'text' | 'audio' | 'transitions' | 'filters' | 'elements' | 'subtitles' | 'settings';
 
 export interface VideoEditorSidebarProps {
   project: VideoProject;
@@ -57,13 +59,31 @@ export interface VideoEditorSidebarProps {
 
 const RAIL_TABS: { id: TabType; label: string; icon: React.ComponentType<{ className?: string; size?: number }> }[] = [
   { id: 'media', label: 'Medya', icon: FolderOpen },
+  { id: 'assets', label: 'Kütüphane', icon: Sparkles },
   { id: 'text', label: 'Metin', icon: Type },
   { id: 'audio', label: 'Ses', icon: Music },
   { id: 'transitions', label: 'Geçiş', icon: Shuffle },
   { id: 'filters', label: 'Efekt', icon: Wand2 },
   { id: 'elements', label: 'Öğeler', icon: Shapes },
   { id: 'subtitles', label: 'Altyazı', icon: Subtitles },
-  { id: 'settings', label: 'Ayarlar', icon: Settings },
+];
+
+/**
+ * 6 Quick-Add Templates in Sidebar:
+ * - 'Başlık (Heading)'
+ * - 'Alt Başlık (Subheading)'
+ * - 'Paragraf / Gövde (Body)'
+ * - 'Vurgu / Callout'
+ * - 'Altyazı (Subtitle)'
+ * - 'Rozet / Etiket (Badge)'
+ */
+export const QUICK_TEXT_TEMPLATES = [
+  { id: 'heading', name: 'Başlık (Heading)', fontSize: 64, fontWeight: 'bold' },
+  { id: 'subheading', name: 'Alt Başlık (Subheading)', fontSize: 44, fontWeight: '600' },
+  { id: 'body', name: 'Paragraf / Gövde (Body)', fontSize: 32, fontWeight: 'normal' },
+  { id: 'callout', name: 'Vurgu / Callout', fontSize: 40, fontWeight: 'bold' },
+  { id: 'subtitle', name: 'Altyazı (Subtitle)', fontSize: 28, fontWeight: '500' },
+  { id: 'badge', name: 'Rozet / Etiket (Badge)', fontSize: 24, fontWeight: 'bold' },
 ];
 
 export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
@@ -150,6 +170,8 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
     switch (currentTab) {
       case 'media':
         return 'Proje Medyası';
+      case 'assets':
+        return 'Varlık Kütüphanesi';
       case 'text':
         return 'Metin Şablonları';
       case 'audio':
@@ -213,6 +235,18 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 onAddClip={onAddClip}
                 findTrack={findTrack}
                 getNextClipStartTime={getNextClipStartTime}
+              />
+            )}
+
+            {currentTab === 'assets' && (
+              <AssetsTab
+                project={project}
+                currentTime={currentTime}
+                onAddClip={onAddClip}
+                findTrack={findTrack}
+                getNextClipStartTime={getNextClipStartTime}
+                selectedClipId={selectedClipId}
+                onUpdateClip={onUpdateClip}
               />
             )}
 

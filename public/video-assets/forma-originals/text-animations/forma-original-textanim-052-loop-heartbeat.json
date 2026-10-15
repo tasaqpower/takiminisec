@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-052-loop-heartbeat",
+  "name": "Metin Döngüsü: HEARTBEAT",
+  "animKind": "loop",
+  "technicalId": "loop-heartbeat",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 32691
+  }
+}

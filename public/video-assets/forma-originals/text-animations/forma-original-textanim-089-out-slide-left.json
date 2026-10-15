@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-089-out-slide-left",
+  "name": "Metin Çıkışı: SLIDE LEFT",
+  "animKind": "out",
+  "technicalId": "out-slide-left",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 56408
+  }
+}

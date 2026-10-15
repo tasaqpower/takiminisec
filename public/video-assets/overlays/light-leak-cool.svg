@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+      <defs>
+        <radialGradient id="coolLeak" cx="100%" cy="100%" r="70%">
+          <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.8"/>
+          <stop offset="50%" stop-color="#2979FF" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#coolLeak)"/>
+    </svg>

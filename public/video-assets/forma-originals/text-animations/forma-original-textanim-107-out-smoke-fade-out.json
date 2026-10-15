@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-107-out-smoke-fade-out",
+  "name": "Metin Çıkışı: SMOKE FADE OUT",
+  "animKind": "out",
+  "technicalId": "out-smoke-fade-out",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 67946
+  }
+}

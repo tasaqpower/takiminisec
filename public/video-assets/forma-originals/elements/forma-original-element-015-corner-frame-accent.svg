@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <title>Corner Frame Accent</title>
+  <path d="M20 50 L20 20 L50 20 M80 50 L80 80 L50 80" stroke="#a855f7" stroke-width="8" stroke-linecap="round" fill="none"/>
+</svg>

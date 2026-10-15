@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-024-film-burn-orange",
+  "name": "Turuncu Film Yanığı",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "film-burn-orange",
+  "defaultDuration": 0.85,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 22471
+  }
+}

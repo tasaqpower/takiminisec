@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-101-out-dissolve-pixels",
+  "name": "Metin Çıkışı: DISSOLVE PIXELS",
+  "animKind": "out",
+  "technicalId": "out-dissolve-pixels",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 64100
+  }
+}

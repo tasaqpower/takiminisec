@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-008-liquid-colors",
+  "name": "Prismatic Liquid Colors Merge",
+  "type": "liquid-colors",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#ea580c",
+    "#e11d48",
+    "#7c3aed"
+  ],
+  "proceduralShader": "renderMotionBackground(\"liquid-colors\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

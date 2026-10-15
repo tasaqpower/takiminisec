@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-066-loop-pendulum-swing",
+  "name": "Metin Döngüsü: PENDULUM SWING",
+  "animKind": "loop",
+  "technicalId": "loop-pendulum-swing",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 41665
+  }
+}

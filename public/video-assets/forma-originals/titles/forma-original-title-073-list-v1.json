@@ -1,0 +1,25 @@
+{
+  "id": "forma-original-title-073-list-v1",
+  "name": "Liste & Madde Başlıkları Şablonu (Model 1)",
+  "category": "Liste & Madde Başlıkları",
+  "style": "list",
+  "variant": 1,
+  "textData": {
+    "text": "LISTE & MADDE BAŞLIKLARI — Örnek Metin: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü",
+    "fontFamily": "Plus Jakarta Sans, sans-serif",
+    "fontSize": 58,
+    "fontWeight": "bold",
+    "color": "#ffffff",
+    "fillColor": "#ffffff",
+    "backgroundOpacity": 0,
+    "borderRadius": 8,
+    "paddingX": 24,
+    "paddingY": 12,
+    "textAlign": "center",
+    "alignment": "center",
+    "inAnimation": "fade",
+    "inDuration": 0.8,
+    "outAnimation": "fade",
+    "outDuration": 0.6
+  }
+}

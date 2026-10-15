@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-003-whip-pan-up",
+  "name": "Whip Pan Yukarı",
+  "category": "Kamera ve Hareket",
+  "technicalId": "whip-pan-up",
+  "defaultDuration": 0.5,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 1954
+  }
+}

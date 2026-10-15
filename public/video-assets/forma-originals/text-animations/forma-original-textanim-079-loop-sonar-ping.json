@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-079-loop-sonar-ping",
+  "name": "Metin Döngüsü: SONAR PING",
+  "animKind": "loop",
+  "technicalId": "loop-sonar-ping",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 49998
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-086-out-fade",
+  "name": "Metin Çıkışı: FADE",
+  "animKind": "out",
+  "technicalId": "out-fade",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 54485
+  }
+}

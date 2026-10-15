@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-087-out-slide-down",
+  "name": "Metin Çıkışı: SLIDE DOWN",
+  "animKind": "out",
+  "technicalId": "out-slide-down",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 55126
+  }
+}

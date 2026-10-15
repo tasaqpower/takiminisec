@@ -7,12 +7,50 @@ import { Shapes, Search, GripVertical, Sparkles, Plus } from 'lucide-react';
 interface ElementPreset {
   id: string;
   name: string;
-  category: 'social' | 'arrows' | 'shapes' | 'emojis';
+  category: 'social' | 'arrows' | 'shapes' | 'emojis' | 'censor';
   svg?: string;
   char?: string;
 }
 
 const ELEMENT_PRESETS: ElementPreset[] = [
+  // Sansür & Maskeleme
+  {
+    id: 'censor-bar',
+    name: 'Siyah Sansür Bandı',
+    category: 'censor',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+      <rect width="320" height="80" rx="4" fill="#000000" stroke="#1f2937" stroke-width="2"/>
+      <text x="160" y="48" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-weight="900" font-size="24" letter-spacing="4">[ SANSÜR ]</text>
+    </svg>`,
+  },
+  {
+    id: 'censor-badge',
+    name: 'Kırmızı Sansür Rozeti',
+    category: 'censor',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+      <rect width="280" height="90" rx="8" fill="#DC2626" stroke="#991B1B" stroke-width="3"/>
+      <text x="140" y="55" text-anchor="middle" fill="#FFFFFF" font-family="Impact, Arial Black, sans-serif" font-weight="bold" font-size="34" letter-spacing="3">CENSORED</text>
+    </svg>`,
+  },
+  {
+    id: 'censor-pixel',
+    name: 'Mozaik Sansür Deseni',
+    category: 'censor',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120" width="240" height="120">
+      <rect width="60" height="40" x="0" y="0" fill="#374151"/>
+      <rect width="60" height="40" x="60" y="0" fill="#4B5563"/>
+      <rect width="60" height="40" x="120" y="0" fill="#1F2937"/>
+      <rect width="60" height="40" x="180" y="0" fill="#6B7280"/>
+      <rect width="60" height="40" x="0" y="40" fill="#4B5563"/>
+      <rect width="60" height="40" x="60" y="40" fill="#1F2937"/>
+      <rect width="60" height="40" x="120" y="40" fill="#9CA3AF"/>
+      <rect width="60" height="40" x="180" y="40" fill="#374151"/>
+      <rect width="60" height="40" x="0" y="80" fill="#111827"/>
+      <rect width="60" height="40" x="60" y="80" fill="#6B7280"/>
+      <rect width="60" height="40" x="120" y="80" fill="#4B5563"/>
+      <rect width="60" height="40" x="180" y="80" fill="#1F2937"/>
+    </svg>`,
+  },
   // Sosyal Medya
   {
     id: 'yt-sub',
@@ -189,7 +227,7 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
   getNextClipStartTime,
 }) => {
   const { startDrag, isClickSuppressed } = useEditorDragDrop();
-  const [category, setCategory] = useState<'all' | 'social' | 'arrows' | 'shapes' | 'emojis'>('all');
+  const [category, setCategory] = useState<'all' | 'social' | 'arrows' | 'shapes' | 'emojis' | 'censor'>('all');
   const [search, setSearch] = useState('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
@@ -211,8 +249,13 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
       await saveAssetBlob(assetId, blob);
       const objectUrl = URL.createObjectURL(blob);
 
-      const targetTrackId = findTrack('video');
-      const startTime = getNextClipStartTime(targetTrackId);
+      // Prioritize overlay video track (secondary video track) if exists, else first video track
+      const overlayTrack =
+        project.tracks.find((t) => t.type === 'video' && t.id !== project.tracks[0]?.id) ||
+        project.tracks.find((t) => t.type === 'video') ||
+        project.tracks[0];
+      const targetTrackId = overlayTrack?.id || findTrack('video');
+      const startTime = currentTime > 0 ? currentTime : getNextClipStartTime(targetTrackId);
 
       onAddClip(targetTrackId, {
         assetId,
@@ -266,6 +309,7 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
         {[
           { id: 'all', label: 'Tümü' },
+          { id: 'censor', label: '🛑 Sansür' },
           { id: 'social', label: 'Sosyal' },
           { id: 'arrows', label: 'Oklar' },
           { id: 'shapes', label: 'Şekiller' },
@@ -294,6 +338,8 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
             data-element-item={elem.id}
             onPointerDown={(e) => {
               if (e.button === 0) {
+                const svgBlob = elem.svg ? new Blob([elem.svg], { type: 'image/svg+xml;charset=utf-8' }) : undefined;
+                const blobUrl = svgBlob ? URL.createObjectURL(svgBlob) : undefined;
                 startDrag(
                   {
                     type: 'image',
@@ -302,7 +348,11 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
                     icon: 'Shapes',
                     duration: 3.0,
                     category: elem.category,
-                    data: elem,
+                    data: {
+                      ...elem,
+                      sourceUrl: blobUrl,
+                      blob: svgBlob,
+                    },
                   },
                   e.clientX,
                   e.clientY

@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-006-aurora",
+  "name": "Polar Aurora Borealis Shimmer",
+  "type": "aurora",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#064e3b",
+    "#10b981",
+    "#38bdf8"
+  ],
+  "proceduralShader": "renderMotionBackground(\"aurora\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-072-split-open-h",
+  "name": "Ortadan Yatay Yarılma (Split Open H)",
+  "category": "Kaydırma ve İtme",
+  "technicalId": "split-open-h",
+  "defaultDuration": 0.75,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 69367
+  }
+}

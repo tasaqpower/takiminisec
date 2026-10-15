@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-049-in-split-word-merge",
+  "name": "Metin Girişi: SPLIT WORD MERGE",
+  "animKind": "in",
+  "technicalId": "in-split-word-merge",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 30768
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-075-camera-shutter-dip",
+  "name": "Hızlı Kamera Deklanşör Kararması",
+  "category": "Temel",
+  "technicalId": "camera-shutter-dip",
+  "defaultDuration": 0.25,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 72298
+  }
+}

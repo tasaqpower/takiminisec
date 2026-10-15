@@ -44,7 +44,7 @@ export const AudioTab: React.FC<AudioTabProps> = ({
 
       const objectUrl = URL.createObjectURL(blob);
       const targetTrackId = findTrack('audio');
-      const startTime = getNextClipStartTime(targetTrackId);
+      const startTime = currentTime > 0 ? currentTime : getNextClipStartTime(targetTrackId);
 
       onAddClip(targetTrackId, {
         assetId,
@@ -129,7 +129,7 @@ export const AudioTab: React.FC<AudioTabProps> = ({
               if (e.button === 0) {
                 startDrag(
                   {
-                    type: 'audio',
+                    type: 'audio-sfx',
                     id: item.id,
                     name: item.name,
                     icon: 'Music',

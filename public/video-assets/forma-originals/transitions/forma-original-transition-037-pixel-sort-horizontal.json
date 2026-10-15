@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-037-pixel-sort-horizontal",
+  "name": "Yatay Piksel Sıralama (Pixel Sort)",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "pixel-sort-horizontal",
+  "defaultDuration": 0.55,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 35172
+  }
+}

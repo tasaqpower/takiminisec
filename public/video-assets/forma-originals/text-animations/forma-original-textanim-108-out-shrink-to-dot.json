@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-108-out-shrink-to-dot",
+  "name": "Metin Çıkışı: SHRINK TO DOT",
+  "animKind": "out",
+  "technicalId": "out-shrink-to-dot",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 68587
+  }
+}

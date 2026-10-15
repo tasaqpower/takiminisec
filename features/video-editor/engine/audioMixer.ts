@@ -107,13 +107,11 @@ class AudioMixer {
       return this.pendingDecodes.get(cacheKey)!;
     }
 
-    // Synthetic tone generation for Klip A (440 Hz) and Klip B (880 Hz) or explicit test tone
-    const toneHz = (clip as any).audioToneHz ||
-      (/440|klip[-_ ]?a|^a$/i.test(clip.name || clip.id) ? 440 :
-       /880|klip[-_ ]?b|^b$/i.test(clip.name || clip.id) ? 880 : null);
+    // Explicit test tone only if explicitly set on clip object
+    const toneHz = (clip as any).audioToneHz || null;
 
     if (toneHz) {
-      const sampleRate = 44100;
+      const sampleRate = 48000;
       const duration = Math.max(1, clip.sourceDuration || clip.duration || 10);
       const ctx = this.getAudioContext();
       const toneBuffer = ctx.createBuffer(2, Math.ceil(duration * sampleRate), sampleRate);
@@ -135,8 +133,19 @@ class AudioMixer {
           blob = await getAssetBlob(clip.assetId);
         }
         if (!blob && clip.sourceUrl) {
-          const resp = await fetch(clip.sourceUrl);
-          blob = await resp.blob();
+          const resp = await fetch(clip.sourceUrl).catch(() => null);
+          if (resp && resp.ok) blob = await resp.blob();
+        }
+        if (!blob && clip.assetId) {
+          if (clip.assetId.startsWith('music-')) {
+            const name = clip.assetId.replace('music-', '');
+            const resp = await fetch(`/video-assets/audio/music/${name}.wav`).catch(() => null);
+            if (resp && resp.ok) blob = await resp.blob();
+          } else if (clip.assetId.startsWith('sfx-')) {
+            const name = clip.assetId.replace('sfx-', '');
+            const resp = await fetch(`/video-assets/audio/sfx/${name}.wav`).catch(() => null);
+            if (resp && resp.ok) blob = await resp.blob();
+          }
         }
 
         if (!blob) {
@@ -233,21 +242,40 @@ class AudioMixer {
             if (!buffer) continue;
 
             const speed = clip.speed || 1.0;
-            const clipRelTime = Math.max(0, (currentTime - clipStart) * speed + clip.trimIn);
             const remainingClipDuration = Math.max(0.01, clipEnd - currentTime);
+            const shouldLoop =
+              Boolean(clip.loop) ||
+              clip.duration > buffer.duration ||
+              (clip.assetId && clip.assetId.includes('censor-bleep')) ||
+              (clip.name && clip.name.toLowerCase().includes('sansür'));
 
-            if (clipRelTime >= buffer.duration) {
+            let clipRelTime = Math.max(0, (currentTime - clipStart) * speed + clip.trimIn);
+            if (shouldLoop && buffer.duration > 0) {
+              clipRelTime = clipRelTime % buffer.duration;
+            } else if (clipRelTime >= buffer.duration) {
               continue;
             }
 
             const source = ctx.createBufferSource();
             source.buffer = buffer;
             source.playbackRate.value = speed;
+            if (shouldLoop && buffer.duration > 0) {
+              source.loop = true;
+              source.loopStart = 0;
+              source.loopEnd = buffer.duration;
+            }
 
             const gainNode = ctx.createGain();
             this.applyVolumeEnvelope(gainNode, clip, currentTime - clipStart, ctx.currentTime);
 
-            source.connect(gainNode);
+            if (clip.vocalMute) {
+              const vocalFilter = this.createVocalSuppressionNodes(ctx);
+              source.connect(vocalFilter.input);
+              vocalFilter.output.connect(gainNode);
+            } else {
+              source.connect(gainNode);
+            }
+
             if (this.masterGain) {
               gainNode.connect(this.masterGain);
             } else {
@@ -406,7 +434,7 @@ class AudioMixer {
   public async renderMixedAudio(
     project: VideoProject,
     totalDuration: number,
-    sampleRate = 44100
+    sampleRate = 48000
   ): Promise<AudioBuffer | null> {
     if (totalDuration <= 0) return null;
 
@@ -524,7 +552,19 @@ class AudioMixer {
           gainNode.gain.linearRampToValueAtTime(0, startTime + clipDuration);
         }
 
-        source.connect(gainNode);
+        if (totalPlayDuration > buffer.duration) {
+          source.loop = true;
+          source.loopStart = 0;
+          source.loopEnd = buffer.duration;
+        }
+
+        if (clip.vocalMute) {
+          const vocalFilter = this.createVocalSuppressionNodes(offlineCtx);
+          source.connect(vocalFilter.input);
+          vocalFilter.output.connect(gainNode);
+        } else {
+          source.connect(gainNode);
+        }
         gainNode.connect(offlineCtx.destination);
         source.start(actualStartTime, actualOffset, totalPlayDuration);
       }
@@ -538,6 +578,71 @@ class AudioMixer {
       console.error('[FORMA AudioMixer] Offline audio rendering failed:', err);
       return null;
     }
+  }
+
+  /**
+   * Creates an audio processing graph that suppresses human vocal/speech frequencies
+   * (formant notch + speech band attenuation 250Hz - 3500Hz) while keeping background
+   * music (sub-bass, basslines, kicks < 250Hz) and ambient highs/reverb (> 3500Hz) intact.
+   */
+  public createVocalSuppressionNodes(ctx: BaseAudioContext): { input: AudioNode; output: AudioNode } {
+    const input = ctx.createGain();
+    const output = ctx.createGain();
+
+    // 1. Low-frequency path: keeps basslines, 808s, kicks, and deep room tone (< 250Hz)
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.setValueAtTime(250, 0);
+    lowpass.Q.setValueAtTime(0.707, 0);
+
+    // 2. High-frequency path: keeps hi-hats, presence, room air, reverb sparkle (> 3500Hz)
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.setValueAtTime(3500, 0);
+    highpass.Q.setValueAtTime(0.707, 0);
+
+    // 3. Dialogue suppression notch filters across speech formants (450Hz, 1000Hz, 2200Hz)
+    const notch1 = ctx.createBiquadFilter();
+    notch1.type = 'peaking';
+    notch1.frequency.setValueAtTime(450, 0);
+    notch1.Q.setValueAtTime(1.2, 0);
+    notch1.gain.setValueAtTime(-28, 0);
+
+    const notch2 = ctx.createBiquadFilter();
+    notch2.type = 'peaking';
+    notch2.frequency.setValueAtTime(1000, 0);
+    notch2.Q.setValueAtTime(1.4, 0);
+    notch2.gain.setValueAtTime(-32, 0);
+
+    const notch3 = ctx.createBiquadFilter();
+    notch3.type = 'peaking';
+    notch3.frequency.setValueAtTime(2200, 0);
+    notch3.Q.setValueAtTime(1.4, 0);
+    notch3.gain.setValueAtTime(-28, 0);
+
+    const midBand = ctx.createBiquadFilter();
+    midBand.type = 'bandpass';
+    midBand.frequency.setValueAtTime(1400, 0);
+    midBand.Q.setValueAtTime(0.7, 0);
+
+    const midAttenuator = ctx.createGain();
+    midAttenuator.gain.setValueAtTime(0.06, 0);
+
+    // Connect paths
+    input.connect(lowpass);
+    lowpass.connect(output);
+
+    input.connect(highpass);
+    highpass.connect(output);
+
+    input.connect(midBand);
+    midBand.connect(notch1);
+    notch1.connect(notch2);
+    notch2.connect(notch3);
+    notch3.connect(midAttenuator);
+    midAttenuator.connect(output);
+
+    return { input, output };
   }
 
   /**

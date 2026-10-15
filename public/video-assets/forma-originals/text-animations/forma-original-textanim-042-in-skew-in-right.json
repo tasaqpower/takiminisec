@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-042-in-skew-in-right",
+  "name": "Metin Girişi: SKEW IN RIGHT",
+  "animKind": "in",
+  "technicalId": "in-skew-in-right",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 26281
+  }
+}

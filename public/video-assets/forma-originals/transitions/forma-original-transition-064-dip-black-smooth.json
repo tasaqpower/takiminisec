@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-064-dip-black-smooth",
+  "name": "Kararmaya Solma (Dip to Black)",
+  "category": "Temel",
+  "technicalId": "dip-black-smooth",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 61551
+  }
+}

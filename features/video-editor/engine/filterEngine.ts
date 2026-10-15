@@ -239,6 +239,28 @@ export const COLOR_PRESETS: FilterPreset[] = [
   },
 ];
 
+export function getEffectsForColorFilter(colorFilterId?: string | null): Partial<ClipEffects> | null {
+  if (!colorFilterId || colorFilterId === 'normal') return null;
+  const normalized = colorFilterId.toLowerCase();
+  if (normalized.includes('teal') || normalized.includes('cinematic')) {
+    return { contrast: 1.35, saturation: 1.3, temperature: -20, tint: 15, exposure: 0.08, vignette: 0.35 };
+  }
+  if (normalized.includes('noir') || normalized.includes('bw') || normalized.includes('black')) {
+    return { grayscale: 1, contrast: 1.4, brightness: 0.05, vignette: 0.4 };
+  }
+  if (normalized.includes('vintage') || normalized.includes('70s') || normalized.includes('warm')) {
+    return { sepia: 0.5, temperature: 35, contrast: 1.15, saturation: 1.1, vignette: 0.3 };
+  }
+  if (normalized.includes('golden') || normalized.includes('hour')) {
+    return { temperature: 40, tint: 10, saturation: 1.25, brightness: 0.05, contrast: 1.1 };
+  }
+  if (normalized.includes('cyberpunk') || normalized.includes('neon')) {
+    return { saturation: 1.5, contrast: 1.3, tint: 30, temperature: -25 };
+  }
+  const preset = COLOR_PRESETS.find((p) => p.id === colorFilterId);
+  return preset ? preset.effects : null;
+}
+
 // =========================================================================
 // 24 VISUAL EFFECTS FOR TIMELINE EFFECT SEGMENTS (Section 11)
 // =========================================================================
@@ -768,5 +790,278 @@ export function applyVisualEffectSegment(
     default:
       break;
   }
+}
+
+// =========================================================================
+// REAL 3D .CUBE LUT PARSER & TRILINEAR INTERPOLATOR (Section 13)
+// =========================================================================
+
+export interface CubeLut3D {
+  title?: string;
+  size: number;
+  domainMin: [number, number, number];
+  domainMax: [number, number, number];
+  data: Float32Array; // size * size * size * 3 entries
+}
+
+/**
+ * Parses Adobe / DaVinci Resolve .cube 3D LUT files.
+ * Extracts LUT_3D_SIZE, DOMAIN_MIN, DOMAIN_MAX, and RGB floats.
+ */
+export function parseCubeLut(cubeText: string): CubeLut3D | null {
+  if (!cubeText || typeof cubeText !== 'string') return null;
+
+  const lines = cubeText.split('\n');
+  let size = 0;
+  let title = 'Custom LUT';
+  let domainMin: [number, number, number] = [0.0, 0.0, 0.0];
+  let domainMax: [number, number, number] = [1.0, 1.0, 1.0];
+  const values: number[] = [];
+
+  for (let rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    if (line.toUpperCase().startsWith('TITLE')) {
+      const match = line.match(/^TITLE\s+["']?([^"']+)["']?/i);
+      if (match) title = match[1];
+      continue;
+    }
+
+    if (line.toUpperCase().startsWith('LUT_3D_SIZE')) {
+      const parts = line.split(/\s+/);
+      size = parseInt(parts[1], 10);
+      continue;
+    }
+
+    if (line.toUpperCase().startsWith('DOMAIN_MIN')) {
+      const parts = line.split(/\s+/).slice(1).map(Number);
+      if (parts.length >= 3 && !parts.some(Number.isNaN)) {
+        domainMin = [parts[0], parts[1], parts[2]];
+      }
+      continue;
+    }
+
+    if (line.toUpperCase().startsWith('DOMAIN_MAX')) {
+      const parts = line.split(/\s+/).slice(1).map(Number);
+      if (parts.length >= 3 && !parts.some(Number.isNaN)) {
+        domainMax = [parts[0], parts[1], parts[2]];
+      }
+      continue;
+    }
+
+    if (line.toUpperCase().startsWith('LUT_1D_SIZE')) {
+      // 1D LUT not supported in 3D pipeline
+      return null;
+    }
+
+    const parts = line.split(/\s+/).map(Number);
+    if (parts.length >= 3 && !parts.some(Number.isNaN)) {
+      values.push(parts[0], parts[1], parts[2]);
+    }
+  }
+
+  if (size >= 2 && values.length === size * size * size * 3) {
+    return {
+      title,
+      size,
+      domainMin,
+      domainMax,
+      data: new Float32Array(values),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Trilinearly interpolates a single RGB triplet against a 3D LUT.
+ * Input r, g, b are in 0.0 to 1.0. Returns [outR, outG, outB] in 0.0 to 1.0.
+ */
+export function interpolate3DLutRgb(
+  r: number,
+  g: number,
+  b: number,
+  lut: CubeLut3D
+): [number, number, number] {
+  const { size, data, domainMin, domainMax } = lut;
+  const maxIdx = size - 1;
+
+  // Normalize into domain
+  const spanR = domainMax[0] - domainMin[0] || 1;
+  const spanG = domainMax[1] - domainMin[1] || 1;
+  const spanB = domainMax[2] - domainMin[2] || 1;
+
+  const rNorm = Math.max(0, Math.min(1, (r - domainMin[0]) / spanR)) * maxIdx;
+  const gNorm = Math.max(0, Math.min(1, (g - domainMin[1]) / spanG)) * maxIdx;
+  const bNorm = Math.max(0, Math.min(1, (b - domainMin[2]) / spanB)) * maxIdx;
+
+  const r0 = Math.floor(rNorm);
+  const g0 = Math.floor(gNorm);
+  const b0 = Math.floor(bNorm);
+
+  const r1 = Math.min(maxIdx, r0 + 1);
+  const g1 = Math.min(maxIdx, g0 + 1);
+  const b1 = Math.min(maxIdx, b0 + 1);
+
+  const dr = rNorm - r0;
+  const dg = gNorm - g0;
+  const db = bNorm - b0;
+
+  const strideR = 3;
+  const strideG = size * 3;
+  const strideB = size * size * 3;
+
+  const idx000 = b0 * strideB + g0 * strideG + r0 * strideR;
+  const idx100 = b0 * strideB + g0 * strideG + r1 * strideR;
+  const idx010 = b0 * strideB + g1 * strideG + r0 * strideR;
+  const idx110 = b0 * strideB + g1 * strideG + r1 * strideR;
+  const idx001 = b1 * strideB + g0 * strideG + r0 * strideR;
+  const idx101 = b1 * strideB + g0 * strideG + r1 * strideR;
+  const idx011 = b1 * strideB + g1 * strideG + r0 * strideR;
+  const idx111 = b1 * strideB + g1 * strideG + r1 * strideR;
+
+  // Interpolate channel 0 (R)
+  const c00_0 = data[idx000] * (1 - dr) + data[idx100] * dr;
+  const c10_0 = data[idx010] * (1 - dr) + data[idx110] * dr;
+  const c01_0 = data[idx001] * (1 - dr) + data[idx101] * dr;
+  const c11_0 = data[idx011] * (1 - dr) + data[idx111] * dr;
+  const c0_0 = c00_0 * (1 - dg) + c10_0 * dg;
+  const c1_0 = c01_0 * (1 - dg) + c11_0 * dg;
+  const outR = c0_0 * (1 - db) + c1_0 * db;
+
+  // Interpolate channel 1 (G)
+  const c00_1 = data[idx000 + 1] * (1 - dr) + data[idx100 + 1] * dr;
+  const c10_1 = data[idx010 + 1] * (1 - dr) + data[idx110 + 1] * dr;
+  const c01_1 = data[idx001 + 1] * (1 - dr) + data[idx101 + 1] * dr;
+  const c11_1 = data[idx011 + 1] * (1 - dr) + data[idx111 + 1] * dr;
+  const c0_1 = c00_1 * (1 - dg) + c10_1 * dg;
+  const c1_1 = c01_1 * (1 - dg) + c11_1 * dg;
+  const outG = c0_1 * (1 - db) + c1_1 * db;
+
+  // Interpolate channel 2 (B)
+  const c00_2 = data[idx000 + 2] * (1 - dr) + data[idx100 + 2] * dr;
+  const c10_2 = data[idx010 + 2] * (1 - dr) + data[idx110 + 2] * dr;
+  const c01_2 = data[idx001 + 2] * (1 - dr) + data[idx101 + 2] * dr;
+  const c11_2 = data[idx011 + 2] * (1 - dr) + data[idx111 + 2] * dr;
+  const c0_2 = c00_2 * (1 - dg) + c10_2 * dg;
+  const c1_2 = c01_2 * (1 - dg) + c11_2 * dg;
+  const outB = c0_2 * (1 - db) + c1_2 * db;
+
+  return [outR, outG, outB];
+}
+
+/**
+ * Applies 3D LUT to Canvas ImageData in-place using trilinear interpolation.
+ * Supports intensity blending (0.0 = 0% to 1.0 = 100%).
+ */
+export function apply3DLutToImageData(imageData: ImageData, lut: CubeLut3D, intensity: number = 1.0): void {
+  const pixels = imageData.data;
+  const len = pixels.length;
+  const blend = Math.max(0, Math.min(1, intensity));
+
+  if (blend <= 0) return; // 0% intensity is identity / no change
+
+  for (let i = 0; i < len; i += 4) {
+    const origR = pixels[i];
+    const origG = pixels[i + 1];
+    const origB = pixels[i + 2];
+
+    const r = origR / 255;
+    const g = origG / 255;
+    const b = origB / 255;
+
+    const [outR, outG, outB] = interpolate3DLutRgb(r, g, b, lut);
+
+    const lutR = Math.min(255, Math.max(0, Math.round(outR * 255)));
+    const lutG = Math.min(255, Math.max(0, Math.round(outG * 255)));
+    const lutB = Math.min(255, Math.max(0, Math.round(outB * 255)));
+
+    if (blend >= 1.0) {
+      pixels[i] = lutR;
+      pixels[i + 1] = lutG;
+      pixels[i + 2] = lutB;
+    } else {
+      pixels[i] = Math.round(origR * (1 - blend) + lutR * blend);
+      pixels[i + 1] = Math.round(origG * (1 - blend) + lutG * blend);
+      pixels[i + 2] = Math.round(origB * (1 - blend) + lutB * blend);
+    }
+  }
+}
+
+/**
+ * Applies 3D LUT directly to an HTMLCanvasElement with optional intensity.
+ */
+export function applyCubeLutToCanvas(canvas: HTMLCanvasElement, lut: CubeLut3D, intensity: number = 1.0): void {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return;
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  apply3DLutToImageData(imgData, lut, intensity);
+  ctx.putImageData(imgData, 0, 0);
+}
+
+/**
+ * In-memory cache for parsed 3D LUT instances.
+ * Backed by globalThis.__formaLutCache to ensure singletons across module imports.
+ */
+function getLutCache(): Map<string, CubeLut3D> {
+  const g = typeof globalThis !== 'undefined' ? (globalThis as any) : (typeof window !== 'undefined' ? (window as any) : {} as any);
+  if (!g.__formaLutCache) {
+    g.__formaLutCache = new Map<string, CubeLut3D>();
+  }
+  return g.__formaLutCache;
+}
+
+export function getCachedCubeLut(idOrPath: string): CubeLut3D | null {
+  if (!idOrPath) return null;
+  const cache = getLutCache();
+  if (cache.has(idOrPath)) return cache.get(idOrPath)!;
+  const clean = idOrPath.replace(/^lut-/, '').replace(/\.cube$/, '');
+  if (cache.has(clean)) return cache.get(clean)!;
+  if (cache.has(`lut-${clean}`)) return cache.get(`lut-${clean}`)!;
+  if (cache.has(`${clean}.cube`)) return cache.get(`${clean}.cube`)!;
+  return null;
+}
+
+export function setCachedCubeLut(idOrPath: string, lut: CubeLut3D): void {
+  const cache = getLutCache();
+  cache.set(idOrPath, lut);
+  const clean = idOrPath.replace(/^lut-/, '').replace(/\.cube$/, '');
+  cache.set(clean, lut);
+}
+
+/**
+ * Loads a .cube file via fetch, parses it, and caches the resulting CubeLut3D.
+ */
+export async function loadAndCacheCubeLut(idOrPath: string): Promise<CubeLut3D | null> {
+  const cached = getCachedCubeLut(idOrPath);
+  if (cached) return cached;
+
+  let url = idOrPath;
+  if (!idOrPath.startsWith('/') && !idOrPath.startsWith('http')) {
+    if (idOrPath.startsWith('forma-original-lut-')) {
+      const cleanId = idOrPath.endsWith('.cube') ? idOrPath : `${idOrPath}.cube`;
+      url = `/video-assets/forma-originals/luts/${cleanId}`;
+    } else if (idOrPath.endsWith('.cube')) {
+      url = `/video-assets/luts/${idOrPath}`;
+    } else {
+      const cleanId = idOrPath.replace(/^lut-/, '');
+      url = `/video-assets/luts/${cleanId}.cube`;
+    }
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    const lut = parseCubeLut(text);
+    if (lut) {
+      setCachedCubeLut(idOrPath, lut);
+      const filename = url.split('/').pop()?.replace('.cube', '') || '';
+      if (filename) setCachedCubeLut(filename, lut);
+      return lut;
+    }
+  } catch (_) {}
+  return null;
 }
 

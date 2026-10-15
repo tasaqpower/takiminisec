@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-034-liquid-wipe-splash",
+  "name": "Sıvı Sıçrama Silmesi (Splash)",
+  "category": "Silme ve Maske",
+  "technicalId": "liquid-wipe-splash",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 32241
+  }
+}

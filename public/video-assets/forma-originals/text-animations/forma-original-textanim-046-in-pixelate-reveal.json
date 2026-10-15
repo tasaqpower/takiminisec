@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-046-in-pixelate-reveal",
+  "name": "Metin Girişi: PIXELATE REVEAL",
+  "animKind": "in",
+  "technicalId": "in-pixelate-reveal",
+  "defaultDuration": 0.8,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 28845
+  }
+}

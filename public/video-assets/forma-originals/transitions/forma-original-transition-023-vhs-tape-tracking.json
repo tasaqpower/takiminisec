@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-023-vhs-tape-tracking",
+  "name": "Analog VHS Manyetik Bozulma",
+  "category": "Sinematik ve Dijital",
+  "technicalId": "vhs-tape-tracking",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 21494
+  }
+}

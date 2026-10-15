@@ -207,3 +207,4 @@ export const loadLatestProject = getLatestVideoProject;
 export const deleteProjectMetadata = deleteVideoProject;
 export const saveAssetBlob = saveMediaBlob;
 export const getAssetBlob = loadMediaBlob;
+export const deleteAssetBlob = deleteMediaBlob;

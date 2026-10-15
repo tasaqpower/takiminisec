@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-036-paper-tear-diagonal",
+  "name": "Çapraz Kağıt Yırtığı (Paper Tear)",
+  "category": "Silme ve Maske",
+  "technicalId": "paper-tear-diagonal",
+  "defaultDuration": 0.65,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 34195
+  }
+}

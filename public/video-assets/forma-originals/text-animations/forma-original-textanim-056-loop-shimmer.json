@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-056-loop-shimmer",
+  "name": "Metin Döngüsü: SHIMMER",
+  "animKind": "loop",
+  "technicalId": "loop-shimmer",
+  "defaultDuration": 3,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 35255
+  }
+}

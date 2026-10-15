@@ -1,0 +1,18 @@
+{
+  "id": "forma-original-bg-010-light-streaks",
+  "name": "Anamorphic Light Streaks Glow",
+  "type": "light-streaks",
+  "aspectRatios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:5"
+  ],
+  "colors": [
+    "#0b0f19",
+    "#38bdf8",
+    "#6366f1"
+  ],
+  "proceduralShader": "renderMotionBackground(\"light-streaks\", colors, time, width, height)",
+  "resolutionIndependent": true
+}

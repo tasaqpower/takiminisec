@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-transition-012-camera-shake-rumble",
+  "name": "Sinematik Bas Rumble Titremesi",
+  "category": "Kamera ve Hareket",
+  "technicalId": "camera-shake-rumble",
+  "defaultDuration": 0.65,
+  "parameters": {
+    "intensity": 1,
+    "direction": "right",
+    "easing": "ease-in-out",
+    "seed": 10747
+  }
+}

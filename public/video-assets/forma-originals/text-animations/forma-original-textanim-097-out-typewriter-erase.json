@@ -1,0 +1,13 @@
+{
+  "id": "forma-original-textanim-097-out-typewriter-erase",
+  "name": "Metin Çıkışı: TYPEWRITER ERASE",
+  "animKind": "out",
+  "technicalId": "out-typewriter-erase",
+  "defaultDuration": 0.6,
+  "parameters": {
+    "speed": 1,
+    "intensity": 1,
+    "easing": "ease-out",
+    "seed": 61536
+  }
+}
