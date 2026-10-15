@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-15T21:30:32.858Z",
+  "timestamp": "2026-10-15T21:47:28.660Z",
   "results": {
     "test1_ui_polish": {
       "visibleBefore": true,
@@ -79,7 +79,7 @@
       "whooshDuration": 0.45,
       "whooshSampleLength": 21600,
       "whooshPeak": 1,
-      "whooshRms": 0.2491,
+      "whooshRms": 0.2534,
       "boomDuration": 1.2,
       "boomPeak": 0.7528,
       "censorBleepFreq": 995,
@@ -95,6 +95,12 @@
       "hasAudioBuffer": true,
       "sampleRate": 48000,
       "channels": 2,
+      "mp4Size": 334729,
+      "mp4Type": "video/mp4",
+      "videoDuration": 10,
+      "videoCurrentTime": 1,
+      "hasVideoDimensions": true,
+      "videoPlaybackOk": true,
       "passed": true
     }
   }

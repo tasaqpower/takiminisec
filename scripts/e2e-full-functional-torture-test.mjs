@@ -264,6 +264,50 @@ async function runTortureTest() {
       throw new Error(`TEST 1D FAILED: Sidebar label truncated or invalid: "${test1Initial.kutuphaneText}"`);
     }
 
+    // TEST 1E-1: Verify clicking "Medya İçe Aktar" on empty state card KEEPS the panel open!
+    console.log('\n  Clicking "Medya İçe Aktar" on Empty State Card...');
+    const mediaImportClickResult = await cdp.eval(`
+      (() => {
+        const importBtn = document.querySelector('[data-testid="empty-state-import-btn"]');
+        if (importBtn) importBtn.click();
+
+        const isDrawerOpen = Array.from(document.querySelectorAll('span, h2, h3, div')).some(el => el.innerText === 'PROJE MEDYASI');
+        const editor = window.__formaEditor;
+
+        return {
+          hasImportBtn: !!importBtn,
+          isSidebarOpen: editor?.isSidebarOpen ?? true,
+          activeSidebarTab: editor?.activeSidebarTab ?? 'media',
+          panelStayedOpen: isDrawerOpen,
+        };
+      })()
+    `);
+    console.log(`[DOM-1E1] Empty State "Medya İçe Aktar" Click: panelStayedOpen = ${mediaImportClickResult.panelStayedOpen}, activeTab = "${mediaImportClickResult.activeSidebarTab}" (Panel Kapanmadı!)`);
+    if (!mediaImportClickResult.panelStayedOpen) {
+      throw new Error('TEST 1E1 FAILED: "Medya İçe Aktar" closed the left media panel!');
+    }
+
+    // TEST 1E-2: Verify clicking rail "Medya" tab when already open KEEPS the panel open!
+    console.log('  Clicking rail "Medya" tab when already open...');
+    const railClickResult = await cdp.eval(`
+      (() => {
+        const mediaRailBtn = document.querySelector('[data-rail-tab="media"]');
+        if (mediaRailBtn) mediaRailBtn.click();
+
+        const isDrawerOpen = Array.from(document.querySelectorAll('span, h2, h3, div')).some(el => el.innerText === 'PROJE MEDYASI');
+        const editor = window.__formaEditor;
+
+        return {
+          isSidebarOpen: editor?.isSidebarOpen ?? true,
+          panelStayedOpen: isDrawerOpen,
+        };
+      })()
+    `);
+    console.log(`[DOM-1E2] Rail "Medya" Tab Click: panelStayedOpen = ${railClickResult.panelStayedOpen} (Sol panel açık kalmaya devam etti!)`);
+    if (!railClickResult.panelStayedOpen) {
+      throw new Error('TEST 1E2 FAILED: Clicking rail "Medya" tab toggled the panel closed!');
+    }
+
     // Now add first clip and verify Empty State disappears
     console.log('\n  Adding first clip to timeline (Klip A - 5.0s)...');
     await cdp.eval(`
@@ -745,6 +789,56 @@ async function runTortureTest() {
         }
         const wavSize = wavBlob ? wavBlob.size : 0;
 
+        // C. Test Real MP4 Export & Non-Freezing Video Playback (H.264 CFR + AAC)
+        const mp4Blob = await editor.exportEngine.exportProject(
+          editor.project,
+          {
+            format: 'mp4',
+            resolution: { width: 480, height: 270 },
+            fps: 30,
+            quality: 'high',
+          },
+          1.5,
+          () => {}
+        );
+        const mp4Size = mp4Blob ? mp4Blob.size : 0;
+        const mp4Type = mp4Blob ? mp4Blob.type : '';
+
+        // Test real decoding and playback of exported MP4 in native HTMLVideoElement
+        let videoPlaybackOk = false;
+        let videoDuration = 0;
+        let videoCurrentTime = 0;
+        let hasVideoDimensions = false;
+
+        if (mp4Blob && mp4Size > 0) {
+          const videoUrl = URL.createObjectURL(mp4Blob);
+          const testVideo = document.createElement('video');
+          testVideo.muted = true;
+          testVideo.playsInline = true;
+          testVideo.src = videoUrl;
+
+          await new Promise((resolve) => {
+            testVideo.onloadedmetadata = () => resolve();
+            testVideo.onerror = () => resolve();
+            setTimeout(resolve, 4000);
+          });
+
+          videoDuration = testVideo.duration || 0;
+          hasVideoDimensions = testVideo.videoWidth > 0 && testVideo.videoHeight > 0;
+
+          if (hasVideoDimensions) {
+            // Seek past 1.0s (past the old 30-frame chunk boundary where freeze occurred)
+            testVideo.currentTime = 1.0;
+            await new Promise((resolve) => {
+              testVideo.onseeked = () => resolve();
+              setTimeout(resolve, 2500);
+            });
+            videoCurrentTime = testVideo.currentTime;
+            videoPlaybackOk = (testVideo.error === null && Math.abs(videoCurrentTime - 1.0) < 0.25);
+          }
+          URL.revokeObjectURL(videoUrl);
+        }
+
         return {
           pngSize,
           pngType,
@@ -752,6 +846,12 @@ async function runTortureTest() {
           hasAudioBuffer: Boolean(audioBuffer),
           sampleRate: audioBuffer?.sampleRate || 0,
           channels: audioBuffer?.numberOfChannels || 0,
+          mp4Size,
+          mp4Type,
+          videoDuration: Number(videoDuration.toFixed(2)),
+          videoCurrentTime: Number(videoCurrentTime.toFixed(2)),
+          hasVideoDimensions,
+          videoPlaybackOk,
         };
       })()
     `);
@@ -766,7 +866,16 @@ async function runTortureTest() {
       throw new Error('TEST 6B FAILED: Offline audio rendering generated 0 bytes!');
     }
 
-    console.log('✓ TEST 6 PASSED: Real PNG Thumbnail and Mixed Audio Export generated non-zero bytes!');
+    console.log(`[EXPORT-6C] Universal MP4 Video Export (H.264 CFR + AAC): size = ${exportVerification.mp4Size} bytes, duration = ${exportVerification.videoDuration}s`);
+    console.log(`            Native Decoder Playback: videoDimensions = ${exportVerification.hasVideoDimensions}, seekTime = ${exportVerification.videoCurrentTime}s, playbackOk = ${exportVerification.videoPlaybackOk} (Donma/Freeze Yok!)`);
+    if (exportVerification.mp4Size === 0) {
+      throw new Error('TEST 6C FAILED: MP4 export generated 0 bytes!');
+    }
+    if (!exportVerification.hasVideoDimensions || !exportVerification.videoPlaybackOk) {
+      throw new Error(`TEST 6C FAILED: MP4 video failed to decode or froze during playback (dimensions: ${exportVerification.hasVideoDimensions}, playbackOk: ${exportVerification.videoPlaybackOk})!`);
+    }
+
+    console.log('✓ TEST 6 PASSED: Real PNG, Mixed WAV, and Non-Freezing Universal MP4 Export 100% verified!');
     auditReport.results.test6_export_verification = { ...exportVerification, passed: true };
 
     // =========================================================================

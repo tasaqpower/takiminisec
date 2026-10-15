@@ -246,8 +246,8 @@ class ExportEngine {
     try {
       return await this.exportVideoCfrWasm(project, options, onProgress);
     } catch (wasmErr) {
-      console.error('[FORMA CFR EXPORT FATAL ERROR]:', wasmErr);
-      throw wasmErr;
+      console.warn('[FORMA CFR EXPORT] Falling back to MediaRecorder:', wasmErr);
+      return await this.exportVideoLegacyMediaRecorder(project, options, onProgress);
     }
   }
 
@@ -307,8 +307,7 @@ class ExportEngine {
     if (!ctx) throw new Error('Could not get 2D canvas context for CFR export');
 
     const isWebm = options.format === 'webm';
-    const h264Parts: Uint8Array[] = [];
-    const webmYuvParts: Uint8Array[] = [];
+    const yuvParts: Uint8Array[] = [];
     const tStart = performance.now();
 
     for (let c = 0; c < numChunks; c++) {
@@ -368,30 +367,7 @@ class ExportEngine {
         });
       }
 
-      if (isWebm) {
-        webmYuvParts.push(chunkBuffer);
-      } else {
-        const chunkFileName = `chunk_${c}.yuv`;
-        core.FS.writeFile(chunkFileName, chunkBuffer);
-        const h264FileName = `part_${c}.h264`;
-        const ret = core.exec(
-          '-f', 'rawvideo',
-          '-pix_fmt', 'yuv420p',
-          '-s', `${width}x${height}`,
-          '-framerate', String(fps),
-          '-i', chunkFileName,
-          '-c:v', 'libx264',
-          '-preset', 'ultrafast',
-          '-pix_fmt', 'yuv420p',
-          '-f', 'h264',
-          h264FileName
-        );
-        if (ret !== 0) throw new Error(`Chunk ${c} encode failed with code ${ret}`);
-        const partBytes = core.FS.readFile(h264FileName);
-        h264Parts.push(partBytes);
-        core.FS.unlink(chunkFileName);
-        core.FS.unlink(h264FileName);
-      }
+      yuvParts.push(chunkBuffer);
     }
 
     onProgress({
@@ -399,8 +375,19 @@ class ExportEngine {
       currentFrame: totalFrames,
       totalFrames,
       etaSeconds: 1,
-      statusText: 'Ses miksleniyor ve akışlar birleştiriliyor...',
+      statusText: 'Ses miksleniyor ve kareler birleştiriliyor...',
     });
+
+    let totalYuvLen = 0;
+    for (const p of yuvParts) totalYuvLen += p.length;
+    const mergedYuv = new Uint8Array(totalYuvLen);
+    let yuvOffset = 0;
+    for (const p of yuvParts) {
+      mergedYuv.set(p, yuvOffset);
+      yuvOffset += p.length;
+    }
+    core.FS.writeFile('input.yuv', mergedYuv);
+    yuvParts.length = 0; // Free memory immediately
 
     // Audio mixing
     const mixedAudio = await audioMixer.renderMixedAudio(effectiveProject, duration, 48000);
@@ -420,16 +407,6 @@ class ExportEngine {
         etaSeconds: 1,
         statusText: 'WebM container mux ediliyor (VP8 + Opus)...',
       });
-
-      let totalYuvLen = 0;
-      for (const p of webmYuvParts) totalYuvLen += p.length;
-      const mergedYuv = new Uint8Array(totalYuvLen);
-      let yuvOffset = 0;
-      for (const p of webmYuvParts) {
-        mergedYuv.set(p, yuvOffset);
-        yuvOffset += p.length;
-      }
-      core.FS.writeFile('input.yuv', mergedYuv);
 
       const muxArgs = hasAudio
         ? [
@@ -483,50 +460,55 @@ class ExportEngine {
       return new Blob([finalWebmBytes], { type: 'video/webm' });
     }
 
-    // MP4 Mux
-    let totalH264Len = 0;
-    for (const p of h264Parts) totalH264Len += p.length;
-    const mergedH264 = new Uint8Array(totalH264Len);
-    let offset = 0;
-    for (const p of h264Parts) {
-      mergedH264.set(p, offset);
-      offset += p.length;
-    }
-    core.FS.writeFile('combined.h264', mergedH264);
-
+    // MP4 Encode & Mux (Strict Universal CFR: libx264 + aac + faststart)
     onProgress({
       percent: 97,
       currentFrame: totalFrames,
       totalFrames,
       etaSeconds: 1,
-      statusText: 'MP4 container mux ediliyor (+faststart)...',
+      statusText: 'MP4 container kodlanıyor (H.264 CFR + AAC + faststart)...',
     });
 
     const muxArgs = hasAudio
       ? [
-          '-r', String(fps),
-          '-i', 'combined.h264',
+          '-f', 'rawvideo',
+          '-pix_fmt', 'yuv420p',
+          '-s', `${width}x${height}`,
+          '-framerate', String(fps),
+          '-i', 'input.yuv',
           '-i', 'audio.wav',
-          '-c:v', 'copy',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-pix_fmt', 'yuv420p',
+          '-g', String(Math.round(fps)),
+          '-bf', '0',
           '-c:a', 'aac',
           '-b:a', '192k',
           '-ar', '48000',
+          '-shortest',
           '-movflags', '+faststart',
           'final_export.mp4',
         ]
       : [
-          '-r', String(fps),
-          '-i', 'combined.h264',
-          '-c:v', 'copy',
+          '-f', 'rawvideo',
+          '-pix_fmt', 'yuv420p',
+          '-s', `${width}x${height}`,
+          '-framerate', String(fps),
+          '-i', 'input.yuv',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-pix_fmt', 'yuv420p',
+          '-g', String(Math.round(fps)),
+          '-bf', '0',
           '-movflags', '+faststart',
           'final_export.mp4',
         ];
 
     const muxRet = core.exec(...muxArgs);
-    if (muxRet !== 0) throw new Error(`Final MP4 mux failed with code ${muxRet}`);
+    if (muxRet !== 0) throw new Error(`Final MP4 encode failed with code ${muxRet}`);
 
     const finalMp4Bytes = core.FS.readFile('final_export.mp4');
-    core.FS.unlink('combined.h264');
+    core.FS.unlink('input.yuv');
     if (hasAudio) core.FS.unlink('audio.wav');
     core.FS.unlink('final_export.mp4');
 

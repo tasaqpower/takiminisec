@@ -5,7 +5,7 @@ import { useVideoProject } from '../hooks/useVideoProject';
 import { useVideoPlayback } from '../hooks/useVideoPlayback';
 import { useShortcuts } from '../hooks/useShortcuts';
 import { VideoEditorTopbar } from './VideoEditorTopbar';
-import { VideoEditorSidebar } from './VideoEditorSidebar';
+import { VideoEditorSidebar, TabType } from './VideoEditorSidebar';
 import { VideoPreviewArea } from './VideoPreviewArea';
 import { VideoPropertiesPanel } from './VideoPropertiesPanel';
 import { VideoTimeline } from './VideoTimeline';
@@ -29,8 +29,18 @@ interface WorkspaceProps {
 
 export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeSidebarTab, setActiveSidebarTab] = useState<TabType>('media');
   const [sidebarDrawerWidth, setSidebarDrawerWidth] = useState(280);
   const [inspectorWidth, setInspectorWidth] = useState(300);
+
+  const handleOpenMediaImport = useCallback(() => {
+    setIsSidebarOpen(true);
+    setActiveSidebarTab('media');
+    setTimeout(() => {
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      if (fileInput) fileInput.click();
+    }, 50);
+  }, []);
 
   useEffect(() => {
     (window as any).__setSidebarDrawerWidth = (w: number) => setSidebarDrawerWidth(w);
@@ -152,7 +162,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         play,
         pause,
         currentTime,
-        isPlaying,
+        openMediaImport: handleOpenMediaImport,
+        isSidebarOpen,
+        activeSidebarTab,
         exportEngine,
         audioMixer,
         computeSpeedRampedClipTime,
@@ -167,7 +179,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
       delete (window as any).__formaEditor;
       delete (window as any).__audioMixer;
     }
-  }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying]);
+  }, [project, setProject, addClip, updateClip, addTimelineTransition, seek, play, pause, currentTime, isPlaying, handleOpenMediaImport, isSidebarOpen, activeSidebarTab]);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -335,6 +347,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           <VideoEditorSidebar
             isOpen={isSidebarOpen}
             onToggleOpen={() => setIsSidebarOpen((prev) => !prev)}
+            activeTab={activeSidebarTab}
+            onSelectTab={setActiveSidebarTab}
             drawerWidth={sidebarDrawerWidth}
             style={{ width: isSidebarOpen ? 46 + sidebarDrawerWidth : 46 }}
             project={project}
@@ -374,6 +388,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
               isLooping={isLooping}
               onTogglePlay={togglePlay}
               onSeek={seek}
+              onOpenMediaImport={handleOpenMediaImport}
               onStepForward={(s) => seekRelative(s)}
               onStepBackward={(s) => seekRelative(-s)}
               onSetPlaybackRate={setPlaybackRate}

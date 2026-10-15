@@ -43,6 +43,7 @@ interface PreviewProps {
   onUpdateClipText?: (clipId: string, text: string) => void;
   onAddClip?: (trackId: string, clipData: Partial<VideoClip>) => VideoClip;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
+  onOpenMediaImport?: () => void;
 }
 
 export const VideoPreviewArea: React.FC<PreviewProps> = ({
@@ -58,6 +59,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
   onSetPlaybackRate,
   onSetIsLooping,
   selectedClip,
+  onOpenMediaImport,
   onUpdateClipTransform,
   onSelectClip,
   onUpdateClipText,
@@ -647,10 +649,14 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
                 </p>
                 <button
                   type="button"
+                  data-testid="empty-state-import-btn"
                   onClick={() => {
-                    // Trigger sidebar open to media tab
-                    const mediaTab = document.querySelector('[data-rail-tab="media"]') as HTMLElement;
-                    if (mediaTab) mediaTab.click();
+                    if (onOpenMediaImport) {
+                      onOpenMediaImport();
+                    } else {
+                      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                      if (fileInput) fileInput.click();
+                    }
                   }}
                   className="mt-1 px-4 py-2 rounded-lg bg-[#4f6bf5] hover:bg-[#3b55d9] text-white text-xs font-semibold shadow-lg transition-colors flex items-center gap-2"
                 >

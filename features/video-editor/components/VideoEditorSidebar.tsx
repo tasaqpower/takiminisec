@@ -126,19 +126,13 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
   const isDrawerVisible = onToggleOpen ? isOpen : internalIsOpen;
 
   const handleTabClick = (tabId: TabType) => {
-    if (tabId === currentTab && isDrawerVisible) {
-      // Toggle close if already open
-      if (onToggleOpen) onToggleOpen();
-      else setInternalIsOpen(false);
-    } else {
-      // Open or switch tab
-      if (onSelectTab) onSelectTab(tabId);
-      else setInternalActiveTab(tabId);
+    // Open or switch tab — NEVER close/toggle off when clicking tabs!
+    if (onSelectTab) onSelectTab(tabId);
+    else setInternalActiveTab(tabId);
 
-      if (!isDrawerVisible) {
-        if (onToggleOpen) onToggleOpen();
-        else setInternalIsOpen(true);
-      }
+    if (!isDrawerVisible) {
+      if (onToggleOpen) onToggleOpen();
+      else setInternalIsOpen(true);
     }
   };
 

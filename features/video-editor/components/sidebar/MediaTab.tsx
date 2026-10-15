@@ -711,6 +711,7 @@ export const MediaTab: React.FC<MediaTabProps> = ({
       <div className="flex items-center gap-1 shrink-0">
         <button
           type="button"
+          data-testid="btn-media-tab-import"
           onClick={() => fileInputRef.current?.click()}
           className="flex-1 h-7 px-2 rounded-[3px] bg-[#171B21] hover:bg-[#202631] border border-[#292F39] text-[#E7EAF0] text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
           title="Bilgisayarınızdan video, ses veya görsel içe aktarın"
@@ -935,9 +936,16 @@ export const MediaTab: React.FC<MediaTabProps> = ({
             </div>
 
             {assets.length === 0 ? (
-              <div className="p-3 rounded-[3px] bg-[#111419] border border-[#292F39] text-center text-xs text-[#5A6270]">
-                Henüz medya yüklenmedi.
-              </div>
+              <button
+                type="button"
+                data-testid="btn-empty-upload-dropzone"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-3.5 rounded-[3px] bg-[#111419] hover:bg-[#171B21] border border-dashed border-[#292F39] hover:border-[#4f6bf5] text-center text-xs text-[#929AA8] hover:text-[#E7EAF0] transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Upload size={14} className="text-[#4f6bf5]" />
+                <span className="font-medium text-[11px]">Medya Seç veya Sürükle</span>
+                <span className="text-[10px] text-[#5A6270]">Video, Ses veya Görsel İçe Aktar</span>
+              </button>
             ) : (
               <div className="space-y-1">
                 {assets
