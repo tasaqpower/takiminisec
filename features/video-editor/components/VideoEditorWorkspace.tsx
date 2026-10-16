@@ -171,6 +171,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
       (window as any).__formaEditor = {
         project,
         setProject,
+        addTrack,
         addClip,
         updateClip,
         addTimelineTransition,
@@ -215,6 +216,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
   }, [
     project,
     setProject,
+    addTrack,
     addClip,
     updateClip,
     addTimelineTransition,

@@ -455,15 +455,48 @@ async function runTortureTest() {
       throw new Error('TEST 1F3 FAILED: Timeline Tekrar Sil button missing from DOM!');
     }
 
-    // 2. Test SubtitlesTab & Descript Text Edit
-    console.log('\n  Testing SubtitlesTab (Descript Metin Kurgu, AI Tekrarlar, Demo Transkript)...');
+    // 2. Test SubtitlesTab & Real Whisper Transcription
+    console.log('\n  Adding real speech audio track to timeline (/video-assets/speech-sample.wav)...');
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        let audioTrack = editor.project.tracks.find(t => t.type === 'audio');
+        if (!audioTrack && editor.addTrack) {
+          editor.addTrack('audio', 'Ses 1');
+        }
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 400));
+
+    await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const audioTrack = editor.project.tracks.find(t => t.type === 'audio');
+        if (audioTrack && editor.addClip) {
+          const newClip = editor.addClip(audioTrack.id, {
+            name: 'Konusma_Kaydi.wav',
+            type: 'audio',
+            startTime: 0,
+            duration: 3.07,
+            sourceDuration: 3.07,
+            sourceUrl: '/video-assets/speech-sample.wav',
+          });
+          if (editor.selectClip && newClip) {
+            editor.selectClip(newClip.id);
+          }
+        }
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 500));
+
+    console.log('  Testing SubtitlesTab (Descript Metin Kurgu, Real Whisper AI Transcribe)...');
     await cdp.eval(`
       (() => {
         const subRailBtn = document.querySelector('[data-rail-tab="subtitles"]');
         if (subRailBtn) subRailBtn.click();
       })()
     `);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 400));
 
     const subtitlesTabResult = await cdp.eval(`
       (() => {
@@ -486,6 +519,21 @@ async function runTortureTest() {
         if (dupsTabBtn) dupsTabBtn.click();
         if (docTabBtn) docTabBtn.click();
 
+        // Select speech clip in dropdown
+        const selectEl = document.querySelector('select');
+        if (selectEl) {
+          const opt = Array.from(selectEl.options).find(o => o.text.includes('Konusma') || o.text.includes('Ses'));
+          if (opt && selectEl.value !== opt.value) {
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+            if (nativeSetter) {
+              nativeSetter.call(selectEl, opt.value);
+            } else {
+              selectEl.value = opt.value;
+            }
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+
         // ACTUALLY CLICK "🎙️ Whisper AI ile Konuşmayı Çözümle" button (Real Click, No Demo Button Cheat)
         if (startTransBtn) {
           startTransBtn.click();
@@ -504,13 +552,13 @@ async function runTortureTest() {
     `);
 
     // Poll until transcription finishes and speech segments/words appear in the DOM
-    console.log('   Waiting for Whisper AI / Acoustic PCM transcription to complete...');
+    console.log('   Waiting for Whisper AI neural decoding to complete in browser...');
     let transcriptionFinished = false;
     let transcriptionState = null;
-    const transDeadline = Date.now() + 15000;
+    const transDeadline = Date.now() + 60000;
 
     while (Date.now() < transDeadline) {
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 800));
       transcriptionState = await cdp.eval(`
         (() => {
           const banner = document.querySelector('[data-testid="subtitles-status-banner"]');
@@ -540,18 +588,42 @@ async function runTortureTest() {
         })()
       `);
 
+      if (transcriptionState?.bannerText || transcriptionState?.isTranscribing) {
+        console.log(`   [Whisper Status]: isTranscribing = ${transcriptionState.isTranscribing}, banner = "${transcriptionState.bannerText}", words = ${transcriptionState.renderedWordsCount}`);
+      }
+
       if (transcriptionState && transcriptionState.isDone) {
         transcriptionFinished = true;
         break;
       }
     }
 
+    const renderedWords = await cdp.eval(`
+      (() => {
+        const wordEls = Array.from(document.querySelectorAll('[data-testid^="word-"]'));
+        const words = wordEls.map(el => el.innerText.trim()).filter(Boolean);
+        const banner = document.querySelector('[data-testid="subtitles-status-banner"]');
+        return {
+          words,
+          fullText: words.join(' '),
+          bannerText: banner ? banner.innerText : '',
+        };
+      })()
+    `);
+
     console.log(`[DOM-1F4] SubtitlesTab Descript Metin Kurgu: docTab = ${subtitlesTabResult.hasDocTab}, dupsTab = ${subtitlesTabResult.hasDupsTab}, srtTab = ${subtitlesTabResult.hasSrtTab}`);
     console.log(`[DOM-1F5] Whisper AI Transcribe Button REAL CLICK: startTransBtn = ${subtitlesTabResult.hasStartTransBtn}, In-Browser Whisper Engine = ${subtitlesTabResult.hasWhisperEngine}`);
     console.log(`[DOM-1F5b] Real Transcription Finished: isDone = ${transcriptionFinished}, hasError = ${transcriptionState?.hasError}, emptyCard = ${transcriptionState?.hasEmptyCard}, wordsCount = ${transcriptionState?.renderedWordsCount}, banner = "${transcriptionState?.bannerText}"`);
+    console.log(`[DOM-1F5c] Real Transcribed Words Output: "${renderedWords?.fullText}"`);
 
     if (!subtitlesTabResult.hasDocTab || !subtitlesTabResult.hasWhisperEngine || !transcriptionFinished || transcriptionState?.hasError || transcriptionState?.hasEmptyCard) {
       throw new Error(`TEST 1F4/1F5 FAILED: Real Whisper transcription failed or produced an error! (hasError: ${transcriptionState?.hasError}, hasEmptyCard: ${transcriptionState?.hasEmptyCard}, banner: ${transcriptionState?.bannerText})`);
+    }
+
+    // Strictly verify NO FAKE WORDS are present in the transcribed text
+    const transcriptText = (renderedWords?.fullText || '').toLowerCase();
+    if (transcriptText.includes('konuşması') || transcriptText.includes('ses kaydı') || transcriptText.includes('konuşma segmenti')) {
+      throw new Error(`TEST 1F5 FAILED: Fake fallback words detected in transcript! ("${renderedWords?.fullText}")`);
     }
 
     // 3. Test VideoPropertiesPanel Lip-Sync -50ms/+50ms buttons
@@ -560,7 +632,7 @@ async function runTortureTest() {
     await cdp.eval(`
       (() => {
         const editor = window.__formaEditor;
-        const track = editor.project.tracks.find(t => t.clips.length > 0);
+        const track = editor.project.tracks.find(t => t.type === 'video' || t.type === 'image');
         const clip = track.clips[0];
         if (editor.selectClip) editor.selectClip(clip.id);
         const clipEl = document.querySelector('[data-clip-id="' + clip.id + '"]');

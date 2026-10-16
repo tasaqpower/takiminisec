@@ -34,6 +34,21 @@ export async function extract16kMonoPcm(
     console.warn('[Whisper] Failed to get AudioBuffer:', err);
   }
 
+  // Direct fetch fallback if mixer returns null but clip has url/sourceUrl
+  if (!buffer && (clip.sourceUrl || (clip as any).url || (clip as any).src)) {
+    try {
+      const srcUrl = clip.sourceUrl || (clip as any).url || (clip as any).src;
+      const resp = await fetch(srcUrl);
+      if (resp && resp.ok) {
+        const ab = await resp.arrayBuffer();
+        const ctx = audioMixer.getAudioContext();
+        buffer = await ctx.decodeAudioData(ab);
+      }
+    } catch (e) {
+      console.warn('[Whisper] Direct audio fetch/decode fallback failed:', e);
+    }
+  }
+
   if (!buffer || buffer.length === 0) {
     return { pcm: new Float32Array(0), duration: 0 };
   }
@@ -98,7 +113,8 @@ export async function extract16kMonoPcm(
 }
 
 /**
- * Initializes and caches the Transformers.js Whisper pipeline.
+ * Initializes and caches the Transformers.js Whisper pipeline via dynamic ESM CDN import.
+ * Avoids any bundler minification bugs or local package resolution issues.
  */
 async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise<any> {
   if (whisperPipelinePromise) {
@@ -110,8 +126,13 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
       throw new Error('Whisper in-browser pipeline can only run in client-side browser environment.');
     }
 
-    onProgress?.(15, 'Yapay zeka ses motoru (Transformers.js) hazırlanıyor...');
-    const { pipeline, env } = await import('@huggingface/transformers');
+    onProgress?.(15, 'Yapay zeka ses motoru (@xenova/transformers) hazırlanıyor...');
+
+    // Native browser dynamic ESM import (bypasses bundler static analysis and minification bugs)
+    const dynamicImport = new Function('url', 'return import(url)');
+    const { pipeline, env } = await dynamicImport(
+      'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+    );
 
     // Safe environment settings for browser WASM
     env.allowLocalModels = false;
@@ -120,58 +141,34 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
     if (env.backends?.onnx?.wasm) {
       env.backends.onnx.wasm.proxy = false; // No proxy worker (avoids script URL resolution failure)
       env.backends.onnx.wasm.numThreads = 1; // Single thread (avoids SharedArrayBuffer requirement)
-      if (!env.backends.onnx.wasm.wasmPaths) {
-        env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+      env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
+    }
+
+    onProgress?.(25, 'Yapay zeka ses modeli hazırlanıyor (Xenova/whisper-tiny)...');
+
+    const transcriber = await pipeline(
+      'automatic-speech-recognition',
+      'Xenova/whisper-tiny',
+      {
+        quantized: true,
+        progress_callback: (info: any) => {
+          if (info && info.status === 'progress' && typeof info.progress === 'number') {
+            const fileProgress = Math.round(info.progress);
+            const mapped = 25 + Math.round(fileProgress * 0.45);
+            onProgress?.(
+              mapped,
+              `Yapay Zeka Ses Modeli İndiriliyor / Önbelleğe Alınıyor: %${fileProgress}...`
+            );
+          }
+        },
       }
-    }
+    );
 
-    // Default to WASM for maximum cross-device stability
-    onProgress?.(25, 'Yapay zeka modeli hazırlanıyor (WASM)...');
-
-    try {
-      const transcriber = await pipeline(
-        'automatic-speech-recognition',
-        'onnx-community/whisper-tiny',
-        {
-          dtype: 'q8',
-          device: 'wasm',
-          progress_callback: (info: any) => {
-            if (info && info.status === 'progress' && typeof info.progress === 'number') {
-              const fileProgress = Math.round(info.progress);
-              const mapped = 25 + Math.round(fileProgress * 0.45);
-              onProgress?.(
-                mapped,
-                `Yapay Zeka Ses Modeli İndiriliyor / Önbelleğe Alınıyor: %${fileProgress}...`
-              );
-            }
-          },
-        }
-      );
-      return transcriber;
-    } catch (primaryErr) {
-      console.warn('[Whisper] onnx-community/whisper-tiny failed, falling back to Xenova/whisper-tiny:', primaryErr);
-      const fallbackTranscriber = await pipeline(
-        'automatic-speech-recognition',
-        'Xenova/whisper-tiny',
-        {
-          quantized: true,
-          progress_callback: (info: any) => {
-            if (info && info.status === 'progress' && typeof info.progress === 'number') {
-              const fileProgress = Math.round(info.progress);
-              onProgress?.(
-                30 + Math.round(fileProgress * 0.4),
-                `Yapay Zeka Ses Modeli İndiriliyor: %${fileProgress}...`
-              );
-            }
-          },
-        }
-      );
-      return fallbackTranscriber;
-    }
+    return transcriber;
   })();
 
   whisperPipelinePromise.catch((err) => {
-    console.warn('[Whisper] Pipeline initialization error caught, resetting singleton:', err);
+    console.error('[Whisper] Pipeline initialization error caught, resetting singleton:', err);
     whisperPipelinePromise = null;
   });
 
@@ -254,6 +251,29 @@ export class InBrowserWhisperEngine {
       validChunks.push({
         text: rawText,
         timestamp: [parseFloat(start.toFixed(3)), parseFloat(end.toFixed(3))],
+      });
+    }
+
+    // Fallback: If output produced fullText but no chunks, break text into words across audio duration
+    if (words.length === 0 && fullText) {
+      const tokens = fullText.split(/\s+/).filter(Boolean);
+      const totalChars = tokens.reduce((acc, t) => acc + t.length, 0);
+      let cursor = 0;
+      const audioDur = cleanPcm.length / 16000;
+      tokens.forEach((token) => {
+        const fraction = Math.max(1, token.length) / Math.max(1, totalChars);
+        const dur = Math.max(0.08, audioDur * fraction);
+        const end = Math.min(audioDur, cursor + dur);
+        words.push({
+          word: token,
+          startSec: parseFloat(cursor.toFixed(3)),
+          endSec: parseFloat(end.toFixed(3)),
+        });
+        validChunks.push({
+          text: token,
+          timestamp: [parseFloat(cursor.toFixed(3)), parseFloat(end.toFixed(3))],
+        });
+        cursor = end;
       });
     }
 
@@ -349,16 +369,11 @@ export class InBrowserWhisperEngine {
       speechDuration: parseFloat(speechDuration.toFixed(3)),
       silenceDuration: parseFloat(silenceDuration.toFixed(3)),
     };
-  } catch (err) {
-    console.warn('[Whisper] transcribeClip caught error, returning fallback:', err);
-    return {
-      segments: [],
-      fullText: '',
-      totalDuration: clip.duration,
-      speechDuration: 0,
-      silenceDuration: clip.duration,
-    };
-  }
+    } catch (err) {
+      console.error('[Whisper] transcribeClip failed:', err);
+      // Re-throw so caller sees exact error, never swallow or fake!
+      throw err;
+    }
 }
 }
 

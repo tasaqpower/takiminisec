@@ -604,6 +604,13 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
         console.warn('[SubtitlesTab] Duplicate detection fallback:', dupErr);
       }
 
+      if (!result || result.segments.length === 0 || !result.fullText.trim()) {
+        setSpeechSegments([]);
+        setStatusBanner('Klipte konuşma sesi tespit edilemedi (ses sessiz veya konuşma içermiyor).');
+        setTimeout(() => setStatusBanner(null), 5000);
+        return;
+      }
+
       setSpeechSegments(result.segments);
       if (dups.length > 0) {
         setDetectedDuplicates(dups);
@@ -611,31 +618,11 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
       setStatusBanner(`✨ ${result.segments.length} adet konuşma segmenti başarıyla çözümlendi!`);
       setTimeout(() => setStatusBanner(null), 4000);
     } catch (err: any) {
-      console.warn('[SubtitlesTab] Transcription error fallback:', err);
-      try {
-        const fallbackSegments = await speechRecognitionEngine.detectVoiceActivity(activeClip);
-        const validSegments = fallbackSegments.length > 0 ? fallbackSegments : [
-          {
-            id: `speech-seg-${activeClip.id}-fallback`,
-            startSec: 0.0,
-            endSec: parseFloat(activeClip.duration.toFixed(3)),
-            duration: parseFloat(activeClip.duration.toFixed(3)),
-            energy: 0.7,
-            confidence: 0.88,
-            text: `${activeClip.name ? activeClip.name.split('.')[0] : 'Video'} Konuşma Segmenti`,
-            words: [
-              { word: activeClip.name ? activeClip.name.split('.')[0] : 'Video', startSec: 0.0, endSec: parseFloat((activeClip.duration * 0.45).toFixed(3)) },
-              { word: 'Akışı', startSec: parseFloat((activeClip.duration * 0.5).toFixed(3)), endSec: parseFloat((activeClip.duration * 0.95).toFixed(3)) },
-            ],
-          },
-        ];
-        setSpeechSegments(validSegments);
-        setStatusBanner(`✨ Akustik PCM analizi tamamlandı: ${validSegments.length} konuşma segmenti çıkarıldı.`);
-        setTimeout(() => setStatusBanner(null), 4000);
-      } catch {
-        setStatusBanner('✨ Ses analizi tamamlandı.');
-        setTimeout(() => setStatusBanner(null), 3000);
-      }
+      console.error('[SubtitlesTab] Transcription error:', err);
+      // NEVER fabricate fake words! Display exact error to the user
+      setSpeechSegments([]);
+      setStatusBanner(`❌ Ses analizi hatası: ${err?.message || String(err)}`);
+      setTimeout(() => setStatusBanner(null), 8000);
     } finally {
       setIsTranscribing(false);
     }
@@ -980,7 +967,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                 </span>
                 <span className="font-mono text-[10px] font-bold text-purple-200">{transcribeProgress}%</span>
               </div>
-              <p className="text-[10px] text-[#929AA8] leading-tight truncate">
+              <p className="text-[10px] text-[#929AA8] leading-tight break-words whitespace-normal">
                 {transcribeStatusText || 'Yapay Zeka Ses Modeli Hazırlanıyor / Çözümleniyor...'}
               </p>
               <div className="w-full h-1.5 bg-[#0E1014] rounded-full overflow-hidden">
