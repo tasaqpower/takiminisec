@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { VideoProject, VideoClip } from '../../types';
+import { VideoProject, VideoClip, TimelineTransition } from '../../types';
 import { assetCatalog, CatalogAssetItem, CatalogFilterOptions } from '../../engine/assetCatalog';
 import { assetDownloader } from '../../engine/assetDownloader';
 import { useEditorDragDrop } from '../../context/DragDropContext';
@@ -45,6 +45,7 @@ interface AssetsTabProps {
   getNextClipStartTime: (trackId: string) => number;
   selectedClipId?: string | null;
   onUpdateClip?: (clipId: string, updates: Partial<VideoClip>) => void;
+  onAddTimelineTransition?: (transition: Omit<TimelineTransition, 'id'>) => TimelineTransition;
 }
 
 export const AssetsTab: React.FC<AssetsTabProps> = ({
@@ -55,6 +56,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   getNextClipStartTime,
   selectedClipId,
   onUpdateClip,
+  onAddTimelineTransition,
 }) => {
   const { startDrag } = useEditorDragDrop();
 
@@ -143,14 +145,85 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   // Add Asset to Timeline
   const handleAddToTimeline = useCallback(
     async (asset: CatalogAssetItem) => {
+      // 1. Transition Asset Handling (NEVER create dummy video clips for transitions)
+      if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-')) {
+        const transId = asset.id.replace('trans-', '');
+        const videoTracks = project.tracks.filter((t) => !t.locked && (t.type === 'video' || t.type === 'image'));
+        let bestCut: { trackId: string; cutTime: number; leftClipId?: string; rightClipId?: string } | null = null;
+        let minDistance = Infinity;
+
+        for (const track of videoTracks) {
+          const sorted = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+          for (let i = 0; i < sorted.length - 1; i++) {
+            const c1 = sorted[i];
+            const c2 = sorted[i + 1];
+            const cutTime = c1.startTime + c1.duration;
+            const dist = Math.abs(currentTime - cutTime);
+            if (dist < minDistance) {
+              minDistance = dist;
+              bestCut = {
+                trackId: track.id,
+                cutTime,
+                leftClipId: c1.id,
+                rightClipId: c2.id,
+              };
+            }
+          }
+        }
+
+        if (bestCut && onAddTimelineTransition) {
+          onAddTimelineTransition({
+            trackId: bestCut.trackId,
+            cutTime: bestCut.cutTime,
+            leftClipId: bestCut.leftClipId,
+            rightClipId: bestCut.rightClipId,
+            type: transId as any,
+            duration: asset.duration || 1.0,
+            alignment: 'between',
+            easing: 'linear',
+          });
+          return;
+        }
+
+        const targetClip =
+          (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId)) ||
+          project.tracks
+            .flatMap((t) => t.clips)
+            .find((c) => currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+
+        if (targetClip && onUpdateClip) {
+          onUpdateClip(targetClip.id, {
+            transitionIn: { type: transId as any, duration: asset.duration || 1.0 },
+          });
+          return;
+        }
+        return;
+      }
+
+      // 2. LUT Color Preset Handling
       if (asset.type === 'lut') {
-        // Apply LUT color filter to active or selected video clip
         const targetClip =
           (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId && c.type === 'video')) ||
           project.tracks.flatMap((t) => t.clips).find((c) => c.type === 'video');
 
         if (targetClip && onUpdateClip) {
           onUpdateClip(targetClip.id, { colorFilter: asset.id });
+          return;
+        }
+      }
+
+      // 3. Font Asset Handling
+      if (asset.type === 'font') {
+        const targetText =
+          (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId && c.type === 'text')) ||
+          project.tracks.flatMap((t) => t.clips).find((c) => c.type === 'text' && currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+        if (targetText && onUpdateClip) {
+          onUpdateClip(targetText.id, {
+            textData: {
+              ...(targetText.textData || { text: 'Metin', fontSize: 54, fontWeight: 'bold', color: '#ffffff' }),
+              fontFamily: asset.name,
+            },
+          });
           return;
         }
       }
@@ -212,21 +285,29 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
         type: clipType,
         sourceUrl,
         startTime,
-        duration: asset.duration || (clipType === 'image' ? 10.0 : 4.0),
-        sourceDuration: asset.duration || (clipType === 'image' ? 10.0 : 4.0),
+        duration: asset.duration || (clipType === 'image' ? 6.0 : 4.0),
+        sourceDuration: asset.duration || (clipType === 'image' ? 6.0 : 4.0),
+        transform: {
+          x: 0,
+          y: 0,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0,
+          opacity: 1,
+        },
         textData:
-          asset.type === 'title'
+          asset.type === 'title' || asset.type === 'font'
             ? {
                 text: asset.defaultText || asset.localizedName || 'Forma Başlık',
                 fontSize: 54,
                 fontWeight: 'bold',
                 color: '#ffffff',
-                fontFamily: 'Plus Jakarta Sans',
+                fontFamily: asset.type === 'font' ? asset.name : 'Plus Jakarta Sans',
               }
             : undefined,
       });
     },
-    [findTrack, getNextClipStartTime, onAddClip, project.tracks, selectedClipId, onUpdateClip]
+    [findTrack, getNextClipStartTime, onAddClip, project.tracks, selectedClipId, onUpdateClip, currentTime, onAddTimelineTransition]
   );
 
   // Virtualized calculations
@@ -448,19 +529,24 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                   onPointerDown={(e) => {
                     if (e.button === 0) {
                       let dragType: any = 'video';
+                      let payloadId = asset.id;
                       if (asset.type === 'video') dragType = 'video';
                       else if (asset.type === 'audio') dragType = 'audio';
                       else if (asset.type === 'title') dragType = 'title-template';
                       else if (asset.type === 'overlay') dragType = 'overlay';
                       else if (asset.type === 'element') dragType = 'image';
                       else if (asset.type === 'lut') dragType = 'filter-preset';
+                      else if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-')) {
+                        dragType = 'transition';
+                        payloadId = asset.id.replace('trans-', '');
+                      }
 
                       startDrag(
                         {
                           type: dragType,
-                          id: asset.id,
+                          id: payloadId,
                           name: asset.localizedName,
-                          duration: asset.duration || 4.0,
+                          duration: asset.duration || (dragType === 'transition' ? 1.0 : 4.0),
                           category: asset.category,
                           data: {
                             ...asset,

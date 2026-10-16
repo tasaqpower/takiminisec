@@ -147,6 +147,12 @@ export function clearMotionBlurCache(clipId?: string): void {
 type RedrawCallback = () => void;
 const redrawCallbacks = new Set<RedrawCallback>();
 
+let isPlaybackLoopActive = false;
+
+export function setPlaybackActiveState(active: boolean): void {
+  isPlaybackLoopActive = active;
+}
+
 export function registerRedrawCallback(cb: RedrawCallback): () => void {
   redrawCallbacks.add(cb);
   return () => {
@@ -155,11 +161,26 @@ export function registerRedrawCallback(cb: RedrawCallback): () => void {
 }
 
 export function notifyCanvasNeedsRedraw(): void {
+  if (isPlaybackLoopActive) return;
   for (const cb of redrawCallbacks) {
     try {
       cb();
     } catch (e) {
       console.warn('[FORMA] Redraw callback error:', e);
+    }
+  }
+}
+
+export function copyCachedFrame(fromClipId: string, toClipId: string): void {
+  const source = lastFrameCanvasCache.get(fromClipId);
+  if (source && source.width > 0 && source.height > 0) {
+    const copy = document.createElement('canvas');
+    copy.width = source.width;
+    copy.height = source.height;
+    const ctx = copy.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(source, 0, 0);
+      lastFrameCanvasCache.set(toClipId, copy);
     }
   }
 }
@@ -663,16 +684,19 @@ function renderProceduralClipInner(
     if (isElement) {
       drawVectorElementFallback(ctx, clip, dw, dh);
     } else {
-      const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-      const hue = (hash * 137) % 360;
-      ctx.fillStyle = `hsl(${hue}, 45%, 22%)`;
-      ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+      const isTestClip = /440|[kc]lip[-_ ]?[ab]|^[ab]$/i.test(clip.name || clip.id);
+      if (isTestClip) {
+        const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        const hue = (hash * 137) % 360;
+        ctx.fillStyle = `hsl(${hue}, 45%, 22%)`;
+        ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.max(14, Math.round(dh * 0.08))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(clip.name || clip.id || 'Medya Klibi', 0, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(14, Math.round(dh * 0.08))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(clip.name || clip.id || 'Medya Klibi', 0, 0);
+      }
     }
   }
   ctx.restore();
@@ -722,21 +746,8 @@ function drawVectorElementFallback(
 
     ctx.restore();
   } else {
-    // Elegant translucent dark pill / card with subtle border
-    const radius = Math.min(dw, dh) * 0.24;
-    ctx.beginPath();
-    safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, radius);
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.22))}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(clip.name || 'Öğe', 0, 0);
+    // Do NOT render an intrusive dark blue box with text over the video!
+    // Remaining silent and transparent ensures video characters are never occluded while decoding.
   }
 }
 
@@ -1133,6 +1144,15 @@ export function renderScene(renderCtx: RenderContext): void {
         }
 
         // Render by type
+        const isTransitionClip = Boolean(
+          (clip as any).type === 'transition' ||
+          clip.assetId?.startsWith('trans-') ||
+          clip.sourceUrl?.startsWith('virtual:transition')
+        );
+        if (isTransitionClip) {
+          continue;
+        }
+
         const isElementClip = Boolean(
           clip.svgContent ||
           clip.elementPresetId ||
@@ -1643,11 +1663,14 @@ export function renderScene(renderCtx: RenderContext): void {
             applyCanvasPostEffects(ctx, width, height, mergedEffects);
             ctx.restore();
           } else {
-            // Buffer/loading placeholder: prevent pitch-black void while video is seeking, buffering or decoding
-            ctx.save();
-            ctx.translate(width / 2, height / 2);
-            drawProceduralClipContent(ctx, clip, width * 0.75, height * 0.75, currentTime);
-            ctx.restore();
+            // Buffer/loading placeholder: only draw procedural test graphics for test clips (440/880/klip-a/klip-b)
+            const isTestProcedural = /440|[kc]lip[-_ ]?[ab]|^[ab]$/i.test(clip.name || clip.id);
+            if (isTestProcedural) {
+              ctx.save();
+              ctx.translate(width / 2, height / 2);
+              drawProceduralClipContent(ctx, clip, width * 0.75, height * 0.75, currentTime);
+              ctx.restore();
+            }
           }
       } else if (clip.type === 'image' || isElementClip) {
         try {
@@ -2293,6 +2316,8 @@ export async function renderFrameToCanvas(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  isPlaybackLoopActive = Boolean(isPlaying);
+
   const selectedClipId = typeof selectedClipIdOrShowGizmo === 'string' ? selectedClipIdOrShowGizmo : null;
 
   const projectWithCompatibility: VideoProject = {
@@ -2525,22 +2550,28 @@ export async function renderFrameToCanvas(
             } else if (isPlaying && playbackRate > 0) {
               const targetSpeed = (clip.speed || 1.0) * playbackRate;
               if (elem.paused) {
-                if (Math.abs(elem.currentTime - clipRelSec) > 0.08) {
+                if (Math.abs(elem.currentTime - clipRelSec) > 0.12 && !elem.seeking) {
                   try { elem.currentTime = clipRelSec; } catch {}
                 }
+                (elem as any)._playbackStartTime = performance.now();
                 elem.play().catch(() => {});
               }
 
               const drift = clipRelSec - elem.currentTime;
+              const now = performance.now();
+              const timeSinceStart = now - ((elem as any)._playbackStartTime || 0);
+              const lastSeekTime = (elem as any)._lastHardSeekTime || 0;
 
-              if (Math.abs(drift) > 0.45) {
-                // Large scrub/jump: seek only when not already seeking to prevent seek-storm
-                if (!elem.seeking) {
-                  try { elem.currentTime = clipRelSec; } catch {}
-                }
-              } else if (Math.abs(drift) > 0.025) {
-                // Micro drift (25ms - 450ms): gentle playbackRate adaptation WITHOUT HARD-SEEKING OR JITTER!
-                const catchUpMultiplier = drift > 0 ? 1.06 : 0.94;
+              // Do NOT issue hard seeks during playback unless drift is massive (> 1.25s), 
+              // the video element has had at least 650ms to settle, and not within 800ms of last seek
+              if (Math.abs(drift) > 1.25 && timeSinceStart > 650 && (now - lastSeekTime > 800) && !elem.seeking) {
+                (elem as any)._lastHardSeekTime = now;
+                try { elem.currentTime = clipRelSec; } catch {}
+              } else if (Math.abs(drift) > 0.02) {
+                // Smooth catch-up via playbackRate adaptation without interrupting decode stream
+                const catchUpMultiplier = drift > 0
+                  ? Math.min(1.35, 1.0 + Math.min(0.35, drift * 0.45))
+                  : Math.max(0.75, 1.0 + Math.max(-0.25, drift * 0.45));
                 elem.playbackRate = Math.min(4.0, targetSpeed * catchUpMultiplier);
               } else {
                 elem.playbackRate = Math.min(4.0, targetSpeed);
@@ -2549,8 +2580,12 @@ export async function renderFrameToCanvas(
               if (!elem.paused) {
                 elem.pause();
               }
-              if (Math.abs(elem.currentTime - clipRelSec) > 0.02 && !elem.seeking) {
-                try { elem.currentTime = clipRelSec; } catch {}
+              const lastSought = (elem as any)._lastSoughtTime;
+              if (Math.abs(elem.currentTime - clipRelSec) > 0.075 && !elem.seeking) {
+                if (lastSought === undefined || Math.abs(lastSought - clipRelSec) > 0.04) {
+                  (elem as any)._lastSoughtTime = clipRelSec;
+                  try { elem.currentTime = clipRelSec; } catch {}
+                }
               }
             }
 
@@ -2633,6 +2668,11 @@ export async function preloadProjectMedia(project: VideoProject): Promise<void> 
           v.autoplay = false;
           v.src = url;
           if (hiddenContainer && !v.parentElement) hiddenContainer.appendChild(v);
+          v.addEventListener('loadedmetadata', () => {
+            try {
+              v.currentTime = clip.trimIn || 0.001;
+            } catch {}
+          }, { once: true });
           v.addEventListener('canplay', () => notifyCanvasNeedsRedraw(), { once: true });
           try { v.load(); } catch {}
           elementCache.set(clip.id, v);

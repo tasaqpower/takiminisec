@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { VideoProject } from '../types';
 import { audioMixer } from '../engine/audioMixer';
-import { preloadProjectMedia } from '../engine/previewRenderer';
+import { preloadProjectMedia, setPlaybackActiveState, notifyCanvasNeedsRedraw } from '../engine/previewRenderer';
 
 interface PlaybackHookOptions {
   project: VideoProject;
@@ -45,6 +45,7 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
   );
 
   const pause = useCallback(() => {
+    setPlaybackActiveState(false);
     setIsPlaying(false);
     isPlayingRef.current = false;
     lastRafTimeRef.current = null;
@@ -53,10 +54,12 @@ export function useVideoPlayback({ project, onTimeUpdate }: PlaybackHookOptions)
       rafIdRef.current = null;
     }
     audioMixer.stopAll();
+    notifyCanvasNeedsRedraw();
   }, []);
 
   const play = useCallback(() => {
     if (isPlayingRef.current) return;
+    setPlaybackActiveState(true);
 
     // Browser autoplay policy: ensure AudioContext is awake immediately on user click
     try {

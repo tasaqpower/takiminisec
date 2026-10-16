@@ -252,6 +252,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 getNextClipStartTime={getNextClipStartTime}
                 selectedClipId={selectedClipId}
                 onUpdateClip={onUpdateClip}
+                onAddTimelineTransition={onAddTimelineTransition}
               />
             )}
 

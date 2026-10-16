@@ -19,6 +19,7 @@ import {
 } from '../types';
 import { saveProjectMetadata, loadLatestProject, deleteProjectMetadata } from '../db';
 import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
+import { copyCachedFrame } from '../engine/previewRenderer';
 
 const MAX_HISTORY = 50;
 
@@ -685,7 +686,10 @@ export function useVideoProject() {
       });
 
       if (result) {
-        const { rightClip } = result as { leftClip: VideoClip; rightClip: VideoClip };
+        const { leftClip, rightClip } = result as { leftClip: VideoClip; rightClip: VideoClip };
+        try {
+          copyCachedFrame(leftClip.id, rightClip.id);
+        } catch {}
         // Select rightClip so user can immediately mute, delete, or add effects to the section following split
         setSelectedClipId(rightClip.id);
       }
