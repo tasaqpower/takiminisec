@@ -21,17 +21,20 @@ export const AudioTab: React.FC<AudioTabProps> = ({
   getNextClipStartTime,
 }) => {
   const { startDrag, isClickSuppressed } = useEditorDragDrop();
-  const [category, setCategory] = useState<'all' | 'sfx' | 'bgm'>('all');
+  const [category, setCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
 
-  const filteredSfx = BUILTIN_SFX_LIST.filter(
-    (item) => category === 'all' || item.category === category
-  ).filter(
+  const filteredSfx = BUILTIN_SFX_LIST.filter((item) => {
+    if (category === 'all') return true;
+    if (category === 'sfx') return item.category !== 'bgm';
+    return item.category === category;
+  }).filter(
     (item) =>
       !search.trim() ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.description.toLowerCase().includes(search.toLowerCase()) ||
       item.id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -74,7 +77,7 @@ export const AudioTab: React.FC<AudioTabProps> = ({
           <span className="font-semibold text-gray-200">Ses Efektleri & BGM</span>
         </div>
         <span className="text-[10px] text-gray-400 font-mono bg-[#161a22] px-2 py-0.5 rounded border border-[#232936]">
-          {filteredSfx.length} Parça
+          {filteredSfx.length} / {BUILTIN_SFX_LIST.length} Parça
         </span>
       </div>
 
@@ -98,17 +101,21 @@ export const AudioTab: React.FC<AudioTabProps> = ({
       </div>
 
       {/* Category Pills */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none text-[10px]">
         {[
           { id: 'all', label: 'Tümü' },
-          { id: 'sfx', label: 'Ses Efektleri' },
-          { id: 'bgm', label: 'Fon Müziği' },
+          { id: 'whoosh', label: '💨 Whoosh' },
+          { id: 'impact', label: '💥 Vuruş & Bas' },
+          { id: 'ui', label: '🫧 Pop & Bildirim' },
+          { id: 'mechanical', label: '⌨️ Mekanik' },
+          { id: 'meme', label: '🔥 Viral & Meme' },
+          { id: 'bgm', label: '🎵 Müzik' },
         ].map((c) => (
           <button
             key={c.id}
             type="button"
-            onClick={() => setCategory(c.id as any)}
-            className={`flex-1 py-1 rounded-[2px] text-[11px] font-medium transition-colors ${
+            onClick={() => setCategory(c.id)}
+            className={`px-2.5 py-1 rounded-[2px] font-medium whitespace-nowrap transition-colors shrink-0 ${
               category === c.id
                 ? 'bg-[#202631] text-[#E7EAF0] border border-[#4f6bf5]'
                 : 'bg-[#171B21] text-[#929AA8] hover:text-[#E7EAF0] border border-[#292F39]'

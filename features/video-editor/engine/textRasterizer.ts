@@ -724,8 +724,35 @@ export function renderTextLayer(
   ctx.textAlign = layer.textAlign || layer.alignment || 'center';
   ctx.textBaseline = 'middle';
 
-  // Word wrap lines
+  // Safe check if progressive character animation is active
+  const isCharacterProgressive =
+    ((inType === 'typewriter' || inType === 'char-by-char' || inType === 'char-cascade' || inType === 'word-by-word') &&
+      timeInClip < inDuration) ||
+    (outType === 'typewriter-erase' && timeRemaining < outDuration);
+
+  // Full text metrics for rock-solid stability during typewriter/kinetic reveals
   const maxWidth = canvasWidth * 0.85;
+  const rawFullLines = formattedText.split('\n');
+  const fullLines: string[] = [];
+
+  for (const rawLine of rawFullLines) {
+    const words = rawLine.split(' ');
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = ctx.measureText(testLine).width;
+      if (testWidth > maxWidth && currentLine) {
+        fullLines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) fullLines.push(currentLine);
+  }
+
+  // Word wrap lines for current animated displayText
   const rawLines = displayText.split('\n');
   const lines: string[] = [];
 
@@ -747,13 +774,16 @@ export function renderTextLayer(
   }
 
   const lineHeight = fontSize * (layer.lineHeight || 1.25);
-  const totalTextHeight = lines.length * lineHeight;
+  // Use fullLines length for progressive animations so line height doesn't pop
+  const effectiveLineCount = isCharacterProgressive ? fullLines.length : lines.length;
+  const totalTextHeight = effectiveLineCount * lineHeight;
 
   // Background Box / Pill
   const bgColor = layer.backgroundColor || layer.boxColor;
   if (bgColor && (layer.backgroundOpacity ?? 1) > 0) {
     let maxLineWidth = 0;
-    for (const l of lines) {
+    const measurementLines = isCharacterProgressive ? fullLines : lines;
+    for (const l of measurementLines) {
       const w = ctx.measureText(l).width;
       if (w > maxLineWidth) maxLineWidth = w;
     }
@@ -921,22 +951,37 @@ export function renderTextLayer(
         globalWordIdx++;
       }
     }
-  } else {
+    const align = layer.textAlign || layer.alignment || 'center';
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const y = startY + i * lineHeight;
+      const fullLine = fullLines[i] || line;
+      const fullLineWidth = ctx.measureText(fullLine).width;
+
+      let drawX = 0;
+      const prevAlign: CanvasTextAlign = ctx.textAlign;
+
+      if (isCharacterProgressive && align === 'center') {
+        // Rock-solid typewriter anchoring: characters appear from left to right along the centered box
+        drawX = -fullLineWidth / 2;
+        ctx.textAlign = 'left';
+      }
 
       // Stroke
       if (layer.strokeColor && (layer.strokeWidth || 0) > 0) {
         ctx.lineWidth = layer.strokeWidth || 2;
         ctx.strokeStyle = layer.strokeColor;
         ctx.lineJoin = 'round';
-        ctx.strokeText(line, 0, y);
+        ctx.strokeText(line, drawX, y);
       }
 
       // Fill
       ctx.fillStyle = layer.fillColor || layer.color || '#ffffff';
-      ctx.fillText(line, 0, y);
+      ctx.fillText(line, drawX, y);
+
+      if (isCharacterProgressive && align === 'center') {
+        ctx.textAlign = prevAlign;
+      }
 
       // Underline
       if (layer.underline) {

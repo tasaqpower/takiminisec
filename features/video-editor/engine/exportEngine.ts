@@ -476,7 +476,9 @@ class ExportEngine {
     });
 
     const quality = options.quality || 'high';
-    const vBitrate = quality === 'ultra' ? '12000k' : quality === 'high' ? '8000k' : '4000k';
+    const vBitrateNum = quality === 'ultra' ? 12000 : quality === 'high' ? 8000 : 4000;
+    const vBitrate = `${vBitrateNum}k`;
+    const bufSize = `${vBitrateNum * 2}k`;
     const aacBitrate = quality === 'ultra' ? '320k' : quality === 'high' ? '256k' : '192k';
 
     const muxArgs = hasAudio
@@ -488,11 +490,14 @@ class ExportEngine {
           '-i', 'input.yuv',
           '-i', 'audio.wav',
           '-c:v', 'libx264',
-          '-preset', 'ultrafast',
+          '-preset', 'veryfast',
           '-b:v', vBitrate,
+          '-maxrate', vBitrate,
+          '-bufsize', bufSize,
           '-pix_fmt', 'yuv420p',
-          '-g', String(Math.round(fps)),
-          '-bf', '0',
+          '-g', String(Math.round(fps * 2)),
+          '-keyint_min', String(Math.round(fps)),
+          '-sc_threshold', '0',
           '-c:a', 'aac',
           '-b:a', aacBitrate,
           '-ar', '48000',
@@ -507,11 +512,14 @@ class ExportEngine {
           '-framerate', String(fps),
           '-i', 'input.yuv',
           '-c:v', 'libx264',
-          '-preset', 'ultrafast',
+          '-preset', 'veryfast',
           '-b:v', vBitrate,
+          '-maxrate', vBitrate,
+          '-bufsize', bufSize,
           '-pix_fmt', 'yuv420p',
-          '-g', String(Math.round(fps)),
-          '-bf', '0',
+          '-g', String(Math.round(fps * 2)),
+          '-keyint_min', String(Math.round(fps)),
+          '-sc_threshold', '0',
           '-movflags', '+faststart',
           'final_export.mp4',
         ];

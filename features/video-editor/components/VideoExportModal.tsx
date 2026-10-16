@@ -40,7 +40,7 @@ const TIKTOK_QUICK_PRESETS: TikTokPreset[] = [
     height: 1920,
     fps: 30,
     quality: 'high',
-    desc: '1080×1920 • 30 FPS • Hızlı & Keskin',
+    desc: '1080×1920 · 30 FPS · Dengeli',
   },
   {
     id: 'tiktok_2k_60fps',
@@ -50,17 +50,17 @@ const TIKTOK_QUICK_PRESETS: TikTokPreset[] = [
     height: 2560,
     fps: 60,
     quality: 'ultra',
-    desc: '1440×2560 • 60 FPS • Sıkıştırmasız VIP',
+    desc: '1440×2560 · 60 FPS · Maksimum Detay',
   },
   {
     id: 'tiktok_4k',
     name: 'TikTok 4K Dikey',
-    tag: 'Sinematik Portre',
+    tag: 'Sinematik 4K',
     width: 2160,
     height: 3840,
     fps: 60,
     quality: 'ultra',
-    desc: '2160×3840 • 60 FPS • Maksimum Çözünürlük',
+    desc: '2160×3840 · 60 FPS · Stüdyo',
   },
   {
     id: 'tiktok_720p',
@@ -70,7 +70,7 @@ const TIKTOK_QUICK_PRESETS: TikTokPreset[] = [
     height: 1280,
     fps: 30,
     quality: 'standard',
-    desc: '720×1280 • 30 FPS • Küçük Dosya Boyutu',
+    desc: '720×1280 · 30 FPS · Hafif',
   },
 ];
 
@@ -208,7 +208,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
-      <div className="w-full max-w-xl bg-[#0e1014] border border-[#202531] rounded-xl shadow-2xl overflow-hidden text-xs text-gray-300 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-2xl bg-[#0e1014] border border-[#202531] rounded-xl shadow-2xl overflow-hidden text-xs text-gray-300 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-4 px-5 border-b border-[#191d26] bg-[#13161c] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -218,7 +218,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
             <div>
               <h3 className="text-sm font-semibold text-white">Videoyu Dışa Aktar</h3>
               <p className="text-[11px] text-gray-400">
-                WASM H.264 CFR Motoru &middot; Sabit Kare Hızı &middot; Sıfır Ses Kayması
+                WASM H.264 CFR Motoru · Sabit Kare Hızı · Sıfır Ses Kayması
               </p>
             </div>
           </div>
@@ -240,26 +240,26 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
             <label className="block text-gray-400 font-semibold mb-1.5 uppercase text-[10px] tracking-wider">
               Dışa Aktarma Formatı
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {[
-                { id: 'mp4', label: 'MP4 Video', desc: 'Evrensel uyumluluk (H.264+AAC)' },
-                { id: 'webm', label: 'WebM Video', desc: 'Modern web & hızlı (VP8+Opus)' },
-                { id: 'gif', label: 'Animasyonlu GIF', desc: 'Sosyal medya & sticker' },
-                { id: 'wav', label: 'WAV Ses', desc: 'Kayıpsız stüdyo sesi (48kHz)' },
-                { id: 'mp3', label: 'MP3 Ses', desc: 'Yüksek kalite ses' },
-                { id: 'png', label: 'PNG Kare', desc: 'Anlık ekran görüntüsü' },
+                { id: 'mp4', label: 'MP4 Video', desc: 'H.264 CFR' },
+                { id: 'webm', label: 'WebM Video', desc: 'VP8+Opus' },
+                { id: 'gif', label: 'GIF', desc: 'Sticker' },
+                { id: 'wav', label: 'WAV', desc: '48kHz PCM' },
+                { id: 'mp3', label: 'MP3', desc: 'Audio' },
+                { id: 'png', label: 'PNG Kare', desc: 'Ekran' },
               ].map((f) => (
                 <button
                   key={f.id}
                   disabled={isExporting}
                   onClick={() => setFormat(f.id as ExportFormat)}
-                  className={`p-2 rounded-md border text-left transition-all ${
+                  className={`p-2 rounded-md border text-left transition-all min-w-0 ${
                     format === f.id
                       ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm'
                       : 'bg-[#13161c] border-[#202531] text-gray-400 hover:border-gray-600 hover:text-gray-200'
                   }`}
                 >
-                  <p className="font-semibold text-xs text-gray-200">{f.label}</p>
+                  <p className="font-semibold text-xs text-gray-200 truncate">{f.label}</p>
                   <p className="text-[10px] text-gray-500 mt-0.5 truncate">{f.desc}</p>
                 </button>
               ))}
@@ -293,18 +293,18 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                       type="button"
                       disabled={isExporting}
                       onClick={() => applyTikTokPreset(preset)}
-                      className={`p-2 rounded-md border text-left transition-all ${
+                      className={`p-2 rounded-md border text-left transition-all min-w-0 overflow-hidden ${
                         isActive
                           ? 'bg-pink-600/25 border-pink-500 text-white shadow-md shadow-pink-950/50'
                           : 'bg-[#12141a]/90 border-[#2b2738] text-gray-300 hover:border-pink-500/50 hover:bg-[#181622]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1">
                         <span className="font-bold text-[11px] text-pink-200 truncate">{preset.name}</span>
                         {isActive && <Check className="w-3 h-3 text-pink-400 shrink-0" />}
                       </div>
-                      <p className="text-[9px] text-pink-300/80 font-medium mt-0.5">{preset.tag}</p>
-                      <p className="text-[9px] text-gray-400 font-mono mt-1 leading-tight">{preset.desc}</p>
+                      <p className="text-[9px] text-pink-300/80 font-medium mt-0.5 truncate">{preset.tag}</p>
+                      <p className="text-[9px] text-gray-400 font-mono mt-1 leading-tight truncate">{preset.desc}</p>
                     </button>
                   );
                 })}
@@ -476,17 +476,17 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                   {
                     id: 'standard',
                     label: 'Standart (Hızlı)',
-                    desc: 'CRF 23 &middot; 192k AAC &middot; Küçük dosya boyutu',
+                    desc: 'CRF 23 · 192k AAC · Küçük dosya boyutu',
                   },
                   {
                     id: 'high',
                     label: 'Yüksek (Önerilen)',
-                    desc: 'CRF 20 &middot; 256k AAC &middot; Net ve dengeli',
+                    desc: 'CRF 20 · 256k AAC · Net ve dengeli',
                   },
                   {
                     id: 'ultra',
                     label: 'Ultra (Stüdyo)',
-                    desc: 'CRF 18 &middot; 320k AAC &middot; Maksimum detay',
+                    desc: 'CRF 18 · 320k AAC · Maksimum detay',
                   },
                 ].map((q) => (
                   <button
@@ -570,9 +570,9 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
             <span className="text-white font-medium">
               {resolution.width}×{resolution.height}
             </span>
-            <span className="text-gray-500"> &middot; </span>
+            <span className="text-gray-500"> · </span>
             <span className="text-white font-medium">{fps} FPS</span>
-            <span className="text-gray-500"> &middot; </span>
+            <span className="text-gray-500"> · </span>
             <span className="text-indigo-400 uppercase font-bold">{format}</span>
           </div>
 

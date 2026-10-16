@@ -113,21 +113,26 @@ export const TransitionsTab: React.FC<TransitionsTabProps> = ({
       if (category === 'recent') return recent.includes(tr.id);
       if (category === 'cinematic') {
         return (
-          tr.id === 'light-leak' ||
-          tr.id === 'film-burn' ||
-          tr.id === 'lens-flare' ||
-          tr.id === 'blur-dissolve' ||
-          tr.id === 'flash'
+          tr.category === 'cinematic-digital' &&
+          (tr.id === 'light-leak' ||
+            tr.id === 'film-burn' ||
+            tr.id === 'lens-flare' ||
+            tr.id === 'blur-dissolve' ||
+            tr.id === 'flash')
         );
       }
       if (category === 'digital') {
         return (
-          tr.id === 'glitch' ||
-          tr.id === 'rgb-split' ||
-          tr.id === 'pixel-dissolve' ||
-          tr.id === 'vhs-distortion' ||
-          tr.id === 'prism-dissolve'
+          tr.category === 'cinematic-digital' &&
+          (tr.id === 'glitch' ||
+            tr.id === 'rgb-split' ||
+            tr.id === 'pixel-dissolve' ||
+            tr.id === 'vhs-distortion' ||
+            tr.id === 'prism-dissolve')
         );
+      }
+      if (category === 'cinematic-digital') {
+        return tr.category === 'cinematic-digital';
       }
       return tr.category === category;
     });

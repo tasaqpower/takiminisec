@@ -27,9 +27,15 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
   const [search, setSearch] = useState<string>('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
-  const filteredEffects = VISUAL_EFFECT_DEFINITIONS.filter(
-    (eff) => category === 'all' || eff.category === category
-  ).filter(
+  const filteredEffects = VISUAL_EFFECT_DEFINITIONS.filter((eff) => {
+    if (category === 'all') return true;
+    if (category === 'light') return eff.category === 'light';
+    if (category === 'blur') return eff.category === 'blur';
+    if (category === 'retro') return eff.category === 'retro';
+    if (category === 'stylize' || category === 'glitch') return eff.category === 'stylize';
+    if (category === 'color') return eff.category === 'color';
+    return eff.category === category;
+  }).filter(
     (eff) =>
       !search.trim() ||
       eff.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -41,6 +47,7 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
     (preset) =>
       !search.trim() ||
       preset.name.toLowerCase().includes(search.toLowerCase()) ||
+      preset.description.toLowerCase().includes(search.toLowerCase()) ||
       preset.id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -61,7 +68,7 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
           }`}
         >
           <Wand2 className="w-3.5 h-3.5" />
-          <span>Görsel Efektler</span>
+          <span>Görsel Efektler ({VISUAL_EFFECT_DEFINITIONS.length})</span>
         </button>
         <button
           type="button"
@@ -73,7 +80,7 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
           }`}
         >
           <Palette className="w-3.5 h-3.5" />
-          <span>Renk Filtreleri</span>
+          <span>Renk Filtreleri ({COLOR_PRESETS.length})</span>
         </button>
       </div>
 
@@ -101,11 +108,11 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
           {[
             { id: 'all', label: 'Tümü' },
-            { id: 'light', label: 'Işık & Parıltı' },
-            { id: 'glitch', label: 'Glitch & Siber' },
-            { id: 'blur', label: 'Bulanıklık' },
-            { id: 'motion', label: 'Hareket' },
-            { id: 'retro', label: 'Retro & VHS' },
+            { id: 'light', label: '✨ Işık & Parıltı' },
+            { id: 'stylize', label: '⚡ Glitch & Stilize' },
+            { id: 'retro', label: '📼 Retro & VHS' },
+            { id: 'blur', label: '🌫️ Bulanıklık' },
+            { id: 'color', label: '🎨 Renk & Atmosfer' },
           ].map((cat) => (
             <button
               key={cat.id}

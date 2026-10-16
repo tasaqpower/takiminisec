@@ -196,20 +196,37 @@ export function seekVideoFrame(video: HTMLVideoElement, targetTime: number): Pro
     }
 
     let settled = false;
+    let timer: any = null;
+
     const finish = () => {
       if (!settled) {
         settled = true;
-        clearTimeout(timer);
-        video.removeEventListener('seeked', finish);
+        if (timer) clearTimeout(timer);
+        video.removeEventListener('seeked', onSeeked);
         video.removeEventListener('error', finish);
         resolve();
       }
     };
 
-    // Safety timeout in case browser hangs or media source reaches end
-    const timer = setTimeout(finish, 50);
+    const onSeeked = () => {
+      // In modern browsers, requestVideoFrameCallback ensures the new seeked frame is actually decoded & presented
+      if ('requestVideoFrameCallback' in video && typeof (video as any).requestVideoFrameCallback === 'function') {
+        try {
+          (video as any).requestVideoFrameCallback(() => {
+            finish();
+          });
+          return;
+        } catch {
+          // fallback to instant finish
+        }
+      }
+      finish();
+    };
 
-    video.addEventListener('seeked', finish, { once: true });
+    // Safety timeout (350ms) to accommodate high-res (1080p/2K/4K) decoding without premature dropping
+    timer = setTimeout(finish, 350);
+
+    video.addEventListener('seeked', onSeeked, { once: true });
     video.addEventListener('error', finish, { once: true });
 
     try {

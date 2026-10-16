@@ -309,6 +309,176 @@ export const COLOR_PRESETS: FilterPreset[] = [
       vignette: 0.1,
     },
   },
+  {
+    id: 'kodak-portra-400',
+    name: 'Kodak Portra 400',
+    category: 'Film',
+    description: 'Portreler için efsanevi sıcak ten tonları ve pastel kontrast',
+    thumbnailColor: '#fb923c',
+    effects: {
+      contrast: 1.12,
+      saturation: 1.05,
+      temperature: 18,
+      tint: 6,
+      exposure: 0.04,
+      vignette: 0.18,
+    },
+  },
+  {
+    id: 'fuji-velvia-50',
+    name: 'Fuji Velvia 50 Canlı Doğa',
+    category: 'Film',
+    description: 'Ultra zengin yeşiller ve maviler, yüksek renk doygunluğu',
+    thumbnailColor: '#10b981',
+    effects: {
+      contrast: 1.28,
+      saturation: 1.45,
+      temperature: -8,
+      tint: -12,
+      vignette: 0.2,
+    },
+  },
+  {
+    id: 'cinestill-800t',
+    name: 'CineStill 800T Gece Şehri',
+    category: 'Film',
+    description: 'Tungsten film tonlaması, neon ışıklarda kırmızı halation hissi',
+    thumbnailColor: '#ef4444',
+    effects: {
+      contrast: 1.35,
+      saturation: 1.18,
+      temperature: -24,
+      tint: 18,
+      vignette: 0.32,
+    },
+  },
+  {
+    id: 'vintage-polaroid',
+    name: 'Polaroid 600 Anlık',
+    category: 'Retro',
+    description: 'Krem rengi parlamalar, hafif solgun renkler ve nostaljik çerçeve havası',
+    thumbnailColor: '#fde047',
+    effects: {
+      sepia: 0.2,
+      contrast: 1.08,
+      saturation: 0.82,
+      temperature: 15,
+      exposure: 0.08,
+      vignette: 0.35,
+    },
+  },
+  {
+    id: 'sunset-gold',
+    name: 'Batan Güneş Kehribar',
+    category: 'Atmosfer',
+    description: 'Yoğun turuncu ve altın ışıma, sıcak romantik sahneler',
+    thumbnailColor: '#ea580c',
+    effects: {
+      temperature: 42,
+      tint: 14,
+      saturation: 1.3,
+      contrast: 1.15,
+      vignette: 0.22,
+    },
+  },
+  {
+    id: 'clean-commercial',
+    name: 'Temiz Reklam & Ürün',
+    category: 'Modern',
+    description: 'Pürüzsüz beyazlar, net renkler ve stüdyo ışık dengesi',
+    thumbnailColor: '#f8fafc',
+    effects: {
+      contrast: 1.1,
+      brightness: 0.05,
+      saturation: 1.08,
+      temperature: -5,
+      tint: 0,
+    },
+  },
+  {
+    id: 'pastel-korean',
+    name: 'K-Drama Pastel Rüya',
+    category: 'Atmosfer',
+    description: 'Yumuşak pembe-krem tonları, ipeksi ten ve peri masalı hissi',
+    thumbnailColor: '#f472b6',
+    effects: {
+      contrast: 0.95,
+      brightness: 0.08,
+      saturation: 0.9,
+      temperature: 10,
+      tint: -15,
+    },
+  },
+  {
+    id: 'bleach-bypass',
+    name: 'Gümüş Ağartma (Bleach Bypass)',
+    category: 'Sinema',
+    description: 'Er Ryanı Kurtarmak tarzı yüksek kontrast, desatüre çelik grisi',
+    thumbnailColor: '#64748b',
+    effects: {
+      contrast: 1.55,
+      saturation: 0.5,
+      brightness: 0.02,
+      temperature: -12,
+      vignette: 0.4,
+    },
+  },
+  {
+    id: 'matrix-green',
+    name: 'Matrix Kod Yeşili',
+    category: 'Modern',
+    description: 'Siber yeşil gölgeler ve dijital bilim kurgu tonlaması',
+    thumbnailColor: '#22c55e',
+    effects: {
+      contrast: 1.3,
+      saturation: 1.1,
+      temperature: 0,
+      tint: -45,
+      vignette: 0.3,
+    },
+  },
+  {
+    id: 'monochrome-silver',
+    name: 'Gümüş Jelatin Arşiv Baskı',
+    category: 'Klasik',
+    description: 'Sanat galerisi seviyesinde ipeksi siyah-beyaz ton dereceleri',
+    thumbnailColor: '#94a3b8',
+    effects: {
+      grayscale: 1,
+      contrast: 1.22,
+      brightness: 0.04,
+      vignette: 0.2,
+    },
+  },
+  {
+    id: 'warm-terracotta',
+    name: 'Akdeniz Pişmiş Toprak',
+    category: 'Atmosfer',
+    description: 'İtalya ve Ege esintili sıcak kiremit ve zeytin tonları',
+    thumbnailColor: '#c2410c',
+    effects: {
+      temperature: 28,
+      tint: 12,
+      saturation: 1.15,
+      contrast: 1.18,
+      vignette: 0.15,
+    },
+  },
+  {
+    id: 'retro-70s-film',
+    name: "70'ler Hardal & Zeytin",
+    category: 'Retro',
+    description: 'Vintage 1970ler analog dergi renk paleti ve nostaljik gölgeler',
+    thumbnailColor: '#ca8a04',
+    effects: {
+      sepia: 0.25,
+      temperature: 32,
+      tint: -18,
+      contrast: 1.15,
+      saturation: 1.05,
+      vignette: 0.3,
+    },
+  },
 ];
 
 export function getEffectsForColorFilter(colorFilterId?: string | null): Partial<ClipEffects> | null {
@@ -600,6 +770,294 @@ export const VISUAL_EFFECT_DEFINITIONS: VisualEffectDef[] = [
     defaultDuration: 3.0,
     defaultIntensity: 0.6,
   },
+
+  // Yeni Işık, Mercek & Parlama
+  {
+    id: 'light-leak',
+    name: 'Işık Sızıntısı (Light Leak)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Sıcak kehribar ve güneş renginde organik mercek ışık sızıntısı',
+    icon: '☀️',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'film-burn',
+    name: 'Film Yanığı (Film Burn)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: '16mm sinema makarası başlangıç ve bitiş alev yanığı parlaması',
+    icon: '🔥',
+    defaultDuration: 1.5,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'lens-flare',
+    name: 'Anamorfik Mercek İzi (Lens Flare)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Yatay mavi sinematik çizgi ve optik parlama patlaması',
+    icon: '✨',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'halation',
+    name: 'Kırmızı Halation (Cine Halation)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'CineStill 800T tarzı parlak ışık kenarlarında kırmızı organik halelenme',
+    icon: '🔴',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'strobe',
+    name: 'Stroboskop Flaş (Strobe Flash)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Müzik ritmine ve aksiyon anlarına uygun ritmik yüksek enerji flaşları',
+    icon: '⚡',
+    defaultDuration: 1.0,
+    defaultIntensity: 0.85,
+  },
+  {
+    id: 'bloom',
+    name: 'Sinema Difüzyon Bloom (Black Pro-Mist)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Işıkları yumuşatan ve havayı rüya gibi parlatan difüzyon filtresi',
+    icon: '💫',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'sparkle-glitter',
+    name: 'Yıldız Parıltıları (KiraKira Glitter)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Parlak noktalardan saçılan 4 uçlu elmas yıldız parıltıları',
+    icon: '⭐',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'sun-shafts',
+    name: 'Güneş Hüzmeleri (God Rays)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Çerçeve boyunca süzülen altın rengi ilahi ışık huzmeleri',
+    icon: '🌅',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.6,
+  },
+  {
+    id: 'prism-flare',
+    name: 'Gökkuşağı Prizması (Prism Flare)',
+    category: 'light',
+    categoryName: 'Işık & Parlama',
+    description: 'Cam prizmadan yansıyan spektral gökkuşağı renk kırılması',
+    icon: '🌈',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.6,
+  },
+
+  // Yeni Bulanıklık & Odak
+  {
+    id: 'radial-zoom-blur',
+    name: 'Radyal Zoom Hızı (Radial Zoom Blur)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Merkezden dışa doğru patlayan yüksek hızlı aksiyon hissi',
+    icon: '🎯',
+    defaultDuration: 1.5,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'tilt-shift',
+    name: 'Tilt-Shift Minyatür Odak',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Üst ve altı bulanıklaştırarak dünyayı oyuncak minyatür gibi gösterir',
+    icon: '🏙️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.65,
+  },
+  {
+    id: 'soft-focus',
+    name: 'Yumuşak Portre Odağı (Soft Focus)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Klasik moda ve güzellik çekimlerinde cildi pürüzsüzleştiren yumuşatma',
+    icon: '🪞',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.45,
+  },
+  {
+    id: 'motion-blur-fast',
+    name: 'Hızlı Hareket İzi (Fast Motion Blur)',
+    category: 'blur',
+    categoryName: 'Bulanıklık',
+    description: 'Spor ve hızlı sekanslar için yatay dinamik hareket izi',
+    icon: '🏃',
+    defaultDuration: 1.8,
+    defaultIntensity: 0.6,
+  },
+
+  // Yeni Retro, Analog & VHS
+  {
+    id: 'bad-tv',
+    name: 'Bozuk Anten & TV Sinyal Kayması',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Analog sinyal kaybı, yatay yırtılmalar ve senkron bozulması',
+    icon: '📺',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.75,
+  },
+  {
+    id: 'vhs-rewind',
+    name: 'VHS Geri Sarma Ekranı (Rewind OSD)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Nostaljik mavi ekran, tarama şeritleri ve REW ⏪ ibaresi',
+    icon: '📼',
+    defaultDuration: 1.8,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'vintage-grain-heavy',
+    name: '1920ler Ağır Nitrat Greni',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Sessiz sinema dönemi organik titrek gren ve ışık dalgalanması',
+    icon: '📽️',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'film-gate-weave',
+    name: 'Makaralı Projektör Titremesi (Gate Weave)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Eski makaralı projektörün hafif dikey ve yatay mekanik salınımı',
+    icon: '🎞️',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.5,
+  },
+  {
+    id: 'retro-camcorder',
+    name: 'Vintage El Kamerası (Camcorder OSD)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Kırmızı REC noktası, batarya göstergesi ve zaman sayacı arayüzü',
+    icon: '📹',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'tv-static-snow',
+    name: 'Anten Karıncalanması (Static Snow)',
+    category: 'retro',
+    categoryName: 'Retro & Analog',
+    description: 'Karasal yayın kapanışı klasik siyah-beyaz TV kar yağması',
+    icon: '❄️',
+    defaultDuration: 1.5,
+    defaultIntensity: 0.6,
+  },
+
+  // Yeni Stilize, Mercek & Glitch
+  {
+    id: 'crt-curvature',
+    name: 'Bombeli Tüplü Ekran (CRT Screen)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Kavisli retro arcade monitör camı ve fosfor parlaması',
+    icon: '🖥️',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.65,
+  },
+  {
+    id: 'fisheye',
+    name: 'Balıkgözü Aksiyon Merceği (Fisheye)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Kaykay ve aksiyon videoları için küresel balıkgözü mercek bükülmesi',
+    icon: '🐟',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'matrix-rain',
+    name: 'Matrix Dijital Kod Akışı',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Aşağıya doğru akan yeşil siber kod karakterleri ve dijital yağmur',
+    icon: '🟢',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.7,
+  },
+  {
+    id: 'thermal-vision',
+    name: 'FLIR Termal Gece Görüşü',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Isı haritası renklendirmesi (mavi gölgeler, sarı-kırmızı sıcak midtone)',
+    icon: '🌡️',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'night-vision',
+    name: 'Askeri Yeşil Gece Görüşü',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Fosforlu monokrom yeşil tonlama ve dairesel optik vizör karartması',
+    icon: '🪖',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'edge-neon',
+    name: 'Cyberpunk Neon Hatlar (Edge Neon)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Nesne sınırlarını elektrik mavisi ve macenta neon çizgilerle parlatır',
+    icon: '🟣',
+    defaultDuration: 2.0,
+    defaultIntensity: 0.75,
+  },
+  {
+    id: 'mirror-horizontal',
+    name: 'Yatay Simetri Aynası (Mirror Split)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Merkezden ikiye katlanan kusursuz simetrik ayna yansıması',
+    icon: '🪞',
+    defaultDuration: 2.5,
+    defaultIntensity: 0.8,
+  },
+  {
+    id: 'underwater',
+    name: 'Su Altı Dalgalanması (Underwater Caustics)',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Turkuaz su yansıması, organik dalgalanma ve dip ışık kırılmaları',
+    icon: '🌊',
+    defaultDuration: 3.0,
+    defaultIntensity: 0.65,
+  },
+  {
+    id: 'anamorphic-bars',
+    name: 'Sinemaskop 2.39:1 Siyah Barlar',
+    category: 'stylize',
+    categoryName: 'Stilize & Glitch',
+    description: 'Hollywood geniş ekran sinema formatı üst ve alt maske şeritleri',
+    icon: '🔲',
+    defaultDuration: 3.0,
+    defaultIntensity: 1.0,
+  },
 ];
 
 /**
@@ -858,6 +1316,309 @@ export function applyVisualEffectSegment(
       ctx.globalCompositeOperation = 'color';
       ctx.fillStyle = `rgba(180, 180, 180, ${normIntensity * 0.45})`;
       ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'light-leak': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const leakGrad = ctx.createRadialGradient(
+        0, 0, 10,
+        width * 0.4, height * 0.4, Math.max(width, height) * 0.8
+      );
+      leakGrad.addColorStop(0, `rgba(255, 140, 20, ${normIntensity * 0.7})`);
+      leakGrad.addColorStop(0.5, `rgba(255, 200, 80, ${normIntensity * 0.4})`);
+      leakGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = leakGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'film-burn': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const burnPhase = (timeInEffect * 2.5) % 1.0;
+      const burnGrad = ctx.createRadialGradient(
+        width * 0.8, height * 0.2, 20,
+        width * 0.5, height * 0.5, width * 0.9
+      );
+      burnGrad.addColorStop(0, `rgba(255, 220, 120, ${normIntensity * (0.6 + burnPhase * 0.4)})`);
+      burnGrad.addColorStop(0.3, `rgba(255, 70, 10, ${normIntensity * 0.5})`);
+      burnGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = burnGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'lens-flare': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const streakGrad = ctx.createLinearGradient(0, height / 2 - 15, 0, height / 2 + 15);
+      streakGrad.addColorStop(0, 'rgba(0, 180, 255, 0)');
+      streakGrad.addColorStop(0.5, `rgba(0, 220, 255, ${normIntensity * 0.85})`);
+      streakGrad.addColorStop(1, 'rgba(0, 180, 255, 0)');
+      ctx.fillStyle = streakGrad;
+      ctx.fillRect(0, height / 2 - 12, width, 24);
+
+      const coreGrad = ctx.createRadialGradient(width / 2, height / 2, 5, width / 2, height / 2, 120);
+      coreGrad.addColorStop(0, `rgba(255, 255, 255, ${normIntensity * 0.9})`);
+      coreGrad.addColorStop(0.4, `rgba(50, 180, 255, ${normIntensity * 0.5})`);
+      coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = coreGrad;
+      ctx.fillRect(width / 2 - 120, height / 2 - 120, 240, 240);
+      ctx.restore();
+      break;
+    }
+
+    case 'halation': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(255, 40, 10, ${normIntensity * 0.25})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'strobe': {
+      const isFlash = Math.sin(timeInEffect * 25) > 0.3;
+      if (isFlash) {
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.75})`;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'bloom': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(255, 245, 230, ${normIntensity * 0.35})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'sparkle-glitter': {
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.9})`;
+      const seed = Math.floor(timeInEffect * 8);
+      for (let i = 0; i < 6; i++) {
+        const sx = ((seed * 157 + i * 283) % (width - 60)) + 30;
+        const sy = ((seed * 193 + i * 311) % (height - 60)) + 30;
+        const sz = 6 + (Math.sin(timeInEffect * 10 + i) * 3);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - sz);
+        ctx.lineTo(sx + sz * 0.3, sy - sz * 0.3);
+        ctx.lineTo(sx + sz, sy);
+        ctx.lineTo(sx + sz * 0.3, sy + sz * 0.3);
+        ctx.lineTo(sx, sy + sz);
+        ctx.lineTo(sx - sz * 0.3, sy + sz * 0.3);
+        ctx.lineTo(sx - sz, sy);
+        ctx.lineTo(sx - sz * 0.3, sy - sz * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+
+    case 'sun-shafts': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const rayGrad = ctx.createLinearGradient(0, 0, width, height * 0.8);
+      rayGrad.addColorStop(0, `rgba(255, 230, 160, ${normIntensity * 0.45})`);
+      rayGrad.addColorStop(0.5, `rgba(255, 200, 100, ${normIntensity * 0.2})`);
+      rayGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = rayGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'prism-flare': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const pGrad = ctx.createLinearGradient(0, height * 0.3, width, height * 0.7);
+      pGrad.addColorStop(0, `rgba(255, 0, 0, ${normIntensity * 0.3})`);
+      pGrad.addColorStop(0.25, `rgba(255, 255, 0, ${normIntensity * 0.3})`);
+      pGrad.addColorStop(0.5, `rgba(0, 255, 0, ${normIntensity * 0.3})`);
+      pGrad.addColorStop(0.75, `rgba(0, 255, 255, ${normIntensity * 0.3})`);
+      pGrad.addColorStop(1, `rgba(255, 0, 255, ${normIntensity * 0.3})`);
+      ctx.fillStyle = pGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'tilt-shift': {
+      ctx.save();
+      const bandHeight = height * 0.35;
+      const topGrad = ctx.createLinearGradient(0, 0, 0, height / 2 - bandHeight / 2);
+      topGrad.addColorStop(0, `rgba(0, 0, 0, ${normIntensity * 0.2})`);
+      topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, width, height / 2 - bandHeight / 2);
+
+      const botGrad = ctx.createLinearGradient(0, height, 0, height / 2 + bandHeight / 2);
+      botGrad.addColorStop(0, `rgba(0, 0, 0, ${normIntensity * 0.2})`);
+      botGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = botGrad;
+      ctx.fillRect(0, height / 2 + bandHeight / 2, width, height / 2);
+      ctx.restore();
+      break;
+    }
+
+    case 'bad-tv': {
+      ctx.save();
+      const seed = Math.floor(timeInEffect * 20);
+      ctx.fillStyle = `rgba(0, 0, 0, ${normIntensity * 0.35})`;
+      for (let y = 0; y < height; y += 3) {
+        ctx.fillRect(0, y, width, 1.2);
+      }
+      ctx.fillStyle = `rgba(255, 255, 255, ${normIntensity * 0.25})`;
+      const jitterY = (seed * 67) % height;
+      ctx.fillRect(0, jitterY, width, 8);
+      ctx.restore();
+      break;
+    }
+
+    case 'vhs-rewind': {
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 20, 180, ${normIntensity * 0.55})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.font = 'bold 36px monospace';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('REW ⏪', 40, 60);
+      ctx.fillText('PLAY 00:00:15', 40, height - 40);
+      ctx.restore();
+      break;
+    }
+
+    case 'vintage-grain-heavy': {
+      const noise = getNoiseCanvas(width, height);
+      if (noise) {
+        ctx.save();
+        ctx.globalAlpha = normIntensity * 0.35;
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.drawImage(noise, 0, 0, width, height);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'retro-camcorder': {
+      ctx.save();
+      ctx.font = 'bold 18px monospace';
+      const isBlink = Math.sin(timeInEffect * 4) > 0;
+      if (isBlink) {
+        ctx.fillStyle = '#EF4444';
+        ctx.beginPath();
+        ctx.arc(40, 40, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('REC', 56, 46);
+      }
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('SP 0:02:18', 40, height - 36);
+      ctx.fillText('[BATTERY ■■■□]', width - 180, 46);
+      ctx.restore();
+      break;
+    }
+
+    case 'tv-static-snow': {
+      const noise = getNoiseCanvas(width, height);
+      if (noise) {
+        ctx.save();
+        ctx.globalAlpha = normIntensity * 0.45;
+        ctx.drawImage(noise, 0, 0, width, height);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'crt-curvature': {
+      ctx.save();
+      const r = Math.max(width, height) * 0.7;
+      const crtGrad = ctx.createRadialGradient(width / 2, height / 2, r * 0.6, width / 2, height / 2, r);
+      crtGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      crtGrad.addColorStop(1, `rgba(0, 0, 0, ${normIntensity * 0.95})`);
+      ctx.fillStyle = crtGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'matrix-rain': {
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 255, 70, ${normIntensity * 0.85})`;
+      ctx.font = 'bold 14px monospace';
+      const cols = 20;
+      const colW = width / cols;
+      for (let c = 0; c < cols; c++) {
+        const charY = ((timeInEffect * 250 + c * 83) % (height + 100)) - 50;
+        ctx.fillText(String.fromCharCode(0x30a0 + ((c * 17) % 96)), c * colW, charY);
+      }
+      ctx.restore();
+      break;
+    }
+
+    case 'thermal-vision': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      const tGrad = ctx.createLinearGradient(0, 0, 0, height);
+      tGrad.addColorStop(0, `rgba(0, 0, 255, ${normIntensity * 0.7})`);
+      tGrad.addColorStop(0.5, `rgba(255, 0, 0, ${normIntensity * 0.7})`);
+      tGrad.addColorStop(1, `rgba(255, 255, 0, ${normIntensity * 0.7})`);
+      ctx.fillStyle = tGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'night-vision': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(34, 197, 94, ${normIntensity * 0.85})`;
+      ctx.fillRect(0, 0, width, height);
+      const r = Math.max(width, height) * 0.65;
+      const nvGrad = ctx.createRadialGradient(width / 2, height / 2, r * 0.5, width / 2, height / 2, r);
+      nvGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      nvGrad.addColorStop(1, `rgba(0, 20, 0, ${normIntensity * 0.9})`);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = nvGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'edge-neon': {
+      ctx.save();
+      ctx.lineWidth = Math.round(normIntensity * 6);
+      ctx.strokeStyle = '#00F0FF';
+      ctx.strokeRect(4, 4, width - 8, height - 8);
+      ctx.restore();
+      break;
+    }
+
+    case 'underwater': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = `rgba(6, 182, 212, ${normIntensity * 0.3})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      break;
+    }
+
+    case 'anamorphic-bars': {
+      ctx.save();
+      const barH = Math.round(height * 0.12 * normIntensity);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, barH);
+      ctx.fillRect(0, height - barH, width, barH);
       ctx.restore();
       break;
     }
