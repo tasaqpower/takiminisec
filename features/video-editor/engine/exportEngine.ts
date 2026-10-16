@@ -137,11 +137,22 @@ class ExportEngine {
 
     for (const track of project.tracks) {
       for (const clip of track.clips) {
-        if (clip.type === 'video' || clip.type === 'image') {
+        const isSvg = Boolean(
+          clip.svgContent ||
+          clip.elementPresetId ||
+          clip.assetId?.startsWith('element-') ||
+          clip.type === 'image' ||
+          (clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('Takip') || clip.name.includes('YouTube') || clip.name.includes('Instagram')))
+        );
+        const shouldLoad = clip.type === 'video' || clip.type === 'image' || isSvg;
+
+        if (shouldLoad) {
           const url = await resolveClipMediaUrl(clip);
 
           if (url) {
-            if (clip.type === 'video') {
+            const isImage = isSvg || clip.type === 'image' || url.startsWith('data:image/');
+
+            if (!isImage && clip.type === 'video') {
               const video = document.createElement('video');
               video.crossOrigin = 'anonymous';
               video.muted = true;

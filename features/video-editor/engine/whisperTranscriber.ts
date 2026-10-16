@@ -289,10 +289,10 @@ export class InBrowserWhisperEngine {
     // Fallback: If output produced fullText but no chunks, break text into words across audio duration
     if (words.length === 0 && fullText) {
       const tokens = fullText.split(/\s+/).filter(Boolean);
-      const totalChars = tokens.reduce((acc, t) => acc + t.length, 0);
+      const totalChars = tokens.reduce((acc: number, t: string) => acc + t.length, 0);
       let cursor = 0;
       const audioDur = cleanPcm.length / 16000;
-      tokens.forEach((token) => {
+      tokens.forEach((token: string) => {
         const fraction = Math.max(1, token.length) / Math.max(1, totalChars);
         const dur = Math.max(0.08, audioDur * fraction);
         const end = Math.min(audioDur, cursor + dur);

@@ -196,8 +196,8 @@ export class SpeechRecognitionEngine {
       }
     }
 
-    // 6. Filter by minSpeechDurationSec and convert to clip-relative timeline seconds
-    const minFrames = Math.ceil(minSpeechDurationSec / frameSec);
+    // 6. Filter by minSpeechSec and convert to clip-relative timeline seconds
+    const minFrames = Math.ceil(minSpeechSec / frameSec);
     const segments: SpeechSegment[] = [];
 
     mergedIntervals

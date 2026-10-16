@@ -1145,9 +1145,12 @@ export async function loadAndCacheCubeLut(idOrPath: string): Promise<CubeLut3D |
 // =========================================================================
 
 export interface ColorStats {
-  avgR: number;
-  avgG: number;
-  avgB: number;
+  avgR?: number;
+  avgG?: number;
+  avgB?: number;
+  r?: number;
+  g?: number;
+  b?: number;
   luminance: number; // 0-255
   contrast: number;  // standard deviation
   saturation: number;// 0-1
@@ -1239,14 +1242,21 @@ export function calculateColorMatchAdjustments(
   const newContrast = Math.max(0.7, Math.min(1.8, currentContrast * (0.6 + 0.4 * contrastRatio)));
 
   // Temperature (R vs B warmth balance)
-  const currentWarmth = currentStats.avgR - currentStats.avgB;
-  const targetWarmth = targetStats.avgR - targetStats.avgB;
+  const curR = currentStats.avgR ?? currentStats.r ?? 128;
+  const curG = currentStats.avgG ?? currentStats.g ?? 128;
+  const curB = currentStats.avgB ?? currentStats.b ?? 128;
+  const tgtR = targetStats.avgR ?? targetStats.r ?? 128;
+  const tgtG = targetStats.avgG ?? targetStats.g ?? 128;
+  const tgtB = targetStats.avgB ?? targetStats.b ?? 128;
+
+  const currentWarmth = curR - curB;
+  const targetWarmth = tgtR - tgtB;
   const tempDelta = (targetWarmth - currentWarmth) * 0.45;
   const newTemp = Math.max(-45, Math.min(45, (currentEffects.temperature || 0) + tempDelta));
 
   // Tint (Green balance)
-  const currentTint = currentStats.avgG - (currentStats.avgR + currentStats.avgB) / 2;
-  const targetTint = targetStats.avgG - (targetStats.avgR + targetStats.avgB) / 2;
+  const currentTint = curG - (curR + curB) / 2;
+  const targetTint = tgtG - (tgtR + tgtB) / 2;
   const tintDelta = (targetTint - currentTint) * 0.25;
   const newTint = Math.max(-25, Math.min(25, (currentEffects.tint || 0) + tintDelta));
 

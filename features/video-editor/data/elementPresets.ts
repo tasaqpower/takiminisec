@@ -170,6 +170,101 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
   // 2. TIKTOK & REELS VİRAL TRENDLERİ
   // =========================================================================
   {
+    id: 'tiktok-like',
+    name: 'TikTok Beğen',
+    category: 'tiktok',
+    defaultScale: 0.35,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+      <defs>
+        <filter id="tt-like-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="-2" dy="-2" stdDeviation="3" flood-color="#25f4ee" flood-opacity="0.8"/>
+          <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#fe2c55" flood-opacity="0.9"/>
+        </filter>
+        <linearGradient id="tt-heart-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ff3b69"/>
+          <stop offset="100%" stop-color="#fe2c55"/>
+        </linearGradient>
+      </defs>
+      <rect x="3" y="3" width="274" height="84" rx="42" fill="#090a0f" stroke="#fe2c55" stroke-width="2.5"/>
+      <rect x="5" y="5" width="270" height="80" rx="40" fill="none" stroke="#25f4ee" stroke-width="1.5" stroke-opacity="0.6"/>
+      <g transform="translate(52, 45)" filter="url(#tt-like-glow)">
+        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#25f4ee" opacity="0.7" transform="translate(-2, -1) scale(0.9)"/>
+        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="url(#tt-heart-grad)" transform="scale(0.9)"/>
+      </g>
+      <text x="105" y="44" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="1">BEĞEN</text>
+      <text x="105" y="66" fill="#fe2c55" font-family="Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="0.5">❤️ 1.4M</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-double-tap-heart',
+    name: 'TikTok Çift Tıkla Kalp',
+    category: 'tiktok',
+    defaultScale: 0.38,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+      <defs>
+        <filter id="tt-pop-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="-3" dy="-2" stdDeviation="6" flood-color="#25f4ee" flood-opacity="0.8"/>
+          <feDropShadow dx="3" dy="3" stdDeviation="6" flood-color="#fe2c55" flood-opacity="0.9"/>
+        </filter>
+      </defs>
+      <circle cx="100" cy="100" r="85" fill="none" stroke="#fe2c55" stroke-width="2" stroke-dasharray="6 12" opacity="0.6"/>
+      <circle cx="45" cy="55" r="5" fill="#25f4ee"/>
+      <circle cx="160" cy="65" r="4" fill="#fe2c55"/>
+      <circle cx="150" cy="145" r="6" fill="#25f4ee"/>
+      <circle cx="50" cy="140" r="4.5" fill="#ffffff"/>
+      <g transform="translate(100, 95)" filter="url(#tt-pop-glow)">
+        <path d="M0 45 C-5 -5 -60 -5 -60 -36 C-60 -60 -30 -70 0 -45 C30 -70 60 -60 60 -36 C60 -5 5 -5 0 45 Z" fill="#25f4ee" opacity="0.6" transform="translate(-4, -2)"/>
+        <path d="M0 45 C-5 -5 -60 -5 -60 -36 C-60 -60 -30 -70 0 -45 C30 -70 60 -60 60 -36 C60 -5 5 -5 0 45 Z" fill="#fe2c55"/>
+        <path d="M-8 -15 C-12 -28 -28 -32 -38 -24 C-46 -18 -42 -2 -34 10 Z" fill="#ffffff" opacity="0.3"/>
+      </g>
+      <text x="100" y="175" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="16" letter-spacing="1">ÇİFT TIKLA ❤️</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-like-counter',
+    name: 'TikTok Beğeni Sayacı',
+    category: 'tiktok',
+    defaultScale: 0.3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" width="140" height="160">
+      <defs>
+        <filter id="tt-icon-glow">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#fe2c55" flood-opacity="0.6"/>
+        </filter>
+      </defs>
+      <circle cx="70" cy="60" r="44" fill="#18181b" stroke="#ffffff" stroke-width="3" stroke-opacity="0.2"/>
+      <g transform="translate(70, 58) scale(0.9)" filter="url(#tt-icon-glow)">
+        <path d="M0 24 C-3 -3 -32 -3 -32 -18 C-32 -30 -16 -36 0 -24 C16 -36 32 -30 32 -18 C32 -3 3 -3 0 24 Z" fill="#fe2c55"/>
+      </g>
+      <text x="70" y="132" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="0.5">842.5K</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-comment',
+    name: 'TikTok Yorum Yap',
+    category: 'tiktok',
+    defaultScale: 0.32,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 90" width="260" height="90">
+      <rect width="260" height="90" rx="45" fill="#18181b" stroke="#ffffff" stroke-width="2.5" stroke-opacity="0.3"/>
+      <path d="M42 30 C30 30 22 38 22 48 C22 55 26 61 32 64 L30 74 L42 67 C44 67 46 67 48 67 C60 67 68 59 68 48 C68 38 60 30 48 30 Z" fill="#ffffff"/>
+      <circle cx="37" cy="48" r="2.5" fill="#18181b"/>
+      <circle cx="45" cy="48" r="2.5" fill="#18181b"/>
+      <circle cx="53" cy="48" r="2.5" fill="#18181b"/>
+      <text x="85" y="56" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="24">YORUM YAP</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-repost',
+    name: 'TikTok Yeniden Paylaş',
+    category: 'tiktok',
+    defaultScale: 0.32,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+      <rect width="280" height="90" rx="45" fill="#18181b" stroke="#facc15" stroke-width="3"/>
+      <circle cx="48" cy="45" r="22" fill="#facc15"/>
+      <path d="M38 42 L48 32 L58 42 M48 34 L48 56 M58 48 L48 58 L38 48" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="88" y="56" fill="#facc15" font-family="Arial, sans-serif" font-weight="900" font-size="22">YENİDEN PAYLAŞ</text>
+    </svg>`,
+  },
+  {
     id: 'tiktok-follow-plus',
     name: 'TikTok Takip Et (+)',
     category: 'tiktok',
@@ -712,21 +807,98 @@ export const ELEMENT_PRESETS_MAP = new Map<string, ElementPreset>(
 );
 
 /**
- * Fast lookup helper to resolve SVG content by assetId, clipId or preset id
+ * Fast lookup helper to resolve SVG content by assetId, clipId, preset id, or clip name
  */
-export function getElementSvg(idOrAssetId: string | undefined): string | undefined {
-  if (!idOrAssetId) return undefined;
-  if (ELEMENT_PRESETS_MAP.has(idOrAssetId)) {
-    return ELEMENT_PRESETS_MAP.get(idOrAssetId)!.svg;
-  }
-  // Try element-xxx-timestamp pattern
-  if (idOrAssetId.startsWith('element-')) {
-    const raw = idOrAssetId.replace('element-', '');
-    const presetId = raw.replace(/-\d+$/, '');
-    if (ELEMENT_PRESETS_MAP.has(presetId)) {
-      return ELEMENT_PRESETS_MAP.get(presetId)!.svg;
+export function getElementSvg(idOrAssetId: string | undefined, clipName?: string): string | undefined {
+  if (idOrAssetId) {
+    if (ELEMENT_PRESETS_MAP.has(idOrAssetId)) {
+      return ELEMENT_PRESETS_MAP.get(idOrAssetId)!.svg;
+    }
+    // Try element-xxx-timestamp pattern
+    if (idOrAssetId.startsWith('element-')) {
+      const raw = idOrAssetId.replace('element-', '');
+      const presetId = raw.replace(/-\d+$/, '');
+      if (ELEMENT_PRESETS_MAP.has(presetId)) {
+        return ELEMENT_PRESETS_MAP.get(presetId)!.svg;
+      }
     }
   }
+
+  // Name or fuzzy matching fallback (e.g. for recovered projects or clips whose id lost its preset link)
+  const lookup = (clipName || idOrAssetId || '').toLowerCase().trim();
+  if (lookup) {
+    // 1. Exact match with preset id or name
+    for (const preset of ELEMENT_PRESETS) {
+      if (lookup === preset.id.toLowerCase() || lookup === preset.name.toLowerCase()) {
+        return preset.svg;
+      }
+    }
+
+    // 2. Specific social media keywords
+    if (lookup.includes('tiktok') || lookup.includes('tik tok')) {
+      if (lookup.includes('beğen') || lookup.includes('begen') || lookup.includes('like') || lookup.includes('kalp')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-like')?.svg;
+      }
+      if (lookup.includes('çift') || lookup.includes('cift') || lookup.includes('double')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-double-tap-heart')?.svg;
+      }
+      if (lookup.includes('takip') || lookup.includes('follow') || lookup.includes('+')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-follow-plus')?.svg;
+      }
+      if (lookup.includes('paylaş') || lookup.includes('paylas') || lookup.includes('share')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-share-arrow')?.svg;
+      }
+      if (lookup.includes('yorum') || lookup.includes('comment')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-comment')?.svg;
+      }
+      if (lookup.includes('yeniden') || lookup.includes('repost')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-repost')?.svg;
+      }
+      if (lookup.includes('kaydet') || lookup.includes('bookmark')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-bookmark')?.svg;
+      }
+      if (lookup.includes('fyp') || lookup.includes('keşfet') || lookup.includes('kesfet')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-fyp-badge')?.svg;
+      }
+      if (lookup.includes('plak') || lookup.includes('sound') || lookup.includes('disc')) {
+        return ELEMENT_PRESETS_MAP.get('tiktok-sound-disc')?.svg;
+      }
+      // General tiktok fallback
+      return ELEMENT_PRESETS_MAP.get('tiktok-like')?.svg;
+    }
+
+    if (lookup.includes('youtube') || lookup.includes('yt')) {
+      if (lookup.includes('abone') || lookup.includes('sub') || lookup.includes('çan') || lookup.includes('can') || lookup.includes('bell')) {
+        return ELEMENT_PRESETS_MAP.get('yt-sub-bell')?.svg;
+      }
+      if (lookup.includes('beğen') || lookup.includes('begen') || lookup.includes('like')) {
+        return ELEMENT_PRESETS_MAP.get('yt-like-counter')?.svg;
+      }
+      if (lookup.includes('shorts')) {
+        return ELEMENT_PRESETS_MAP.get('yt-shorts-logo')?.svg;
+      }
+    }
+
+    if (lookup.includes('instagram') || lookup.includes('ig')) {
+      if (lookup.includes('kalp') || lookup.includes('heart') || lookup.includes('beğen') || lookup.includes('begen') || lookup.includes('like')) {
+        return ELEMENT_PRESETS_MAP.get('ig-gradient-heart')?.svg;
+      }
+      if (lookup.includes('mavi') || lookup.includes('verified') || lookup.includes('tik')) {
+        return ELEMENT_PRESETS_MAP.get('ig-verified-blue')?.svg;
+      }
+      if (lookup.includes('reels')) {
+        return ELEMENT_PRESETS_MAP.get('ig-reels-badge')?.svg;
+      }
+    }
+
+    // 3. Fallback substring match
+    for (const preset of ELEMENT_PRESETS) {
+      if (lookup.includes(preset.name.toLowerCase()) || preset.name.toLowerCase().includes(lookup)) {
+        return preset.svg;
+      }
+    }
+  }
+
   return undefined;
 }
 

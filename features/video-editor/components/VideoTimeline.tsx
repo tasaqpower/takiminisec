@@ -185,7 +185,7 @@ interface TimelineProps {
   onToggleAutoDucking?: () => void;
   onTrimClipEndGlitch?: (clipId: string) => void;
   onTrimAllClipsEndGlitch?: () => void;
-  onApplyTransitionToAllCuts?: (transitionType: TransitionType, duration?: number) => number;
+  onApplyTransitionToAllCuts?: (transitionType: TransitionType, duration?: number) => number | void;
   onAddProceduralSfx?: (type: ProceduralSfxType) => void;
   hasClipboard?: boolean;
   className?: string;
@@ -2924,7 +2924,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             <button
               onClick={() => {
                 const nextVal = !contextMenu.clip.smoothCutIn;
-                onUpdateClip(contextMenu.clip.id, {
+                onUpdateClip?.(contextMenu.clip.id, {
                   smoothCutIn: nextVal,
                   smoothCutDurationMs: nextVal ? (contextMenu.clip.smoothCutDurationMs || 160) : undefined,
                 });

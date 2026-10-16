@@ -291,7 +291,7 @@ export interface TextLayerData {
   } | string;
   // CapCut / Hormozi Style Karaoke Word-by-Word Subtitles
   subtitleStyle?: 'classic' | 'hormozi' | 'neon-glow' | 'minimal-box' | 'typewriter';
-  subtitleWords?: { word: string; start: number; end: number }[];
+  subtitleWords?: { word: string; start: number; end: number; startSec?: number; endSec?: number }[];
   activeWordColor?: string;
   activeWordScale?: number;
   activeWordBoxColor?: string;
@@ -301,6 +301,8 @@ export interface SubtitleItem {
   id: string;
   start: number;
   end: number;
+  startTime?: number;
+  endTime?: number;
   text: string;
 }
 
@@ -325,11 +327,17 @@ export interface CropSettings {
 
 export interface DelogoPatchSettings {
   enabled: boolean;
-  x: number; // percentage 0-100 from left
-  y: number; // percentage 0-100 from top
-  width: number; // percentage 0-100
-  height: number; // percentage 0-100
-  mode: 'blur' | 'pixelate';
+  x?: number; // percentage 0-100 from left
+  y?: number; // percentage 0-100 from top
+  width?: number; // percentage 0-100
+  height?: number; // percentage 0-100
+  mode?: 'blur' | 'pixelate';
+  type?: 'blur' | 'pixelate';
+  xPercent?: number;
+  yPercent?: number;
+  widthPercent?: number;
+  heightPercent?: number;
+  blurRadius?: number;
 }
 
 export type SpeedRampPreset = 'none' | 'montage' | 'bullet-time' | 'jump-in';
@@ -354,6 +362,10 @@ export interface ClipEffects {
   mask?: MaskSettings;
   crop?: CropSettings;
   lutFilter?: string;    // Sinematik LUT / Renk Filtresi
+  deflicker?: boolean;
+  cameraMotion?: any;
+  delogo?: any;
+  [key: string]: any;
 }
 
 export interface Keyframe {

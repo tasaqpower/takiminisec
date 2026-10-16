@@ -5,7 +5,7 @@
  * exact clip bounding gizmo, full transition support, and typography rasterization.
  */
 
-import type { VideoProject, VideoClip, Keyframe, SpeedRampPreset } from '../types';
+import type { VideoProject, VideoClip, Keyframe, SpeedRampPreset, TimelineTransition, EffectSegment } from '../types';
 import {
   buildCanvasFilterString,
   applyCanvasPostEffects,
@@ -32,6 +32,7 @@ export interface RenderContext {
   showSafeZones?: boolean;
   isPlaying?: boolean;
   playbackRate?: number;
+  isExport?: boolean;
 }
 
 // Retain last known good frame per clip to completely eliminate black flashes during seeking
@@ -52,9 +53,12 @@ export async function resolveClipMediaUrl(clip: VideoClip): Promise<string | und
   if (clip.svgContent) {
     return createSvgDataUrl(clip.svgContent);
   }
-  if (clip.elementPresetId || clip.assetId?.startsWith('element-')) {
-    const svg = getElementSvg(clip.elementPresetId || clip.assetId);
-    if (svg) return createSvgDataUrl(svg);
+  const resolvedSvg = getElementSvg(clip.elementPresetId || clip.assetId, clip.name);
+  if (resolvedSvg) {
+    return createSvgDataUrl(resolvedSvg);
+  }
+  if (clip.sourceUrl?.startsWith('data:image/svg+xml')) {
+    return clip.sourceUrl;
   }
 
   // 2. If we already created an active blob URL in this browser session for this asset, reuse it
@@ -631,18 +635,123 @@ function renderProceduralClipInner(
     ctx.fillStyle = '#f97316';
     ctx.fillRect(-dw / 2, dh / 2 - 14, barW, 14);
   } else {
-    const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    const hue = (hash * 137) % 360;
-    ctx.fillStyle = `hsl(${hue}, 45%, 22%)`;
-    ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+    const isElement =
+      clip.type === 'image' ||
+      Boolean(clip.svgContent) ||
+      Boolean(clip.elementPresetId) ||
+      Boolean(clip.assetId?.startsWith('element-')) ||
+      Boolean(clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('Takip') || clip.name.includes('YouTube') || clip.name.includes('Instagram')));
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.max(14, Math.round(dh * 0.08))}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(clip.name || clip.id || 'Medya Klibi', 0, 0);
+    if (isElement) {
+      drawVectorElementFallback(ctx, clip, dw, dh);
+    } else {
+      const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+      const hue = (hash * 137) % 360;
+      ctx.fillStyle = `hsl(${hue}, 45%, 22%)`;
+      ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(14, Math.round(dh * 0.08))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(clip.name || clip.id || 'Medya Klibi', 0, 0);
+    }
   }
   ctx.restore();
+}
+
+/**
+ * Direct vector drawing fallback for element clips and stickers (e.g. TikTok Like)
+ * Prevents ever flashing or displaying an ugly procedural colored rectangle while SVG image loads.
+ */
+function drawVectorElementFallback(
+  ctx: CanvasRenderingContext2D,
+  clip: VideoClip,
+  dw: number,
+  dh: number
+): void {
+  const name = (clip.name || '').toLowerCase();
+  const presetId = (clip.elementPresetId || '').toLowerCase();
+  const isTikTok = name.includes('tiktok') || presetId.includes('tiktok') || name.includes('beğen') || name.includes('like');
+
+  if (isTikTok) {
+    // 1. TikTok Pill container with smooth rounded corners
+    const pillRadius = Math.min(dw, dh) * 0.44;
+    ctx.beginPath();
+    safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, pillRadius);
+    ctx.fillStyle = '#090a0f';
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, Math.round(dh * 0.035));
+    ctx.strokeStyle = '#fe2c55';
+    ctx.stroke();
+
+    // 2. Cyan inner border / glow
+    ctx.beginPath();
+    safeRoundRect(ctx, -dw / 2 + 3, -dh / 2 + 3, dw - 6, dh - 6, Math.max(4, pillRadius - 3));
+    ctx.lineWidth = Math.max(1, Math.round(dh * 0.02));
+    ctx.strokeStyle = 'rgba(37, 244, 238, 0.7)';
+    ctx.stroke();
+
+    // 3. Iconic TikTok Heart
+    const heartScale = Math.min(dw, dh) * 0.032;
+    const heartX = -dw * 0.28;
+    const heartY = 0;
+
+    // Cyan shadow heart
+    ctx.save();
+    ctx.translate(heartX - 2, heartY - 1);
+    ctx.scale(heartScale, heartScale);
+    ctx.beginPath();
+    ctx.moveTo(0, 16);
+    ctx.bezierCurveTo(-2, -2, -24, -2, -24, -14);
+    ctx.bezierCurveTo(-24, -24, -12, -28, 0, -18);
+    ctx.bezierCurveTo(12, -28, 24, -24, 24, -14);
+    ctx.bezierCurveTo(24, -2, 2, -2, 0, 16);
+    ctx.fillStyle = '#25f4ee';
+    ctx.fill();
+    ctx.restore();
+
+    // Main vibrant TikTok red heart
+    ctx.save();
+    ctx.translate(heartX, heartY);
+    ctx.scale(heartScale, heartScale);
+    ctx.beginPath();
+    ctx.moveTo(0, 16);
+    ctx.bezierCurveTo(-2, -2, -24, -2, -24, -14);
+    ctx.bezierCurveTo(-24, -24, -12, -28, 0, -18);
+    ctx.bezierCurveTo(12, -28, 24, -24, 24, -14);
+    ctx.bezierCurveTo(24, -2, 2, -2, 0, 16);
+    ctx.fillStyle = '#fe2c55';
+    ctx.fill();
+    ctx.restore();
+
+    // 4. BEĞEN text & 1.4M badge
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${Math.max(12, Math.round(dh * 0.28))}px "Arial Black", Impact, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('BEĞEN', -dw * 0.08, -dh * 0.04);
+
+    ctx.fillStyle = '#fe2c55';
+    ctx.font = `800 ${Math.max(10, Math.round(dh * 0.2))}px Arial, sans-serif`;
+    ctx.fillText('❤️ 1.4M', -dw * 0.08, dh * 0.28);
+  } else {
+    // Elegant translucent dark pill / card with subtle border
+    const radius = Math.min(dw, dh) * 0.24;
+    ctx.beginPath();
+    safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, radius);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(12, Math.round(dh * 0.22))}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(clip.name || 'Öğe', 0, 0);
+  }
 }
 
 function drawProceduralClipContent(
@@ -1038,7 +1147,14 @@ export function renderScene(renderCtx: RenderContext): void {
         }
 
         // Render by type
-        if (clip.type === 'video') {
+        const isElementClip = Boolean(
+          clip.svgContent ||
+          clip.elementPresetId ||
+          clip.assetId?.startsWith('element-') ||
+          (clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('Takip') || clip.name.includes('YouTube') || clip.name.includes('Instagram')))
+        );
+
+        if (clip.type === 'video' && !isElementClip) {
           const video = videoElements.get(clip.id) || videoElements.get(clip.assetId || '');
           let cachedCanvas = lastFrameCanvasCache.get(clip.id) || (clip.assetId ? lastFrameCanvasCache.get(clip.assetId) : undefined);
           const isVideoReady = isVideoFrameReady(video);
@@ -1214,6 +1330,11 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
+            // Lip-Freeze (Visual Character Sync):
+            // Freezes the character's closed/neutral mouth frame during vocal mute with 150ms gentle crossfade
+            const isLipFrozen = Boolean(clip.lipFreeze || clip.visualMuteMode === 'lip_freeze');
+            let lipFreezeCanvas = lipFreezeCanvasCache.get(clip.id);
+
             // 9:16 & 1:1 Canvas Blur Fill (CapCut Blur for vertical / square projects)
             const shouldBlurFill = Boolean(
               clip.canvasBlurFill || project.canvasBlurFill || project.canvas?.blurBackground
@@ -1242,11 +1363,6 @@ export function renderScene(renderCtx: RenderContext): void {
             // Draw active video or cached frame (with ChromaKey and Lip-Freeze support)
             const chroma = clip.effects?.chromaKey;
             const useChroma = chroma && chroma.enabled;
-
-            // Lip-Freeze (Visual Character Sync):
-            // Freezes the character's closed/neutral mouth frame during vocal mute with 150ms gentle crossfade
-            const isLipFrozen = Boolean(clip.lipFreeze || clip.visualMuteMode === 'lip_freeze');
-            let lipFreezeCanvas = lipFreezeCanvasCache.get(clip.id);
 
             if (isLipFrozen && !lipFreezeCanvas && isVideoReady && video) {
               try {
@@ -1456,16 +1572,20 @@ export function renderScene(renderCtx: RenderContext): void {
             }
 
             // AI Watermark / Logo Mask (Delogo Patch: Blur / Pixelate)
-            const patch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' } : undefined);
+            const patch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' as const } : undefined);
             if (patch && patch.enabled) {
-              const px = -dw / 2 + (patch.x / 100) * dw;
-              const py = -dh / 2 + (patch.y / 100) * dh;
-              const pw = (patch.width / 100) * dw;
-              const ph = (patch.height / 100) * dh;
+              const patchX = patch.x ?? patch.xPercent ?? 80;
+              const patchY = patch.y ?? patch.yPercent ?? 10;
+              const patchW = patch.width ?? patch.widthPercent ?? 15;
+              const patchH = patch.height ?? patch.heightPercent ?? 8;
+              const px = -dw / 2 + (patchX / 100) * dw;
+              const py = -dh / 2 + (patchY / 100) * dh;
+              const pw = (patchW / 100) * dw;
+              const ph = (patchH / 100) * dh;
 
               if (pw > 2 && ph > 2) {
                 ctx.save();
-                if (patch.mode === 'pixelate') {
+                if (patch.mode === 'pixelate' || patch.type === 'pixelate') {
                   try {
                     const pCanvas = document.createElement('canvas');
                     pCanvas.width = Math.max(4, Math.floor(pw / 8));
@@ -1474,10 +1594,10 @@ export function renderScene(renderCtx: RenderContext): void {
                     const srcElem = (isVideoReady && video) ? video : (lipFreezeCanvas || cachedCanvas);
                     if (pCtx && srcElem) {
                       pCtx.imageSmoothingEnabled = false;
-                      const srcX = (patch.x / 100) * vw;
-                      const srcY = (patch.y / 100) * vh;
-                      const srcW = (patch.width / 100) * vw;
-                      const srcH = (patch.height / 100) * vh;
+                      const srcX = (patchX / 100) * vw;
+                      const srcY = (patchY / 100) * vh;
+                      const srcW = (patchW / 100) * vw;
+                      const srcH = (patchH / 100) * vh;
                       pCtx.drawImage(srcElem, srcX, srcY, srcW, srcH, 0, 0, pCanvas.width, pCanvas.height);
                       ctx.imageSmoothingEnabled = false;
                       ctx.drawImage(pCanvas, 0, 0, pCanvas.width, pCanvas.height, px, py, pw, ph);
@@ -1543,20 +1663,34 @@ export function renderScene(renderCtx: RenderContext): void {
             drawProceduralClipContent(ctx, clip, width * 0.75, height * 0.75, currentTime);
             ctx.restore();
           }
-      } else if (clip.type === 'image') {
+      } else if (clip.type === 'image' || isElementClip) {
         try {
           let img = imageElements.get(clip.assetId || '') || imageElements.get(clip.id);
-          if (!img && (clip.svgContent || clip.assetId?.startsWith('element-') || clip.elementPresetId)) {
+          const svgContent = clip.svgContent || getElementSvg(clip.elementPresetId || clip.assetId, clip.name);
+          const isSvgElement = Boolean(
+            svgContent ||
+            clip.elementPresetId ||
+            clip.assetId?.startsWith('element-') ||
+            clip.sourceUrl?.startsWith('data:image/svg+xml') ||
+            (clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('YouTube') || clip.name.includes('Instagram')))
+          );
+
+          if (!img && isSvgElement) {
             const cached = elementCache.get(clip.id);
             if (cached instanceof HTMLImageElement && cached.complete && cached.naturalWidth > 0) {
               img = cached;
             } else {
-              const svg = clip.svgContent || getElementSvg(clip.elementPresetId || clip.assetId);
+              const svg = svgContent || (clip.sourceUrl?.startsWith('data:image/svg+xml') ? decodeURIComponent(clip.sourceUrl.replace('data:image/svg+xml;charset=utf-8,', '')) : undefined);
               if (svg) {
                 const instantImg = new Image();
+                instantImg.onload = () => {
+                  notifyCanvasNeedsRedraw();
+                };
                 instantImg.src = createSvgDataUrl(svg);
                 elementCache.set(clip.id, instantImg);
-                img = instantImg;
+                if (instantImg.complete && instantImg.naturalWidth > 0) {
+                  img = instantImg;
+                }
               }
             }
           }
@@ -1773,16 +1907,24 @@ export function renderScene(renderCtx: RenderContext): void {
                 drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
               }
             } else {
-              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+              if (isSvgElement) {
+                drawVectorElementFallback(ctx, clip, dw, dh);
+              } else {
+                drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+              }
             }
 
             // AI Watermark / Logo Mask (Delogo Patch: Blur / Pixelate)
-            const imgPatch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' } : undefined);
+            const imgPatch = clip.delogoPatch || (clip.effects?.delogo ? { enabled: true, x: 80, y: 10, width: 15, height: 8, mode: 'blur' as const } : undefined);
             if (imgPatch && imgPatch.enabled) {
-              const px = -dw / 2 + (imgPatch.x / 100) * dw;
-              const py = -dh / 2 + (imgPatch.y / 100) * dh;
-              const pw = (imgPatch.width / 100) * dw;
-              const ph = (imgPatch.height / 100) * dh;
+              const patchX = imgPatch.x ?? imgPatch.xPercent ?? 80;
+              const patchY = imgPatch.y ?? imgPatch.yPercent ?? 10;
+              const patchW = imgPatch.width ?? imgPatch.widthPercent ?? 15;
+              const patchH = imgPatch.height ?? imgPatch.heightPercent ?? 8;
+              const px = -dw / 2 + (patchX / 100) * dw;
+              const py = -dh / 2 + (patchY / 100) * dh;
+              const pw = (patchW / 100) * dw;
+              const ph = (patchH / 100) * dh;
 
               if (pw > 2 && ph > 2) {
                 ctx.save();
@@ -1794,10 +1936,10 @@ export function renderScene(renderCtx: RenderContext): void {
                     const pCtx = pCanvas.getContext('2d');
                     if (pCtx && hasValidImg && img) {
                       pCtx.imageSmoothingEnabled = false;
-                      const srcX = (imgPatch.x / 100) * iw;
-                      const srcY = (imgPatch.y / 100) * ih;
-                      const srcW = (imgPatch.width / 100) * iw;
-                      const srcH = (imgPatch.height / 100) * ih;
+                      const srcX = (patchX / 100) * iw;
+                      const srcY = (patchY / 100) * ih;
+                      const srcW = (patchW / 100) * iw;
+                      const srcH = (patchH / 100) * ih;
                       pCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, pCanvas.width, pCanvas.height);
                       ctx.imageSmoothingEnabled = false;
                       ctx.drawImage(pCanvas, 0, 0, pCanvas.width, pCanvas.height, px, py, pw, ph);

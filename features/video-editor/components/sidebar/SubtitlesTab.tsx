@@ -602,6 +602,9 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
     setDetectedDuplicates([
       {
         id: 'dup-demo-1',
+        clipId: activeClip?.id || 'demo-clip',
+        clipName: activeClip?.name || 'Örnek Klip',
+        reason: 'Yapay Zeka Tekrar Tespiti',
         type: 'hybrid',
         confidence: 94,
         textSnippet: 'Herkese merhaba arkadaşlar yapay zeka',
@@ -685,11 +688,17 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
 
     speechSegments.forEach((item, idx) => {
       // Relative word timestamps relative to subtitle clip start
-      const relWords = (item.words || []).map((w) => ({
-        word: w.word,
-        startSec: Math.max(0, parseFloat((w.startSec - item.startSec).toFixed(3))),
-        endSec: Math.max(0, parseFloat((w.endSec - item.startSec).toFixed(3))),
-      }));
+      const relWords = (item.words || []).map((w) => {
+        const s = Math.max(0, parseFloat((w.startSec - item.startSec).toFixed(3)));
+        const e = Math.max(0, parseFloat((w.endSec - item.startSec).toFixed(3)));
+        return {
+          word: w.word,
+          start: s,
+          end: e,
+          startSec: s,
+          endSec: e,
+        };
+      });
 
       onAddClip(subTrackId, {
         name: (item.text || `Konuşma ${idx + 1}`).substring(0, 24),

@@ -1,4 +1,4 @@
-import { VideoProject, TimelineTrack, VideoClip } from '../types';
+import { VideoProject, TimelineTrack, VideoClip, TimelineTransition } from '../types';
 import { getAssetBlob } from '../db';
 import { computeSpeedRampedClipTime } from './previewRenderer';
 
@@ -735,7 +735,9 @@ class AudioMixer {
       }
       if (project.subtitles && project.subtitles.length > 0) {
         for (const sub of project.subtitles) {
-          speechIntervals.push({ start: sub.startTime, end: sub.endTime });
+          const s = typeof sub.startTime === 'number' ? sub.startTime : sub.start;
+          const e = typeof sub.endTime === 'number' ? sub.endTime : sub.end;
+          speechIntervals.push({ start: s, end: e });
         }
       }
     }

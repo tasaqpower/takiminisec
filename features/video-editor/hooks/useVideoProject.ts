@@ -15,8 +15,10 @@ import {
   SpeedRampPreset,
   CameraMotionPreset,
   ProceduralSfxType,
+  DelogoPatchSettings,
 } from '../types';
 import { saveProjectMetadata, loadLatestProject, deleteProjectMetadata } from '../db';
+import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
 
 const MAX_HISTORY = 50;
 
@@ -41,16 +43,30 @@ export function migrateProject(raw: any): VideoProject {
         transitions: Array.isArray(t.transitions) ? t.transitions : [],
         effectSegments: Array.isArray(t.effectSegments) ? t.effectSegments : [],
         clips: Array.isArray(t.clips)
-          ? t.clips.map((c: any, clipIdx: number) => ({
-              ...c,
-              id: typeof c.id === 'string' && c.id ? c.id : `clip-${trackIdx}-${clipIdx}`,
-              type: c.type || t.type || 'video',
-              name: typeof c.name === 'string' ? c.name : 'Medya Klibi',
-              startTime: typeof c.startTime === 'number' ? c.startTime : (typeof c.start === 'number' ? c.start : 0),
-              duration: typeof c.duration === 'number' && c.duration > 0 ? c.duration : 5,
-              effectSegments: Array.isArray(c.effectSegments) ? c.effectSegments : [],
-              animationSegments: Array.isArray(c.animationSegments) ? c.animationSegments : [],
-            }))
+          ? t.clips.map((c: any, clipIdx: number) => {
+              const baseClip: VideoClip = {
+                ...c,
+                id: typeof c.id === 'string' && c.id ? c.id : `clip-${trackIdx}-${clipIdx}`,
+                type: c.type || t.type || 'video',
+                name: typeof c.name === 'string' ? c.name : 'Medya Klibi',
+                startTime: typeof c.startTime === 'number' ? c.startTime : (typeof c.start === 'number' ? c.start : 0),
+                duration: typeof c.duration === 'number' && c.duration > 0 ? c.duration : 5,
+                effectSegments: Array.isArray(c.effectSegments) ? c.effectSegments : [],
+                animationSegments: Array.isArray(c.animationSegments) ? c.animationSegments : [],
+              };
+              // Auto-repair missing SVG content for element stickers (such as TikTok Like)
+              if (!baseClip.svgContent && (baseClip.elementPresetId || baseClip.assetId?.startsWith('element-') || baseClip.type === 'image' || (baseClip.name && (baseClip.name.includes('TikTok') || baseClip.name.includes('Beğen'))))) {
+                const recoveredSvg = getElementSvg(baseClip.elementPresetId || baseClip.assetId, baseClip.name);
+                if (recoveredSvg) {
+                  baseClip.svgContent = recoveredSvg;
+                  baseClip.type = 'image';
+                  if (!baseClip.sourceUrl || baseClip.sourceUrl.startsWith('blob:')) {
+                    baseClip.sourceUrl = createSvgDataUrl(recoveredSvg);
+                  }
+                }
+              }
+              return baseClip;
+            })
           : [],
       }))
     : defaultProj.tracks;
@@ -87,6 +103,19 @@ export async function rehydrateProjectMedia(project: VideoProject): Promise<Vide
     (safeProject.tracks || []).map(async (track) => {
       const freshClips = await Promise.all(
         (track.clips || []).map(async (clip) => {
+          // Check for SVG elements / stickers
+          if (clip.type === 'image' || clip.elementPresetId || clip.assetId?.startsWith('element-') || clip.svgContent || (clip.name && getElementSvg(undefined, clip.name))) {
+            const svg = clip.svgContent || getElementSvg(clip.elementPresetId || clip.assetId, clip.name);
+            if (svg) {
+              return {
+                ...clip,
+                type: 'image' as TrackType,
+                svgContent: svg,
+                sourceUrl: createSvgDataUrl(svg),
+              };
+            }
+          }
+
           if (!clip.assetId) return clip;
           try {
             const blob = await getAssetBlob(clip.assetId);
@@ -393,17 +422,19 @@ export function useVideoProject() {
   // Clip Operations
   const addClip = useCallback(
     (trackId: string, clipData: Partial<VideoClip>): VideoClip => {
+      const resolvedSvg = clipData.svgContent || getElementSvg(clipData.elementPresetId || clipData.assetId, clipData.name);
       const newClip: VideoClip = {
+        ...clipData,
         id: clipData.id || ('clip-' + Math.random().toString(36).substring(2, 9)),
         trackId,
-        type: clipData.type || 'video',
+        type: clipData.type || (resolvedSvg ? 'image' : 'video'),
         name: clipData.name || 'Yeni Klip',
         startTime: clipData.startTime ?? 0,
         duration: clipData.duration ?? 5,
         trimIn: clipData.trimIn ?? 0,
         trimOut: clipData.trimOut ?? (clipData.duration ?? 5),
         sourceDuration: clipData.sourceDuration ?? (clipData.duration ?? 5),
-        sourceUrl: clipData.sourceUrl,
+        sourceUrl: clipData.sourceUrl || (resolvedSvg ? createSvgDataUrl(resolvedSvg) : undefined),
         assetId: clipData.assetId,
         volume: clipData.volume ?? 1.0,
         muted: clipData.muted ?? false,
@@ -422,6 +453,10 @@ export function useVideoProject() {
         textData: clipData.textData,
         transitionIn: clipData.transitionIn,
         transitionOut: clipData.transitionOut,
+        svgContent: resolvedSvg,
+        elementPresetId: clipData.elementPresetId,
+        fitMode: clipData.fitMode ?? 'fit',
+        cornerRadius: clipData.cornerRadius ?? 0,
       };
 
       commitProjectChange((prev) => ({
