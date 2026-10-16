@@ -154,6 +154,7 @@ export const EffectsTab: React.FC<EffectsTabProps> = ({
                     effectId: eff.id,
                     effectKind: (eff.category as any) || 'filter',
                     name: eff.name,
+                    targetClipId: selectedClipId || undefined,
                     startTime: currentTime,
                     duration: eff.defaultDuration || 3.0,
                     enabled: true,

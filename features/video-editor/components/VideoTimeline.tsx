@@ -1987,11 +1987,6 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
 
             updateDragPosition(e.clientX, e.clientY, isValid);
           }}
-          onPointerUp={(e) => {
-            if (isDragging && activePayload) {
-              executeTimelineDrop(activePayload, e.clientX, e.clientY, e.altKey);
-            }
-          }}
           onPointerLeave={() => {
             if (isDragging) {
               setDropHoverTime(null);

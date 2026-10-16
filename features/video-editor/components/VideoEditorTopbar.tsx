@@ -38,9 +38,12 @@ interface TopbarProps {
 const RESOLUTION_PRESETS = [
   { label: '1080p Full HD (16:9)', width: 1920, height: 1080 },
   { label: '720p HD (16:9)', width: 1280, height: 720 },
+  { label: '2K QHD (16:9)', width: 2560, height: 1440 },
   { label: '4K Ultra HD (16:9)', width: 3840, height: 2160 },
   { label: '1080p Dikey Reels (9:16)', width: 1080, height: 1920 },
+  { label: '2K Dikey QHD (9:16)', width: 1440, height: 2560 },
   { label: '1080p Kare Post (1:1)', width: 1080, height: 1080 },
+  { label: '1080p Portre (4:5)', width: 1080, height: 1350 },
 ];
 
 export const VideoEditorTopbar: React.FC<TopbarProps> = ({
@@ -182,7 +185,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
             type="button"
             onClick={() => onUpdateResolution(1920, 1080)}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
-              project.resolution.width === 1920 && project.resolution.height === 1080
+              Math.abs(project.resolution.width / Math.max(1, project.resolution.height) - 16 / 9) < 0.05
                 ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
                 : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
@@ -195,7 +198,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
             type="button"
             onClick={() => onUpdateResolution(1080, 1920)}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
-              project.resolution.width === 1080 && project.resolution.height === 1920
+              Math.abs(project.resolution.width / Math.max(1, project.resolution.height) - 9 / 16) < 0.05
                 ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
                 : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}
@@ -208,7 +211,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
             type="button"
             onClick={() => onUpdateResolution(1080, 1080)}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono transition-colors ${
-              project.resolution.width === 1080 && project.resolution.height === 1080
+              Math.abs(project.resolution.width / Math.max(1, project.resolution.height) - 1.0) < 0.05
                 ? 'bg-[#202631] text-[#E7EAF0] font-semibold border border-[#292F39]'
                 : 'text-[#929AA8] hover:text-[#E7EAF0] hover:bg-[#171B21]'
             }`}

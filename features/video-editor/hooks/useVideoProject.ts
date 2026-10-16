@@ -2038,15 +2038,21 @@ export function useVideoProject() {
       };
 
       commitProjectChange((prev) => {
+        const isSameCut = (t: TimelineTransition) =>
+          t.id === newTransition.id ||
+          (t.trackId === data.trackId && Math.abs(t.cutTime - data.cutTime) < 0.1) ||
+          (data.leftClipId && t.leftClipId === data.leftClipId) ||
+          (data.rightClipId && t.rightClipId === data.rightClipId);
+
         const nextTransitions = [
-          ...(prev.transitions || []).filter((t) => t.id !== newTransition.id),
+          ...(prev.transitions || []).filter((t) => !isSameCut(t)),
           newTransition,
         ];
 
         const nextTracks = prev.tracks.map((track) => {
           if (track.id === data.trackId) {
             const trackTransitions = [
-              ...(track.transitions || []).filter((t) => t.id !== newTransition.id),
+              ...(track.transitions || []).filter((t) => !isSameCut(t)),
               newTransition,
             ];
 
@@ -2218,7 +2224,15 @@ export function useVideoProject() {
       };
 
       commitProjectChange((prev) => {
-        const nextGlobalSegments = [...(prev.effectSegments || []), newSegment];
+        const isSameSegment = (s: EffectSegment) =>
+          s.id === newSegment.id ||
+          (data.targetClipId && s.targetClipId === data.targetClipId && s.effectId === data.effectId) ||
+          (!data.targetClipId && s.effectId === data.effectId && Math.abs(s.startTime - data.startTime) < 0.25);
+
+        // If targeted to a clip, it stays on the clip only. Otherwise it goes into global effectSegments.
+        const nextGlobalSegments = data.targetClipId
+          ? (prev.effectSegments || []).filter((s) => !isSameSegment(s))
+          : [...(prev.effectSegments || []).filter((s) => !isSameSegment(s)), newSegment];
 
         const nextTracks = prev.tracks.map((track) => {
           if (data.targetClipId) {
@@ -2228,7 +2242,13 @@ export function useVideoProject() {
                 ...track,
                 clips: track.clips.map((clip) =>
                   clip.id === data.targetClipId
-                    ? { ...clip, effectSegments: [...(clip.effectSegments || []), newSegment] }
+                    ? {
+                        ...clip,
+                        effectSegments: [
+                          ...(clip.effectSegments || []).filter((s) => !isSameSegment(s)),
+                          newSegment,
+                        ],
+                      }
                     : clip
                 ),
               };
@@ -2237,7 +2257,10 @@ export function useVideoProject() {
           if (track.id === data.trackId) {
             return {
               ...track,
-              effectSegments: [...(track.effectSegments || []), newSegment],
+              effectSegments: [
+                ...(track.effectSegments || []).filter((s) => !isSameSegment(s)),
+                newSegment,
+              ],
             };
           }
           return track;

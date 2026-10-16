@@ -879,7 +879,7 @@ async function runTortureTest() {
     await new Promise((r) => setTimeout(r, 400));
 
     const exportModalContentCheck = await cdp.eval(`
-      (() => {
+      (async () => {
         const editor = window.__formaEditor;
         const resSelect = document.querySelector('[data-testid="export-modal-resolution-select"]');
         const aspectBadge = document.querySelector('[data-testid="export-modal-aspect-status"]');
@@ -888,6 +888,44 @@ async function runTortureTest() {
         const selectedValue = resSelect ? resSelect.value : null;
         const expectedValue = editor ? (editor.project.resolution.width + 'x' + editor.project.resolution.height) : null;
         const isResolutionSynced = selectedValue === expectedValue;
+
+        const has2kDikeyOption = resSelect ? Array.from(resSelect.options).some(o => o.value === '1440x2560') : false;
+        const has4kDikeyOption = resSelect ? Array.from(resSelect.options).some(o => o.value === '2160x3840') : false;
+
+        // Test Effect & Transition Deduplication (Zero Double-Stacking)
+        let deduplicationOk = false;
+        let effectCountOnClip = 0;
+        if (editor && editor.addEffectSegment) {
+          const track = editor.project.tracks.find(t => t.clips.length > 0);
+          const clip = track?.clips[0];
+          if (clip) {
+            // Apply effect twice on same clip
+            editor.addEffectSegment({
+              effectId: 'glitch-rgb',
+              effectKind: 'glitch',
+              name: 'Glitch RGB',
+              targetClipId: clip.id,
+              startTime: clip.startTime,
+              duration: 2.0,
+            });
+            editor.addEffectSegment({
+              effectId: 'glitch-rgb',
+              effectKind: 'glitch',
+              name: 'Glitch RGB',
+              targetClipId: clip.id,
+              startTime: clip.startTime,
+              duration: 2.0,
+            });
+            // Wait for React state commit
+            await new Promise(r => setTimeout(r, 200));
+            const updatedEditor = window.__formaEditor;
+            const updatedClip = updatedEditor.project.tracks
+              .flatMap(t => t.clips)
+              .find(c => c.id === clip.id);
+            effectCountOnClip = updatedClip?.effectSegments?.filter(s => s.effectId === 'glitch-rgb').length || 0;
+            deduplicationOk = (effectCountOnClip === 1);
+          }
+        }
 
         // Close modal
         if (closeBtn) closeBtn.click();
@@ -899,14 +937,26 @@ async function runTortureTest() {
           selectedValue,
           expectedValue,
           isResolutionSynced,
+          has2kDikeyOption,
+          has4kDikeyOption,
+          deduplicationOk,
+          effectCountOnClip,
         };
       })()
     `);
     await new Promise((r) => setTimeout(r, 300));
 
     console.log(`[DOM-1F10] VideoExportModal Resolution Sync: hasModal = ${exportModalContentCheck.hasResSelect}, selected = "${exportModalContentCheck.selectedValue}" (expected: "${exportModalContentCheck.expectedValue}", synced = ${exportModalContentCheck.isResolutionSynced})`);
+    console.log(`[DOM-1F11] 2K 9:16 (1440x2560) Preset: ${exportModalContentCheck.has2kDikeyOption}, 4K 9:16 Preset: ${exportModalContentCheck.has4kDikeyOption}`);
+    console.log(`[DOM-1F12] Zero Double-Stacking Deduplication: effectCountOnClip = ${exportModalContentCheck.effectCountOnClip} (expected: 1, deduplicationOk = ${exportModalContentCheck.deduplicationOk})`);
     if (!exportModalContentCheck.hasResSelect || !exportModalContentCheck.isResolutionSynced) {
       throw new Error(`TEST 1F10 FAILED: VideoExportModal did not sync with project resolution! (selected: ${exportModalContentCheck.selectedValue}, expected: ${exportModalContentCheck.expectedValue})`);
+    }
+    if (!exportModalContentCheck.has2kDikeyOption) {
+      throw new Error('TEST 1F11 FAILED: 2K 9:16 (1440x2560) resolution preset missing from export options!');
+    }
+    if (!exportModalContentCheck.deduplicationOk) {
+      throw new Error(`TEST 1F12 FAILED: Effect duplicated/stacked twice! (effectCountOnClip: ${exportModalContentCheck.effectCountOnClip})`);
     }
 
     console.log('✓ TEST 1F PASSED: All Timeline, SubtitlesTab, Properties, AI dispatcher, and Export Modal verified live!');

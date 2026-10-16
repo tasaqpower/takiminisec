@@ -54,6 +54,8 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
       { id: '2560x1440', label: '2K QHD (2560×1440 - 16:9 Net)', width: 2560, height: 1440 },
       { id: '3840x2160', label: '4K Ultra HD (3840×2160 - 16:9 Sinematik)', width: 3840, height: 2160 },
       { id: '1080x1920', label: '1080p Dikey (1080×1920 - 9:16 Reels / TikTok / Shorts)', width: 1080, height: 1920 },
+      { id: '1440x2560', label: '2K QHD Dikey (1440×2560 - 9:16 Ultra Net Reels / Shorts)', width: 1440, height: 2560 },
+      { id: '2160x3840', label: '4K Dikey (2160×3840 - 9:16 Sinematik Dikey)', width: 2160, height: 3840 },
       { id: '720x1280', label: '720p Dikey (720×1280 - 9:16 Düşük Boyut)', width: 720, height: 1280 },
       { id: '1080x1080', label: '1080p Kare (1080×1080 - 1:1 Instagram Post)', width: 1080, height: 1080 },
       { id: '1080x1350', label: '1080p Portre (1080×1350 - 4:5 Instagram Dikey)', width: 1080, height: 1350 },

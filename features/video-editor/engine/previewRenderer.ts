@@ -684,11 +684,15 @@ export function renderScene(renderCtx: RenderContext): void {
     });
 
   for (const track of tracksToRender) {
-    // Collect track-level transitions
-    const trackTransitions = [
-      ...(track.transitions || []),
-      ...(project.transitions?.filter((tr) => tr.trackId === track.id) || []),
-    ];
+    // Collect track-level transitions (deduplicated by id)
+    const trackTransitionsMap = new Map<string, TimelineTransition>();
+    for (const tr of (track.transitions || [])) trackTransitionsMap.set(tr.id, tr);
+    for (const tr of (project.transitions || [])) {
+      if (tr.trackId === track.id && !trackTransitionsMap.has(tr.id)) {
+        trackTransitionsMap.set(tr.id, tr);
+      }
+    }
+    const trackTransitions = Array.from(trackTransitionsMap.values());
 
     // Find any timeline transition active at currentTime
     const activeTimelineTransition = trackTransitions.find((tr) => {
@@ -1411,11 +1415,20 @@ export function renderScene(renderCtx: RenderContext): void {
               applyCrispAiSharpness(ctx, width, height, clip.effects?.sharpness || 0.45);
             }
 
-            // Apply any active timed effect segments on this clip
-            const activeSegments = [
+            // Apply any active timed effect segments on this clip (deduplicated)
+            const rawSegments = [
               ...(clip.effectSegments || []),
               ...((project.effectSegments || []).filter((s) => s.targetClipId === clip.id || !s.targetClipId)),
             ].filter((s) => s.enabled !== false && currentTime >= s.startTime && currentTime <= (s.startTime + s.duration));
+            const seenEffIds = new Set<string>();
+            const activeSegments: EffectSegment[] = [];
+            for (const seg of rawSegments) {
+              const k = seg.id || `${seg.effectId}-${seg.startTime.toFixed(2)}`;
+              if (!seenEffIds.has(k)) {
+                seenEffIds.add(k);
+                activeSegments.push(seg);
+              }
+            }
 
             for (const seg of activeSegments) {
               const timeInEffect = currentTime - seg.startTime;
@@ -1751,11 +1764,20 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.restore();
             }
 
-            // Apply any active timed effect segments on this clip
-            const activeSegments = [
+            // Apply any active timed effect segments on this clip (deduplicated)
+            const rawSegments = [
               ...(clip.effectSegments || []),
               ...((project.effectSegments || []).filter((s) => s.targetClipId === clip.id || !s.targetClipId)),
             ].filter((s) => s.enabled !== false && currentTime >= s.startTime && currentTime <= (s.startTime + s.duration));
+            const seenEffIds = new Set<string>();
+            const activeSegments: EffectSegment[] = [];
+            for (const seg of rawSegments) {
+              const k = seg.id || `${seg.effectId}-${seg.startTime.toFixed(2)}`;
+              if (!seenEffIds.has(k)) {
+                seenEffIds.add(k);
+                activeSegments.push(seg);
+              }
+            }
 
             for (const seg of activeSegments) {
               const timeInEffect = currentTime - seg.startTime;
@@ -2044,11 +2066,15 @@ export async function renderFrameToCanvas(
   for (const track of project.tracks) {
     if (track.muted || track.visible === false) continue;
 
-    // Track-level transitions active at currentTime
-    const trackTransitions = [
-      ...(track.transitions || []),
-      ...(project.transitions?.filter((tr) => tr.trackId === track.id) || []),
-    ];
+    // Track-level transitions active at currentTime (deduplicated by id)
+    const trackTransitionsMap = new Map<string, TimelineTransition>();
+    for (const tr of (track.transitions || [])) trackTransitionsMap.set(tr.id, tr);
+    for (const tr of (project.transitions || [])) {
+      if (tr.trackId === track.id && !trackTransitionsMap.has(tr.id)) {
+        trackTransitionsMap.set(tr.id, tr);
+      }
+    }
+    const trackTransitions = Array.from(trackTransitionsMap.values());
 
     const activeTimelineTransition = trackTransitions.find((tr) => {
       const dur = tr.duration || 1.0;

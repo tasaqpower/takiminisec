@@ -768,10 +768,14 @@ class AudioMixer {
         track.name?.toLowerCase().includes('bg') ||
         track.name?.toLowerCase().includes('arka plan');
 
-      const trackTransitions = [
-        ...(track.transitions || []),
-        ...(project.transitions?.filter((tr) => tr.trackId === track.id) || []),
-      ];
+      const trackTransitionsMap = new Map<string, TimelineTransition>();
+      for (const tr of (track.transitions || [])) trackTransitionsMap.set(tr.id, tr);
+      for (const tr of (project.transitions || [])) {
+        if (tr.trackId === track.id && !trackTransitionsMap.has(tr.id)) {
+          trackTransitionsMap.set(tr.id, tr);
+        }
+      }
+      const trackTransitions = Array.from(trackTransitionsMap.values());
 
       for (const clip of track.clips) {
         if (clip.muted || clip.volume === 0) continue;

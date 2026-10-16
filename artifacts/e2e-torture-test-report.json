@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-16T11:22:27.155Z",
+  "timestamp": "2026-10-16T11:38:57.742Z",
   "results": {
     "test1_ui_polish": {
       "visibleBefore": true,
@@ -45,6 +45,10 @@
       "selectedValue": "1920x1080",
       "expectedValue": "1920x1080",
       "isResolutionSynced": true,
+      "has2kDikeyOption": true,
+      "has4kDikeyOption": true,
+      "deduplicationOk": true,
+      "effectCountOnClip": 1,
       "passed": true
     },
     "test2_glitch_trim_and_transition": {
@@ -106,7 +110,7 @@
       "whooshDuration": 0.45,
       "whooshSampleLength": 21600,
       "whooshPeak": 1,
-      "whooshRms": 0.2467,
+      "whooshRms": 0.2508,
       "boomDuration": 1.2,
       "boomPeak": 0.7528,
       "censorBleepFreq": 995,
@@ -122,7 +126,7 @@
       "hasAudioBuffer": true,
       "sampleRate": 48000,
       "channels": 2,
-      "mp4Size": 228219,
+      "mp4Size": 228648,
       "mp4Type": "video/mp4",
       "videoDuration": 1.5,
       "videoCurrentTime": 1,
