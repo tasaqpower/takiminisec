@@ -23,6 +23,7 @@ export interface TextRenderOptions {
   scale?: number;
   rotation?: number;       // degrees
   opacity?: number;
+  isSelected?: boolean;
 }
 
 export interface TextStylePreset {
@@ -685,6 +686,10 @@ export function renderTextLayer(
     }
   }
 
+  if (opts.isSelected && (!displayText || displayText.length < 2)) {
+    displayText = formattedText;
+  }
+
   if (!displayText) return;
 
   ctx.save();
@@ -702,7 +707,11 @@ export function renderTextLayer(
     ctx.scale(effectiveScale * animScaleX, effectiveScale * animScaleY);
   }
 
-  ctx.globalAlpha = Math.max(0, Math.min(1, opacity * animOpacity));
+  let finalAlpha = opacity * animOpacity;
+  if (opts.isSelected && finalAlpha < 0.85) {
+    finalAlpha = 0.9;
+  }
+  ctx.globalAlpha = Math.max(0, Math.min(1, finalAlpha));
 
   if (animBlur > 0) {
     ctx.filter = `blur(${animBlur.toFixed(1)}px)`;

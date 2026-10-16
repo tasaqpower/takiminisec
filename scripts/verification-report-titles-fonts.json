@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-16T19:17:57.588Z",
+  "timestamp": "2026-10-16T19:48:15.974Z",
   "fonts": {
     "total": 160,
     "verified200": 160,
@@ -80,24 +80,24 @@
     "sampleVerifiedTitles": [
       {
         "id": "title-lower-third-modern",
-        "name": "Modern Alt Bant",
+        "name": "Modern Kurumsal Alt Bant",
         "category": "Başlık Şablonları",
         "style": "lower-third",
         "defaultText": "Ahmet Yılmaz\nKreatif Direktör"
       },
       {
         "id": "title-lower-third-news",
-        "name": "Haber Başlığı Alt Bant",
+        "name": "Haber & Muhabir Alt Bandı",
         "category": "Başlık Şablonları",
         "style": "lower-third",
         "defaultText": "SON DAKİKA\nÖnemli Gelişmeler Aktarılıyor"
       },
       {
         "id": "title-lower-third-minimal",
-        "name": "Minimal Çizgili Alt Bant",
+        "name": "Minimalist Şık İsimlik",
         "category": "Başlık Şablonları",
         "style": "lower-third",
-        "defaultText": "Zeynep Kaya | Fotoğrafçı"
+        "defaultText": "Zeynep Kaya\nFotoğraf Sanatçısı"
       },
       {
         "id": "title-lower-third-gradient",
@@ -108,45 +108,45 @@
       },
       {
         "id": "title-lower-third-tech",
-        "name": "Siber & Teknoloji Alt Bant",
+        "name": "Siber & Teknoloji İsimliği",
         "category": "Başlık Şablonları",
         "style": "lower-third",
-        "defaultText": "SİSTEM ÇÖZÜMLERİ\nProtokol Başlatıldı"
+        "defaultText": "SİSTEM MİMARI\nKıdemli Yazılım Mühendisi"
       },
       {
         "id": "title-lower-third-split",
-        "name": "Bölünmüş Çubuklu Alt Bant",
+        "name": "Bölünmüş Çubuklu Tasarımcı",
         "category": "Başlık Şablonları",
         "style": "lower-third",
-        "defaultText": "Mehmet Şahin // Tasarımcı"
+        "defaultText": "Mehmet Şahin\nKullanıcı Deneyimi Tasarımcısı"
       },
       {
         "id": "title-cinematic-epic",
-        "name": "Epik Sinematik Başlık",
+        "name": "Hollywood Epik Altın Başlık",
         "category": "Başlık Şablonları",
         "style": "cinematic",
-        "defaultText": "BÜYÜK YOLCULUK"
+        "defaultText": "BÜYÜK YOLCULUK\nBir Zamanlar Anadolu'da"
       },
       {
         "id": "title-cinematic-dramatic",
-        "name": "Dramatik Beliren Başlık",
+        "name": "Karanlık Gerilim & Gizem",
         "category": "Başlık Şablonları",
         "style": "cinematic",
-        "defaultText": "KAYIP ŞEHİR"
+        "defaultText": "KAYIP ŞEHİR\nGölgelerin Ardında"
       },
       {
         "id": "title-cinematic-minimal",
         "name": "Minimalist Film Başlığı",
         "category": "Başlık Şablonları",
         "style": "cinematic",
-        "defaultText": "S E S S İ Z L İ K"
+        "defaultText": "S E S S İ Z L İ K\nBir Yalnızlık Öyküsü"
       },
       {
         "id": "title-cinematic-gold",
-        "name": "Altın Vurgulu Lüks Başlık",
+        "name": "Lüks & Prestij Başlığı",
         "category": "Başlık Şablonları",
         "style": "cinematic",
-        "defaultText": "PRESTİJ"
+        "defaultText": "P R E S T İ J\nZamanın Ötesinde"
       }
     ],
     "failures": []

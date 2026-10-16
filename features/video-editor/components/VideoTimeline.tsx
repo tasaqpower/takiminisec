@@ -818,6 +818,14 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             startTime: dropTime,
             duration: payload.duration || 4.0,
             sourceDuration: payload.duration || 4.0,
+            transform: {
+              x: (payload.data?.metadata as any)?.transform?.x ?? 0,
+              y: (payload.data?.metadata as any)?.transform?.y ?? ((payload.data?.style === 'lower-third' || payload.data?.style === 'lowerthird') ? 320 : 0),
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+              opacity: 1,
+            },
             textData: {
               ...resolvedTextData,
               ...payload.data?.data,

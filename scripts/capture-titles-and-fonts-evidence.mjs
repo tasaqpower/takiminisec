@@ -164,22 +164,32 @@ async function main() {
   await fs.writeFile(mogrtScreenshotPath, Buffer.from(mogrtScreenshot.data, 'base64'));
   console.log('Saved MOGRT screenshot to:', mogrtScreenshotPath);
 
-  // 5. Add a Title and a Font to the timeline
-  console.log('Adding title & font to timeline...');
+  // 5. Switch back to "Başlıklar" and add a rich Title to the timeline
+  console.log('Switching back to Başlıklar and adding title to timeline...');
+  await evaluate(`(() => {
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const titleBtn = buttons.find(b => b.textContent && b.textContent.includes('Başlıklar'));
+    if (titleBtn) titleBtn.click();
+  })()`);
+  await new Promise((r) => setTimeout(r, 1500));
+
   const addRes = await evaluate(`(() => {
     const cards = Array.from(document.querySelectorAll('[data-asset-card]'));
     if (cards.length > 0) {
-      const addBtn = cards[0].querySelector('button[title*="Ekle"]');
-      if (addBtn) {
-        addBtn.click();
-        return 'Added first card to timeline';
+      // Find a card with an add button
+      for (const card of cards) {
+        const addBtn = card.querySelector('button[title*="Ekle"]');
+        if (addBtn) {
+          addBtn.click();
+          return 'Added title card to timeline: ' + (card.getAttribute('data-asset-card') || 'unknown');
+        }
       }
     }
     return 'Card add button not found';
   })()`);
   console.log('Add card to timeline result:', addRes);
 
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 2500));
 
   // Capture final Timeline & Preview screenshot with added title
   const timelineScreenshot = await send('Page.captureScreenshot', { format: 'png' });

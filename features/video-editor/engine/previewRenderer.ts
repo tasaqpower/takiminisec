@@ -2135,6 +2135,7 @@ export function renderScene(renderCtx: RenderContext): void {
             scale: currentScaleX * transScale,
             rotation: currentRotation,
             opacity: currentOpacity,
+            isSelected: clip.id === selectedClipId,
           });
         } catch (textErr) {
           console.error('[FORMA] Error rendering text layer for clip:', clip.id, textErr);

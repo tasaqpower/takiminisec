@@ -347,63 +347,89 @@ const TitleAssetPreview: React.FC<{ asset: CatalogAssetItem }> = ({ asset }) => 
   const textData = useMemo(() => createTitleClipTextData(asset), [asset]);
   const styleKind = asset.style || (asset.metadata as any)?.style || 'title';
   const isAnim = asset.category?.includes('Animasyon') || asset.tags?.includes('text-animation');
+  const animLabel = textData.inAnimation || (asset.metadata as any)?.textData?.inAnimation;
+
+  useEffect(() => {
+    if (textData.fontFamily) {
+      loadGoogleFont(textData.fontFamily).catch(() => {});
+    }
+  }, [textData.fontFamily]);
+
+  const lines = (textData.text || asset.localizedName || 'Forma Başlık').split('\n');
+  const primaryLine = lines[0];
+  const secondaryLine = lines.length > 1 ? lines[1] : null;
 
   return (
-    <div className="relative w-full h-16 rounded-[2px] overflow-hidden bg-[#0A0D12] border border-[#232936] my-1 p-1.5 flex flex-col justify-center items-center group-hover:border-purple-500/50 transition-colors">
-      {styleKind === 'news' ? (
-        <div className="w-full bg-red-600/90 text-white font-bold text-[9px] px-1 py-1 rounded-none text-center truncate uppercase">
-          {textData.text?.split('\n')[0] || asset.localizedName}
-        </div>
-      ) : styleKind === 'lower-third' || styleKind === 'lowerthird' ? (
-        <div className="w-full flex flex-col items-start px-1.5 bg-slate-900/90 border-l-2 border-indigo-500 py-1 rounded-[1px]">
-          <span className="text-[9px] font-semibold text-white truncate max-w-full">
-            {textData.text?.split('\n')[0] || asset.localizedName}
-          </span>
-          <span className="text-[7.5px] text-gray-400 truncate max-w-full">
-            {textData.text?.split('\n')[1] || 'Alt Başlık Metni'}
-          </span>
-        </div>
-      ) : styleKind === 'cinematic' ? (
-        <div className="text-center px-1">
-          <span
-            className="text-[10px] font-serif text-amber-300 font-bold tracking-widest drop-shadow-[0_1px_4px_rgba(251,191,36,0.5)] truncate block"
-            style={{ fontFamily: textData.fontFamily || 'serif' }}
-          >
-            {textData.text?.split('\n')[0] || asset.localizedName}
-          </span>
-        </div>
-      ) : styleKind === 'social' ? (
-        <div className="text-center px-1">
-          <span
-            className="text-[10.5px] font-black text-lime-400 uppercase tracking-tight block truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-            style={{ WebkitTextStroke: '0.4px black' }}
-          >
-            {textData.text?.split('\n')[0] || asset.localizedName}
-          </span>
-        </div>
-      ) : styleKind === 'neon' ? (
-        <div className="text-center px-1">
-          <span className="text-[10px] font-extrabold text-pink-500 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)] truncate block">
-            {textData.text?.split('\n')[0] || asset.localizedName}
-          </span>
-        </div>
-      ) : isAnim ? (
-        <div className="flex items-center gap-1 text-center px-1">
-          <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
-          <span className="text-[9.5px] font-medium text-purple-200 truncate block">
-            {asset.localizedName}
-          </span>
-        </div>
-      ) : (
-        <div className="text-center px-1">
-          <span className="text-[9.5px] font-bold text-white truncate block">
-            {textData.text?.split('\n')[0] || asset.localizedName}
-          </span>
-        </div>
-      )}
+    <div
+      onMouseEnter={() => {
+        if (textData.fontFamily) loadGoogleFont(textData.fontFamily).catch(() => {});
+      }}
+      className="relative w-full h-[72px] rounded-[3px] overflow-hidden bg-[#0A0D12] border border-[#232936] my-1 p-1.5 flex flex-col justify-between group-hover:border-[#4f6bf5]/60 transition-colors select-none"
+    >
+      {/* Top Header: Font Family & Style/Anim Pill */}
+      <div className="flex items-center justify-between text-[7.5px] text-gray-400 pointer-events-none">
+        <span className="font-mono text-sky-400 font-semibold truncate max-w-[85px]">
+          {textData.fontFamily || 'Sans'}
+        </span>
+        <span className="px-1 py-0.2 bg-[#161a22] rounded border border-[#202531] text-[7px] text-gray-300">
+          {animLabel ? `✦ ${animLabel}` : styleKind}
+        </span>
+      </div>
 
-      <div className="absolute bottom-0.5 right-1 text-[7px] text-gray-400 font-mono">
-        {styleKind}
+      {/* Main Visual Title Preview */}
+      <div className="flex-1 flex items-center justify-center w-full px-0.5 overflow-hidden">
+        {isAnim ? (
+          <div className="flex items-center gap-1 text-center px-1">
+            <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+            <span
+              className="text-[9.5px] font-semibold text-purple-200 truncate block"
+              style={{ fontFamily: textData.fontFamily ? `"${textData.fontFamily}", sans-serif` : 'inherit' }}
+            >
+              {primaryLine}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="max-w-full px-1.5 py-0.5 rounded transition-transform"
+            style={{
+              backgroundColor: textData.backgroundColor || 'transparent',
+              borderRadius: textData.borderRadius ? Math.min(textData.borderRadius, 6) : 2,
+              textAlign: (textData.textAlign as any) || 'center',
+              boxShadow: textData.shadowColor ? `0 1px 4px ${textData.shadowColor}` : undefined,
+            }}
+          >
+            <div
+              className="text-[10px] font-bold leading-tight truncate tracking-wide"
+              style={{
+                fontFamily: textData.fontFamily ? `"${textData.fontFamily}", sans-serif` : 'inherit',
+                color: textData.color || '#ffffff',
+                WebkitTextStroke:
+                  textData.strokeColor && (textData.strokeWidth || 0) > 0 ? `0.35px ${textData.strokeColor}` : undefined,
+                letterSpacing: textData.letterSpacing ? `${Math.min(textData.letterSpacing * 0.3, 2)}px` : undefined,
+                textTransform: (textData as any).textTransform || 'none',
+              }}
+            >
+              {primaryLine}
+            </div>
+            {secondaryLine && (
+              <div
+                className="text-[7.5px] font-medium leading-tight truncate opacity-85 mt-0.5"
+                style={{
+                  fontFamily: textData.fontFamily ? `"${textData.fontFamily}", sans-serif` : 'inherit',
+                  color: textData.color || '#cbd5e1',
+                }}
+              >
+                {secondaryLine}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Footer: Badge indicator */}
+      <div className="flex items-center justify-between text-[7px] text-gray-400 pointer-events-none">
+        <span className="text-gray-400 truncate max-w-[95px]">{asset.localizedName}</span>
+        <span className="text-emerald-400 font-mono">Türkçe ✓</span>
       </div>
     </div>
   );
@@ -704,8 +730,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
         duration: asset.duration || (clipType === 'image' ? 6.0 : 4.0),
         sourceDuration: asset.duration || (clipType === 'image' ? 6.0 : 4.0),
         transform: {
-          x: 0,
-          y: (asset.style === 'lower-third' || asset.style === 'lowerthird') ? 320 : 0,
+          x: (asset.metadata as any)?.transform?.x ?? 0,
+          y: (asset.metadata as any)?.transform?.y ?? ((asset.style === 'lower-third' || asset.style === 'lowerthird') ? 320 : 0),
           scaleX: 1,
           scaleY: 1,
           rotation: 0,
