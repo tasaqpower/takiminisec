@@ -1,5 +1,5 @@
 import { VideoProject, ExportOptions } from '../types';
-import { renderFrameToCanvas, clearLipFreezeCache, clearSmoothCutCache, clearMotionBlurCache } from './previewRenderer';
+import { renderFrameToCanvas, resolveClipMediaUrl, clearLipFreezeCache, clearSmoothCutCache, clearMotionBlurCache } from './previewRenderer';
 import { audioMixer } from './audioMixer';
 import { getAssetBlob } from '../db';
 import { loadAndCacheCubeLut } from './filterEngine';
@@ -138,43 +138,7 @@ class ExportEngine {
     for (const track of project.tracks) {
       for (const clip of track.clips) {
         if (clip.type === 'video' || clip.type === 'image') {
-          let url = clip.sourceUrl;
-
-          // 1. Direct SVG resolution for element stickers, badges and overlays
-          if (clip.svgContent) {
-            url = createSvgDataUrl(clip.svgContent);
-          } else if (clip.assetId?.startsWith('element-') || clip.elementPresetId) {
-            const svg = getElementSvg(clip.elementPresetId || clip.assetId);
-            if (svg) {
-              url = createSvgDataUrl(svg);
-            }
-          }
-
-          if (!url && clip.assetId) {
-            const blob = await getAssetBlob(clip.assetId);
-            if (blob) {
-              url = URL.createObjectURL(blob);
-            }
-          }
-
-          if (!url && clip.assetId) {
-            if (clip.assetId.startsWith('broll-')) {
-              url = `/video-assets/broll/${clip.assetId}.webm`;
-            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
-              url = `/video-assets/sample-video.webm`;
-            } else if (clip.assetId.startsWith('overlay-')) {
-              const name = clip.assetId.replace('overlay-', '');
-              url = `/video-assets/overlays/${name}.svg`;
-            } else if (clip.assetId.startsWith('element-')) {
-              const name = clip.assetId.replace('element-', '');
-              const svg = getElementSvg(name) || getElementSvg(clip.assetId);
-              if (svg) {
-                url = createSvgDataUrl(svg);
-              } else {
-                url = `/video-assets/elements/${name}.svg`;
-              }
-            }
-          }
+          const url = await resolveClipMediaUrl(clip);
 
           if (url) {
             if (clip.type === 'video') {

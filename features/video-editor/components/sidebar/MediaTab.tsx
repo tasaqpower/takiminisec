@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { VideoProject, MediaAsset, VideoClip } from '../../types';
 import { saveAssetBlob } from '../../db';
 import { audioMixer } from '../../engine/audioMixer';
@@ -263,6 +263,56 @@ export const MediaTab: React.FC<MediaTabProps> = ({
   const screenStreamRef = useRef<MediaStream | null>(null);
   const webcamRecRef = useRef<MediaRecorder | null>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
+
+  // Synchronize recovered project assets from IndexedDB into media library bin
+  useEffect(() => {
+    let isMounted = true;
+    async function syncProjectAssets() {
+      if (!project.tracks) return;
+      const seen = new Set<string>();
+      const restoredAssets: MediaAsset[] = [];
+
+      for (const track of project.tracks) {
+        for (const clip of track.clips) {
+          if (!clip.assetId || seen.has(clip.assetId) || clip.assetId.startsWith('element-') || clip.assetId.startsWith('overlay-')) continue;
+          seen.add(clip.assetId);
+
+          try {
+            const { getAssetBlob } = await import('../../db');
+            const blob = await getAssetBlob(clip.assetId);
+            if (blob) {
+              const isVideo = clip.type === 'video' || blob.type.startsWith('video');
+              const isAudio = clip.type === 'audio' || blob.type.startsWith('audio');
+              const isImage = clip.type === 'image' || blob.type.startsWith('image');
+              const url = URL.createObjectURL(blob);
+              restoredAssets.push({
+                id: clip.assetId,
+                name: clip.name || 'Kurtarılan Medya',
+                type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
+                mimeType: blob.type,
+                size: blob.size,
+                duration: clip.duration || 5,
+                thumbnailUrl: isImage ? url : undefined,
+                blob,
+              });
+            }
+          } catch {}
+        }
+      }
+
+      if (isMounted && restoredAssets.length > 0) {
+        setAssets((prev) => {
+          const existingIds = new Set(prev.map((a) => a.id));
+          const newToAdd = restoredAssets.filter((a) => !existingIds.has(a.id));
+          return [...prev, ...newToAdd];
+        });
+      }
+    }
+    syncProjectAssets();
+    return () => {
+      isMounted = false;
+    };
+  }, [project.id]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

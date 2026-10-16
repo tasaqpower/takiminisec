@@ -177,7 +177,11 @@ export async function getLatestVideoProject(): Promise<VideoProject | null> {
         return;
       }
       list.sort((a, b) => b.updatedAt - a.updatedAt);
-      resolve(list[0]);
+      const projectWithClips = list.find((p) => {
+        if (!p.tracks || !Array.isArray(p.tracks)) return false;
+        return p.tracks.some((t) => Array.isArray(t.clips) && t.clips.length > 0);
+      });
+      resolve(projectWithClips || list[0]);
     };
     req.onerror = () => reject(req.error);
   });

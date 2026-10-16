@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useVideoProject } from '../hooks/useVideoProject';
+import { useVideoProject, rehydrateProjectMedia } from '../hooks/useVideoProject';
 import { useVideoPlayback } from '../hooks/useVideoPlayback';
 import { useShortcuts } from '../hooks/useShortcuts';
 import { VideoEditorTopbar } from './VideoEditorTopbar';
@@ -125,6 +125,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     setDuration,
     setBackgroundColor,
     hasAutosavePrompt,
+    recoveredProject,
     acceptRecovery,
     declineRecovery,
   } = useVideoProject();
@@ -159,6 +160,23 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     return true;
   }, [project, commitProjectChange]);
 
+  const latestStateRef = useRef({
+    project,
+    recoveredProject,
+    hasAutosavePrompt,
+    acceptRecovery,
+    declineRecovery,
+    currentTime,
+  });
+  latestStateRef.current = {
+    project,
+    recoveredProject,
+    hasAutosavePrompt,
+    acceptRecovery,
+    declineRecovery,
+    currentTime,
+  };
+
   useEffect(() => {
     const isDevOrTest =
       process.env.NODE_ENV !== 'production' ||
@@ -170,7 +188,10 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
 
     if (isDevOrTest && typeof window !== 'undefined') {
       (window as any).__formaEditor = {
-        project,
+        get project() { return latestStateRef.current.project; },
+        get recoveredProject() { return latestStateRef.current.recoveredProject; },
+        get hasAutosavePrompt() { return latestStateRef.current.hasAutosavePrompt; },
+        get currentTime() { return latestStateRef.current.currentTime; },
         setProject,
         addTrack,
         addClip,
@@ -182,7 +203,6 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         seek,
         play,
         pause,
-        currentTime,
         selectedClipId,
         setSelectedClipId,
         selectClip: setSelectedClipId,
@@ -213,6 +233,9 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         inBrowserWhisperEngine,
         elementPresets: ELEMENT_PRESETS,
         createSvgDataUrl,
+        acceptRecovery: (override?: any) => latestStateRef.current.acceptRecovery(override),
+        declineRecovery: () => latestStateRef.current.declineRecovery(),
+        rehydrateProjectMedia,
       };
       (window as any).__audioMixer = audioMixer;
     } else if (typeof window !== 'undefined' && (window as any).__formaEditor) {
@@ -250,6 +273,10 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
     toggleProjectAutoWhoosh,
     addProceduralSfxClip,
     handleExecuteAiAction,
+    acceptRecovery,
+    declineRecovery,
+    hasAutosavePrompt,
+    recoveredProject,
   ]);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -654,7 +681,7 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
           isOpen={hasAutosavePrompt}
           onAccept={acceptRecovery}
           onDecline={declineRecovery}
-          project={project}
+          project={recoveredProject}
         />
 
         <VideoShortcutsModal

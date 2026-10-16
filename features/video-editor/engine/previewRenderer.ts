@@ -40,6 +40,78 @@ const lastFrameCanvasCache = new Map<string, HTMLCanvasElement>();
 // Retain frozen onset frames for Lip-Freeze visual character sync
 const lipFreezeCanvasCache = new Map<string, HTMLCanvasElement>();
 
+// Session cache for live object URLs created from IndexedDB / OPFS blobs
+export const sessionLiveBlobUrls = new Map<string, string>();
+
+/**
+ * Resolves an active, live media URL for a clip.
+ * Resilient against dead/stale blob URLs saved in persistent storage (e.g. project recovery).
+ */
+export async function resolveClipMediaUrl(clip: VideoClip): Promise<string | undefined> {
+  // 1. Direct SVG resolution for element stickers, badges and overlays
+  if (clip.svgContent) {
+    return createSvgDataUrl(clip.svgContent);
+  }
+  if (clip.elementPresetId || clip.assetId?.startsWith('element-')) {
+    const svg = getElementSvg(clip.elementPresetId || clip.assetId);
+    if (svg) return createSvgDataUrl(svg);
+  }
+
+  // 2. If we already created an active blob URL in this browser session for this asset, reuse it
+  if (clip.assetId && sessionLiveBlobUrls.has(clip.assetId)) {
+    return sessionLiveBlobUrls.get(clip.assetId);
+  }
+
+  // 3. If clip.assetId exists, load the persistent blob from IndexedDB / OPFS!
+  // (CRITICAL: Never trust an old blob: URL stored in clip.sourceUrl from a previous session,
+  // because the browser revokes all blob: URLs when a page is closed/reloaded.)
+  if (clip.assetId) {
+    try {
+      const { getAssetBlob } = await import('../db');
+      const blob = await getAssetBlob(clip.assetId);
+      if (blob) {
+        const freshUrl = URL.createObjectURL(blob);
+        sessionLiveBlobUrls.set(clip.assetId, freshUrl);
+        return freshUrl;
+      }
+    } catch (blobErr) {
+      console.warn('[FORMA] Could not load blob for asset from db:', clip.assetId, blobErr);
+    }
+  }
+
+  // 4. Built-in sample assets fallback
+  if (clip.assetId) {
+    if (clip.assetId.startsWith('broll-')) {
+      return `/video-assets/broll/${clip.assetId}.webm`;
+    }
+    if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
+      return `/video-assets/sample-video.webm`;
+    }
+    if (clip.assetId.startsWith('overlay-')) {
+      const name = clip.assetId.replace('overlay-', '');
+      return `/video-assets/overlays/${name}.svg`;
+    }
+    if (clip.assetId.startsWith('element-')) {
+      const name = clip.assetId.replace('element-', '');
+      const svg = getElementSvg(name) || getElementSvg(clip.assetId);
+      if (svg) return createSvgDataUrl(svg);
+      return `/video-assets/elements/${name}.svg`;
+    }
+  }
+
+  // 5. If sourceUrl is a static path or live http/https URL (not a dead blob URL)
+  if (clip.sourceUrl && !clip.sourceUrl.startsWith('blob:')) {
+    return clip.sourceUrl;
+  }
+
+  // 6. If sourceUrl is a blob: URL and we have nothing else, fallback to it
+  if (clip.sourceUrl) {
+    return clip.sourceUrl;
+  }
+
+  return undefined;
+}
+
 export function clearLipFreezeCache(clipId?: string): void {
   if (clipId) {
     lipFreezeCanvasCache.delete(clipId);
@@ -1464,6 +1536,12 @@ export function renderScene(renderCtx: RenderContext): void {
 
             applyCanvasPostEffects(ctx, width, height, mergedEffects);
             ctx.restore();
+          } else {
+            // Buffer/loading placeholder: prevent pitch-black void while video is seeking, buffering or decoding
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+            drawProceduralClipContent(ctx, clip, width * 0.75, height * 0.75, currentTime);
+            ctx.restore();
           }
       } else if (clip.type === 'image') {
         try {
@@ -2153,46 +2231,7 @@ export async function renderFrameToCanvas(
           elementCache.get(clip.id);
 
         if (!elem && (clip.sourceUrl || clip.assetId || clip.svgContent || clip.elementPresetId)) {
-          let url = clip.sourceUrl;
-
-          // 1. Direct SVG resolution for element stickers, badges and overlays
-          if (clip.svgContent) {
-            url = createSvgDataUrl(clip.svgContent);
-          } else if (clip.assetId?.startsWith('element-') || clip.elementPresetId) {
-            const svg = getElementSvg(clip.elementPresetId || clip.assetId);
-            if (svg) {
-              url = createSvgDataUrl(svg);
-            }
-          }
-
-          if (!url && clip.assetId) {
-            try {
-              const { getAssetBlob } = await import('../db');
-              const blob = await getAssetBlob(clip.assetId);
-              if (blob) url = URL.createObjectURL(blob);
-            } catch (blobErr) {
-              console.warn('[FORMA] Could not load blob for asset:', clip.assetId, blobErr);
-            }
-          }
-
-          if (!url && clip.assetId) {
-            if (clip.assetId.startsWith('broll-')) {
-              url = `/video-assets/broll/${clip.assetId}.webm`;
-            } else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') {
-              url = `/video-assets/sample-video.webm`;
-            } else if (clip.assetId.startsWith('overlay-')) {
-              const name = clip.assetId.replace('overlay-', '');
-              url = `/video-assets/overlays/${name}.svg`;
-            } else if (clip.assetId.startsWith('element-')) {
-              const name = clip.assetId.replace('element-', '');
-              const svg = getElementSvg(name) || getElementSvg(clip.assetId);
-              if (svg) {
-                url = createSvgDataUrl(svg);
-              } else {
-                url = `/video-assets/elements/${name}.svg`;
-              }
-            }
-          }
+          const url = await resolveClipMediaUrl(clip);
 
           if (url) {
             if (clip.type === 'video') {
@@ -2203,6 +2242,22 @@ export async function renderFrameToCanvas(
               v.preload = 'auto';
               v.autoplay = false;
               v.src = url;
+
+              // Self-healing error listener: if media fails to load (e.g. stale blob), reload from IndexedDB
+              v.addEventListener('error', async () => {
+                if (clip.assetId) {
+                  try {
+                    const { getAssetBlob } = await import('../db');
+                    const blob = await getAssetBlob(clip.assetId);
+                    if (blob) {
+                      const freshUrl = URL.createObjectURL(blob);
+                      sessionLiveBlobUrls.set(clip.assetId, freshUrl);
+                      v.src = freshUrl;
+                      v.load();
+                    }
+                  } catch {}
+                }
+              });
 
               if (typeof document !== 'undefined' && document.body) {
                 let hiddenContainer = document.getElementById('forma-offscreen-media-container');
@@ -2429,18 +2484,7 @@ export async function preloadProjectMedia(project: VideoProject): Promise<void> 
     if (track.muted || track.visible === false) continue;
     for (const clip of track.clips) {
       if (clip.type === 'video' && !elementCache.has(clip.id)) {
-        let url = clip.sourceUrl;
-        if (!url && clip.assetId) {
-          try {
-            const { getAssetBlob } = await import('../db');
-            const blob = await getAssetBlob(clip.assetId);
-            if (blob) url = URL.createObjectURL(blob);
-          } catch {}
-          if (!url) {
-            if (clip.assetId.startsWith('broll-')) url = `/video-assets/broll/${clip.assetId}.webm`;
-            else if (clip.assetId.includes('video') || clip.assetId === '01_video_starter_sample') url = `/video-assets/sample-video.webm`;
-          }
-        }
+        const url = await resolveClipMediaUrl(clip);
         if (url) {
           const v = document.createElement('video');
           v.crossOrigin = 'anonymous';

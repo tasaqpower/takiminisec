@@ -44,6 +44,48 @@ export function migrateProject(raw: any): VideoProject {
   };
 }
 
+/**
+ * Asynchronously rehydrates all media clips in a project by resolving fresh Blob URLs
+ * from persistent IndexedDB / OPFS storage. Critical for project recovery after page refresh.
+ */
+export async function rehydrateProjectMedia(project: VideoProject): Promise<VideoProject> {
+  const { getAssetBlob } = await import('../db');
+  let sessionLiveBlobUrls: Map<string, string> | null = null;
+  try {
+    const previewModule = await import('../engine/previewRenderer');
+    sessionLiveBlobUrls = previewModule.sessionLiveBlobUrls;
+  } catch {}
+
+  const freshTracks = await Promise.all(
+    project.tracks.map(async (track) => {
+      const freshClips = await Promise.all(
+        track.clips.map(async (clip) => {
+          if (!clip.assetId) return clip;
+          try {
+            const blob = await getAssetBlob(clip.assetId);
+            if (blob) {
+              const freshUrl = URL.createObjectURL(blob);
+              if (sessionLiveBlobUrls) {
+                sessionLiveBlobUrls.set(clip.assetId, freshUrl);
+              }
+              return { ...clip, sourceUrl: freshUrl };
+            }
+          } catch (err) {
+            console.warn('[FORMA] Rehydrate clip error for asset:', clip.assetId, err);
+          }
+          return clip;
+        })
+      );
+      return { ...track, clips: freshClips };
+    })
+  );
+
+  return {
+    ...project,
+    tracks: freshTracks,
+  };
+}
+
 function createDefaultProject(): VideoProject {
   const videoTrackId = 'track-video-' + Math.random().toString(36).substring(2, 9);
   const audioTrackId = 'track-audio-' + Math.random().toString(36).substring(2, 9);
@@ -108,6 +150,7 @@ export function useVideoProject() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [hasAutosavePrompt, setHasAutosavePrompt] = useState(false);
   const [recoveredProject, setRecoveredProject] = useState<VideoProject | null>(null);
+  const recoveredProjectRef = useRef<VideoProject | null>(null);
 
   const undoStackRef = useRef<VideoProject[]>([]);
   const redoStackRef = useRef<VideoProject[]>([]);
@@ -123,9 +166,11 @@ export function useVideoProject() {
         const latest = await loadLatestProject();
         if (latest && latest.tracks && latest.tracks.length > 0) {
           const migrated = migrateProject(latest);
-          const totalClips = migrated.tracks.reduce((acc, t) => acc + t.clips.length, 0);
+          const totalClips = migrated.tracks.reduce((acc, t) => acc + (t.clips?.length || 0), 0);
           if (totalClips > 0) {
-            setRecoveredProject(migrated);
+            const rehydrated = await rehydrateProjectMedia(migrated);
+            recoveredProjectRef.current = rehydrated;
+            setRecoveredProject(rehydrated);
             setHasAutosavePrompt(true);
           }
         }
@@ -140,6 +185,12 @@ export function useVideoProject() {
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+
+    // Do NOT autosave an empty untouched project that would overwrite saved work
+    const totalClips = project.tracks.reduce((acc, t) => acc + (t.clips?.length || 0), 0);
+    if (totalClips === 0 && !isDirty) {
       return;
     }
 
@@ -164,7 +215,7 @@ export function useVideoProject() {
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
-  }, [project]);
+  }, [project, isDirty]);
 
   // Recalculate duration automatically when clips change
   const updateProjectDuration = useCallback((tracks: TimelineTrack[]): number => {
@@ -2487,20 +2538,27 @@ export function useVideoProject() {
     }
   }, [project]);
 
-  const acceptRecovery = useCallback(() => {
-    if (recoveredProject) {
-      setProject(migrateProject(recoveredProject));
+  const acceptRecovery = useCallback(async (projectOverride?: VideoProject) => {
+    const projToRecover = projectOverride || recoveredProjectRef.current || recoveredProject;
+    if (projToRecover) {
+      const rehydrated = await rehydrateProjectMedia(migrateProject(projToRecover));
+      setProject(rehydrated);
       setHasAutosavePrompt(false);
       setRecoveredProject(null);
+      recoveredProjectRef.current = null;
+      return rehydrated;
     }
+    return null;
   }, [recoveredProject]);
 
   const declineRecovery = useCallback(async () => {
-    if (recoveredProject) {
-      await deleteProjectMetadata(recoveredProject.id);
+    const projToDecline = recoveredProjectRef.current || recoveredProject;
+    if (projToDecline) {
+      await deleteProjectMetadata(projToDecline.id);
     }
     setHasAutosavePrompt(false);
     setRecoveredProject(null);
+    recoveredProjectRef.current = null;
   }, [recoveredProject]);
 
   const resetProject = useCallback(() => {
@@ -2599,6 +2657,7 @@ export function useVideoProject() {
     // Persistence
     saveProjectNow,
     hasAutosavePrompt,
+    recoveredProject,
     acceptRecovery,
     declineRecovery,
     resetProject,
