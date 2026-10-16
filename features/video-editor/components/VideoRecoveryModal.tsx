@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { VideoProject } from '../types';
 
 interface RecoveryModalProps {
   isOpen: boolean;
-  onAccept: () => void;
-  onDecline: () => void;
+  onAccept: () => void | Promise<any>;
+  onDecline: () => void | Promise<any>;
   project: VideoProject | null;
 }
 
@@ -14,10 +14,39 @@ export const VideoRecoveryModal: React.FC<RecoveryModalProps> = ({
   onDecline,
   project,
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
   if (!isOpen || !project) return null;
 
-  const totalClips = project.tracks.reduce((acc, t) => acc + t.clips.length, 0);
-  const formattedDate = new Date(project.updatedAt).toLocaleString('tr-TR');
+  const totalClips = (project.tracks || []).reduce((acc, t) => acc + (t.clips?.length || 0), 0);
+  const formattedDate = project.updatedAt ? new Date(project.updatedAt).toLocaleString('tr-TR') : 'Bilinmiyor';
+  const width = project.resolution?.width || 1920;
+  const height = project.resolution?.height || 1080;
+  const trackCount = Array.isArray(project.tracks) ? project.tracks.length : 0;
+
+  const handleAccept = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onAccept();
+    } catch (err) {
+      console.error('[FORMA] Recovery error in modal:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onDecline();
+    } catch (err) {
+      console.error('[FORMA] Decline recovery error:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 select-none">
@@ -42,15 +71,15 @@ export const VideoRecoveryModal: React.FC<RecoveryModalProps> = ({
           <div className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] space-y-1.5 text-[11px]">
             <div className="flex justify-between">
               <span className="text-gray-400">Proje Adı:</span>
-              <span className="font-semibold text-white truncate max-w-[200px]">{project.name}</span>
+              <span className="font-semibold text-white truncate max-w-[200px]">{project.name || 'İsimsiz Proje'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Toplam Klip:</span>
-              <span className="font-mono text-gray-200">{totalClips} Klip ({project.tracks.length} Kanal)</span>
+              <span className="font-mono text-gray-200">{totalClips} Klip ({trackCount} Kanal)</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Çözünürlük:</span>
-              <span className="font-mono text-gray-200">{project.resolution.width} x {project.resolution.height}</span>
+              <span className="font-mono text-gray-200">{width} x {height}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Son Kayıt:</span>
@@ -61,16 +90,30 @@ export const VideoRecoveryModal: React.FC<RecoveryModalProps> = ({
 
         <div className="p-4 border-t border-[#21262d] bg-[#161b22]/40 flex items-center justify-end gap-2">
           <button
-            onClick={onDecline}
-            className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#21262d] font-semibold text-xs transition-colors"
+            type="button"
+            onClick={handleDecline}
+            disabled={isProcessing}
+            className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#21262d] font-semibold text-xs transition-colors disabled:opacity-50"
           >
             Sil & Yeni Proje Başlat
           </button>
           <button
-            onClick={onAccept}
-            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95"
+            type="button"
+            onClick={handleAccept}
+            disabled={isProcessing}
+            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
           >
-            Projeyi Kurtar ve Devam Et
+            {isProcessing ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Kurtarılıyor...</span>
+              </>
+            ) : (
+              <span>Projeyi Kurtar ve Devam Et</span>
+            )}
           </button>
         </div>
       </div>

@@ -272,8 +272,8 @@ export const MediaTab: React.FC<MediaTabProps> = ({
       const seen = new Set<string>();
       const restoredAssets: MediaAsset[] = [];
 
-      for (const track of project.tracks) {
-        for (const clip of track.clips) {
+      for (const track of (project.tracks || [])) {
+        for (const clip of (track.clips || [])) {
           if (!clip.assetId || seen.has(clip.assetId) || clip.assetId.startsWith('element-') || clip.assetId.startsWith('overlay-')) continue;
           seen.add(clip.assetId);
 

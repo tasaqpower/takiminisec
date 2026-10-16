@@ -261,25 +261,35 @@ async function main() {
       (async () => {
         const editor = window.__formaEditor;
         
-        // Wait for checkSaved() async IndexedDB read to finish
-        for (let i = 0; i < 25; i++) {
-          if (editor && (editor.hasAutosavePrompt || editor.recoveredProject)) break;
+        // Wait for checkSaved() async IndexedDB read to finish and modal to render
+        let btn = null;
+        for (let i = 0; i < 30; i++) {
+          btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Projeyi Kurtar'));
+          if (btn) break;
           await new Promise(r => setTimeout(r, 200));
         }
 
         let accepted = false;
-        if (editor && editor.acceptRecovery) {
+        if (btn) {
+          btn.click();
+          accepted = true;
+        } else if (editor && editor.acceptRecovery) {
           await editor.acceptRecovery();
           accepted = true;
         }
 
-        await new Promise(r => setTimeout(r, 800));
+        // Wait for rehydration and render
+        await new Promise(r => setTimeout(r, 1200));
+
+        // Check if any error boundary appeared
+        const hasNextError = Boolean(document.getElementById('__next_error__') || document.body.innerText.includes("This page couldn't load"));
 
         const activeProject = window.__formaEditor?.project;
         const clip = activeProject?.tracks?.flatMap(t => t.clips)?.[0];
 
         return {
           accepted,
+          hasNextError,
           clipId: clip?.id,
           rehydratedSourceUrl: clip?.sourceUrl,
           isDeadUrlReplaced: clip?.sourceUrl !== null && !clip?.sourceUrl?.includes('dead-session'),
@@ -291,11 +301,16 @@ async function main() {
     console.log(`[RECOVER-2B] Klip ID: ${recoveryModalInfo.clipId}`);
     console.log(`[RECOVER-2C] Rehydrated Canlı URL: ${recoveryModalInfo.rehydratedSourceUrl}`);
     console.log(`[RECOVER-2D] Ölü URL Başarıyla Değiştirildi: ${recoveryModalInfo.isDeadUrlReplaced}`);
+    console.log(`[RECOVER-2E] Next.js Error Boundary Oluştu mu?: ${recoveryModalInfo.hasNextError}`);
+
+    if (recoveryModalInfo.hasNextError) {
+      throw new Error(`TEST FAILED: "This page couldn't load" hata ekranı belirdi!`);
+    }
 
     if (!recoveryModalInfo.isDeadUrlReplaced) {
       throw new Error(`TEST FAILED: Ölü blob URL canlı bir ObjectURL ile değiştirilmedi!`);
     }
-    console.log('✓ ADIM 2 PASSED: Proje kurtarıldı ve ölü blob URL canlı URL ile değiştirildi!');
+    console.log('✓ ADIM 2 PASSED: Proje kurtarıldı, hata vermedi ve ölü blob URL canlı URL ile değiştirildi!');
 
     // -------------------------------------------------------------------------
     // ADIM 3: Video Tuvalinde Gerçek Kare Çizim Doğrulaması (SİYAH EKRAN TESTİ)
@@ -446,9 +461,8 @@ async function main() {
     if (chromeProc) {
       try { chromeProc.kill(); } catch {}
     }
-    if (serverProc) {
-      try { serverProc.kill(); } catch {}
-    }
+    // Keep server running so the user's browser can immediately interact with the running editor
+    console.log('✓ Server remains active on port 3000 for user access.');
   }
 }
 

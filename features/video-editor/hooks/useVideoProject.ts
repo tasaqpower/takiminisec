@@ -21,26 +21,52 @@ import { saveProjectMetadata, loadLatestProject, deleteProjectMetadata } from '.
 const MAX_HISTORY = 50;
 
 export function migrateProject(raw: any): VideoProject {
-  if (!raw) return createDefaultProject();
+  const defaultProj = createDefaultProject();
+  if (!raw || typeof raw !== 'object' || ('nativeEvent' in raw) || ('clientX' in raw)) {
+    return defaultProj;
+  }
+
+  const width = typeof raw.resolution?.width === 'number' && raw.resolution.width > 0 ? raw.resolution.width : defaultProj.resolution.width;
+  const height = typeof raw.resolution?.height === 'number' && raw.resolution.height > 0 ? raw.resolution.height : defaultProj.resolution.height;
+
+  const rawTracks = Array.isArray(raw.tracks) ? raw.tracks : [];
+  const tracks = rawTracks.length > 0
+    ? rawTracks.map((t: any, trackIdx: number) => ({
+        id: typeof t.id === 'string' && t.id ? t.id : `track-${t.type || 'video'}-${trackIdx}`,
+        name: typeof t.name === 'string' && t.name ? t.name : `Kanal ${trackIdx + 1}`,
+        type: t.type === 'audio' || t.type === 'text' || t.type === 'subtitle' ? t.type : 'video',
+        muted: Boolean(t.muted),
+        locked: Boolean(t.locked),
+        visible: t.visible !== false,
+        transitions: Array.isArray(t.transitions) ? t.transitions : [],
+        effectSegments: Array.isArray(t.effectSegments) ? t.effectSegments : [],
+        clips: Array.isArray(t.clips)
+          ? t.clips.map((c: any, clipIdx: number) => ({
+              ...c,
+              id: typeof c.id === 'string' && c.id ? c.id : `clip-${trackIdx}-${clipIdx}`,
+              type: c.type || t.type || 'video',
+              name: typeof c.name === 'string' ? c.name : 'Medya Klibi',
+              startTime: typeof c.startTime === 'number' ? c.startTime : (typeof c.start === 'number' ? c.start : 0),
+              duration: typeof c.duration === 'number' && c.duration > 0 ? c.duration : 5,
+              effectSegments: Array.isArray(c.effectSegments) ? c.effectSegments : [],
+              animationSegments: Array.isArray(c.animationSegments) ? c.animationSegments : [],
+            }))
+          : [],
+      }))
+    : defaultProj.tracks;
+
   return {
-    ...raw,
+    id: typeof raw.id === 'string' && raw.id ? raw.id : defaultProj.id,
+    name: typeof raw.name === 'string' && raw.name ? raw.name : defaultProj.name,
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now(),
+    resolution: { width, height },
+    fps: typeof raw.fps === 'number' && raw.fps > 0 ? raw.fps : defaultProj.fps,
+    duration: typeof raw.duration === 'number' && raw.duration > 0 ? raw.duration : defaultProj.duration,
+    backgroundColor: typeof raw.backgroundColor === 'string' ? raw.backgroundColor : defaultProj.backgroundColor,
     transitions: Array.isArray(raw.transitions) ? raw.transitions : [],
     effectSegments: Array.isArray(raw.effectSegments) ? raw.effectSegments : [],
-    tracks: Array.isArray(raw.tracks)
-      ? raw.tracks.map((t: any) => ({
-          ...t,
-          transitions: Array.isArray(t.transitions) ? t.transitions : [],
-          effectSegments: Array.isArray(t.effectSegments) ? t.effectSegments : [],
-          clips: Array.isArray(t.clips)
-            ? t.clips.map((c: any) => ({
-                ...c,
-                startTime: typeof c.startTime === 'number' ? c.startTime : (typeof c.start === 'number' ? c.start : 0),
-                effectSegments: Array.isArray(c.effectSegments) ? c.effectSegments : [],
-                animationSegments: Array.isArray(c.animationSegments) ? c.animationSegments : [],
-              }))
-            : [],
-        }))
-      : [],
+    tracks,
   };
 }
 
@@ -49,6 +75,7 @@ export function migrateProject(raw: any): VideoProject {
  * from persistent IndexedDB / OPFS storage. Critical for project recovery after page refresh.
  */
 export async function rehydrateProjectMedia(project: VideoProject): Promise<VideoProject> {
+  const safeProject = migrateProject(project);
   const { getAssetBlob } = await import('../db');
   let sessionLiveBlobUrls: Map<string, string> | null = null;
   try {
@@ -57,9 +84,9 @@ export async function rehydrateProjectMedia(project: VideoProject): Promise<Vide
   } catch {}
 
   const freshTracks = await Promise.all(
-    project.tracks.map(async (track) => {
+    (safeProject.tracks || []).map(async (track) => {
       const freshClips = await Promise.all(
-        track.clips.map(async (clip) => {
+        (track.clips || []).map(async (clip) => {
           if (!clip.assetId) return clip;
           try {
             const blob = await getAssetBlob(clip.assetId);
@@ -81,7 +108,7 @@ export async function rehydrateProjectMedia(project: VideoProject): Promise<Vide
   );
 
   return {
-    ...project,
+    ...safeProject,
     tracks: freshTracks,
   };
 }
@@ -2538,23 +2565,50 @@ export function useVideoProject() {
     }
   }, [project]);
 
-  const acceptRecovery = useCallback(async (projectOverride?: VideoProject) => {
-    const projToRecover = projectOverride || recoveredProjectRef.current || recoveredProject;
+  const acceptRecovery = useCallback(async (projectOverride?: any) => {
+    // If called from onClick, projectOverride is a SyntheticBaseEvent or MouseEvent!
+    const isProjectLike =
+      projectOverride &&
+      typeof projectOverride === 'object' &&
+      !('nativeEvent' in projectOverride) &&
+      !('clientX' in projectOverride) &&
+      !('target' in projectOverride) &&
+      Array.isArray(projectOverride.tracks);
+
+    const projToRecover =
+      (isProjectLike ? (projectOverride as VideoProject) : null) ||
+      recoveredProjectRef.current ||
+      recoveredProject;
+
     if (projToRecover) {
-      const rehydrated = await rehydrateProjectMedia(migrateProject(projToRecover));
-      setProject(rehydrated);
-      setHasAutosavePrompt(false);
-      setRecoveredProject(null);
-      recoveredProjectRef.current = null;
-      return rehydrated;
+      try {
+        const migrated = migrateProject(projToRecover);
+        const rehydrated = await rehydrateProjectMedia(migrated);
+        setProject(rehydrated);
+        setHasAutosavePrompt(false);
+        setRecoveredProject(null);
+        recoveredProjectRef.current = null;
+        return rehydrated;
+      } catch (err) {
+        console.error('[FORMA] Error during media rehydration:', err);
+        const safe = migrateProject(projToRecover);
+        setProject(safe);
+        setHasAutosavePrompt(false);
+        setRecoveredProject(null);
+        recoveredProjectRef.current = null;
+        return safe;
+      }
     }
+    setHasAutosavePrompt(false);
     return null;
   }, [recoveredProject]);
 
   const declineRecovery = useCallback(async () => {
     const projToDecline = recoveredProjectRef.current || recoveredProject;
-    if (projToDecline) {
-      await deleteProjectMetadata(projToDecline.id);
+    if (projToDecline && projToDecline.id) {
+      try {
+        await deleteProjectMetadata(projToDecline.id);
+      } catch {}
     }
     setHasAutosavePrompt(false);
     setRecoveredProject(null);
