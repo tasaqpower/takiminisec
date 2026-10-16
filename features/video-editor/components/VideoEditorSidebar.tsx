@@ -160,7 +160,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
     return Math.max(...track.clips.map((c) => c.startTime + c.duration), 0);
   };
 
-  const handleAddText = (text = 'Yeni Metin') => {
+  const handleAddText = (text = 'Yeni Metin', initialData?: any) => {
     let targetTrackId = findTrack('text');
     if (!targetTrackId) {
       onAddTrack('text', 'Metin Kanalı');
@@ -168,7 +168,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
       targetTrackId = updated?.id || project.tracks[0]?.id || '';
     }
     const startTime = getNextClipStartTime(targetTrackId);
-    onAddTextClip(targetTrackId, text, startTime, 3);
+    onAddTextClip(targetTrackId, text, startTime, 3, initialData);
   };
 
   const getTabTitle = () => {
@@ -262,6 +262,10 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 currentTime={currentTime}
                 selectedClipId={selectedClipId}
                 onAddTextClip={handleAddText}
+                onAddClip={onAddClip}
+                findTrack={findTrack}
+                getNextClipStartTime={getNextClipStartTime}
+                onUpdateClip={onUpdateClip}
                 onPreviewAnimation={onPreviewAnimation}
                 onAddTextAnimationSegment={onAddTextAnimationSegment}
               />

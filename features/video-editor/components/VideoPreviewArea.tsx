@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { VideoProject, VideoClip, Transform2D } from '../types';
+import { VideoProject, VideoClip, Transform2D, TextLayerData } from '../types';
 import { renderFrameToCanvas, registerRedrawCallback } from '../engine/previewRenderer';
 import { exportEngine } from '../engine/exportEngine';
 import { audioMixer } from '../engine/audioMixer';
 import { calculateClipBounds, isPointInClip, getGizmoHandleAt, GizmoHandleType } from '../engine/clipBounds';
-import { preloadPopularFonts } from '../engine/fontCatalog';
+import { preloadPopularFonts, loadGoogleFont } from '../engine/fontCatalog';
 import { useEditorDragDrop, DragPayload } from '../context/DragDropContext';
 import { parseTimecode } from '../utils/timecode';
 import {
@@ -427,9 +427,45 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
       const centerOffsetX = canvasX - project.resolution.width / 2;
       const centerOffsetY = canvasY - project.resolution.height / 2;
 
-      if (payload.type === 'title-template') {
+      if (payload.type === 'title-template' || payload.type === 'font' || payload.type === 'text-animation') {
         const textTrack = project.tracks.find((t) => t.type === 'text') || project.tracks[0];
         if (textTrack && onAddClip) {
+          const rawTextData = payload.data?.textData || payload.data?.metadata?.textData || payload.data?.data || {};
+          const resolvedText = rawTextData.text || payload.data?.defaultText || payload.data?.name || payload.name;
+          const resolvedFont = rawTextData.fontFamily || (payload.type === 'font' ? (payload.data?.fontFamily || payload.name.replace(/\s+Font$/i, '').trim()) : 'Plus Jakarta Sans');
+
+          if (resolvedFont) {
+            loadGoogleFont(resolvedFont).catch(() => {});
+          }
+
+          const resolvedTextData: Partial<TextLayerData> = {
+            text: resolvedText,
+            fontSize: rawTextData.fontSize || 54,
+            fontWeight: rawTextData.fontWeight || 'bold',
+            color: rawTextData.color || '#ffffff',
+            fillColor: rawTextData.fillColor || rawTextData.color || '#ffffff',
+            fontFamily: resolvedFont,
+            backgroundColor: rawTextData.backgroundColor,
+            backgroundOpacity: rawTextData.backgroundOpacity,
+            paddingX: rawTextData.paddingX,
+            paddingY: rawTextData.paddingY,
+            borderRadius: rawTextData.borderRadius,
+            strokeColor: rawTextData.strokeColor,
+            strokeWidth: rawTextData.strokeWidth,
+            shadowColor: rawTextData.shadowColor,
+            shadowBlur: rawTextData.shadowBlur,
+            shadowOffsetX: rawTextData.shadowOffsetX,
+            shadowOffsetY: rawTextData.shadowOffsetY,
+            letterSpacing: rawTextData.letterSpacing,
+            textAlign: rawTextData.textAlign || 'center',
+            alignment: rawTextData.alignment || rawTextData.textAlign || 'center',
+            inAnimation: rawTextData.inAnimation,
+            inDuration: rawTextData.inDuration,
+            outAnimation: rawTextData.outAnimation,
+            outDuration: rawTextData.outDuration,
+            loopAnimation: rawTextData.loopAnimation,
+          };
+
           const newClip = onAddClip(textTrack.id, {
             name: payload.name,
             type: 'text',
@@ -444,13 +480,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               rotation: 0,
               opacity: 1,
             },
-            textData: {
-              text: payload.data?.text || payload.name,
-              fontSize: payload.data?.data?.fontSize || 54,
-              fontWeight: payload.data?.data?.fontWeight || 'bold',
-              color: '#ffffff',
-              ...payload.data?.data,
-            },
+            textData: resolvedTextData,
           });
           if (newClip) onSelectClip?.(newClip.id);
         }

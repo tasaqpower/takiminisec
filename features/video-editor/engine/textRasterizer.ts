@@ -812,7 +812,7 @@ export function renderTextLayer(
 
     ctx.save();
     ctx.fillStyle = bgColor;
-    ctx.globalAlpha = Math.max(0, Math.min(1, (opacity * animOpacity) * (layer.backgroundOpacity ?? 1)));
+    ctx.globalAlpha = Math.max(0, Math.min(1, finalAlpha * (layer.backgroundOpacity ?? 1)));
 
     ctx.beginPath();
     safeRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, radius);
