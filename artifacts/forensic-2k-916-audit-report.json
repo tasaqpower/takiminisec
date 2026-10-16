@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-10-16T11:45:59.182Z",
+  "tests": {
+    "effect_deduplication": {
+      "countAfterFirst": 1,
+      "countAfterSecond": 1,
+      "countAfterThird": 2,
+      "globalSegmentsCount": 0,
+      "activeEffects": [
+        "glitch-rgb",
+        "cyberpunk-neon"
+      ],
+      "doubleStackPrevented": true,
+      "passed": true
+    },
+    "transition_deduplication": {
+      "countAfterFirst": 1,
+      "countAfterSecond": 1,
+      "currentTransitionType": "dissolve",
+      "replacedSuccessfully": true,
+      "passed": true
+    },
+    "resolution_preset_sync": {
+      "projectRes": {
+        "width": 1440,
+        "height": 2560
+      },
+      "selectedValue": "1440x2560",
+      "has2kOption": true,
+      "has4kOption": true,
+      "badgeText": "Proje çözünürlüğü ve en-boy oranı ile tam uyumlu (1440×2560 - 9:16 Dikey).",
+      "isSynced": true,
+      "passed": true
+    },
+    "export_2k_mp4": {
+      "filePath": "C:\\Users\\sinan\\OneDrive\\Belgeler\\ChatGPT\\pdf\\artifacts\\forensic_2k_916_export.mp4",
+      "sizeBytes": 897917,
+      "mimeType": "video/mp4",
+      "passed": true
+    },
+    "ffprobe_inspection": {
+      "width": 1440,
+      "height": 2560,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "sampleRate": "48000",
+      "videoDuration": 1,
+      "audioDuration": 1,
+      "durationDeltaMs": 0,
+      "passed": true
+    }
+  }
+}

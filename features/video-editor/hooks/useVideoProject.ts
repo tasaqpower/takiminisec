@@ -316,7 +316,7 @@ export function useVideoProject() {
   const addClip = useCallback(
     (trackId: string, clipData: Partial<VideoClip>): VideoClip => {
       const newClip: VideoClip = {
-        id: 'clip-' + Math.random().toString(36).substring(2, 9),
+        id: clipData.id || ('clip-' + Math.random().toString(36).substring(2, 9)),
         trackId,
         type: clipData.type || 'video',
         name: clipData.name || 'Yeni Klip',
