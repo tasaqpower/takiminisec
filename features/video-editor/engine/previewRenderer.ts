@@ -20,6 +20,7 @@ import { computeTransitionState, TransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
 import { calculateClipBounds } from './clipBounds';
 import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
+import { renderAnimatedElement } from './animatedElementsRenderer';
 
 export interface RenderContext {
   canvas: HTMLCanvasElement;
@@ -1885,32 +1886,38 @@ export function renderScene(renderCtx: RenderContext): void {
               ctx.clip();
             }
 
-            // Chroma Key for Image or procedural fallback
-            if (hasValidImg && img) {
-              const chroma = clip.effects?.chromaKey;
-              const useChroma = chroma && chroma.enabled;
-              if (useChroma) {
-                const processedCanvas = applyChromaKeyFrame(
-                  img,
-                  iw,
-                  ih,
-                  chroma.color || '#00FF00',
-                  chroma.similarity || 0.35,
-                  chroma.smoothness || 0.1
-                );
-                if (processedCanvas) {
-                  drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+            // Procedural Animated Elements (TikTok Follow, TikTok Like, Double Tap, YouTube Sub, Instagram Like)
+            const clipRelSec = Math.max(0, currentTime - (clip.startTime ?? 0));
+            const isHandledByAnimatedRenderer = renderAnimatedElement(ctx, clip, dw, dh, clipRelSec);
+
+            if (!isHandledByAnimatedRenderer) {
+              // Chroma Key for Image or procedural fallback
+              if (hasValidImg && img) {
+                const chroma = clip.effects?.chromaKey;
+                const useChroma = chroma && chroma.enabled;
+                if (useChroma) {
+                  const processedCanvas = applyChromaKeyFrame(
+                    img,
+                    iw,
+                    ih,
+                    chroma.color || '#00FF00',
+                    chroma.similarity || 0.35,
+                    chroma.smoothness || 0.1
+                  );
+                  if (processedCanvas) {
+                    drawMediaWithLut(ctx, processedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+                  } else {
+                    drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
+                  }
                 } else {
                   drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
                 }
               } else {
-                drawMediaWithLut(ctx, img, -dw / 2, -dh / 2, dw, dh, clip);
-              }
-            } else {
-              if (isSvgElement) {
-                drawVectorElementFallback(ctx, clip, dw, dh);
-              } else {
-                drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+                if (isSvgElement) {
+                  drawVectorElementFallback(ctx, clip, dw, dh);
+                } else {
+                  drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+                }
               }
             }
 

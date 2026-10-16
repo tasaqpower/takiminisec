@@ -1,12 +1,249 @@
 export interface ElementPreset {
   id: string;
   name: string;
-  category: 'ai' | 'tiktok' | 'youtube' | 'instagram' | 'arrows' | 'censor' | 'stickers';
+  category: 'animated' | 'ai' | 'tiktok' | 'youtube' | 'instagram' | 'arrows' | 'censor' | 'stickers';
   svg: string;
   defaultScale?: number;
+  isAnimated?: boolean;
+  elementAnimation?: string;
 }
 
 export const ELEMENT_PRESETS: ElementPreset[] = [
+  // =========================================================================
+  // 0. CANLI ANİMASYONLU ÖĞELER (CANVAS & CSS ANIMATED STICKERS)
+  // =========================================================================
+  {
+    id: 'tiktok-animated-follow',
+    name: 'TikTok Canlı Takip Et (+ ➔ ✓)',
+    category: 'animated',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-follow',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180" width="160" height="180">
+      <defs>
+        <style>
+          @keyframes followPulse {
+            0%, 25% { transform: scale(1); fill: #fe2c55; }
+            35% { transform: scale(0.85); fill: #fe2c55; }
+            45% { transform: scale(1.15); fill: #27272a; }
+            55%, 100% { transform: scale(1); fill: #27272a; }
+          }
+          @keyframes iconMorph {
+            0%, 25% { opacity: 1; transform: rotate(0deg); }
+            35% { opacity: 0; transform: rotate(90deg) scale(0); }
+            45%, 100% { opacity: 0; }
+          }
+          @keyframes checkReveal {
+            0%, 35% { opacity: 0; stroke-dashoffset: 24; }
+            50%, 100% { opacity: 1; stroke-dashoffset: 0; }
+          }
+          @keyframes sparkBurst {
+            0%, 35% { opacity: 0; transform: scale(0.3); }
+            50% { opacity: 1; transform: scale(1.2); }
+            70%, 100% { opacity: 0; transform: scale(1.6); }
+          }
+          .follow-btn { transform-origin: 80px 125px; animation: followPulse 3.5s infinite ease-in-out; }
+          .plus-icon { transform-origin: 80px 125px; animation: iconMorph 3.5s infinite ease-in-out; }
+          .check-icon { stroke-dasharray: 24; animation: checkReveal 3.5s infinite ease-in-out; }
+          .burst-spark { transform-origin: 80px 125px; animation: sparkBurst 3.5s infinite ease-out; }
+        </style>
+      </defs>
+      <!-- Avatar Circle -->
+      <circle cx="80" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="4"/>
+      <circle cx="80" cy="52" r="18" fill="#71717a"/>
+      <path d="M48 95 C48 78 62 72 80 72 C98 72 112 78 112 95 Z" fill="#71717a"/>
+      <!-- Follow Badge (+ turns into ✓) -->
+      <circle class="burst-spark" cx="80" cy="125" r="32" fill="none" stroke="#25f4ee" stroke-width="2"/>
+      <circle class="follow-btn" cx="80" cy="125" r="22" stroke="#ffffff" stroke-width="2.5"/>
+      <!-- Plus Icon -->
+      <g class="plus-icon">
+        <line x1="80" y1="113" x2="80" y2="137" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+        <line x1="68" y1="125" x2="92" y2="125" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+      </g>
+      <!-- Checkmark Icon -->
+      <path class="check-icon" d="M72 125 L78 131 L89 119" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="80" y="168" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="12">TAKİP ET</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-animated-like',
+    name: 'TikTok Canlı Beğen (Pop & Kalpler)',
+    category: 'animated',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-like',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+      <defs>
+        <style>
+          @keyframes likeBounce {
+            0%, 20% { transform: scale(1); }
+            28% { transform: scale(0.8); }
+            38% { transform: scale(1.4); }
+            48% { transform: scale(0.95); }
+            58%, 100% { transform: scale(1); }
+          }
+          @keyframes shockwave {
+            0%, 30% { opacity: 0; r: 16; }
+            40% { opacity: 0.9; }
+            65%, 100% { opacity: 0; r: 48; }
+          }
+          @keyframes miniHeartPop {
+            0%, 30% { opacity: 0; transform: translate(0, 0) scale(0); }
+            50% { opacity: 1; transform: translate(-14px, -24px) scale(1); }
+            80%, 100% { opacity: 0; transform: translate(-22px, -42px) scale(0.6); }
+          }
+          .heart-bounce { transform-origin: 52px 45px; animation: likeBounce 3.2s infinite cubic-bezier(0.34, 1.56, 0.64, 1); }
+          .shock-ring { animation: shockwave 3.2s infinite ease-out; }
+          .floating-heart { animation: miniHeartPop 3.2s infinite ease-out; }
+        </style>
+        <filter id="tt-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="-2" dy="-2" stdDeviation="3" flood-color="#25f4ee" flood-opacity="0.8"/>
+          <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#fe2c55" flood-opacity="0.9"/>
+        </filter>
+      </defs>
+      <rect x="3" y="3" width="274" height="84" rx="42" fill="#090a0f" stroke="#fe2c55" stroke-width="2.5"/>
+      <rect x="5" y="5" width="270" height="80" rx="40" fill="none" stroke="#25f4ee" stroke-width="1.5" stroke-opacity="0.6"/>
+      <!-- Shockwave circle -->
+      <circle class="shock-ring" cx="52" cy="45" fill="none" stroke="#25f4ee" stroke-width="2.5"/>
+      <!-- Floating mini hearts -->
+      <g class="floating-heart">
+        <path d="M52 45 C50 40 40 40 40 33 C40 28 45 26 50 31 C55 26 60 28 60 33 C60 40 54 40 52 45 Z" fill="#fe2c55"/>
+      </g>
+      <!-- Main Heart -->
+      <g class="heart-bounce" transform="translate(52, 45)" filter="url(#tt-glow)">
+        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#25f4ee" opacity="0.7" transform="translate(-2, -1) scale(0.9)"/>
+        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#fe2c55" transform="scale(0.9)"/>
+      </g>
+      <text x="105" y="44" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="1">BEĞEN</text>
+      <text x="105" y="66" fill="#fe2c55" font-family="Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="0.5">❤️ 1.4M</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-animated-follow-btn',
+    name: 'TikTok Takip Butonu (+ ➔ ✓)',
+    category: 'animated',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-follow-btn',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+      <defs>
+        <style>
+          @keyframes pillMorph {
+            0%, 25% { fill: #fe2c55; }
+            40%, 100% { fill: #222630; stroke: #3b4351; }
+          }
+          @keyframes btnClick {
+            0%, 25% { transform: scale(1); }
+            32% { transform: scale(0.92); }
+            42% { transform: scale(1.05); }
+            52%, 100% { transform: scale(1); }
+          }
+          .pill-container { transform-origin: 140px 45px; animation: btnClick 3.5s infinite ease-in-out; }
+          .pill-bg { animation: pillMorph 3.5s infinite ease-in-out; }
+        </style>
+      </defs>
+      <g class="pill-container">
+        <rect class="pill-bg" width="280" height="90" rx="45" fill="#fe2c55"/>
+        <circle cx="50" cy="45" r="22" fill="#ffffff" fill-opacity="0.2"/>
+        <path d="M42 45 L58 45 M50 37 L50 53" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+        <text x="88" y="55" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="22" letter-spacing="1">TAKİP ET</text>
+      </g>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-animated-double-tap',
+    name: 'TikTok Çift Tıkla Kalp (Patlama)',
+    category: 'animated',
+    defaultScale: 0.38,
+    isAnimated: true,
+    elementAnimation: 'tiktok-double-tap',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+      <defs>
+        <style>
+          @keyframes doubleTapZoom {
+            0%, 15% { transform: scale(0) rotate(-15deg); opacity: 0; }
+            28% { transform: scale(1.3) rotate(-15deg); opacity: 1; }
+            38% { transform: scale(1.0) rotate(-15deg); opacity: 1; }
+            70% { transform: scale(1.05) translateY(-10px) rotate(-15deg); opacity: 1; }
+            90%, 100% { transform: scale(0.9) translateY(-25px) rotate(-15deg); opacity: 0; }
+          }
+          .pop-heart { transform-origin: 100px 95px; animation: doubleTapZoom 3s infinite ease-out; }
+        </style>
+      </defs>
+      <circle cx="100" cy="100" r="85" fill="none" stroke="#fe2c55" stroke-width="2" stroke-dasharray="6 12" opacity="0.6"/>
+      <g class="pop-heart">
+        <path d="M100 140 C95 90 40 90 40 59 C40 35 70 25 100 50 C130 25 160 35 160 59 C160 90 105 90 100 140 Z" fill="#25f4ee" opacity="0.7" transform="translate(-4, -2)"/>
+        <path d="M100 140 C95 90 40 90 40 59 C40 35 70 25 100 50 C130 25 160 35 160 59 C160 90 105 90 100 140 Z" fill="#fe2c55"/>
+      </g>
+      <text x="100" y="175" text-anchor="middle" fill="#ffffff" font-family="Arial Black, sans-serif" font-weight="900" font-size="16">ÇİFT TIKLA ❤️</text>
+    </svg>`,
+  },
+  {
+    id: 'youtube-animated-subscribe',
+    name: 'YouTube Abone Ol & Çan (Canlı)',
+    category: 'animated',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'youtube-sub',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 90" width="320" height="90">
+      <defs>
+        <style>
+          @keyframes ytClick {
+            0%, 25% { fill: #cc0000; }
+            40%, 100% { fill: #27272a; }
+          }
+          @keyframes bellRing {
+            0%, 45% { transform: rotate(0deg); }
+            50% { transform: rotate(18deg); }
+            55% { transform: rotate(-18deg); }
+            60% { transform: rotate(15deg); }
+            65% { transform: rotate(-15deg); }
+            70%, 100% { transform: rotate(0deg); }
+          }
+          .yt-btn { animation: ytClick 3.5s infinite ease-in-out; }
+          .yt-bell { transform-origin: 275px 45px; animation: bellRing 3.5s infinite ease-in-out; }
+        </style>
+      </defs>
+      <rect class="yt-btn" width="320" height="90" rx="45" fill="#cc0000"/>
+      <text x="125" y="55" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="22" letter-spacing="1">ABONE OL</text>
+      <g class="yt-bell">
+        <path d="M275 32 C267 32 263 37 263 45 L260 53 L290 53 L287 45 C287 37 283 32 275 32 Z" fill="#facc15"/>
+        <circle cx="275" cy="57" r="3.5" fill="#facc15"/>
+      </g>
+    </svg>`,
+  },
+  {
+    id: 'instagram-animated-like',
+    name: 'Instagram Beğeni (Canlı Kalp)',
+    category: 'animated',
+    defaultScale: 0.32,
+    isAnimated: true,
+    elementAnimation: 'instagram-like',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+      <defs>
+        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#feda75"/>
+          <stop offset="25%" stop-color="#fa7e1e"/>
+          <stop offset="50%" stop-color="#d62976"/>
+          <stop offset="75%" stop-color="#962fbf"/>
+          <stop offset="100%" stop-color="#4f5bd5"/>
+        </linearGradient>
+        <style>
+          @keyframes igPop {
+            0%, 20% { transform: scale(0.9); }
+            35% { transform: scale(1.35); }
+            48%, 100% { transform: scale(1); }
+          }
+          .ig-heart { transform-origin: 80px 80px; animation: igPop 3s infinite cubic-bezier(0.34, 1.56, 0.64, 1); }
+        </style>
+      </defs>
+      <circle cx="80" cy="80" r="70" fill="#121212" stroke="#262626" stroke-width="2"/>
+      <g class="ig-heart">
+        <path d="M80 120 C76 84 36 84 36 60 C36 41 60 33 80 53 C100 33 124 41 124 60 C124 84 84 84 80 120 Z" fill="url(#ig-grad)"/>
+      </g>
+    </svg>`,
+  },
+
   // =========================================================================
   // 1. YAPAY ZEKA & TEKNOLOJİ (AI & TECH)
   // =========================================================================
@@ -174,6 +411,8 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
     name: 'TikTok Beğen',
     category: 'tiktok',
     defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-like',
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
       <defs>
         <filter id="tt-like-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -269,6 +508,8 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
     name: 'TikTok Takip Et (+)',
     category: 'tiktok',
     defaultScale: 0.32,
+    isAnimated: true,
+    elementAnimation: 'tiktok-follow',
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" width="140" height="160">
       <circle cx="70" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="4"/>
       <circle cx="70" cy="55" r="18" fill="#71717a"/>

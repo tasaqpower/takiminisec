@@ -467,6 +467,8 @@ export interface VideoClip {
   // Vector SVG Elements & Stickers
   svgContent?: string;
   elementPresetId?: string;
+  isAnimated?: boolean;
+  elementAnimation?: string;
 
   // Text
   textData?: TextLayerData;

@@ -24,20 +24,22 @@ interface ElementsTabProps {
 
 type CategoryType =
   | 'all'
-  | 'ai'
+  | 'animated'
   | 'tiktok'
   | 'youtube'
   | 'instagram'
+  | 'ai'
   | 'arrows'
   | 'censor'
   | 'stickers';
 
 const CATEGORIES: { id: CategoryType; label: string }[] = [
   { id: 'all', label: 'Tümü' },
-  { id: 'ai', label: '🤖 Yapay Zeka' },
+  { id: 'animated', label: '✨ Canlı Animasyonlu' },
   { id: 'tiktok', label: '🎵 TikTok & Reels' },
   { id: 'youtube', label: '▶️ YouTube' },
   { id: 'instagram', label: '📷 Instagram' },
+  { id: 'ai', label: '🤖 Yapay Zeka' },
   { id: 'arrows', label: '🎯 Oklar & Vurgu' },
   { id: 'censor', label: '🛑 Sansür & Gizlilik' },
   { id: 'stickers', label: '🔥 Çıkartmalar' },
@@ -97,6 +99,8 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
       }
 
       const startTime = currentTime > 0 ? currentTime : getNextClipStartTime(targetTrackId);
+      const isAnim = Boolean(preset.isAnimated || preset.category === 'animated');
+      const duration = isAnim ? 4.0 : 3.0;
 
       onAddClip(targetTrackId, {
         assetId,
@@ -106,8 +110,10 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
         type: 'image',
         sourceUrl: dataUrl,
         startTime,
-        duration: 3.0,
-        sourceDuration: 3.0,
+        duration,
+        sourceDuration: duration,
+        isAnimated: isAnim,
+        elementAnimation: preset.elementAnimation,
         fitMode: 'fit',
         transform: {
           x: 0,
@@ -185,13 +191,15 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
               if (e.button === 0) {
                 const dataUrl = elem.svg ? createSvgDataUrl(elem.svg) : undefined;
                 const svgBlob = elem.svg ? new Blob([elem.svg], { type: 'image/svg+xml;charset=utf-8' }) : undefined;
+                const isAnim = Boolean(elem.isAnimated || elem.category === 'animated');
+                const duration = isAnim ? 4.0 : 3.0;
                 startDrag(
                   {
                     type: 'image',
                     id: elem.id,
                     name: elem.name,
                     icon: 'Shapes',
-                    duration: 3.0,
+                    duration,
                     category: elem.category,
                     data: {
                       ...elem,
@@ -200,6 +208,8 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
                       elementPresetId: elem.id,
                       defaultScale: elem.defaultScale ?? 0.35,
                       blob: svgBlob,
+                      isAnimated: isAnim,
+                      elementAnimation: elem.elementAnimation,
                     },
                   },
                   e.clientX,
@@ -214,8 +224,19 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
             className="group relative flex flex-col justify-between p-2 rounded-[3px] bg-[#171B21] hover:bg-[#202631] border border-[#292F39] hover:border-[#3B4351] transition-all cursor-grab active:cursor-grabbing select-none"
           >
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-medium text-[#929AA8] uppercase tracking-tight">
-                {elem.category}
+              <span className={`text-[10px] uppercase tracking-tight flex items-center gap-1 ${
+                elem.isAnimated || elem.category === 'animated'
+                  ? 'text-[#25f4ee] font-bold'
+                  : 'font-medium text-[#929AA8]'
+              }`}>
+                {elem.isAnimated || elem.category === 'animated' ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#fe2c55] animate-pulse" />
+                    <span>CANLI</span>
+                  </>
+                ) : (
+                  elem.category
+                )}
               </span>
               <GripVertical className="w-3.5 h-3.5 text-[#5A6270] group-hover:text-[#929AA8] transition-colors" />
             </div>
