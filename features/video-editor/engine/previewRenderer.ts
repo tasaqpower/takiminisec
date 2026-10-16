@@ -1137,7 +1137,7 @@ export function renderScene(renderCtx: RenderContext): void {
           clip.svgContent ||
           clip.elementPresetId ||
           clip.assetId?.startsWith('element-') ||
-          (clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('Takip') || clip.name.includes('YouTube') || clip.name.includes('Instagram')))
+          (clip.type === 'image' && clip.name && (clip.name.includes('TikTok') || clip.name.includes('Beğen') || clip.name.includes('Like') || clip.name.includes('Takip') || clip.name.includes('YouTube') || clip.name.includes('Instagram')))
         );
 
         if (clip.type === 'video' && !isElementClip) {
@@ -1702,7 +1702,12 @@ export function renderScene(renderCtx: RenderContext): void {
           let dh = height * sY;
 
           const fitMode = clip.fitMode || 'fit';
-          if (fitMode === 'fit') {
+          if (isElementClip) {
+            const baseW = (clip as any).width || (hasValidImg && iw !== width ? iw : 280);
+            const baseH = (clip as any).height || (hasValidImg && ih !== height ? ih : 200);
+            dw = baseW * sX;
+            dh = baseH * sY;
+          } else if (fitMode === 'fit') {
             const imgRatio = iw / Math.max(1, ih);
             const canvasRatio = width / Math.max(1, height);
             if (imgRatio > canvasRatio) {

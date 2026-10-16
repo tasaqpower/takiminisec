@@ -951,6 +951,7 @@ export function renderTextLayer(
         globalWordIdx++;
       }
     }
+  } else {
     const align = layer.textAlign || layer.alignment || 'center';
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];

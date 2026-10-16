@@ -1103,7 +1103,12 @@ export function applyVisualEffectSegment(
 ): void {
   const normIntensity = Math.max(0, Math.min(1, intensity));
 
-  switch (effectId) {
+  ctx.save();
+  // Align coordinate system so (0,0) is the top-left of the media element [-width/2, -height/2]
+  ctx.translate(-width / 2, -height / 2);
+
+  try {
+    switch (effectId) {
     case 'gaussian-blur': {
       const px = Math.round(normIntensity * 16);
       ctx.save();
@@ -1625,6 +1630,9 @@ export function applyVisualEffectSegment(
 
     default:
       break;
+    }
+  } finally {
+    ctx.restore();
   }
 }
 
