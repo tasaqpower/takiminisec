@@ -269,6 +269,27 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
     y: number;
   } | null>(null);
 
+  // Toolbar Rich Hover Tooltip state (Instant 0ms dark tooltip card)
+  interface ToolbarTooltipInfo {
+    title: string;
+    shortcut?: string;
+    purpose: string;
+    usage: string;
+  }
+  const [activeToolbarTooltip, setActiveToolbarTooltip] = useState<{
+    info: ToolbarTooltipInfo;
+    rect: DOMRect;
+  } | null>(null);
+
+  const showToolbarTooltip = useCallback((el: HTMLElement, info: ToolbarTooltipInfo) => {
+    const rect = el.getBoundingClientRect();
+    setActiveToolbarTooltip({ info, rect });
+  }, []);
+
+  const hideToolbarTooltip = useCallback(() => {
+    setActiveToolbarTooltip(null);
+  }, []);
+
   // AI Duplicate Speech & Stutter Cleaner state
   const [duplicateModalClip, setDuplicateModalClip] = useState<VideoClip | null>(null);
   const [isScanningDuplicates, setIsScanningDuplicates] = useState<boolean>(false);
@@ -1137,22 +1158,31 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       {/* Timeline Action Toolbar */}
       <div className="h-[34px] px-3 border-b border-[#292F39] bg-[#111419] flex items-center justify-between text-xs shrink-0 select-none">
         {/* Left operations */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {/* Split / Böl Button */}
           <button
             type="button"
+            data-testid="timeline-btn-split"
             onClick={() => {
               if (activeTargetClip) {
                 onSplitClip(activeTargetClip.id, currentTime);
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Böl',
+                shortcut: 'S',
+                purpose: 'Seçili klibi oynatma çizgisinin (playhead) bulunduğu tam noktadan iki bağımsız parçaya böler.',
+                usage: "Timeline'da bir klip seçin ve imleç istenen yere geldiğinde S tuşuna veya bu butona basın.",
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#4f6bf5] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Klibi Oynatma Çizgisinden İkiye Böl (S)"
           >
             <Scissors size={12} className="text-[#4f6bf5]" />
             <span className="font-semibold text-xs">Böl (S)</span>
@@ -1161,18 +1191,27 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Ripple Trim Head (Q) */}
           <button
             type="button"
+            data-testid="timeline-btn-ripple-trim-start"
             onClick={() => {
               if (activeTargetClip && onRippleTrimStart) {
                 onRippleTrimStart(activeTargetClip.id, currentTime);
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Başı Kırp (Ripple Trim Start)',
+                shortcut: 'Q',
+                purpose: 'Klibin başlangıcı ile oynatma çizgisi arasındaki kısmı anında kesip atar ve arkadaki tüm klipleri sola çekerek boşluğu kapatır.',
+                usage: 'Kırpmak istediğiniz yere imleci getirin ve Q tuşuna veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Oynatma Çizgisinden Öncesini Kırp ve Boşluğu Kapat (Q)"
           >
             <span className="font-semibold text-xs text-[#38bdf8]">Q</span>
             <span className="text-[11px] font-medium">Başı Kırp</span>
@@ -1181,18 +1220,27 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Ripple Trim Tail (W) */}
           <button
             type="button"
+            data-testid="timeline-btn-ripple-trim-end"
             onClick={() => {
               if (activeTargetClip && onRippleTrimEnd) {
                 onRippleTrimEnd(activeTargetClip.id, currentTime);
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Sonu Kırp (Ripple Trim End)',
+                shortcut: 'W',
+                purpose: 'Oynatma çizgisi ile klibin bitişi arasındaki kısmı kesip siler ve timeline\'daki boşluğu otomatik kapatır.',
+                usage: 'Kırpmak istediğiniz yere imleci getirin ve W tuşuna veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#E7EAF0] border-[#292F39] hover:border-[#38bdf8] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Oynatma Çizgisinden Sonrasını Kırp ve Boşluğu Kapat (W)"
           >
             <span className="font-semibold text-xs text-[#38bdf8]">W</span>
             <span className="text-[11px] font-medium">Sonu Kırp</span>
@@ -1207,13 +1255,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 onRemoveSilences(activeTargetClip.id);
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Sessizlikleri Kaldır (AI Silence Cut)',
+                purpose: 'Konuşma arasındaki duraksamaları ve sessizlikleri PCM dalga boyuyla tespit edip tek tıkla otomatik siler.',
+                usage: 'Ses veya video klibini seçip bu butona basın; tüm boşluklar otomatik temizlenir.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-purple-300 border-purple-500/40 hover:bg-[#202631] hover:text-purple-200'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="AI Konuşma Arasındaki Boşlukları ve Sessizlikleri Otomatik Bulup Kaldırır"
           >
             <Wand2 size={12} className="text-purple-400" />
             <span className="text-[11px] font-medium">Sessizlik Sil</span>
@@ -1229,13 +1284,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                   handleOpenDuplicateDetector(activeTargetClip);
                 }
               }}
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: 'Tekrarları Temizle (AI Stutter Scanner)',
+                  purpose: 'Karakterin kekelemelerini ve aynı cümleyi tekrar ettiği hatalı çekimleri (duplicate takes) tespit edip temizler.',
+                  usage: 'Klibi seçip butona basın; AI tekrar eden bölümleri listeler ve tek tıkla silmenizi sağlar.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
               disabled={!activeTargetClip}
-              className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+              className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTargetClip
                   ? 'bg-[#171B21] text-emerald-300 border-emerald-500/40 hover:bg-[#202631] hover:text-emerald-200'
                   : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
               }`}
-              title="AI Tekrar Eden Cümleleri ve Kekelemeleri Tara & Temizle"
             >
               <Sparkles size={12} className="text-emerald-400" />
               <span className="text-[11px] font-medium">Tekrar Sil</span>
@@ -1251,13 +1313,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 onFreezeFrame(activeTargetClip.id, currentTime);
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Kareyi Dondur (Freeze Frame)',
+                purpose: 'Oynatma çizgisinin durduğu video karesini 2 saniyelik dondurulmuş görsel klip olarak araya ekler.',
+                usage: 'Dondurmak istediğiniz kareye gelin ve butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-sky-300 border-sky-500/40 hover:bg-[#202631] hover:text-sky-200'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Mevcut Kareyi 2 Saniyelik Hareketsiz Görsel Olarak Araya Dondurur"
           >
             <Camera size={12} className="text-sky-400" />
             <span className="text-[11px] font-medium">Dondur</span>
@@ -1270,13 +1339,21 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             onClick={() => {
               if (activeTargetClip) onRippleDeleteClip(activeTargetClip.id);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Boşluksuz Sil (Ripple Delete)',
+                shortcut: 'Shift + Delete',
+                purpose: 'Seçili klibi siler ve sağında kalan tüm klipleri otomatik sola kaydırarak zaman çizelgesinde boşluk bırakmaz.',
+                usage: 'Klibi seçin ve bu butona basın veya Shift + Delete yapın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-[#f59e0b] border-[#f59e0b]/40 hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Boşluksuz Sil (Shift+Delete)"
           >
             <ArrowLeftRight size={12} className="text-[#f59e0b]" />
             <span className="text-[11px] font-medium">Boşluksuz Sil</span>
@@ -1289,15 +1366,22 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             onClick={() => {
               if (activeTargetClip) handleToggleVocalMute(activeTargetClip, true);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: '🔇 Lip-Freeze (Karakter Sustur & Ağız Dondur)',
+                purpose: 'Arka plan müziğini ve ortam sesini koruyarak sadece karakterin sesini kısar ve o aralıkta ağzının oynamasını dondurur.',
+                usage: "Timeline'da bir klibe tıklayıp bu butona basın.",
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? activeTargetClip.vocalMute
                   ? 'bg-amber-950/80 text-amber-300 border-amber-500/80 shadow-sm'
                   : 'bg-[#171B21] text-amber-400 border-amber-500/40 hover:bg-[#202631] hover:text-amber-300'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Karakter Sustur & Lip-Freeze: Karakterin vokalini kısar, ağzını nötr karede dondurur; arka plan müziği kesintisiz çalar"
           >
             <MicOff size={12} className={activeTargetClip?.vocalMute ? 'text-amber-300' : 'text-amber-400'} />
             <span className="text-[11px] font-medium flex items-center gap-1">
@@ -1319,13 +1403,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             onClick={() => {
               if (activeTargetClip) handleAddCensorBleep(activeTargetClip, 'keep-background');
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Sansür Bipi (1000Hz Censor Bleep)',
+                purpose: 'Arka plan sesini ve müziği kapatmadan konuşmanın üzerine 1000 Hz sinüs sansür bip sesi ekler.',
+                usage: 'Klibi veya Descript metninden kelimeyi seçip bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-red-400 border-red-500/40 hover:bg-[#202631] hover:text-red-300'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Sansür Bip Sesi: Arka plan sesini kapatmadan üzerine 1000 Hz Bip Sesi ekler"
           >
             <VolumeX size={12} className="text-red-400" />
             <span className="text-[11px] font-medium">Sansür Bipi</span>
@@ -1345,13 +1436,20 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 }
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'AI Glitch Trim (Son Kare Bozulması Temizleme)',
+                purpose: 'Yapay zeka video üretimlerinde klibin son 0.35 saniyesinde oluşan morphing ve bozuk kareleri tek tıkla kırpar.',
+                usage: 'Bozuk biten yapay zeka video klibini seçip bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? 'bg-[#171B21] text-amber-300 border-amber-500/40 hover:bg-[#202631] hover:text-amber-200'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="AI Son Kare Bozulmalarını Kırp: Klibin sonundaki 0.35s morphing/bozuk kareleri siler"
           >
             <Scissors size={12} className="text-amber-400" />
             <span className="text-[11px] font-medium">AI Kırp</span>
@@ -1370,15 +1468,22 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 });
               }
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Smooth Jump-Cut (Optik Mikro Harmanlama)',
+                purpose: 'Cümle araları kesildiğinde karakterin kafasının sıçramasını önlemek için 160ms optik mikro geçiş harmanlaması uygular.',
+                usage: 'Klibi seçip butonu açın; kesim noktalarındaki kafa sıçramaları yumuşatılır.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!activeTargetClip}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTargetClip
                 ? activeTargetClip.smoothCutIn
                   ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/80 shadow-sm'
                   : 'bg-[#171B21] text-cyan-400 border-cyan-500/40 hover:bg-[#202631] hover:text-cyan-300'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Smooth Jump-Cut: Kafa sıçramasını önlemek için 160ms optik mikro harmanlama uygular"
           >
             <Sparkles size={12} className={activeTargetClip?.smoothCutIn ? 'text-cyan-300' : 'text-cyan-400'} />
             <span className="text-[11px] font-medium">Smooth Cut</span>
@@ -1399,12 +1504,19 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 }
               }
             }}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: '🦆 Auto-Ducking (Otomatik Müzik Kısma)',
+                purpose: 'Videoda karakter konuşmaya başladığı anda arka plan müziğini otomatik olarak -12dB kısar, konuşma bitince eski seviyesine yükseltir.',
+                usage: 'Butona tıklayarak Açık/Kapalı yapın; tüm ses kanallarına anında uygulanır.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               project.autoDucking
                 ? 'bg-indigo-950/80 text-indigo-300 border-indigo-500 shadow-sm'
                 : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
             }`}
-            title="Auto-Ducking: Konuşma başladığında arka plan müziğini -12dB kısar"
           >
             <span className="text-xs">🦆</span>
             <span className="text-[11px] font-medium">
@@ -1424,12 +1536,19 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                 if (activeTargetClip) onUpdateClip(activeTargetClip.id, {});
               }
             }}
-            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors ${
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: '💨 Auto-Whoosh (Kesim Geçiş Sesi)',
+                purpose: 'Timeline üzerindeki her sahne ve klip kesim noktasına otomatik senkronize Whoosh ses efekti ekler.',
+                usage: 'Butona tıklayarak Açık/Kapalı yapın; dinamik YouTube/Reels kurgusu sağlar.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
+            className={`h-6 px-2 rounded-[3px] flex items-center gap-1 border transition-colors whitespace-nowrap flex-shrink-0 ${
               project.autoWhoosh
                 ? 'bg-sky-950/80 text-sky-300 border-sky-500 shadow-sm'
                 : 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0]'
             }`}
-            title="Auto-Whoosh: Geçiş olan her kesim noktasına otomatik senkronize Whoosh ses efekti ekler"
           >
             <span className="text-xs">💨</span>
             <span className="text-[11px] font-medium">
@@ -1438,14 +1557,21 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           </button>
 
           {/* Quick Procedural SFX Bar */}
-          <div className="flex items-center gap-1 pl-1 border-l border-[#292F39]">
-            <span className="text-[10px] text-[#5A6270] font-semibold uppercase tracking-wider hidden md:inline">SFX:</span>
+          <div className="flex items-center gap-1 pl-1 border-l border-[#292F39] flex-shrink-0">
+            <span className="text-[10px] text-[#5A6270] font-semibold uppercase tracking-wider hidden md:inline whitespace-nowrap">SFX:</span>
             <button
               type="button"
               data-testid="timeline-btn-sfx-boom"
               onClick={() => onAddProceduralSfx?.('sub-bass-boom')}
-              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-amber-300 border border-amber-500/30 hover:border-amber-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
-              title="İmlecin Olduğu Yere Sub Bass Boom (Sinematik Vuruş) Ekle"
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: '💥 Sub Bass Boom',
+                  purpose: 'Oynatma çizgisinin durduğu saniyeye 45Hz derin sinematik bas darbe efekti ekler.',
+                  usage: 'İmleci vurucu anın üzerine getirin ve butona basın.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-amber-300 border border-amber-500/30 hover:border-amber-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <span>💥</span>
               <span className="hidden lg:inline">Boom</span>
@@ -1454,8 +1580,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               type="button"
               data-testid="timeline-btn-sfx-whoosh"
               onClick={() => onAddProceduralSfx?.('whoosh')}
-              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-sky-300 border border-sky-500/30 hover:border-sky-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
-              title="İmlecin Olduğu Yere Whoosh (Geçiş Sesi) Ekle"
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: '💨 Whoosh SFX',
+                  purpose: 'Oynatma çizgisinin olduğu saniyeye hızlı dinamik hava geçiş sesi ekler.',
+                  usage: 'Geçiş anına imleci getirip butona basın.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-sky-300 border border-sky-500/30 hover:border-sky-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <span>💨</span>
               <span className="hidden lg:inline">Whoosh</span>
@@ -1464,8 +1597,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               type="button"
               data-testid="timeline-btn-sfx-riser"
               onClick={() => onAddProceduralSfx?.('tension-riser')}
-              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-purple-300 border border-purple-500/30 hover:border-purple-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
-              title="İmlecin Olduğu Yere Gerilim Yükseltici (Riser) Ekle"
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: '📈 Tension Riser',
+                  purpose: 'Oynatma çizgisine 2 saniyelik gerilim yükseltici synth ses efekti ekler.',
+                  usage: 'Kritik sahne öncesine imleci getirip butona basın.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-purple-300 border border-purple-500/30 hover:border-purple-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <span>📈</span>
               <span className="hidden lg:inline">Riser</span>
@@ -1474,8 +1614,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               type="button"
               data-testid="timeline-btn-sfx-zap"
               onClick={() => onAddProceduralSfx?.('glitch-zap')}
-              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-pink-300 border border-pink-500/30 hover:border-pink-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
-              title="İmlecin Olduğu Yere Glitch / Static Zap Ekle"
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: '⚡ Glitch Zap',
+                  purpose: 'Oynatma çizgisine dijital statik arıza / glitch elektrik sesi ekler.',
+                  usage: 'Hızlı sahne değişimi veya efekt anına eklemek için basın.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-pink-300 border border-pink-500/30 hover:border-pink-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <span>⚡</span>
               <span className="hidden lg:inline">Zap</span>
@@ -1484,8 +1631,15 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               type="button"
               data-testid="timeline-btn-sfx-shutter"
               onClick={() => onAddProceduralSfx?.('camera-shutter')}
-              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-emerald-300 border border-emerald-500/30 hover:border-emerald-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1"
-              title="İmlecin Olduğu Yere Kamera Deklanşör (Shutter) Sesi Ekle"
+              onMouseEnter={(e) =>
+                showToolbarTooltip(e.currentTarget, {
+                  title: '📸 Kamera Deklanşörü (Shutter)',
+                  purpose: 'Oynatma çizgisine mekanik SLR kamera deklanşör flaş sesi ekler.',
+                  usage: 'Fotoğraf karesi veya dondurma anına denk getirip basın.',
+                })
+              }
+              onMouseLeave={hideToolbarTooltip}
+              className="h-6 px-1.5 rounded-[3px] bg-[#171B21] text-emerald-300 border border-emerald-500/30 hover:border-emerald-400 hover:bg-[#202631] text-[10px] font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <span>📸</span>
               <span className="hidden lg:inline">Shutter</span>
@@ -1495,16 +1649,25 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Delete Button */}
           <button
             type="button"
+            data-testid="timeline-btn-delete"
             onClick={() => {
               if (selectedClipId) onDeleteClip(selectedClipId);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Sil (Delete)',
+                shortcut: 'Del / Backspace',
+                purpose: 'Seçili klibi zaman çizelgesinden tamamen kaldırır.',
+                usage: 'Klibi seçip Del tuşuna veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!selectedClipId}
-            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
+            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors whitespace-nowrap flex-shrink-0 ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#f87171] hover:text-[#f87171] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Seçili Klibi Sil (Delete)"
           >
             <Trash2 size={12} />
           </button>
@@ -1512,16 +1675,25 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Duplicate Button */}
           <button
             type="button"
+            data-testid="timeline-btn-duplicate"
             onClick={() => {
               if (selectedClipId) onDuplicateClip(selectedClipId);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Kopyasını Oluştur (Duplicate)',
+                shortcut: 'Ctrl + D',
+                purpose: 'Seçili klibin birebir kopyasını hemen ardına ekler.',
+                usage: 'Klibi seçin ve Ctrl+D veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!selectedClipId}
-            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors ${
+            className={`h-6 w-6 rounded-[3px] border flex items-center justify-center transition-colors whitespace-nowrap flex-shrink-0 ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Kopyasını Oluştur (Ctrl+D)"
           >
             <Copy size={12} />
           </button>
@@ -1529,16 +1701,25 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Copy (Ctrl+C) */}
           <button
             type="button"
+            data-testid="timeline-btn-copy"
             onClick={() => {
               if (selectedClipId && onCopyClip) onCopyClip(selectedClipId);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Panoya Kopyala (Copy)',
+                shortcut: 'Ctrl + C',
+                purpose: 'Seçili klibi özellikleri ve efektleriyle birlikte dahili panoya kopyalar.',
+                usage: 'Klibi seçip Ctrl+C veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!selectedClipId}
-            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
+            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors whitespace-nowrap flex-shrink-0 ${
               selectedClipId
                 ? 'bg-[#171B21] text-[#929AA8] border-[#292F39] hover:border-[#4f6bf5] hover:text-[#E7EAF0] hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Klibi Panoya Kopyala (Ctrl+C)"
           >
             <Copy size={12} />
             <span className="text-[11px] font-medium hidden sm:inline">Kopyala</span>
@@ -1547,29 +1728,38 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
           {/* Paste (Ctrl+V) */}
           <button
             type="button"
+            data-testid="timeline-btn-paste"
             onClick={() => {
               if (onPasteClip) onPasteClip(currentTime);
             }}
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Zaman Çizgisine Yapıştır (Paste)',
+                shortcut: 'Ctrl + V',
+                purpose: 'Panodaki klibi oynatma çizgisinin durduğu saniyeye ekler.',
+                usage: 'İmleci yapıştırmak istediğiniz yere getirin ve Ctrl+V veya bu butona basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
             disabled={!hasClipboard}
-            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors ${
+            className={`h-6 px-2 rounded-[3px] border flex items-center gap-1 transition-colors whitespace-nowrap flex-shrink-0 ${
               hasClipboard
                 ? 'bg-[#171B21] text-[#38bdf8] border-[#38bdf8]/40 hover:border-[#38bdf8] hover:text-white hover:bg-[#202631]'
                 : 'text-[#5A6270] border-transparent cursor-not-allowed opacity-65'
             }`}
-            title="Kopyalanan Klibi Çizgiye Yapıştır (Ctrl+V)"
           >
             <Clipboard size={12} />
             <span className="text-[11px] font-medium hidden sm:inline">Yapıştır</span>
           </button>
 
-          <div className="h-4 w-[1px] bg-[#292F39] mx-1" />
+          <div className="h-4 w-[1px] bg-[#292F39] mx-1 flex-shrink-0" />
 
           {/* Add Track Dropdown */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               type="button"
               onClick={() => setIsAddTrackMenuOpen((prev) => !prev)}
-              className="h-6 px-2 rounded-[3px] text-[11px] font-medium bg-[#171B21] text-[#E7EAF0] hover:bg-[#202631] border border-[#292F39] hover:border-[#4f6bf5] transition-colors flex items-center gap-1"
+              className="h-6 px-2 rounded-[3px] text-[11px] font-medium bg-[#171B21] text-[#E7EAF0] hover:bg-[#202631] border border-[#292F39] hover:border-[#4f6bf5] transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
             >
               <Plus size={12} className="text-[#4f6bf5]" />
               <span>Kanal Ekle</span>
@@ -1617,17 +1807,26 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
         </div>
 
         {/* Right operations: Snapping & Zoom */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 shrink-0 pl-2">
           {/* Snapping */}
           <button
             type="button"
+            data-testid="timeline-btn-snapping"
             onClick={() => setSnapping(!snapping)}
-            className={`h-6 flex items-center gap-1.5 px-2 rounded-[3px] text-[11px] font-medium border transition-colors ${
+            onMouseEnter={(e) =>
+              showToolbarTooltip(e.currentTarget, {
+                title: 'Mıknatıs / Yapışma (Snapping)',
+                shortcut: 'N',
+                purpose: 'Klipleri taşırken veya kırparken diğer kliplerin kenarlarına ve oynatma çizgisine otomatik yapıştırır.',
+                usage: 'Mıknatısı açıp kapatmak için butona veya N tuşuna basın.',
+              })
+            }
+            onMouseLeave={hideToolbarTooltip}
+            className={`h-6 flex items-center gap-1.5 px-2 rounded-[3px] text-[11px] font-medium border transition-colors whitespace-nowrap flex-shrink-0 ${
               snapping
                 ? 'bg-[#202631] text-[#E7EAF0] border-[#4f6bf5]'
                 : 'text-[#929AA8] border-[#292F39] hover:text-[#E7EAF0] bg-[#171B21]'
             }`}
-            title="Mıknatıs / Yapışma (N)"
           >
             <Magnet size={12} className={snapping ? 'text-[#4f6bf5]' : 'text-[#929AA8]'} />
             <span>Mıknatıs</span>
@@ -3043,6 +3242,57 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                   <span>Tüm Tekrarları Otomatik Kes & Kapat ({detectedDuplicates.length})</span>
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Instant Custom Rich Hover Tooltip (0ms delay, dark theme) */}
+      {activeToolbarTooltip && typeof window !== 'undefined' && (
+        <div
+          data-testid="timeline-rich-tooltip"
+          className="fixed z-[99999] pointer-events-none"
+          style={{
+            left: Math.max(12, Math.min(window.innerWidth - 320, activeToolbarTooltip.rect.left + activeToolbarTooltip.rect.width / 2 - 150)),
+            top: activeToolbarTooltip.rect.top < 150
+              ? activeToolbarTooltip.rect.bottom + 8
+              : undefined,
+            bottom: activeToolbarTooltip.rect.top < 150
+              ? undefined
+              : Math.max(12, window.innerHeight - activeToolbarTooltip.rect.top + 8),
+          }}
+        >
+          <div className="w-[300px] bg-[#141822] border border-[#3b55d9]/70 rounded-md shadow-2xl p-2.5 text-xs text-[#E7EAF0] space-y-2 backdrop-blur-md animate-in fade-in zoom-in-95 duration-75">
+            {/* Header: Title & Shortcut */}
+            <div className="flex items-center justify-between border-b border-[#283244] pb-1.5">
+              <span className="font-bold text-white text-[12px] flex items-center gap-1.5">
+                {activeToolbarTooltip.info.title}
+              </span>
+              {activeToolbarTooltip.info.shortcut && (
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-[#1a2130] border border-[#2d3a52] text-sky-300 rounded shadow-sm">
+                  {activeToolbarTooltip.info.shortcut}
+                </kbd>
+              )}
+            </div>
+
+            {/* Section 1: Ne İşe Yarar? */}
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">
+                Ne İşe Yarar?
+              </span>
+              <p className="text-[11px] text-[#D0D6E0] leading-snug">
+                {activeToolbarTooltip.info.purpose}
+              </p>
+            </div>
+
+            {/* Section 2: Nasıl Kullanılır? */}
+            <div className="space-y-0.5 bg-[#0b0e14]/70 p-1.5 rounded border border-[#232b3a]">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                Nasıl Kullanılır?
+              </span>
+              <p className="text-[11px] text-[#929AA8] leading-snug">
+                {activeToolbarTooltip.info.usage}
+              </p>
             </div>
           </div>
         </div>

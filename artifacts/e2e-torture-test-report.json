@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-16T08:24:20.677Z",
+  "timestamp": "2026-10-16T08:55:21.921Z",
   "results": {
     "test1_ui_polish": {
       "visibleBefore": true,
@@ -28,6 +28,8 @@
       "hasLoadDemoBtn": true,
       "hasWhisperEngine": true,
       "hasSpeechEngine": true,
+      "hasModelSelector": true,
+      "defaultModel": "Xenova/whisper-base",
       "hasMinus50Btn": true,
       "hasPlus50Btn": true,
       "hasPropsSmoothCutBtn": true,
@@ -98,7 +100,7 @@
       "whooshDuration": 0.45,
       "whooshSampleLength": 21600,
       "whooshPeak": 1,
-      "whooshRms": 0.247,
+      "whooshRms": 0.2503,
       "boomDuration": 1.2,
       "boomPeak": 0.7528,
       "censorBleepFreq": 995,
@@ -114,7 +116,7 @@
       "hasAudioBuffer": true,
       "sampleRate": 48000,
       "channels": 2,
-      "mp4Size": 334457,
+      "mp4Size": 334405,
       "mp4Type": "video/mp4",
       "videoDuration": 10,
       "videoCurrentTime": 1,

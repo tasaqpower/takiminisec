@@ -46,7 +46,8 @@ next-env.d.ts
 *.tsbuildinfo
 *.pdf
 *ogrenci*
-scratch/
 *.zip
 *.zip.sha256
 *-MANIFEST.txt
+scratch/
+artifacts/chrome-temp-profile-torture/

@@ -432,6 +432,12 @@ async function runTortureTest() {
         const smoothCutBtn = document.querySelector('[data-testid="timeline-btn-smooth-cut"]');
         const repeatDeleteBtn = document.querySelector('[data-testid="timeline-btn-repeat-delete"]');
 
+        // Check whitespace-nowrap and flex-shrink-0 on all toolbar buttons
+        const allToolbarBtns = Array.from(document.querySelectorAll('[data-testid^="timeline-btn-"]'));
+        const allHaveNowrap = allToolbarBtns.length > 0 && allToolbarBtns.every(b =>
+          b.classList.contains('whitespace-nowrap') && b.classList.contains('flex-shrink-0')
+        );
+
         return {
           hasLipFreezeBtn: !!lipFreezeBtn,
           hasSmoothCutBtn: !!smoothCutBtn,
@@ -439,12 +445,56 @@ async function runTortureTest() {
           afterLipFreeze: Boolean(clip.vocalMute),
           afterSmoothCut: Boolean(clip.smoothCutIn),
           smoothCutDurationMs: clip.smoothCutDurationMs,
+          allHaveNowrap,
+          toolbarButtonsCount: allToolbarBtns.length,
         };
       })()
     `);
+
+    // Test Custom Rich Tooltip on mouse hover (with async render wait)
+    await cdp.eval(`
+      (() => {
+        const lipFreezeBtn = document.querySelector('[data-testid="timeline-btn-vocal-mute"]');
+        if (lipFreezeBtn) {
+          lipFreezeBtn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+          lipFreezeBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+        }
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const tooltipCheck = await cdp.eval(`
+      (() => {
+        const tooltipEl = document.querySelector('[data-testid="timeline-rich-tooltip"]');
+        const tooltipText = tooltipEl ? tooltipEl.innerText : '';
+        const norm = tooltipText.toLowerCase().replace(/i̇/g, 'i').replace(/ı/g, 'i');
+        const hasTooltipTitle = tooltipText.includes('Lip-Freeze');
+        const hasTooltipPurpose = norm.includes('ne ise yarar') || tooltipText.includes('NE İŞE YARAR');
+        const hasTooltipUsage = norm.includes('nasil kullanilir') || tooltipText.includes('NASIL KULLANILIR');
+
+        // Hide tooltip
+        const lipFreezeBtn = document.querySelector('[data-testid="timeline-btn-vocal-mute"]');
+        if (lipFreezeBtn) {
+          lipFreezeBtn.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true }));
+          lipFreezeBtn.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true }));
+        }
+
+        return {
+          hasTooltip: !!tooltipEl,
+          hasTooltipTitle,
+          hasTooltipPurpose,
+          hasTooltipUsage,
+          tooltipText,
+        };
+      })()
+    `);
+
     console.log(`[DOM-1F1] Timeline Lip-Freeze: afterClick = ${finalTimelineBtnCheck.afterLipFreeze} (vocalMute + lipFreeze active: true)`);
     console.log(`[DOM-1F2] Timeline Smooth Cut: afterClick = ${finalTimelineBtnCheck.afterSmoothCut} (${finalTimelineBtnCheck.smoothCutDurationMs}ms: true)`);
     console.log(`[DOM-1F3] Timeline Tekrar Sil Button in DOM: ${finalTimelineBtnCheck.hasRepeatDeleteBtn}`);
+    console.log(`[DOM-1F3b] Timeline Buttons whitespace-nowrap: ${finalTimelineBtnCheck.allHaveNowrap} (${finalTimelineBtnCheck.toolbarButtonsCount} buttons verified)`);
+    console.log(`[DOM-1F3c] Instant Rich Tooltip on Hover: hasTooltip = ${tooltipCheck.hasTooltip}, Title = ${tooltipCheck.hasTooltipTitle}, Purpose = ${tooltipCheck.hasTooltipPurpose}, Usage = ${tooltipCheck.hasTooltipUsage}`);
+
     if (!finalTimelineBtnCheck.hasLipFreezeBtn || !finalTimelineBtnCheck.afterLipFreeze) {
       throw new Error('TEST 1F1 FAILED: Timeline Lip-Freeze button missing or failed to toggle!');
     }
@@ -453,6 +503,12 @@ async function runTortureTest() {
     }
     if (!finalTimelineBtnCheck.hasRepeatDeleteBtn) {
       throw new Error('TEST 1F3 FAILED: Timeline Tekrar Sil button missing from DOM!');
+    }
+    if (!finalTimelineBtnCheck.allHaveNowrap) {
+      throw new Error('TEST 1F3b FAILED: Not all timeline toolbar buttons have whitespace-nowrap and flex-shrink-0!');
+    }
+    if (!tooltipCheck.hasTooltip || !tooltipCheck.hasTooltipTitle || !tooltipCheck.hasTooltipPurpose || !tooltipCheck.hasTooltipUsage) {
+      throw new Error(`TEST 1F3c FAILED: Instant rich hover tooltip missing required fields! (hasTooltip: ${tooltipCheck.hasTooltip}, text: "${tooltipCheck.tooltipText}")`);
     }
 
     // 2. Test SubtitlesTab & Real Whisper Transcription
@@ -515,6 +571,10 @@ async function runTortureTest() {
         const hasWhisperEngine = Boolean(editor?.inBrowserWhisperEngine);
         const hasSpeechEngine = Boolean(editor?.speechRecognitionEngine);
 
+        const modelSelect = document.querySelector('[data-testid="select-whisper-model"]');
+        const hasModelSelector = !!modelSelect;
+        const defaultModel = modelSelect ? modelSelect.value : null;
+
         // Switch to duplicates tab and then back to doc tab
         if (dupsTabBtn) dupsTabBtn.click();
         if (docTabBtn) docTabBtn.click();
@@ -547,6 +607,8 @@ async function runTortureTest() {
           hasLoadDemoBtn,
           hasWhisperEngine,
           hasSpeechEngine,
+          hasModelSelector,
+          defaultModel,
         };
       })()
     `);
@@ -612,6 +674,7 @@ async function runTortureTest() {
     `);
 
     console.log(`[DOM-1F4] SubtitlesTab Descript Metin Kurgu: docTab = ${subtitlesTabResult.hasDocTab}, dupsTab = ${subtitlesTabResult.hasDupsTab}, srtTab = ${subtitlesTabResult.hasSrtTab}`);
+    console.log(`[DOM-1F4b] Whisper Model Selector in DOM: hasSelector = ${subtitlesTabResult.hasModelSelector}, defaultModel = "${subtitlesTabResult.defaultModel}" (Xenova/whisper-base: ${subtitlesTabResult.defaultModel === 'Xenova/whisper-base'})`);
     console.log(`[DOM-1F5] Whisper AI Transcribe Button REAL CLICK: startTransBtn = ${subtitlesTabResult.hasStartTransBtn}, In-Browser Whisper Engine = ${subtitlesTabResult.hasWhisperEngine}`);
     console.log(`[DOM-1F5b] Real Transcription Finished: isDone = ${transcriptionFinished}, hasError = ${transcriptionState?.hasError}, emptyCard = ${transcriptionState?.hasEmptyCard}, wordsCount = ${transcriptionState?.renderedWordsCount}, banner = "${transcriptionState?.bannerText}"`);
     console.log(`[DOM-1F5c] Real Transcribed Words Output: "${renderedWords?.fullText}"`);
@@ -620,10 +683,70 @@ async function runTortureTest() {
       throw new Error(`TEST 1F4/1F5 FAILED: Real Whisper transcription failed or produced an error! (hasError: ${transcriptionState?.hasError}, hasEmptyCard: ${transcriptionState?.hasEmptyCard}, banner: ${transcriptionState?.bannerText})`);
     }
 
+    if (!subtitlesTabResult.hasModelSelector || subtitlesTabResult.defaultModel !== 'Xenova/whisper-base') {
+      throw new Error(`TEST 1F4b FAILED: Whisper model selector missing or default is not Xenova/whisper-base! (found: ${subtitlesTabResult.defaultModel})`);
+    }
+
     // Strictly verify NO FAKE WORDS are present in the transcribed text
     const transcriptText = (renderedWords?.fullText || '').toLowerCase();
     if (transcriptText.includes('konuşması') || transcriptText.includes('ses kaydı') || transcriptText.includes('konuşma segmenti')) {
       throw new Error(`TEST 1F5 FAILED: Fake fallback words detected in transcript! ("${renderedWords?.fullText}")`);
+    }
+
+    // DOM-1F5d: Test Double-Click Inline Word Editing
+    console.log('\n  Testing Double-Click Inline Word Edit on Transcript Word...');
+    await cdp.eval(`
+      (() => {
+        const firstWordEl = document.querySelector('[data-testid^="word-"]');
+        if (firstWordEl) {
+          firstWordEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+        }
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 250));
+
+    const wordEditResult = await cdp.eval(`
+      (() => {
+        const inputEl = document.querySelector('[data-testid^="word-edit-input-"]');
+        if (!inputEl) return { success: false, reason: 'Inline input did not appear on double click' };
+
+        const testId = inputEl.getAttribute('data-testid');
+        const wordId = testId.replace('word-edit-input-', '');
+        const originalWord = inputEl.value;
+
+        // Change word text to "Okulda" and trigger Enter
+        const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        if (nativeInputSetter) {
+          nativeInputSetter.call(inputEl, 'Okulda');
+        } else {
+          inputEl.value = 'Okulda';
+        }
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+        return {
+          inputAppeared: true,
+          originalWord,
+          wordId,
+        };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 250));
+
+    const verifyWordUpdated = await cdp.eval(`
+      (() => {
+        const firstWordEl = document.querySelector('[data-testid^="word-"]');
+        const updatedWord = firstWordEl ? firstWordEl.innerText.trim() : '';
+        return {
+          success: updatedWord === 'Okulda',
+          updatedWord,
+        };
+      })()
+    `);
+
+    console.log(`[DOM-1F5d] Inline Word Double-Click Edit: success = ${verifyWordUpdated?.success}, inputAppeared = ${wordEditResult?.inputAppeared}, original = "${wordEditResult?.originalWord}" -> updated = "${verifyWordUpdated?.updatedWord}"`);
+    if (!verifyWordUpdated?.success) {
+      throw new Error(`TEST 1F5d FAILED: Double-click inline word editing failed! (reason: ${wordEditResult?.reason || 'Word was not updated to Okulda, found: ' + verifyWordUpdated?.updatedWord})`);
     }
 
     // 3. Test VideoPropertiesPanel Lip-Sync -50ms/+50ms buttons

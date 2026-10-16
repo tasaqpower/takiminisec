@@ -16,8 +16,9 @@ export interface WhisperProgressCallback {
   (percent: number, statusText: string): void;
 }
 
-// Pipeline singleton to avoid reloading weights multiple times
-let whisperPipelinePromise: Promise<any> | null = null;
+// Pipeline singleton cache mapping modelId -> Promise
+let cachedPipelinePromise: Promise<any> | null = null;
+let cachedModelId: string | null = null;
 
 /**
  * Resamples an AudioBuffer to 16000 Hz Mono Float32Array PCM for Whisper.
@@ -116,12 +117,16 @@ export async function extract16kMonoPcm(
  * Initializes and caches the Transformers.js Whisper pipeline via dynamic ESM CDN import.
  * Avoids any bundler minification bugs or local package resolution issues.
  */
-async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise<any> {
-  if (whisperPipelinePromise) {
-    return whisperPipelinePromise;
+export async function getWhisperPipeline(
+  modelId: string = 'Xenova/whisper-base',
+  onProgress?: WhisperProgressCallback
+): Promise<any> {
+  if (cachedPipelinePromise && cachedModelId === modelId) {
+    return cachedPipelinePromise;
   }
 
-  whisperPipelinePromise = (async () => {
+  cachedModelId = modelId;
+  cachedPipelinePromise = (async () => {
     if (typeof window === 'undefined') {
       throw new Error('Whisper in-browser pipeline can only run in client-side browser environment.');
     }
@@ -144,11 +149,11 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
       env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
     }
 
-    onProgress?.(25, 'Yapay zeka ses modeli hazırlanıyor (Xenova/whisper-tiny)...');
+    onProgress?.(25, `Yapay zeka ses modeli hazırlanıyor (${modelId})...`);
 
     const transcriber = await pipeline(
       'automatic-speech-recognition',
-      'Xenova/whisper-tiny',
+      modelId,
       {
         quantized: true,
         progress_callback: (info: any) => {
@@ -167,12 +172,15 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
     return transcriber;
   })();
 
-  whisperPipelinePromise.catch((err) => {
-    console.error('[Whisper] Pipeline initialization error caught, resetting singleton:', err);
-    whisperPipelinePromise = null;
+  cachedPipelinePromise.catch((err) => {
+    console.error(`[Whisper] Pipeline initialization error for ${modelId}:`, err);
+    if (cachedModelId === modelId) {
+      cachedPipelinePromise = null;
+      cachedModelId = null;
+    }
   });
 
-  return whisperPipelinePromise;
+  return cachedPipelinePromise;
 }
 
 export class InBrowserWhisperEngine {
@@ -183,6 +191,7 @@ export class InBrowserWhisperEngine {
     pcm16k: Float32Array,
     options: {
       language?: string;
+      modelId?: string;
       onProgress?: WhisperProgressCallback;
     } = {}
   ): Promise<{
@@ -191,6 +200,7 @@ export class InBrowserWhisperEngine {
     chunks: Array<{ text: string; timestamp: [number, number] }>;
   }> {
     const language = options.language || 'turkish';
+    const modelId = options.modelId || 'Xenova/whisper-base';
 
     if (!pcm16k || pcm16k.length === 0) {
       return { text: '', words: [], chunks: [] };
@@ -204,8 +214,8 @@ export class InBrowserWhisperEngine {
       cleanPcm[i] = Number.isFinite(val) ? Math.max(-1, Math.min(1, val)) : 0;
     }
 
-    const transcriber = await getWhisperPipeline(options.onProgress);
-    options.onProgress?.(72, 'Ses çözümleniyor (Whisper Neural Decoder)...');
+    const transcriber = await getWhisperPipeline(modelId, options.onProgress);
+    options.onProgress?.(72, `Ses çözümleniyor (${modelId.replace('Xenova/', '')})...`);
 
     // Run Whisper inference
     const output = await transcriber(cleanPcm, {
@@ -216,7 +226,7 @@ export class InBrowserWhisperEngine {
       stride_length_s: 5,
     });
 
-    options.onProgress?.(92, 'Kelimeler ve zaman damgaları hizalanıyor...');
+    options.onProgress?.(92, 'Kelimeler ve Türkçe ekler birleştiriliyor...');
 
     const fullText = (output.text || '').trim();
     const rawChunks = Array.isArray(output.chunks) ? output.chunks : [];
@@ -227,7 +237,8 @@ export class InBrowserWhisperEngine {
     let currentCursor = 0;
 
     for (const chunk of rawChunks) {
-      const rawText = (chunk.text || '').trim();
+      const rawOriginal = String(chunk.text || '');
+      const rawText = rawOriginal.trim();
       if (!rawText) continue;
 
       let start = chunk.timestamp?.[0];
@@ -241,6 +252,27 @@ export class InBrowserWhisperEngine {
       }
 
       currentCursor = end;
+
+      // Turkish sub-token & suffix merging:
+      // In BPE / Whisper tokenization, a new word starts with a space (' Okul'),
+      // whereas sub-tokens or attached suffixes have NO leading space ('da', 'lar', 'miş').
+      const hasLeadingSpace = rawOriginal.startsWith(' ') || rawOriginal.startsWith('\n') || rawOriginal.startsWith('\t');
+      const isPunctuationOnly = /^[.,!?:;'"-)\]}]+$/.test(rawText);
+
+      if (words.length > 0 && (!hasLeadingSpace || isPunctuationOnly)) {
+        const prevWord = words[words.length - 1];
+        const gap = start - prevWord.endSec;
+        // Merge if no leading space OR punctuation OR tiny temporal gap (<0.12s)
+        if (!hasLeadingSpace || isPunctuationOnly || gap <= 0.12) {
+          prevWord.word += rawText;
+          prevWord.endSec = Math.max(prevWord.endSec, parseFloat(end.toFixed(3)));
+          if (validChunks.length > 0) {
+            validChunks[validChunks.length - 1].text = prevWord.word;
+            validChunks[validChunks.length - 1].timestamp[1] = prevWord.endSec;
+          }
+          continue;
+        }
+      }
 
       words.push({
         word: rawText,
@@ -278,7 +310,7 @@ export class InBrowserWhisperEngine {
     }
 
     return {
-      text: fullText,
+      text: fullText || words.map((w) => w.word).join(' '),
       words,
       chunks: validChunks,
     };
@@ -292,6 +324,7 @@ export class InBrowserWhisperEngine {
     clip: VideoClip,
     options: {
       language?: string;
+      modelId?: string;
       onProgress?: WhisperProgressCallback;
     } = {}
   ): Promise<SpeechTranscriptionResult> {
@@ -311,6 +344,7 @@ export class InBrowserWhisperEngine {
 
       const { text, words } = await this.transcribePcm(pcm, {
         language: options.language || 'turkish',
+        modelId: options.modelId || 'Xenova/whisper-base',
         onProgress: options.onProgress,
       });
 

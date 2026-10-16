@@ -230,6 +230,7 @@ export class SpeechRecognitionEngine {
     clip: VideoClip,
     options: {
       language?: string;
+      modelId?: string;
       onProgress?: (progressPercent: number, statusText: string) => void;
       preferWhisper?: boolean;
     } = {}
@@ -243,6 +244,7 @@ export class SpeechRecognitionEngine {
       options.onProgress?.(5, 'Tarayıcı içi Whisper AI ses modeli hazırlanıyor...');
       const whisperResult = await inBrowserWhisperEngine.transcribeClip(clip, {
         language: lang.toLowerCase().startsWith('tr') ? 'turkish' : lang,
+        modelId: options.modelId || 'Xenova/whisper-base',
         onProgress: options.onProgress,
       });
 

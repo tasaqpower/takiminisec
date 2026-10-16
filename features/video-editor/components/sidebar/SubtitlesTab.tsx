@@ -139,12 +139,53 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(new Set());
   const [lastClickedWordId, setLastClickedWordId] = useState<string | null>(null);
 
+  // Whisper Model Selection: Xenova/whisper-base (default, ~73MB), Xenova/whisper-small (~240MB), Xenova/whisper-tiny (~39MB)
+  const [selectedWhisperModel, setSelectedWhisperModel] = useState<string>('Xenova/whisper-base');
+
+  // Inline word editing state (Double-click word edit)
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [editingWordValue, setEditingWordValue] = useState<string>('');
+
   // Segment inline text editing state
   const [editingSegId, setEditingSegId] = useState<string | null>(null);
   const [editingSegText, setEditingSegText] = useState<string>('');
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [pastedScript, setPastedScript] = useState('');
   const [selectedSubtitleStyle, setSelectedSubtitleStyle] = useState<'hormozi' | 'neon-glow' | 'minimal-box' | 'typewriter'>('hormozi');
+
+  // Inline word edit saver - maintains exact timestamps and synchronizes sentence text
+  const handleSaveWordEdit = (wordId: string, segId: string, newWordText: string) => {
+    const cleanWord = newWordText.trim();
+    if (!cleanWord) {
+      setEditingWordId(null);
+      return;
+    }
+
+    setSpeechSegments((prev) =>
+      prev.map((seg) => {
+        if (seg.id !== segId) return seg;
+        if (!seg.words || seg.words.length === 0) return seg;
+
+        const updatedWords = seg.words.map((w, wIdx) => {
+          const currentWordId = `${seg.id}-${wIdx}`;
+          if (currentWordId === wordId) {
+            return { ...w, word: cleanWord };
+          }
+          return w;
+        });
+
+        return {
+          ...seg,
+          text: updatedWords.map((w) => w.word).join(' '),
+          words: updatedWords,
+        };
+      })
+    );
+
+    setEditingWordId(null);
+    setStatusBanner(`Kelime güncellendi: "${cleanWord}"`);
+    setTimeout(() => setStatusBanner(null), 2500);
+  };
 
   // Update segment text manually and re-partition words proportionally
   const handleUpdateSegmentText = (segId: string, newText: string) => {
@@ -588,6 +629,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
     try {
       const result = await speechRecognitionEngine.transcribeClip(activeClip, {
         language: 'tr-TR',
+        modelId: selectedWhisperModel,
         onProgress: (pct, text) => {
           setTranscribeProgress(pct);
           setTranscribeStatusText(text);
@@ -992,14 +1034,32 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                 </p>
               </div>
 
-              <div className="space-y-1.5 pt-1">
+              <div className="space-y-1.5 pt-1 text-left">
+                {/* Whisper Model Selector */}
+                <div className="space-y-1 mb-1.5">
+                  <label className="text-[10px] uppercase font-bold text-purple-300 tracking-wider flex items-center justify-between">
+                    <span>🧠 Whisper AI Modeli</span>
+                    <span className="text-[9px] text-[#929AA8] font-normal">WASM / WebGPU</span>
+                  </label>
+                  <select
+                    data-testid="select-whisper-model"
+                    value={selectedWhisperModel}
+                    onChange={(e) => setSelectedWhisperModel(e.target.value)}
+                    className="w-full h-7 px-2 bg-[#0E1014] border border-[#292F39] rounded-[3px] text-white text-[11px] outline-none focus:border-purple-400"
+                  >
+                    <option value="Xenova/whisper-base">Standart Dengeli (Xenova/whisper-base - Önerilen)</option>
+                    <option value="Xenova/whisper-small">Yüksek Türkçe Kalitesi (Xenova/whisper-small)</option>
+                    <option value="Xenova/whisper-tiny">Hızlı / Düşük RAM (Xenova/whisper-tiny)</option>
+                  </select>
+                </div>
+
                 <button
                   type="button"
                   data-testid="btn-start-transcription"
                   onClick={handleStartRealTranscription}
                   disabled={!activeClip || isTranscribing}
                   className="w-full py-1.5 px-2.5 rounded-[3px] bg-gradient-to-r from-purple-600 to-[#4f6bf5] hover:from-purple-500 hover:to-[#3b55d9] disabled:opacity-50 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                  title="WASM / WebGPU ile %100 yerel Whisper Tiny modelini çalıştırır (Sıfır API Key)"
+                  title="WASM / WebGPU ile %100 yerel Whisper modelini çalıştırır (Sıfır API Key)"
                 >
                   <Sparkles size={13} />
                   <span>🎙️ Whisper AI ile Konuşmayı Çözümle</span>
@@ -1178,18 +1238,42 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                           </button>
                         </div>
                       ) : (
-                        /* Interactive Words */
-                        <div className="flex flex-wrap gap-x-1.5 gap-y-1">
+                        /* Interactive Words with Double-Click Inline Edit */
+                        <div className="flex flex-wrap gap-x-1.5 gap-y-1 items-center">
                         {segWords.map((wordObj) => {
                           const isSelected = selectedWordIds.has(wordObj.id);
                           const isKaraokeActive = activeWordId === wordObj.id;
                           const dupInfo = getWordDuplicateInfo(wordObj);
+
+                          if (editingWordId === wordObj.id) {
+                            return (
+                              <input
+                                key={wordObj.id}
+                                data-testid={`word-edit-input-${wordObj.id}`}
+                                type="text"
+                                value={editingWordValue}
+                                onChange={(e) => setEditingWordValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveWordEdit(wordObj.id, wordObj.segId, editingWordValue);
+                                  if (e.key === 'Escape') setEditingWordId(null);
+                                }}
+                                onBlur={() => handleSaveWordEdit(wordObj.id, wordObj.segId, editingWordValue)}
+                                autoFocus
+                                className="px-1.5 py-0.5 rounded bg-[#0E1014] border border-[#4f6bf5] text-white text-[11px] font-bold outline-none inline-block min-w-[50px] max-w-[140px] shadow-sm shadow-blue-500/40"
+                              />
+                            );
+                          }
 
                           return (
                             <span
                               key={wordObj.id}
                               data-testid={`word-${wordObj.id}`}
                               onClick={(e) => handleWordClick(wordObj, e)}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingWordId(wordObj.id);
+                                setEditingWordValue(wordObj.word);
+                              }}
                               className={`transcript-word-token cursor-pointer px-1 py-0.5 rounded text-[11px] transition-all duration-100 ${
                                 isKaraokeActive
                                   ? 'bg-[#4f6bf5] text-white font-bold ring-2 ring-[#4f6bf5]/80 shadow-md shadow-blue-500/40 scale-105 z-10'
@@ -1201,7 +1285,7 @@ export const SubtitlesTab: React.FC<SubtitlesTabProps> = ({
                                   ? 'bg-amber-950/25 border-b-2 border-amber-500/60 text-[#E7EAF0] hover:bg-[#202631]'
                                   : 'text-[#D0D6E0] hover:bg-[#202631] hover:text-white'
                               }`}
-                              title={`${wordObj.word} (${wordObj.startSec.toFixed(2)}s - ${wordObj.endSec.toFixed(2)}s)${
+                              title={`${wordObj.word} (${wordObj.startSec.toFixed(2)}s - ${wordObj.endSec.toFixed(2)}s) — Çift tıkla düzenle${
                                 dupInfo?.isDuplicateSecondTake ? ' [AI Tekrar - Silinebilir]' : ''
                               }`}
                             >
