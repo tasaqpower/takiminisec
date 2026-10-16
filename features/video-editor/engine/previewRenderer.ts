@@ -20,7 +20,7 @@ import { computeTransitionState, TransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
 import { calculateClipBounds } from './clipBounds';
 import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
-import { renderAnimatedElement } from './animatedElementsRenderer';
+import { renderAnimatedElement, drawHeartPath } from './animatedElementsRenderer';
 
 export interface RenderContext {
   canvas: HTMLCanvasElement;
@@ -676,66 +676,34 @@ function drawVectorElementFallback(
   const isTikTok = name.includes('tiktok') || presetId.includes('tiktok') || name.includes('beğen') || name.includes('like');
 
   if (isTikTok) {
-    // 1. TikTok Pill container with smooth rounded corners
-    const pillRadius = Math.min(dw, dh) * 0.44;
-    ctx.beginPath();
-    safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, pillRadius);
-    ctx.fillStyle = '#090a0f';
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, Math.round(dh * 0.035));
-    ctx.strokeStyle = '#fe2c55';
-    ctx.stroke();
+    // Pure Authentic TikTok Heart with Cyan 3D Shadow (Zero ugly cards, zero text boxes)
+    const maxDim = Math.min(dw, dh);
+    const heartSize = maxDim * 0.8;
 
-    // 2. Cyan inner border / glow
-    ctx.beginPath();
-    safeRoundRect(ctx, -dw / 2 + 3, -dh / 2 + 3, dw - 6, dh - 6, Math.max(4, pillRadius - 3));
-    ctx.lineWidth = Math.max(1, Math.round(dh * 0.02));
-    ctx.strokeStyle = 'rgba(37, 244, 238, 0.7)';
-    ctx.stroke();
-
-    // 3. Iconic TikTok Heart
-    const heartScale = Math.min(dw, dh) * 0.032;
-    const heartX = -dw * 0.28;
-    const heartY = 0;
-
-    // Cyan shadow heart
     ctx.save();
-    ctx.translate(heartX - 2, heartY - 1);
-    ctx.scale(heartScale, heartScale);
-    ctx.beginPath();
-    ctx.moveTo(0, 16);
-    ctx.bezierCurveTo(-2, -2, -24, -2, -24, -14);
-    ctx.bezierCurveTo(-24, -24, -12, -28, 0, -18);
-    ctx.bezierCurveTo(12, -28, 24, -24, 24, -14);
-    ctx.bezierCurveTo(24, -2, 2, -2, 0, 16);
+    ctx.rotate(-0.24); // Authentic TikTok -14 deg tilt
+
+    // Cyan 3D chromatic aberration shadow
+    ctx.save();
+    ctx.translate(-4, -2);
+    drawHeartPath(ctx, heartSize);
     ctx.fillStyle = '#25f4ee';
+    ctx.globalAlpha = 0.85;
     ctx.fill();
     ctx.restore();
 
-    // Main vibrant TikTok red heart
-    ctx.save();
-    ctx.translate(heartX, heartY);
-    ctx.scale(heartScale, heartScale);
+    // Vibrant TikTok Red Heart
+    drawHeartPath(ctx, heartSize);
+    ctx.fillStyle = '#fe2c55';
+    ctx.fill();
+
+    // Specular highlight gloss sheen on top-left lobe
     ctx.beginPath();
-    ctx.moveTo(0, 16);
-    ctx.bezierCurveTo(-2, -2, -24, -2, -24, -14);
-    ctx.bezierCurveTo(-24, -24, -12, -28, 0, -18);
-    ctx.bezierCurveTo(12, -28, 24, -24, 24, -14);
-    ctx.bezierCurveTo(24, -2, 2, -2, 0, 16);
-    ctx.fillStyle = '#fe2c55';
+    ctx.ellipse(-heartSize * 0.22, -heartSize * 0.22, heartSize * 0.12, heartSize * 0.06, -0.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.fill();
+
     ctx.restore();
-
-    // 4. BEĞEN text & 1.4M badge
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `900 ${Math.max(12, Math.round(dh * 0.28))}px "Arial Black", Impact, sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('BEĞEN', -dw * 0.08, -dh * 0.04);
-
-    ctx.fillStyle = '#fe2c55';
-    ctx.font = `800 ${Math.max(10, Math.round(dh * 0.2))}px Arial, sans-serif`;
-    ctx.fillText('❤️ 1.4M', -dw * 0.08, dh * 0.28);
   } else {
     // Elegant translucent dark pill / card with subtle border
     const radius = Math.min(dw, dh) * 0.24;

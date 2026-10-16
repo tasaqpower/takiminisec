@@ -28,21 +28,19 @@ type CategoryType =
   | 'tiktok'
   | 'youtube'
   | 'instagram'
-  | 'ai'
+  | 'stickers'
   | 'arrows'
-  | 'censor'
-  | 'stickers';
+  | 'censor';
 
 const CATEGORIES: { id: CategoryType; label: string }[] = [
   { id: 'all', label: 'Tümü' },
-  { id: 'animated', label: '✨ Canlı Animasyonlu' },
+  { id: 'animated', label: '⚡ Canlı Animasyon' },
   { id: 'tiktok', label: '🎵 TikTok & Reels' },
   { id: 'youtube', label: '▶️ YouTube' },
   { id: 'instagram', label: '📷 Instagram' },
-  { id: 'ai', label: '🤖 Yapay Zeka' },
+  { id: 'stickers', label: '🔥 Çıkartmalar' },
   { id: 'arrows', label: '🎯 Oklar & Vurgu' },
   { id: 'censor', label: '🛑 Sansür & Gizlilik' },
-  { id: 'stickers', label: '🔥 Çıkartmalar' },
 ];
 
 export const ElementsTab: React.FC<ElementsTabProps> = ({
@@ -58,9 +56,11 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
   const [search, setSearch] = useState('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
-  const filteredElements = ELEMENT_PRESETS.filter(
-    (item) => category === 'all' || item.category === category
-  ).filter(
+  const filteredElements = ELEMENT_PRESETS.filter((item) => {
+    if (category === 'all') return true;
+    if (category === 'animated') return Boolean(item.isAnimated || item.category === 'animated');
+    return item.category === category;
+  }).filter(
     (item) =>
       !search.trim() ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -156,7 +156,7 @@ export const ElementsTab: React.FC<ElementsTabProps> = ({
         <Search className="w-3.5 h-3.5 text-[#929AA8] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
-          placeholder="TikTok, AI, YouTube veya çıkartma ara..."
+          placeholder="TikTok, YouTube, Instagram veya çıkartma ara..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-8 pr-2.5 py-1.5 rounded-[3px] bg-[#171B21] border border-[#292F39] text-[#E7EAF0] placeholder-[#5A6270] text-xs outline-none focus:border-[#4f6bf5] transition-colors"

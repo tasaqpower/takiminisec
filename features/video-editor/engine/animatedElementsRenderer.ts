@@ -1,13 +1,15 @@
 /**
- * FORMA Video Editor — Dynamic Animated Stickers & Vector Elements Engine
- * High-performance 60fps procedural vector animations for Canvas preview & MP4 export.
+ * FORMA Video Editor — Authentic Social Media Vector & Animation Engine
+ * 100% Authentic, Direct Replicas of Real TikTok, YouTube, and Instagram UI Elements.
  *
- * Implements real-life interactive social media animations:
- * 1. TikTok Follow (+ morphs into ✓ checkmark with tap ripple and confetti burst)
- * 2. TikTok Like (elastic bounce pop, fills with TikTok red + cyan shadow, shockwave & floating mini hearts)
- * 3. TikTok Double-Tap Heart (screen pop with 3D chromatic aberration and upward drift)
- * 4. YouTube Subscribe & Bell (Red "ABONE OL" -> clicks to grey "✓ ABONE OLUNDU" -> bell rings with yellow soundwaves)
- * 5. Instagram Like (Heart pop with Instagram radiant gradient & floating hearts)
+ * Implements:
+ * 1. TikTok Double-Tap Pop Heart (Ekrana Çift Tıklama Kalp Patlaması) — Authentic -14° tilted neon red heart, 3D cyan glitch, expanding shockwave ring, floating mini hearts.
+ * 2. TikTok Right-Rail Like Heart (TikTok Yan Bar Beğeni Kalbi & Sayacı) — Pure heart + 1.4M counter below, pops into red with floating hearts, transparent background.
+ * 3. TikTok Follow Avatar (TikTok Profil & Takip Et) — Authentic circular profile avatar with overlapping red plus (+) that pops, spins 90°, and morphs into a white checkmark (✓) with confetti sparks.
+ * 4. TikTok Follow Button (+ Takip Et) — Real red TikTok profile button that clicks to "Takip Ediliyor ✓".
+ * 5. TikTok Right-Side Combo Bar — Full authentic vertical right rail (Avatar + Heart + Comment + Bookmark + Share + Spinning Disc).
+ * 6. YouTube Subscribe & Bell — Real red "Abone Ol" pill that turns into grey "Abone Olundu" + shaking ringing bell.
+ * 7. Instagram Double-Tap Heart — Real Instagram heart pop with gradient and flying hearts.
  */
 
 import { VideoClip } from '../types';
@@ -15,7 +17,7 @@ import { VideoClip } from '../types';
 /**
  * Universal safe rounded rectangle renderer
  */
-function safeRoundRect(
+export function safeRoundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -47,9 +49,9 @@ function safeRoundRect(
 }
 
 /**
- * Draw a mathematical cubic bezier heart centered at (0, 0)
+ * Draw the EXACT authentic TikTok mathematical cubic bezier heart centered at (0, 0)
  */
-function drawHeartPath(ctx: CanvasRenderingContext2D, size: number): void {
+export function drawHeartPath(ctx: CanvasRenderingContext2D, size: number): void {
   const s = size / 32;
   ctx.beginPath();
   ctx.moveTo(0, 16 * s);
@@ -63,7 +65,7 @@ function drawHeartPath(ctx: CanvasRenderingContext2D, size: number): void {
 /**
  * Animated checkmark path from start to end with progress 0..1
  */
-function drawAnimatedCheckmark(
+export function drawAnimatedCheckmark(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -75,7 +77,6 @@ function drawAnimatedCheckmark(
   if (progress <= 0) return;
   const p = Math.min(1, Math.max(0, progress));
 
-  // Points for checkmark: start (left), vertex (bottom), end (top right)
   const x1 = cx - size * 0.42;
   const y1 = cy - size * 0.05;
   const x2 = cx - size * 0.12;
@@ -106,7 +107,7 @@ function drawAnimatedCheckmark(
 /**
  * Draw celebratory particles / confetti bursting radially from (cx, cy)
  */
-function drawCelebrationSparks(
+export function drawCelebrationSparks(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -116,15 +117,15 @@ function drawCelebrationSparks(
   if (progress <= 0 || progress >= 1) return;
   const p = progress;
   const count = 12;
-  const colors = ['#fe2c55', '#25f4ee', '#facc15', '#ffffff', '#a855f7', '#22c55e'];
+  const colors = ['#fe2c55', '#25f4ee', '#facc15', '#ffffff', '#ff007f', '#22c55e'];
 
   ctx.save();
   for (let i = 0; i < count; i++) {
     const angle = (i * 2 * Math.PI) / count + (i % 2 === 0 ? 0.2 : -0.1);
-    const dist = radius * (0.3 + 1.2 * Math.pow(p, 0.7));
+    const dist = radius * (0.2 + 1.3 * Math.pow(p, 0.7));
     const px = cx + Math.cos(angle) * dist;
     const py = cy + Math.sin(angle) * dist;
-    const sparkSize = Math.max(1.5, (1 - p) * 5.5);
+    const sparkSize = Math.max(1.5, (1 - p) * 6);
     const alpha = Math.max(0, (1 - p) * 0.95);
 
     ctx.fillStyle = colors[i % colors.length];
@@ -137,9 +138,243 @@ function drawCelebrationSparks(
 }
 
 /**
- * 1. TIKTOK TAKIP ET (AVATAR + PLUS TO CHECKMARK ✓)
- * Starts with user profile avatar and red plus badge.
- * At t ~ 0.8s, clicks: plus spins 90deg and morphs into a checkmark ✓ with celebration sparks!
+ * 1. TIKTOK DOUBLE-TAP POP HEART (Ekrana Çift Tıklama Kalp Patlaması)
+ * Real TikTok double-tap heart:
+ * Pure heart rotated at -14 degrees, pops in with spring physics, 3D cyan shadow,
+ * expanding shockwave, floating mini hearts, and upward floating drift. Loops continuously!
+ */
+export function drawTikTokAnimatedDoubleTap(
+  ctx: CanvasRenderingContext2D,
+  dw: number,
+  dh: number,
+  t: number
+): void {
+  ctx.save();
+  const maxDim = Math.min(dw, dh);
+  const heartBaseSize = maxDim * 0.72;
+
+  // Continuous seamless loop every 2.4 seconds
+  const cycleDur = 2.4;
+  const loopT = t % cycleDur;
+
+  // Elastic pop-in curve
+  let scale = 1.0;
+  let alpha = 1.0;
+  let driftY = 0;
+
+  if (loopT < 0.35) {
+    // Zoom punch spring: 0 -> 1.35 -> 1.0
+    const p = loopT / 0.35;
+    scale = Math.sin((p * Math.PI) / 2) * 1.35 - (p > 0.7 ? (p - 0.7) * 1.16 : 0);
+  } else if (loopT < 1.8) {
+    // Floating upward drift and subtle breathing
+    const p = (loopT - 0.35) / 1.45;
+    scale = 1.0 + 0.06 * Math.sin(p * Math.PI * 4);
+    driftY = -p * (maxDim * 0.18);
+  } else {
+    // Fade out and shrink for next cycle
+    const p = (loopT - 1.8) / 0.6;
+    scale = 1.0 - p * 0.4;
+    alpha = Math.max(0, 1 - p);
+    driftY = -maxDim * 0.18 - p * 15;
+  }
+
+  ctx.globalAlpha = alpha;
+  ctx.translate(0, driftY);
+
+  // Shockwave ring explosion (around 0.25s - 0.85s)
+  if (loopT >= 0.25 && loopT < 0.95) {
+    const shockP = (loopT - 0.25) / 0.7;
+    const shockR = heartBaseSize * 0.5 + shockP * maxDim * 0.55;
+    const shockAlpha = (1 - shockP) * 0.85;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, shockR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(37, 244, 238, ${shockAlpha})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, shockR * 0.88, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(254, 44, 85, ${shockAlpha * 0.8})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 8 Floating Mini Hearts bursting in an upward arc
+  if (loopT >= 0.25 && loopT < 1.9) {
+    const p = (loopT - 0.25) / 1.65;
+    const miniCount = 8;
+    for (let i = 0; i < miniCount; i++) {
+      const angle = -Math.PI / 2 + ((i - 3.5) * 0.42);
+      const dist = (0.25 + 0.85 * Math.pow(p, 0.6)) * (maxDim * 0.55);
+      const mx = Math.cos(angle) * dist;
+      const my = Math.sin(angle) * dist - (p * maxDim * 0.35);
+      const mSize = Math.max(1, (1 - p * 0.8) * (maxDim * 0.16));
+      const mAlpha = Math.max(0, (1 - p) * 0.9);
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.globalAlpha = alpha * mAlpha;
+      ctx.rotate(angle * 0.3);
+      drawHeartPath(ctx, mSize);
+      ctx.fillStyle = i % 2 === 0 ? '#fe2c55' : '#25f4ee';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Main TikTok Heart (tilted -14 degrees)
+  ctx.save();
+  ctx.rotate(-0.24); // Authentic TikTok -14 deg tilt
+  ctx.scale(scale, scale);
+
+  // Cyan 3D chromatic aberration shadow (offset -3.5px, -2px)
+  ctx.save();
+  ctx.translate(-4, -2.5);
+  drawHeartPath(ctx, heartBaseSize);
+  ctx.fillStyle = '#25f4ee';
+  ctx.globalAlpha = alpha * 0.85;
+  ctx.fill();
+  ctx.restore();
+
+  // Vibrant TikTok Red Heart
+  drawHeartPath(ctx, heartBaseSize);
+  ctx.fillStyle = '#fe2c55';
+  ctx.fill();
+
+  // White glossy specular sheen on top-left lobe
+  ctx.beginPath();
+  ctx.ellipse(-heartBaseSize * 0.22, -heartBaseSize * 0.22, heartBaseSize * 0.12, heartBaseSize * 0.06, -0.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.fill();
+
+  ctx.restore();
+  ctx.restore();
+}
+
+/**
+ * 2. TIKTOK RIGHT-RAIL LIKE HEART (Yan Bar Beğeni Kalbi & Sayacı)
+ * Pure authentic TikTok vertical like button:
+ * Transparent background, heart on top, clean white/red counter (1.4M) below.
+ * Pops with elastic bounce, turns from white to solid red, emits mini hearts!
+ */
+export function drawTikTokRightRailLike(
+  ctx: CanvasRenderingContext2D,
+  dw: number,
+  dh: number,
+  t: number
+): void {
+  ctx.save();
+  const maxDim = Math.min(dw, dh);
+  const heartSize = maxDim * 0.55;
+
+  // Continuous seamless loop every 2.8s
+  const cycleDur = 2.8;
+  const loopT = t % cycleDur;
+
+  const isLiked = loopT >= 0.5;
+  const likeP = isLiked ? Math.min(1, (loopT - 0.5) / 0.5) : 0;
+
+  // Elastic heart bounce
+  let heartScale = 1.0;
+  if (!isLiked) {
+    heartScale = 1.0 + 0.03 * Math.sin(loopT * 8);
+  } else if (likeP < 1) {
+    heartScale = 1.0 + 0.48 * Math.sin(likeP * Math.PI) * Math.exp(-likeP * 2.2);
+  } else {
+    // Settled heartbeat pulse
+    const settledT = loopT - 1.0;
+    heartScale = 1.0 + 0.05 * Math.abs(Math.sin(settledT * 5));
+  }
+
+  const heartY = -maxDim * 0.12;
+
+  // Floating mini hearts during like pop
+  if (isLiked && loopT < 2.2) {
+    const p = (loopT - 0.5) / 1.7;
+    const count = 6;
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + ((i - 2.5) * 0.45);
+      const dist = (0.3 + 0.8 * Math.pow(p, 0.7)) * (heartSize * 1.3);
+      const mx = Math.cos(angle) * dist;
+      const my = heartY + Math.sin(angle) * dist - (p * 24);
+      const mSize = Math.max(1, (1 - p * 0.9) * (heartSize * 0.35));
+      const mAlpha = Math.max(0, (1 - p) * 0.95);
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.globalAlpha = mAlpha;
+      drawHeartPath(ctx, mSize);
+      ctx.fillStyle = i % 2 === 0 ? '#fe2c55' : '#25f4ee';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Draw Heart
+  ctx.save();
+  ctx.translate(0, heartY);
+  ctx.scale(heartScale, heartScale);
+
+  if (!isLiked) {
+    // White unliked heart with soft drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 8;
+    drawHeartPath(ctx, heartSize);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  } else {
+    // Liked state: 3D cyan shadow + vibrant TikTok Red #fe2c55
+    ctx.save();
+    ctx.translate(-2.5, -1.5);
+    drawHeartPath(ctx, heartSize);
+    ctx.fillStyle = '#25f4ee';
+    ctx.globalAlpha = 0.85;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.shadowColor = 'rgba(254, 44, 85, 0.6)';
+    ctx.shadowBlur = 10;
+    drawHeartPath(ctx, heartSize);
+    ctx.fillStyle = '#fe2c55';
+    ctx.fill();
+
+    // Specular highlight
+    ctx.beginPath();
+    ctx.ellipse(-heartSize * 0.22, -heartSize * 0.22, heartSize * 0.12, heartSize * 0.06, -0.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // TikTok Counter underneath
+  const counterY = heartY + heartSize * 0.78;
+  const countScale = isLiked && likeP < 1 ? 1.0 + 0.25 * Math.sin(likeP * Math.PI) : 1.0;
+
+  ctx.save();
+  ctx.translate(0, counterY);
+  ctx.scale(countScale, countScale);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.max(12, Math.round(maxDim * 0.18))}px "Proxima Nova", Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 6;
+  ctx.fillText(isLiked ? '1.4M' : '1.3M', 0, 0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+/**
+ * 3. TIKTOK FOLLOW AVATAR (Profil Avatarı + Kırmızı Artı)
+ * Real TikTok profile avatar on right rail:
+ * 50px circular avatar with white rim. At the bottom rim, an overlapping red circle (#fe2c55)
+ * with a white plus (+). When tapped, the plus pops, spins 90 degrees, and morphs into a
+ * checkmark (✓) in a dark circle with 12 confetti celebration sparks!
  */
 export function drawTikTokFollowAvatar(
   ctx: CanvasRenderingContext2D,
@@ -148,57 +383,60 @@ export function drawTikTokFollowAvatar(
   t: number
 ): void {
   ctx.save();
-  const baseScale = Math.min(dw, dh) / 160;
-  ctx.scale(baseScale, baseScale);
+  const maxDim = Math.min(dw, dh);
+  const avatarR = maxDim * 0.38;
+  const badgeR = avatarR * 0.42;
 
-  // Time milestones
-  const clickStart = 0.8;
-  const clickDur = 0.45;
-  const isClicked = t >= clickStart;
-  const clickProgress = isClicked ? Math.min(1, (t - clickStart) / clickDur) : 0;
+  // Continuous seamless loop every 3.2s
+  const cycleDur = 3.2;
+  const loopT = t % cycleDur;
+
+  const isFollowed = loopT >= 0.7;
+  const followP = isFollowed ? Math.min(1, (loopT - 0.7) / 0.5) : 0;
+
+  const avatarY = -maxDim * 0.08;
+  const badgeY = avatarY + avatarR * 0.95;
 
   // 1. Profile Avatar Circle
   ctx.save();
+  ctx.translate(0, avatarY);
   ctx.beginPath();
-  ctx.arc(0, -15, 52, 0, Math.PI * 2);
-  ctx.fillStyle = '#18181b';
+  ctx.arc(0, 0, avatarR, 0, Math.PI * 2);
+  ctx.fillStyle = '#1c1d22';
   ctx.fill();
-  ctx.lineWidth = 4;
+  ctx.lineWidth = Math.max(2, Math.round(maxDim * 0.025));
   ctx.strokeStyle = '#ffffff';
   ctx.stroke();
 
-  // Subtle user portrait icon inside
-  ctx.fillStyle = '#71717a';
+  // Clean user portrait silhouette inside
+  ctx.fillStyle = '#8e8e93';
   ctx.beginPath();
-  ctx.arc(0, -25, 18, 0, Math.PI * 2); // Head
+  ctx.arc(0, -avatarR * 0.18, avatarR * 0.35, 0, Math.PI * 2); // Head
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(0, 14, 30, 20, 0, 0, Math.PI * 2); // Shoulders
+  ctx.ellipse(0, avatarR * 0.52, avatarR * 0.6, avatarR * 0.42, 0, 0, Math.PI * 2); // Shoulders
   ctx.fill();
   ctx.restore();
 
-  // 2. Plus / Checkmark Badge positioned at bottom rim of avatar (0, 36)
-  const badgeY = 34;
+  // 2. Plus / Checkmark Badge
   let badgeScale = 1.0;
-  if (t < clickStart) {
-    // Gentle breathing idle pulse before click
-    badgeScale = 1.0 + 0.04 * Math.sin(t * 6);
-  } else if (clickProgress < 1) {
-    // Elastic click bounce
-    badgeScale = 1.0 - 0.28 * Math.sin(clickProgress * Math.PI) + 0.15 * Math.sin(clickProgress * Math.PI * 2);
+  if (!isFollowed) {
+    badgeScale = 1.0 + 0.04 * Math.sin(loopT * 7);
+  } else if (followP < 1) {
+    badgeScale = 1.0 - 0.3 * Math.sin(followP * Math.PI) + 0.18 * Math.sin(followP * Math.PI * 2);
   }
 
   ctx.save();
   ctx.translate(0, badgeY);
   ctx.scale(badgeScale, badgeScale);
 
-  // Tap ripple ring during click
-  if (clickProgress > 0 && clickProgress < 0.85) {
-    const ringR = 24 + clickProgress * 36;
+  // Tap ripple ring during tap
+  if (isFollowed && followP > 0 && followP < 0.85) {
+    const ringR = badgeR + followP * badgeR * 1.5;
     ctx.save();
     ctx.beginPath();
     ctx.arc(0, 0, ringR, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(254, 44, 85, ${1 - clickProgress / 0.85})`;
+    ctx.strokeStyle = `rgba(254, 44, 85, ${1 - followP / 0.85})`;
     ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.restore();
@@ -206,80 +444,58 @@ export function drawTikTokFollowAvatar(
 
   // Badge background circle
   ctx.beginPath();
-  ctx.arc(0, 0, 22, 0, Math.PI * 2);
-  if (!isClicked) {
-    // Vibrant TikTok red before click
+  ctx.arc(0, 0, badgeR, 0, Math.PI * 2);
+  if (!isFollowed) {
     ctx.fillStyle = '#fe2c55';
     ctx.fill();
   } else {
-    // Smooth transition from red to settled dark grey/white checkmark
-    const r = Math.round(254 - (254 - 39) * clickProgress);
-    const g = Math.round(44 - (44 - 39) * clickProgress);
-    const b = Math.round(85 - (85 - 43) * clickProgress);
+    // Smooth transition from red to settled dark circle with white/cyan border
+    const r = Math.round(254 - (254 - 34) * followP);
+    const g = Math.round(44 - (44 - 35) * followP);
+    const b = Math.round(85 - (85 - 40) * followP);
     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fill();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
   }
 
-  // Icon drawing: Plus (+) vs Checkmark (✓)
-  if (!isClicked || clickProgress < 0.35) {
-    // Rotating / shrinking Plus (+)
-    const plusRot = clickProgress > 0 ? (clickProgress / 0.35) * (Math.PI / 2) : 0;
-    const plusScale = clickProgress > 0 ? 1 - clickProgress / 0.35 : 1;
-
+  // Plus (+) to Checkmark (✓) transformation
+  if (!isFollowed || followP < 0.35) {
+    const plusRot = followP > 0 ? (followP / 0.35) * (Math.PI / 2) : 0;
+    const pScale = followP > 0 ? 1 - followP / 0.35 : 1;
     ctx.save();
     ctx.rotate(plusRot);
-    ctx.scale(plusScale, plusScale);
+    ctx.scale(pScale, pScale);
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 4.5;
+    ctx.lineWidth = Math.max(2.5, badgeR * 0.22);
     ctx.lineCap = 'round';
-    // Vertical bar
     ctx.beginPath();
-    ctx.moveTo(0, -11);
-    ctx.lineTo(0, 11);
-    ctx.stroke();
-    // Horizontal bar
-    ctx.beginPath();
-    ctx.moveTo(-11, 0);
-    ctx.lineTo(11, 0);
+    ctx.moveTo(0, -badgeR * 0.5);
+    ctx.lineTo(0, badgeR * 0.5);
+    ctx.moveTo(-badgeR * 0.5, 0);
+    ctx.lineTo(badgeR * 0.5, 0);
     ctx.stroke();
     ctx.restore();
   } else {
-    // Animated Checkmark (✓)
-    const checkP = Math.min(1, (clickProgress - 0.35) / 0.65);
-    drawAnimatedCheckmark(ctx, 0, 0, 26, checkP, '#ffffff', 4);
+    const checkP = Math.min(1, (followP - 0.35) / 0.65);
+    drawAnimatedCheckmark(ctx, 0, 0, badgeR * 1.25, checkP, '#ffffff', Math.max(2.5, badgeR * 0.2));
   }
 
-  ctx.restore(); // restore badge transform
+  ctx.restore();
 
-  // 3. Celebration sparks bursting on follow!
-  if (clickProgress > 0 && clickProgress < 1) {
-    drawCelebrationSparks(ctx, 0, badgeY, 32, clickProgress);
-  }
-
-  // 4. Settled label below badge
-  if (isClicked && clickProgress >= 0.7) {
-    const labelAlpha = Math.min(1, (clickProgress - 0.7) / 0.3);
-    ctx.save();
-    ctx.globalAlpha = labelAlpha;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 13px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    ctx.shadowBlur = 6;
-    ctx.fillText('✓ TAKİP EDİLDİ', 0, badgeY + 28);
-    ctx.restore();
+  // Celebration Sparks on follow
+  if (isFollowed && followP > 0 && followP < 1) {
+    drawCelebrationSparks(ctx, 0, badgeY, badgeR * 2, followP);
   }
 
   ctx.restore();
 }
 
 /**
- * 2. TIKTOK TAKIP BUTONU (+ -> ✓ PILL BUTTON)
- * Red "+ Takip Et" button clicks and transforms into grey "✓ Takip Ediliyor" with confetti!
+ * 4. TIKTOK FOLLOW BUTTON (Kırmızı Takip Butonu)
+ * Authentic TikTok profile follow pill button:
+ * Red button "+ Takip Et" -> clicks to dark grey "Takip Ediliyor ✓" with confetti.
  */
 export function drawTikTokFollowPill(
   ctx: CanvasRenderingContext2D,
@@ -288,16 +504,17 @@ export function drawTikTokFollowPill(
   t: number
 ): void {
   ctx.save();
-  const clickStart = 0.8;
-  const clickDur = 0.45;
-  const isClicked = t >= clickStart;
-  const clickProgress = isClicked ? Math.min(1, (t - clickStart) / clickDur) : 0;
+  const cycleDur = 3.2;
+  const loopT = t % cycleDur;
+
+  const isFollowed = loopT >= 0.7;
+  const followP = isFollowed ? Math.min(1, (loopT - 0.7) / 0.5) : 0;
 
   let btnScale = 1.0;
-  if (t < clickStart) {
-    btnScale = 1.0 + 0.02 * Math.sin(t * 6);
-  } else if (clickProgress < 1) {
-    btnScale = 1.0 - 0.12 * Math.sin(clickProgress * Math.PI);
+  if (!isFollowed) {
+    btnScale = 1.0 + 0.02 * Math.sin(loopT * 6);
+  } else if (followP < 1) {
+    btnScale = 1.0 - 0.12 * Math.sin(followP * Math.PI);
   }
   ctx.scale(btnScale, btnScale);
 
@@ -306,14 +523,13 @@ export function drawTikTokFollowPill(
   // Background pill
   ctx.beginPath();
   safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, radius);
-  if (!isClicked) {
+  if (!isFollowed) {
     ctx.fillStyle = '#fe2c55';
     ctx.fill();
   } else {
-    // Transition to sleek dark glass
-    const r = Math.round(254 - (254 - 30) * clickProgress);
-    const g = Math.round(44 - (44 - 35) * clickProgress);
-    const b = Math.round(85 - (85 - 45) * clickProgress);
+    const r = Math.round(254 - (254 - 40) * followP);
+    const g = Math.round(44 - (44 - 42) * followP);
+    const b = Math.round(85 - (85 - 48) * followP);
     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fill();
     ctx.lineWidth = Math.max(1.5, Math.round(dh * 0.04));
@@ -325,8 +541,8 @@ export function drawTikTokFollowPill(
   const iconX = -dw * 0.32;
   const iconSize = dh * 0.38;
 
-  if (!isClicked || clickProgress < 0.35) {
-    const plusRot = clickProgress > 0 ? (clickProgress / 0.35) * (Math.PI / 2) : 0;
+  if (!isFollowed || followP < 0.35) {
+    const plusRot = followP > 0 ? (followP / 0.35) * (Math.PI / 2) : 0;
     ctx.save();
     ctx.translate(iconX, 0);
     ctx.rotate(plusRot);
@@ -341,194 +557,182 @@ export function drawTikTokFollowPill(
     ctx.stroke();
     ctx.restore();
   } else {
-    const checkP = Math.min(1, (clickProgress - 0.35) / 0.65);
+    const checkP = Math.min(1, (followP - 0.35) / 0.65);
     drawAnimatedCheckmark(ctx, iconX, 0, iconSize * 1.3, checkP, '#22c55e', Math.max(2.5, dh * 0.08));
   }
 
-  // Text: "TAKİP ET" -> "TAKİP EDİLİYOR"
+  // Text: "Takip Et" -> "Takip Ediliyor"
   const fontSize = Math.max(12, Math.round(dh * 0.32));
   ctx.fillStyle = '#ffffff';
-  ctx.font = `900 ${fontSize}px "Arial Black", Impact, sans-serif`;
+  ctx.font = `bold ${fontSize}px "Proxima Nova", Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
-  const textX = -dw * 0.15;
-  if (!isClicked) {
-    ctx.fillText('TAKİP ET', textX, 0);
-  } else if (clickProgress < 0.5) {
-    ctx.globalAlpha = 1 - clickProgress / 0.5;
-    ctx.fillText('TAKİP ET', textX, 0);
+  const textX = -dw * 0.16;
+  if (!isFollowed) {
+    ctx.fillText('Takip Et', textX, 0);
+  } else if (followP < 0.5) {
+    ctx.globalAlpha = 1 - followP / 0.5;
+    ctx.fillText('Takip Et', textX, 0);
   } else {
-    ctx.globalAlpha = (clickProgress - 0.5) / 0.5;
-    ctx.fillText('TAKİP EDİLİYOR', textX, 0);
+    ctx.globalAlpha = (followP - 0.5) / 0.5;
+    ctx.fillText('Takip Ediliyor', textX, 0);
   }
 
   // Confetti sparks during click
-  if (clickProgress > 0 && clickProgress < 1) {
-    drawCelebrationSparks(ctx, iconX, 0, dh * 0.7, clickProgress);
+  if (isFollowed && followP > 0 && followP < 1) {
+    drawCelebrationSparks(ctx, iconX, 0, dh * 0.7, followP);
   }
 
   ctx.restore();
 }
 
 /**
- * 3. TIKTOK BEĞEN (POP & HEARTS BURST & INCREMENTING COUNTER)
- * Starts unliked/idle. At t ~ 0.6s, double-taps: elastic bounce, fills with red + cyan 3D shadow,
- * shockwave ring explodes, 8 mini hearts shoot out, and counter increments to "+1 / BEĞENİLDİ"!
+ * 5. TIKTOK RIGHT-SIDE COMBO BAR (Tüm Sağ Eylem Barı)
+ * The complete authentic TikTok right-side vertical overlay:
+ * 1. Profile avatar with red + morphing to ✓
+ * 2. Heart with 1.4M (pops into red with mini hearts)
+ * 3. Comment bubble with 24.8K
+ * 4. Bookmark ribbon with 95.2K (turns gold)
+ * 5. Share curved arrow with 12.8K
+ * 6. Spinning music disc with floating musical notes!
  */
-export function drawTikTokAnimatedLike(
+export function drawTikTokRightSideCombo(
   ctx: CanvasRenderingContext2D,
   dw: number,
   dh: number,
   t: number
 ): void {
   ctx.save();
-  const popStart = 0.6;
-  const popDur = 0.55;
-  const isPopped = t >= popStart;
-  const popProgress = isPopped ? Math.min(1, (t - popStart) / popDur) : 0;
+  // Vertical column of icons with 6 evenly spaced slots
+  const slotCount = 6;
+  const slotH = dh / slotCount;
+  const iconScale = Math.min(dw, slotH) * 0.75;
 
-  // 1. Background Pill Container
-  const pillRadius = Math.min(dw, dh) * 0.46;
-  ctx.beginPath();
-  safeRoundRect(ctx, -dw / 2, -dh / 2, dw, dh, pillRadius);
-  ctx.fillStyle = '#090a0f';
-  ctx.fill();
+  for (let i = 0; i < slotCount; i++) {
+    const slotY = -dh / 2 + (i + 0.5) * slotH;
 
-  // Subtle border with chromatic glow
-  ctx.lineWidth = Math.max(2, Math.round(dh * 0.035));
-  ctx.strokeStyle = isPopped ? '#fe2c55' : 'rgba(255, 255, 255, 0.25)';
-  ctx.stroke();
-
-  // Cyan inner border
-  ctx.beginPath();
-  safeRoundRect(ctx, -dw / 2 + 2, -dh / 2 + 2, dw - 4, dh - 4, Math.max(4, pillRadius - 2));
-  ctx.lineWidth = Math.max(1, Math.round(dh * 0.02));
-  ctx.strokeStyle = 'rgba(37, 244, 238, 0.6)';
-  ctx.stroke();
-
-  // 2. Heart Positioning and Elastic Bounce
-  const heartX = -dw * 0.28;
-  const heartY = 0;
-  const baseHeartSize = Math.min(dw, dh) * 0.5;
-
-  let heartScale = 1.0;
-  if (!isPopped) {
-    // Idle gentle heartbeat
-    heartScale = 1.0 + 0.04 * Math.sin(t * 8);
-  } else if (popProgress < 1) {
-    // Elastic spring bounce: 1.0 -> 0.75 -> 1.48 -> 0.95 -> 1.0
-    heartScale = 1.0 + 0.52 * Math.sin(popProgress * Math.PI) * Math.exp(-popProgress * 2.5);
-  } else {
-    // Settled heartbeat pulse
-    const settledT = t - (popStart + popDur);
-    heartScale = 1.0 + 0.06 * Math.abs(Math.sin(settledT * 5));
-  }
-
-  // Shockwave ring explosion during pop
-  if (popProgress > 0 && popProgress < 0.9) {
-    const shockR = baseHeartSize * 0.6 + popProgress * dh * 0.9;
-    const shockAlpha = (1 - popProgress / 0.9) * 0.85;
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(heartX, heartY, shockR, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(37, 244, 238, ${shockAlpha})`;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(heartX, heartY, shockR * 0.85, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(254, 44, 85, ${shockAlpha * 0.8})`;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-  }
+    ctx.translate(0, slotY);
 
-  // Floating mini hearts bursting around the main heart!
-  if (popProgress > 0) {
-    const miniHeartCount = 7;
-    for (let i = 0; i < miniHeartCount; i++) {
-      const angle = -Math.PI / 2 + ((i - 3) * 0.42); // fan out upwards
-      const dist = (0.2 + 0.85 * Math.pow(popProgress, 0.6)) * (dh * 0.85);
-      const mx = heartX + Math.cos(angle) * dist;
-      const my = heartY + Math.sin(angle) * dist - (popProgress * 18);
-      const mSize = Math.max(1, (1 - popProgress * 0.85) * (dh * 0.22));
-      const mAlpha = Math.max(0, 1 - popProgress);
-
+    if (i === 0) {
+      // Slot 1: Profile + Follow
+      drawTikTokFollowAvatar(ctx, iconScale, iconScale, t);
+    } else if (i === 1) {
+      // Slot 2: Like Heart + Count
+      drawTikTokRightRailLike(ctx, iconScale, iconScale, t);
+    } else if (i === 2) {
+      // Slot 3: Comment Bubble + 24.8K
+      const cSize = iconScale * 0.45;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = '#ffffff';
+      // Rounded speech bubble
+      ctx.beginPath();
+      safeRoundRect(ctx, -cSize, -cSize * 0.7, cSize * 2, cSize * 1.4, cSize * 0.5);
+      ctx.fill();
+      // Pointer
+      ctx.beginPath();
+      ctx.moveTo(-cSize * 0.4, cSize * 0.7);
+      ctx.lineTo(-cSize * 0.7, cSize * 1.1);
+      ctx.lineTo(0, cSize * 0.7);
+      ctx.fill();
+      // 3 dots inside
+      ctx.fillStyle = '#111216';
+      ctx.beginPath();
+      ctx.arc(-cSize * 0.45, 0, cSize * 0.12, 0, Math.PI * 2);
+      ctx.arc(0, 0, cSize * 0.12, 0, Math.PI * 2);
+      ctx.arc(cSize * 0.45, 0, cSize * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      // Counter
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(iconScale * 0.2)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('24.8K', 0, cSize * 1.35);
+    } else if (i === 3) {
+      // Slot 4: Bookmark Ribbon + 95.2K
+      const bSize = iconScale * 0.48;
+      const isBookmarked = (t % 3.0) > 1.2;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = isBookmarked ? '#facc15' : '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-bSize * 0.5, -bSize * 0.7);
+      ctx.lineTo(bSize * 0.5, -bSize * 0.7);
+      ctx.lineTo(bSize * 0.5, bSize * 0.7);
+      ctx.lineTo(0, bSize * 0.3);
+      ctx.lineTo(-bSize * 0.5, bSize * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      // Counter
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(iconScale * 0.2)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('95.2K', 0, bSize * 1.15);
+    } else if (i === 4) {
+      // Slot 5: Share Curved Arrow + 12.8K
+      const sSize = iconScale * 0.48;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-sSize * 0.6, sSize * 0.4);
+      ctx.quadraticCurveTo(-sSize * 0.6, -sSize * 0.3, sSize * 0.1, -sSize * 0.3);
+      ctx.lineTo(sSize * 0.1, -sSize * 0.6);
+      ctx.lineTo(sSize * 0.7, 0);
+      ctx.lineTo(sSize * 0.1, sSize * 0.6);
+      ctx.lineTo(sSize * 0.1, sSize * 0.2);
+      ctx.quadraticCurveTo(-sSize * 0.3, sSize * 0.2, -sSize * 0.6, sSize * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      // Counter
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(iconScale * 0.2)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('12.8K', 0, sSize * 1.15);
+    } else if (i === 5) {
+      // Slot 6: Spinning Music Disc
+      const dSize = iconScale * 0.42;
+      const discRot = (t * 2.5) % (Math.PI * 2);
       ctx.save();
-      ctx.translate(mx, my);
-      ctx.globalAlpha = mAlpha;
-      drawHeartPath(ctx, mSize);
-      ctx.fillStyle = i % 2 === 0 ? '#fe2c55' : '#25f4ee';
+      ctx.rotate(discRot);
+      // Vinyl outer
+      ctx.beginPath();
+      ctx.arc(0, 0, dSize, 0, Math.PI * 2);
+      ctx.fillStyle = '#121212';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#383838';
+      ctx.stroke();
+      // Vinyl grooves
+      ctx.beginPath();
+      ctx.arc(0, 0, dSize * 0.7, 0, Math.PI * 2);
+      ctx.strokeStyle = '#222222';
+      ctx.stroke();
+      // Center label
+      ctx.beginPath();
+      ctx.arc(0, 0, dSize * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#fe2c55';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, dSize * 0.12, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
       ctx.fill();
       ctx.restore();
+
+      // Floating musical note
+      const noteT = (t * 1.8) % 1.0;
+      const nx = -dSize * (1.2 + noteT * 0.8);
+      const ny = -dSize * (0.5 + noteT * 1.2);
+      ctx.save();
+      ctx.translate(nx, ny);
+      ctx.globalAlpha = Math.max(0, 1 - noteT);
+      ctx.fillStyle = '#25f4ee';
+      ctx.font = `bold ${Math.round(iconScale * 0.28)}px sans-serif`;
+      ctx.fillText('♫', 0, 0);
+      ctx.restore();
     }
-  }
 
-  // 3. Main Heart Drawing
-  ctx.save();
-  ctx.translate(heartX, heartY);
-  ctx.scale(heartScale, heartScale);
-
-  if (!isPopped) {
-    // Unliked state: crisp white outline heart
-    drawHeartPath(ctx, baseHeartSize);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
-  } else {
-    // Liked state: 3D chromatic cyan shadow offset + vibrant TikTok red heart!
-    // Cyan 3D shadow
-    ctx.save();
-    ctx.translate(-2.5, -1.5);
-    drawHeartPath(ctx, baseHeartSize);
-    ctx.fillStyle = '#25f4ee';
-    ctx.globalAlpha = 0.8;
-    ctx.fill();
-    ctx.restore();
-
-    // Vibrant TikTok red heart
-    drawHeartPath(ctx, baseHeartSize);
-    ctx.fillStyle = '#fe2c55';
-    ctx.fill();
-
-    // Specular highlight gleam on top left lobe
-    ctx.beginPath();
-    ctx.ellipse(-baseHeartSize * 0.22, -baseHeartSize * 0.22, baseHeartSize * 0.12, baseHeartSize * 0.06, -0.6, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // 4. BEĞEN Text and Counter
-  const textX = -dw * 0.06;
-  const titleSize = Math.max(12, Math.round(dh * 0.28));
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `900 ${titleSize}px "Arial Black", Impact, sans-serif`;
-  if (!isPopped) {
-    ctx.fillText('BEĞEN', textX, -dh * 0.05);
-  } else {
-    ctx.fillText('BEĞENİLDİ', textX, -dh * 0.05);
-  }
-
-  // Counter
-  const counterSize = Math.max(10, Math.round(dh * 0.18));
-  ctx.font = `800 ${counterSize}px Arial, sans-serif`;
-  if (!isPopped) {
-    ctx.fillStyle = '#929aa8';
-    ctx.fillText('❤️ 1.4M', textX, dh * 0.28);
-  } else {
-    // Counter pops and turns bright red with "+1"
-    const countScale = popProgress < 1 ? 1.0 + 0.22 * Math.sin(popProgress * Math.PI) : 1.0;
-    ctx.save();
-    ctx.translate(textX, dh * 0.28);
-    ctx.scale(countScale, countScale);
-    ctx.fillStyle = '#fe2c55';
-    ctx.fillText('❤️ 1.4M +1', 0, 0);
     ctx.restore();
   }
 
@@ -536,100 +740,8 @@ export function drawTikTokAnimatedLike(
 }
 
 /**
- * 4. TIKTOK ÇİFT TIKLA KALP (DOUBLE-TAP POP EFFECT)
- * Big tilted heart springs onto screen, double-taps, bursts sparkles, and floats upwards.
- */
-export function drawTikTokAnimatedDoubleTap(
-  ctx: CanvasRenderingContext2D,
-  dw: number,
-  dh: number,
-  t: number
-): void {
-  ctx.save();
-  const maxDim = Math.min(dw, dh);
-  const heartBaseSize = maxDim * 0.65;
-
-  // Tap 1 at t=0.25s, Tap 2 at t=0.55s
-  const t1 = Math.max(0, t - 0.25);
-  const t2 = Math.max(0, t - 0.55);
-
-  const scale1 = t1 > 0 ? Math.min(1.0, t1 / 0.2) + 0.35 * Math.sin(Math.min(Math.PI, t1 * 6)) : 0;
-  const scale2 = t2 > 0 ? Math.min(1.0, t2 / 0.2) + 0.45 * Math.sin(Math.min(Math.PI, t2 * 6)) : 0;
-
-  // Upward floating drift over time
-  const driftY = -Math.min(60, t * 18);
-  const fadeAlpha = t > 2.2 ? Math.max(0, 1 - (t - 2.2) / 0.8) : 1;
-
-  ctx.globalAlpha = fadeAlpha;
-  ctx.translate(0, driftY);
-
-  // Heart 1 (tilted left -14 deg)
-  if (scale1 > 0.05) {
-    ctx.save();
-    ctx.translate(-maxDim * 0.08, 0);
-    ctx.rotate(-0.24);
-    ctx.scale(scale1, scale1);
-
-    // Cyan chromatic 3D shadow
-    ctx.save();
-    ctx.translate(-4, -2);
-    drawHeartPath(ctx, heartBaseSize);
-    ctx.fillStyle = '#25f4ee';
-    ctx.globalAlpha = 0.75;
-    ctx.fill();
-    ctx.restore();
-
-    // Red heart
-    drawHeartPath(ctx, heartBaseSize);
-    ctx.fillStyle = '#fe2c55';
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Heart 2 (tilted right +12 deg, popped by double tap)
-  if (scale2 > 0.05) {
-    ctx.save();
-    ctx.translate(maxDim * 0.08, -maxDim * 0.05);
-    ctx.rotate(0.2);
-    ctx.scale(scale2, scale2);
-
-    // Cyan shadow
-    ctx.save();
-    ctx.translate(-3, -2);
-    drawHeartPath(ctx, heartBaseSize * 0.85);
-    ctx.fillStyle = '#25f4ee';
-    ctx.globalAlpha = 0.75;
-    ctx.fill();
-    ctx.restore();
-
-    // Red heart
-    drawHeartPath(ctx, heartBaseSize * 0.85);
-    ctx.fillStyle = '#ff0050';
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Radiating sparkle particles
-  if (t > 0.55 && t < 2.0) {
-    const p = (t - 0.55) / 1.45;
-    drawCelebrationSparks(ctx, 0, 0, maxDim * 0.7, p);
-  }
-
-  // Bottom Label: "ÇİFT TIKLA ❤️"
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `900 ${Math.max(12, Math.round(maxDim * 0.1))}px "Arial Black", Impact, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-  ctx.shadowBlur = 8;
-  ctx.fillText('ÇİFT TIKLA ❤️', 0, maxDim * 0.38);
-
-  ctx.restore();
-}
-
-/**
- * 5. YOUTUBE ABONE OL + BİLDİRİM ZİLİ
- * Red "ABONE OL" -> clicks to grey "✓ ABONE OLUNDU" -> bell rings with yellow soundwaves!
+ * 6. YOUTUBE SUBSCRIBE & BELL (YouTube Abone Ol & Çan)
+ * Real YouTube red pill "Abone Ol" -> clicks to dark grey "Abone Olundu ✓" + ringing golden bell!
  */
 export function drawYouTubeAnimatedSubscribe(
   ctx: CanvasRenderingContext2D,
@@ -638,16 +750,17 @@ export function drawYouTubeAnimatedSubscribe(
   t: number
 ): void {
   ctx.save();
-  const clickStart = 0.9;
-  const clickDur = 0.45;
-  const isClicked = t >= clickStart;
-  const clickProgress = isClicked ? Math.min(1, (t - clickStart) / clickDur) : 0;
+  const cycleDur = 3.4;
+  const loopT = t % cycleDur;
+
+  const isClicked = loopT >= 0.8;
+  const clickP = isClicked ? Math.min(1, (loopT - 0.8) / 0.5) : 0;
 
   let btnScale = 1.0;
-  if (t < clickStart) {
-    btnScale = 1.0 + 0.02 * Math.sin(t * 5);
-  } else if (clickProgress < 1) {
-    btnScale = 1.0 - 0.1 * Math.sin(clickProgress * Math.PI);
+  if (!isClicked) {
+    btnScale = 1.0 + 0.02 * Math.sin(loopT * 5);
+  } else if (clickP < 1) {
+    btnScale = 1.0 - 0.1 * Math.sin(clickP * Math.PI);
   }
   ctx.scale(btnScale, btnScale);
 
@@ -660,10 +773,9 @@ export function drawYouTubeAnimatedSubscribe(
     ctx.fillStyle = '#cc0000';
     ctx.fill();
   } else {
-    // Morph to YouTube Dark Slate
-    const r = Math.round(204 - (204 - 39) * clickProgress);
-    const g = Math.round(0 + 39 * clickProgress);
-    const b = Math.round(0 + 43 * clickProgress);
+    const r = Math.round(204 - (204 - 39) * clickP);
+    const g = Math.round(0 + 39 * clickP);
+    const b = Math.round(0 + 43 * clickP);
     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fill();
     ctx.lineWidth = 1.5;
@@ -672,31 +784,25 @@ export function drawYouTubeAnimatedSubscribe(
   }
 
   // Text
-  const fontSize = Math.max(12, Math.round(dh * 0.32));
+  const fontSize = Math.max(12, Math.round(dh * 0.34));
   ctx.fillStyle = '#ffffff';
-  ctx.font = `900 ${fontSize}px "Arial Black", Impact, sans-serif`;
+  ctx.font = `bold ${fontSize}px "Roboto", Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   if (!isClicked) {
-    ctx.fillText('ABONE OL', -dw * 0.05, 0);
+    ctx.fillText('Abone Ol', -dw * 0.05, 0);
   } else {
-    const textP = (clickProgress - 0.2) / 0.8;
-    if (textP > 0) {
-      drawAnimatedCheckmark(ctx, -dw * 0.32, 0, dh * 0.4, Math.min(1, textP), '#22c55e', 3.5);
-      ctx.fillText('ABONE OLUNDU', dw * 0.02, 0);
-    } else {
-      ctx.fillText('ABONE OL', -dw * 0.05, 0);
-    }
+    drawAnimatedCheckmark(ctx, -dw * 0.32, 0, dh * 0.4, Math.min(1, clickP * 1.5), '#22c55e', 3.5);
+    ctx.fillText('Abone Olundu', dw * 0.02, 0);
   }
 
   // Notification Bell on right side
-  if (isClicked && clickProgress >= 0.8) {
+  if (isClicked && clickP >= 0.7) {
     const bellX = dw * 0.38;
-    const bellT = t - (clickStart + clickDur);
+    const bellT = loopT - 1.3;
     let bellRot = 0;
-    if (bellT > 0 && bellT < 1.5) {
-      // Shaking ringing bell!
+    if (bellT > 0 && bellT < 1.4) {
       bellRot = Math.sin(bellT * 26) * 0.28;
     }
 
@@ -704,8 +810,7 @@ export function drawYouTubeAnimatedSubscribe(
     ctx.translate(bellX, 0);
     ctx.rotate(bellRot);
 
-    // Bell shape
-    const bSize = dh * 0.35;
+    const bSize = dh * 0.36;
     ctx.fillStyle = '#facc15';
     ctx.beginPath();
     ctx.arc(0, -bSize * 0.2, bSize * 0.35, Math.PI, 0);
@@ -713,13 +818,12 @@ export function drawYouTubeAnimatedSubscribe(
     ctx.lineTo(-bSize * 0.45, bSize * 0.3);
     ctx.closePath();
     ctx.fill();
-    // Clapper
+
     ctx.beginPath();
     ctx.arc(0, bSize * 0.42, bSize * 0.12, 0, Math.PI * 2);
     ctx.fill();
 
-    // Soundwaves pulsing
-    if (bellT > 0 && bellT < 1.5) {
+    if (bellT > 0 && bellT < 1.4) {
       const waveAlpha = (1 + Math.sin(bellT * 20)) * 0.45;
       ctx.strokeStyle = `rgba(250, 204, 21, ${waveAlpha})`;
       ctx.lineWidth = 2;
@@ -737,8 +841,10 @@ export function drawYouTubeAnimatedSubscribe(
 }
 
 /**
- * 6. INSTAGRAM BEĞENİ (GRADIENT HEART POP)
- * Outline heart -> pop bounce -> fills with Instagram radiant sunset gradient -> floating mini hearts!
+ * 7. INSTAGRAM DOUBLE-TAP HEART (Instagram Çift Tıklama Kalp)
+ * Real Instagram double-tap heart pop:
+ * Pops with elastic scale, fills with sunset gradient (#feda75 -> #fa7e1e -> #d62976 -> #962fbf -> #4f5bd5),
+ * emits floating hearts, and drifts upward! Loops continuously!
  */
 export function drawInstagramAnimatedLike(
   ctx: CanvasRenderingContext2D,
@@ -747,42 +853,50 @@ export function drawInstagramAnimatedLike(
   t: number
 ): void {
   ctx.save();
-  const popStart = 0.5;
-  const popDur = 0.5;
-  const isPopped = t >= popStart;
-  const popProgress = isPopped ? Math.min(1, (t - popStart) / popDur) : 0;
+  const maxDim = Math.min(dw, dh);
+  const baseSize = maxDim * 0.68;
 
-  const baseSize = Math.min(dw, dh) * 0.55;
+  const cycleDur = 2.4;
+  const loopT = t % cycleDur;
+
   let scale = 1.0;
-  if (!isPopped) {
-    scale = 1.0 + 0.03 * Math.sin(t * 7);
-  } else if (popProgress < 1) {
-    scale = 1.0 + 0.45 * Math.sin(popProgress * Math.PI) * Math.exp(-popProgress * 2.5);
+  let alpha = 1.0;
+  let driftY = 0;
+
+  if (loopT < 0.35) {
+    const p = loopT / 0.35;
+    scale = Math.sin((p * Math.PI) / 2) * 1.35;
+  } else if (loopT < 1.8) {
+    const p = (loopT - 0.35) / 1.45;
+    scale = 1.0 + 0.05 * Math.sin(p * Math.PI * 4);
+    driftY = -p * (maxDim * 0.18);
+  } else {
+    const p = (loopT - 1.8) / 0.6;
+    scale = 1.0 - p * 0.4;
+    alpha = Math.max(0, 1 - p);
+    driftY = -maxDim * 0.18 - p * 15;
   }
 
+  ctx.globalAlpha = alpha;
+  ctx.translate(0, driftY);
   ctx.scale(scale, scale);
 
-  if (!isPopped) {
-    drawHeartPath(ctx, baseSize);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-  } else {
-    // Instagram gradient fill
-    const grad = ctx.createLinearGradient(-baseSize / 2, baseSize / 2, baseSize / 2, -baseSize / 2);
-    grad.addColorStop(0, '#feda75');
-    grad.addColorStop(0.25, '#fa7e1e');
-    grad.addColorStop(0.5, '#d62976');
-    grad.addColorStop(0.75, '#962fbf');
-    grad.addColorStop(1, '#4f5bd5');
+  // Instagram radiant gradient fill
+  const grad = ctx.createLinearGradient(-baseSize / 2, baseSize / 2, baseSize / 2, -baseSize / 2);
+  grad.addColorStop(0, '#feda75');
+  grad.addColorStop(0.25, '#fa7e1e');
+  grad.addColorStop(0.5, '#d62976');
+  grad.addColorStop(0.75, '#962fbf');
+  grad.addColorStop(1, '#4f5bd5');
 
-    drawHeartPath(ctx, baseSize);
-    ctx.fillStyle = grad;
-    ctx.fill();
-  }
+  drawHeartPath(ctx, baseSize);
+  ctx.fillStyle = grad;
+  ctx.fill();
 
-  if (popProgress > 0 && popProgress < 1) {
-    drawCelebrationSparks(ctx, 0, 0, baseSize * 0.8, popProgress);
+  // Floating sparkle particles
+  if (loopT >= 0.25 && loopT < 1.4) {
+    const p = (loopT - 0.25) / 1.15;
+    drawCelebrationSparks(ctx, 0, 0, baseSize * 0.85, p);
   }
 
   ctx.restore();
@@ -806,13 +920,66 @@ export function renderAnimatedElement(
   const name = (clip.name || '').toLowerCase();
   const t = Math.max(0, clipRelSec);
 
-  // 1. TikTok Follow (+ -> ✓)
+  // 1. TikTok Double-Tap Pop Heart (Pure Heart, no cards/boxes)
   if (
-    animType === 'tiktok-follow' ||
-    presetId === 'tiktok-animated-follow' ||
-    presetId === 'tiktok-follow-plus' ||
-    (name.includes('takip') && (name.includes('tiktok') || clip.isAnimated))
+    animType === 'tiktok-double-tap' ||
+    presetId === 'tiktok-double-tap-heart' ||
+    presetId === 'tiktok-animated-double-tap' ||
+    name.includes('çift tık') ||
+    name.includes('double tap')
   ) {
+    drawTikTokAnimatedDoubleTap(ctx, dw, dh, t);
+    return true;
+  }
+
+  // 2. TikTok Right-Rail Combo Bar (Full stack)
+  if (
+    animType === 'tiktok-combo' ||
+    presetId === 'tiktok-sidebar-combo' ||
+    name.includes('eylem barı') ||
+    name.includes('sağ bar') ||
+    name.includes('combo')
+  ) {
+    drawTikTokRightSideCombo(ctx, dw, dh, t);
+    return true;
+  }
+
+  // 3. TikTok Follow Profile Avatar (+ to ✓)
+  if (
+    animType === 'tiktok-follow-avatar' ||
+    presetId === 'tiktok-follow-plus' ||
+    presetId === 'tiktok-animated-follow' ||
+    (name.includes('takip') && (name.includes('profil') || name.includes('avatar') || name.includes('+')))
+  ) {
+    drawTikTokFollowAvatar(ctx, dw, dh, t);
+    return true;
+  }
+
+  // 4. TikTok Follow Pill Button
+  if (
+    animType === 'tiktok-follow-btn' ||
+    presetId === 'tiktok-follow-btn' ||
+    presetId === 'tiktok-animated-follow-btn' ||
+    (name.includes('takip') && name.includes('buton'))
+  ) {
+    drawTikTokFollowPill(ctx, dw, dh, t);
+    return true;
+  }
+
+  // 5. TikTok Right-Rail Vertical Like Heart + Count
+  if (
+    animType === 'tiktok-like' ||
+    presetId === 'tiktok-like' ||
+    presetId === 'tiktok-animated-like' ||
+    presetId === 'tiktok-like-counter' ||
+    ((name.includes('beğen') || name.includes('like')) && (name.includes('tiktok') || clip.isAnimated))
+  ) {
+    drawTikTokRightRailLike(ctx, dw, dh, t);
+    return true;
+  }
+
+  // 6. Generic follow fallback
+  if (name.includes('takip') || presetId.includes('follow')) {
     const isPill = (dw / Math.max(1, dh)) > 1.6;
     if (isPill) {
       drawTikTokFollowPill(ctx, dw, dh, t);
@@ -822,50 +989,22 @@ export function renderAnimatedElement(
     return true;
   }
 
-  // 2. TikTok Follow Pill Button explicitly
-  if (animType === 'tiktok-follow-btn' || presetId === 'tiktok-animated-follow-btn') {
-    drawTikTokFollowPill(ctx, dw, dh, t);
-    return true;
-  }
-
-  // 3. TikTok Like (Pop, Hearts, Red Fill, +1 Counter)
-  if (
-    animType === 'tiktok-like' ||
-    presetId === 'tiktok-animated-like' ||
-    presetId === 'tiktok-like' ||
-    ((name.includes('beğen') || name.includes('like')) && (name.includes('tiktok') || clip.isAnimated))
-  ) {
-    drawTikTokAnimatedLike(ctx, dw, dh, t);
-    return true;
-  }
-
-  // 4. TikTok Double-Tap Heart
-  if (
-    animType === 'tiktok-double-tap' ||
-    presetId === 'tiktok-animated-double-tap' ||
-    presetId === 'tiktok-double-tap-heart' ||
-    name.includes('çift tık')
-  ) {
-    drawTikTokAnimatedDoubleTap(ctx, dw, dh, t);
-    return true;
-  }
-
-  // 5. YouTube Subscribe + Bell
+  // 7. YouTube Subscribe + Bell
   if (
     animType === 'youtube-sub' ||
-    presetId === 'youtube-animated-subscribe' ||
-    presetId === 'youtube-subscribe' ||
-    (name.includes('youtube') && name.includes('abone'))
+    presetId.includes('youtube') && (presetId.includes('sub') || name.includes('abone')) ||
+    name.includes('abone ol')
   ) {
     drawYouTubeAnimatedSubscribe(ctx, dw, dh, t);
     return true;
   }
 
-  // 6. Instagram Like
+  // 8. Instagram Like
   if (
     animType === 'instagram-like' ||
-    presetId === 'instagram-animated-like' ||
-    (name.includes('instagram') && (name.includes('beğen') || name.includes('like')))
+    presetId.includes('instagram') ||
+    presetId.includes('ig-gradient-heart') ||
+    name.includes('instagram')
   ) {
     drawInstagramAnimatedLike(ctx, dw, dh, t);
     return true;

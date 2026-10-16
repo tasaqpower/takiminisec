@@ -1,7 +1,7 @@
 export interface ElementPreset {
   id: string;
   name: string;
-  category: 'animated' | 'ai' | 'tiktok' | 'youtube' | 'instagram' | 'arrows' | 'censor' | 'stickers';
+  category: 'animated' | 'tiktok' | 'youtube' | 'instagram' | 'arrows' | 'censor' | 'stickers';
   svg: string;
   defaultScale?: number;
   isAnimated?: boolean;
@@ -10,178 +10,235 @@ export interface ElementPreset {
 
 export const ELEMENT_PRESETS: ElementPreset[] = [
   // =========================================================================
-  // 0. CANLI ANİMASYONLU ÖĞELER (CANVAS & CSS ANIMATED STICKERS)
+  // 0. CANLI ANİMASYONLU SOSYAL MEDYA ÖĞELERİ (100% GERÇEK VE DİREKT UI)
   // =========================================================================
   {
-    id: 'tiktok-animated-follow',
-    name: 'TikTok Canlı Takip Et (+ ➔ ✓)',
-    category: 'animated',
-    defaultScale: 0.35,
+    id: 'tiktok-animated-double-tap',
+    name: 'TikTok Çift Tıkla Kalp (Patlama)',
+    category: 'tiktok',
+    defaultScale: 0.38,
     isAnimated: true,
-    elementAnimation: 'tiktok-follow',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180" width="160" height="180">
+    elementAnimation: 'tiktok-double-tap',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
       <defs>
         <style>
-          @keyframes followPulse {
-            0%, 25% { transform: scale(1); fill: #fe2c55; }
-            35% { transform: scale(0.85); fill: #fe2c55; }
-            45% { transform: scale(1.15); fill: #27272a; }
-            55%, 100% { transform: scale(1); fill: #27272a; }
+          @keyframes dtHeartPop {
+            0%, 15% { transform: scale(0.2) rotate(-14deg); opacity: 0; }
+            28% { transform: scale(1.32) rotate(-14deg); opacity: 1; }
+            38% { transform: scale(1.0) rotate(-14deg); opacity: 1; }
+            70% { transform: scale(1.04) translateY(-8px) rotate(-14deg); opacity: 1; }
+            88%, 100% { transform: scale(0.85) translateY(-22px) rotate(-14deg); opacity: 0; }
           }
-          @keyframes iconMorph {
-            0%, 25% { opacity: 1; transform: rotate(0deg); }
-            35% { opacity: 0; transform: rotate(90deg) scale(0); }
-            45%, 100% { opacity: 0; }
+          @keyframes dtShock {
+            0%, 20% { opacity: 0; transform: scale(0.3); }
+            32% { opacity: 0.9; }
+            60%, 100% { opacity: 0; transform: scale(1.6); }
           }
-          @keyframes checkReveal {
-            0%, 35% { opacity: 0; stroke-dashoffset: 24; }
-            50%, 100% { opacity: 1; stroke-dashoffset: 0; }
-          }
-          @keyframes sparkBurst {
-            0%, 35% { opacity: 0; transform: scale(0.3); }
-            50% { opacity: 1; transform: scale(1.2); }
-            70%, 100% { opacity: 0; transform: scale(1.6); }
-          }
-          .follow-btn { transform-origin: 80px 125px; animation: followPulse 3.5s infinite ease-in-out; }
-          .plus-icon { transform-origin: 80px 125px; animation: iconMorph 3.5s infinite ease-in-out; }
-          .check-icon { stroke-dasharray: 24; animation: checkReveal 3.5s infinite ease-in-out; }
-          .burst-spark { transform-origin: 80px 125px; animation: sparkBurst 3.5s infinite ease-out; }
+          .dt-heart-group { transform-origin: 80px 80px; animation: dtHeartPop 2.5s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+          .dt-shock-ring { transform-origin: 80px 80px; animation: dtShock 2.5s infinite ease-out; }
         </style>
+        <filter id="tt-glow-dt" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="-3" dy="-2" stdDeviation="4" flood-color="#25f4ee" flood-opacity="0.8"/>
+          <feDropShadow dx="3" dy="2" stdDeviation="4" flood-color="#fe2c55" flood-opacity="0.9"/>
+        </filter>
       </defs>
-      <!-- Avatar Circle -->
-      <circle cx="80" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="4"/>
-      <circle cx="80" cy="52" r="18" fill="#71717a"/>
-      <path d="M48 95 C48 78 62 72 80 72 C98 72 112 78 112 95 Z" fill="#71717a"/>
-      <!-- Follow Badge (+ turns into ✓) -->
-      <circle class="burst-spark" cx="80" cy="125" r="32" fill="none" stroke="#25f4ee" stroke-width="2"/>
-      <circle class="follow-btn" cx="80" cy="125" r="22" stroke="#ffffff" stroke-width="2.5"/>
-      <!-- Plus Icon -->
-      <g class="plus-icon">
-        <line x1="80" y1="113" x2="80" y2="137" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
-        <line x1="68" y1="125" x2="92" y2="125" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+      <circle class="dt-shock-ring" cx="80" cy="80" r="45" fill="none" stroke="#25f4ee" stroke-width="2.5"/>
+      <g class="dt-heart-group" filter="url(#tt-glow-dt)">
+        <path d="M80 110 C76 70 36 70 36 47 C36 28 60 20 80 39 C100 20 124 28 124 47 C124 70 84 70 80 110 Z" fill="#25f4ee" opacity="0.8" transform="translate(-3.5, -2)"/>
+        <path d="M80 110 C76 70 36 70 36 47 C36 28 60 20 80 39 C100 20 124 28 124 47 C124 70 84 70 80 110 Z" fill="#fe2c55"/>
+        <path d="M58 35 C48 38 43 46 43 54 C43 62 49 67 52 69 C49 64 48 58 51 50 C54 42 61 38 69 36 C64 35 61 35 58 35 Z" fill="#ffffff" opacity="0.5"/>
       </g>
-      <!-- Checkmark Icon -->
-      <path class="check-icon" d="M72 125 L78 131 L89 119" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="80" y="168" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="12">TAKİP ET</text>
     </svg>`,
   },
   {
     id: 'tiktok-animated-like',
-    name: 'TikTok Canlı Beğen (Pop & Kalpler)',
-    category: 'animated',
+    name: 'TikTok Yan Bar Beğen & 1.4M',
+    category: 'tiktok',
     defaultScale: 0.35,
     isAnimated: true,
     elementAnimation: 'tiktok-like',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
       <defs>
         <style>
-          @keyframes likeBounce {
-            0%, 20% { transform: scale(1); }
-            28% { transform: scale(0.8); }
-            38% { transform: scale(1.4); }
-            48% { transform: scale(0.95); }
-            58%, 100% { transform: scale(1); }
+          @keyframes railLikeBounce {
+            0%, 20% { transform: scale(1); fill: #ffffff; }
+            28% { transform: scale(0.78); fill: #ffffff; }
+            38% { transform: scale(1.42); fill: #fe2c55; }
+            48% { transform: scale(0.96); fill: #fe2c55; }
+            58%, 100% { transform: scale(1); fill: #fe2c55; }
           }
-          @keyframes shockwave {
-            0%, 30% { opacity: 0; r: 16; }
-            40% { opacity: 0.9; }
-            65%, 100% { opacity: 0; r: 48; }
+          @keyframes railShock {
+            0%, 28% { opacity: 0; transform: scale(0.2); }
+            38% { opacity: 0.9; }
+            60%, 100% { opacity: 0; transform: scale(1.5); }
           }
-          @keyframes miniHeartPop {
-            0%, 30% { opacity: 0; transform: translate(0, 0) scale(0); }
-            50% { opacity: 1; transform: translate(-14px, -24px) scale(1); }
-            80%, 100% { opacity: 0; transform: translate(-22px, -42px) scale(0.6); }
+          @keyframes railCountPulse {
+            0%, 30% { transform: scale(1); fill: #ffffff; }
+            38% { transform: scale(1.15); fill: #fe2c55; }
+            48%, 100% { transform: scale(1); fill: #ffffff; }
           }
-          .heart-bounce { transform-origin: 52px 45px; animation: likeBounce 3.2s infinite cubic-bezier(0.34, 1.56, 0.64, 1); }
-          .shock-ring { animation: shockwave 3.2s infinite ease-out; }
-          .floating-heart { animation: miniHeartPop 3.2s infinite ease-out; }
+          .rail-like-heart { transform-origin: 60px 52px; animation: railLikeBounce 2.8s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+          .rail-shock-ring { transform-origin: 60px 52px; animation: railShock 2.8s infinite ease-out; }
+          .rail-count-text { transform-origin: 60px 125px; animation: railCountPulse 2.8s infinite ease-out; }
         </style>
-        <filter id="tt-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="-2" dy="-2" stdDeviation="3" flood-color="#25f4ee" flood-opacity="0.8"/>
-          <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#fe2c55" flood-opacity="0.9"/>
-        </filter>
       </defs>
-      <rect x="3" y="3" width="274" height="84" rx="42" fill="#090a0f" stroke="#fe2c55" stroke-width="2.5"/>
-      <rect x="5" y="5" width="270" height="80" rx="40" fill="none" stroke="#25f4ee" stroke-width="1.5" stroke-opacity="0.6"/>
-      <!-- Shockwave circle -->
-      <circle class="shock-ring" cx="52" cy="45" fill="none" stroke="#25f4ee" stroke-width="2.5"/>
-      <!-- Floating mini hearts -->
-      <g class="floating-heart">
-        <path d="M52 45 C50 40 40 40 40 33 C40 28 45 26 50 31 C55 26 60 28 60 33 C60 40 54 40 52 45 Z" fill="#fe2c55"/>
+      <circle class="rail-shock-ring" cx="60" cy="52" r="32" fill="none" stroke="#fe2c55" stroke-width="2.5"/>
+      <g class="rail-like-heart">
+        <path d="M60 84 C57 54 24 54 24 36 C24 20 44 13 60 29 C76 13 96 20 96 36 C96 54 63 54 60 84 Z"/>
       </g>
-      <!-- Main Heart -->
-      <g class="heart-bounce" transform="translate(52, 45)" filter="url(#tt-glow)">
-        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#25f4ee" opacity="0.7" transform="translate(-2, -1) scale(0.9)"/>
-        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#fe2c55" transform="scale(0.9)"/>
+      <text class="rail-count-text" x="60" y="126" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22" letter-spacing="0.3">1.4M</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-animated-follow',
+    name: 'TikTok Canlı Takip Et (+ ➔ ✓)',
+    category: 'tiktok',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-follow-avatar',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" width="140" height="160">
+      <defs>
+        <style>
+          @keyframes ttAvatarBounce {
+            0%, 25% { transform: scale(1); }
+            35% { transform: scale(0.92); }
+            45% { transform: scale(1.08); }
+            55%, 100% { transform: scale(1); }
+          }
+          @keyframes ttBadgeSpin {
+            0%, 25% { transform: scale(1) rotate(0deg); fill: #fe2c55; }
+            35% { transform: scale(0.2) rotate(90deg); fill: #fe2c55; }
+            45% { transform: scale(1.2) rotate(90deg); fill: #27272a; }
+            55%, 100% { transform: scale(1) rotate(0deg); fill: #27272a; }
+          }
+          @keyframes ttPlusHide {
+            0%, 25% { opacity: 1; transform: scale(1); }
+            32%, 100% { opacity: 0; transform: scale(0); }
+          }
+          @keyframes ttCheckShow {
+            0%, 35% { opacity: 0; stroke-dashoffset: 24; }
+            48%, 100% { opacity: 1; stroke-dashoffset: 0; }
+          }
+          @keyframes ttConfetti {
+            0%, 30% { opacity: 0; transform: scale(0.3); }
+            45% { opacity: 1; transform: scale(1.3); }
+            70%, 100% { opacity: 0; transform: scale(1.8); }
+          }
+          .tt-av-wrap { transform-origin: 70px 65px; animation: ttAvatarBounce 3.2s infinite ease-in-out; }
+          .tt-badge-base { transform-origin: 70px 125px; animation: ttBadgeSpin 3.2s infinite ease-in-out; }
+          .tt-plus-g { transform-origin: 70px 125px; animation: ttPlusHide 3.2s infinite ease-in-out; }
+          .tt-check-p { stroke-dasharray: 24; animation: ttCheckShow 3.2s infinite ease-in-out; }
+          .tt-burst-ring { transform-origin: 70px 125px; animation: ttConfetti 3.2s infinite ease-out; }
+        </style>
+      </defs>
+      <g class="tt-av-wrap">
+        <circle cx="70" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="3"/>
+        <circle cx="70" cy="52" r="18" fill="#71717a"/>
+        <path d="M38 96 C38 78 52 72 70 72 C88 72 102 78 102 96 Z" fill="#71717a"/>
       </g>
-      <text x="105" y="44" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="1">BEĞEN</text>
-      <text x="105" y="66" fill="#fe2c55" font-family="Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="0.5">❤️ 1.4M</text>
+      <circle class="tt-burst-ring" cx="70" cy="125" r="28" fill="none" stroke="#25f4ee" stroke-width="2.5" stroke-dasharray="6 8"/>
+      <circle class="tt-badge-base" cx="70" cy="125" r="20" stroke="#ffffff" stroke-width="2"/>
+      <g class="tt-plus-g">
+        <line x1="70" y1="114" x2="70" y2="136" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+        <line x1="59" y1="125" x2="81" y2="125" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+      </g>
+      <path class="tt-check-p" d="M62 125 L68 131 L78 119" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`,
   },
   {
     id: 'tiktok-animated-follow-btn',
-    name: 'TikTok Takip Butonu (+ ➔ ✓)',
-    category: 'animated',
+    name: 'TikTok Takip Butonu (+ ➔ Takip Ediliyor)',
+    category: 'tiktok',
     defaultScale: 0.35,
     isAnimated: true,
     elementAnimation: 'tiktok-follow-btn',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 84" width="280" height="84">
       <defs>
         <style>
-          @keyframes pillMorph {
-            0%, 25% { fill: #fe2c55; }
-            40%, 100% { fill: #222630; stroke: #3b4351; }
+          @keyframes ttBtnBgMorph {
+            0%, 25% { fill: #fe2c55; stroke: #fe2c55; }
+            38%, 100% { fill: #27272a; stroke: #3f3f46; }
           }
-          @keyframes btnClick {
+          @keyframes ttBtnPress {
             0%, 25% { transform: scale(1); }
-            32% { transform: scale(0.92); }
-            42% { transform: scale(1.05); }
-            52%, 100% { transform: scale(1); }
+            30% { transform: scale(0.92); }
+            40% { transform: scale(1.04); }
+            50%, 100% { transform: scale(1); }
           }
-          .pill-container { transform-origin: 140px 45px; animation: btnClick 3.5s infinite ease-in-out; }
-          .pill-bg { animation: pillMorph 3.5s infinite ease-in-out; }
+          @keyframes ttTxtFollow {
+            0%, 25% { opacity: 1; }
+            32%, 100% { opacity: 0; }
+          }
+          @keyframes ttTxtFollowing {
+            0%, 32% { opacity: 0; }
+            40%, 100% { opacity: 1; }
+          }
+          .btn-container { transform-origin: 140px 42px; animation: ttBtnPress 3.2s infinite ease-in-out; }
+          .btn-rect { animation: ttBtnBgMorph 3.2s infinite ease-in-out; }
+          .btn-lbl-follow { animation: ttTxtFollow 3.2s infinite ease-in-out; }
+          .btn-lbl-following { animation: ttTxtFollowing 3.2s infinite ease-in-out; }
         </style>
       </defs>
-      <g class="pill-container">
-        <rect class="pill-bg" width="280" height="90" rx="45" fill="#fe2c55"/>
-        <circle cx="50" cy="45" r="22" fill="#ffffff" fill-opacity="0.2"/>
-        <path d="M42 45 L58 45 M50 37 L50 53" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
-        <text x="88" y="55" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="22" letter-spacing="1">TAKİP ET</text>
+      <g class="btn-container">
+        <rect class="btn-rect" x="2" y="2" width="276" height="80" rx="40" stroke-width="2"/>
+        <g class="btn-lbl-follow">
+          <path d="M48 42 L66 42 M57 33 L57 51" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+          <text x="82" y="50" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-weight="700" font-size="22">Takip Et</text>
+        </g>
+        <g class="btn-lbl-following">
+          <path d="M38 42 L46 50 L60 34" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="72" y="50" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-weight="700" font-size="21">Takip Ediliyor</text>
+        </g>
       </g>
     </svg>`,
   },
   {
-    id: 'tiktok-animated-double-tap',
-    name: 'TikTok Çift Tıkla Kalp (Patlama)',
-    category: 'animated',
-    defaultScale: 0.38,
+    id: 'tiktok-sidebar-combo',
+    name: 'TikTok Tam Yan Eylem Barı',
+    category: 'tiktok',
+    defaultScale: 0.35,
     isAnimated: true,
-    elementAnimation: 'tiktok-double-tap',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    elementAnimation: 'tiktok-combo',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 420" width="100" height="420">
       <defs>
         <style>
-          @keyframes doubleTapZoom {
-            0%, 15% { transform: scale(0) rotate(-15deg); opacity: 0; }
-            28% { transform: scale(1.3) rotate(-15deg); opacity: 1; }
-            38% { transform: scale(1.0) rotate(-15deg); opacity: 1; }
-            70% { transform: scale(1.05) translateY(-10px) rotate(-15deg); opacity: 1; }
-            90%, 100% { transform: scale(0.9) translateY(-25px) rotate(-15deg); opacity: 0; }
-          }
-          .pop-heart { transform-origin: 100px 95px; animation: doubleTapZoom 3s infinite ease-out; }
+          @keyframes discSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          @keyframes heartBeatMini { 0%, 25% { transform: scale(1); } 35% { transform: scale(1.3); } 45%, 100% { transform: scale(1); } }
+          .combo-heart { transform-origin: 50px 115px; animation: heartBeatMini 2.5s infinite ease-in-out; }
+          .combo-disc { transform-origin: 50px 380px; animation: discSpin 4s linear infinite; }
         </style>
       </defs>
-      <circle cx="100" cy="100" r="85" fill="none" stroke="#fe2c55" stroke-width="2" stroke-dasharray="6 12" opacity="0.6"/>
-      <g class="pop-heart">
-        <path d="M100 140 C95 90 40 90 40 59 C40 35 70 25 100 50 C130 25 160 35 160 59 C160 90 105 90 100 140 Z" fill="#25f4ee" opacity="0.7" transform="translate(-4, -2)"/>
-        <path d="M100 140 C95 90 40 90 40 59 C40 35 70 25 100 50 C130 25 160 35 160 59 C160 90 105 90 100 140 Z" fill="#fe2c55"/>
+      <circle cx="50" cy="40" r="28" fill="#18181b" stroke="#ffffff" stroke-width="2.5"/>
+      <circle cx="50" cy="32" r="10" fill="#71717a"/>
+      <path d="M32 58 C32 46 40 43 50 43 C60 43 68 46 68 58 Z" fill="#71717a"/>
+      <circle cx="50" cy="68" r="11" fill="#fe2c55" stroke="#ffffff" stroke-width="2"/>
+      <line x1="50" y1="62" x2="50" y2="74" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="44" y1="68" x2="56" y2="68" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+      <g class="combo-heart">
+        <path d="M50 128 C48 110 30 110 30 98 C30 88 42 84 50 94 C58 84 70 88 70 98 C70 110 52 110 50 128 Z" fill="#fe2c55"/>
       </g>
-      <text x="100" y="175" text-anchor="middle" fill="#ffffff" font-family="Arial Black, sans-serif" font-weight="900" font-size="16">ÇİFT TIKLA ❤️</text>
+      <text x="50" y="145" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-weight="700" font-size="13">1.4M</text>
+      <path d="M50 175 C37 175 27 183 27 194 C27 200 30 206 36 209 L34 219 L46 213 C47 213 49 213 50 213 C63 213 73 205 73 194 C73 183 63 175 50 175 Z" fill="#ffffff"/>
+      <circle cx="41" cy="194" r="2.5" fill="#18181b"/>
+      <circle cx="50" cy="194" r="2.5" fill="#18181b"/>
+      <circle cx="59" cy="194" r="2.5" fill="#18181b"/>
+      <text x="50" y="233" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-weight="700" font-size="13">42.8K</text>
+      <path d="M36 250 L64 250 L64 285 L50 274 L36 285 Z" fill="#facc15"/>
+      <text x="50" y="303" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-weight="700" font-size="13">18.2K</text>
+      <path d="M34 336 C34 322 46 314 58 314 L58 304 L76 322 L58 340 L58 330 C48 330 40 334 36 342 Z" fill="#ffffff"/>
+      <text x="50" y="358" text-anchor="middle" fill="#ffffff" font-family="-apple-system, sans-serif" font-weight="700" font-size="13">9.4K</text>
+      <g class="combo-disc">
+        <circle cx="50" cy="392" r="22" fill="#111827" stroke="#374151" stroke-width="2.5"/>
+        <circle cx="50" cy="392" r="16" fill="none" stroke="#1f2937" stroke-width="1.5"/>
+        <circle cx="50" cy="392" r="8" fill="#fe2c55"/>
+        <circle cx="50" cy="392" r="2.5" fill="#ffffff"/>
+      </g>
     </svg>`,
   },
   {
     id: 'youtube-animated-subscribe',
     name: 'YouTube Abone Ol & Çan (Canlı)',
-    category: 'animated',
+    category: 'youtube',
     defaultScale: 0.35,
     isAnimated: true,
     elementAnimation: 'youtube-sub',
@@ -215,7 +272,7 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
   {
     id: 'instagram-animated-like',
     name: 'Instagram Beğeni (Canlı Kalp)',
-    category: 'animated',
+    category: 'instagram',
     defaultScale: 0.32,
     isAnimated: true,
     elementAnimation: 'instagram-like',
@@ -244,194 +301,48 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
     </svg>`,
   },
 
-  // =========================================================================
-  // 1. YAPAY ZEKA & TEKNOLOJİ (AI & TECH)
-  // =========================================================================
-  {
-    id: 'ai-magic-sparkle',
-    name: 'AI Sihirli Parıltı',
-    category: 'ai',
-    defaultScale: 0.28,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-      <defs>
-        <radialGradient id="ai-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.8"/>
-          <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <circle cx="80" cy="80" r="75" fill="url(#ai-glow)"/>
-      <path d="M80 15 Q80 80 145 80 Q80 80 80 145 Q80 80 15 80 Q80 80 80 15 Z" fill="#38bdf8"/>
-      <path d="M125 35 Q125 55 145 55 Q125 55 125 75 Q125 55 105 55 Q125 55 125 35 Z" fill="#a855f7"/>
-      <path d="M40 105 Q40 120 55 120 Q40 120 40 135 Q40 120 25 120 Q40 120 40 105 Z" fill="#f43f5e"/>
-    </svg>`,
-  },
-  {
-    id: 'ai-generated-badge',
-    name: 'AI Generated Rozeti',
-    category: 'ai',
-    defaultScale: 0.35,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 90" width="340" height="90">
-      <rect width="340" height="90" rx="45" fill="#0b0f19" stroke="#38bdf8" stroke-width="3"/>
-      <circle cx="48" cy="45" r="22" fill="#0284c7"/>
-      <path d="M48 30 L52 41 L63 45 L52 49 L48 60 L44 49 L33 45 L44 41 Z" fill="#ffffff"/>
-      <text x="85" y="55" fill="#38bdf8" font-family="Arial, sans-serif" font-weight="900" font-size="24" letter-spacing="1.5">AI GENERATED</text>
-    </svg>`,
-  },
-  {
-    id: 'ai-brain-circuit',
-    name: 'Yapay Zeka Beyin Ağı',
-    category: 'ai',
-    defaultScale: 0.32,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 180" width="200" height="180">
-      <path d="M40 90 C30 50 60 25 95 30 C105 15 145 20 155 50 C175 60 175 110 150 130 C145 155 110 165 95 150 C75 165 40 145 40 90 Z" fill="#0f172a" stroke="#818cf8" stroke-width="4"/>
-      <circle cx="70" cy="65" r="7" fill="#38bdf8"/>
-      <circle cx="130" cy="65" r="7" fill="#38bdf8"/>
-      <circle cx="100" cy="100" r="9" fill="#c084fc"/>
-      <circle cx="75" cy="125" r="6" fill="#38bdf8"/>
-      <circle cx="125" cy="125" r="6" fill="#38bdf8"/>
-      <line x1="70" y1="65" x2="100" y2="100" stroke="#38bdf8" stroke-width="3"/>
-      <line x1="130" y1="65" x2="100" y2="100" stroke="#38bdf8" stroke-width="3"/>
-      <line x1="100" y1="100" x2="75" y2="125" stroke="#c084fc" stroke-width="3"/>
-      <line x1="100" y1="100" x2="125" y2="125" stroke="#c084fc" stroke-width="3"/>
-    </svg>`,
-  },
-  {
-    id: 'ai-prompt-box',
-    name: 'AI Prompt Kutusu',
-    category: 'ai',
-    defaultScale: 0.38,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 90" width="380" height="90">
-      <rect width="380" height="90" rx="16" fill="#18181b" stroke="#a855f7" stroke-width="3"/>
-      <circle cx="42" cy="45" r="18" fill="#9333ea"/>
-      <text x="42" y="52" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="20">✦</text>
-      <text x="75" y="44" fill="#a855f7" font-family="Arial, sans-serif" font-weight="bold" font-size="14">PROMPT</text>
-      <text x="75" y="66" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="19">/imagine viral_reels...</text>
-      <rect x="300" y="32" width="60" height="26" rx="6" fill="#9333ea"/>
-      <text x="330" y="50" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="bold" font-size="12">RUN</text>
-    </svg>`,
-  },
-  {
-    id: 'ai-robot-avatar',
-    name: 'AI Asistan Robot',
-    category: 'ai',
-    defaultScale: 0.3,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-      <rect x="35" y="45" width="90" height="75" rx="20" fill="#1e293b" stroke="#38bdf8" stroke-width="4"/>
-      <line x1="80" y1="20" x2="80" y2="45" stroke="#38bdf8" stroke-width="4"/>
-      <circle cx="80" cy="18" r="8" fill="#f43f5e"/>
-      <circle cx="60" cy="78" r="10" fill="#38bdf8"/>
-      <circle cx="100" cy="78" r="10" fill="#38bdf8"/>
-      <rect x="58" y="100" width="44" height="6" rx="3" fill="#38bdf8"/>
-      <rect x="22" y="65" width="12" height="35" rx="6" fill="#0284c7"/>
-      <rect x="126" y="65" width="12" height="35" rx="6" fill="#0284c7"/>
-    </svg>`,
-  },
-  {
-    id: 'ai-audio-wave',
-    name: 'AI Ses Dalgası',
-    category: 'ai',
-    defaultScale: 0.35,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100">
-      <rect width="320" height="100" rx="14" fill="#090d16" stroke="#06b6d4" stroke-width="2.5"/>
-      <rect x="30" y="40" width="10" height="20" rx="5" fill="#06b6d4"/>
-      <rect x="50" y="25" width="10" height="50" rx="5" fill="#3b82f6"/>
-      <rect x="70" y="15" width="10" height="70" rx="5" fill="#8b5cf6"/>
-      <rect x="90" y="30" width="10" height="40" rx="5" fill="#ec4899"/>
-      <rect x="110" y="10" width="10" height="80" rx="5" fill="#06b6d4"/>
-      <rect x="130" y="25" width="10" height="50" rx="5" fill="#3b82f6"/>
-      <rect x="150" y="40" width="10" height="20" rx="5" fill="#8b5cf6"/>
-      <text x="175" y="58" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="20">AI SES MİKSİ</text>
-    </svg>`,
-  },
-  {
-    id: 'ai-thinking-bubble',
-    name: 'AI Düşünüyor Balonu',
-    category: 'ai',
-    defaultScale: 0.35,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100">
-      <rect width="320" height="100" rx="20" fill="#1e1b4b" stroke="#818cf8" stroke-width="3"/>
-      <circle cx="45" cy="50" r="16" fill="#4338ca"/>
-      <text x="45" y="57" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="20">🧠</text>
-      <text x="75" y="45" fill="#818cf8" font-family="Arial, sans-serif" font-weight="bold" font-size="12">SİSTEM ANALİZİ</text>
-      <text x="75" y="70" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="18">AI DÜŞÜNÜYOR...</text>
-      <circle cx="270" cy="50" r="5" fill="#818cf8"/>
-      <circle cx="285" cy="50" r="5" fill="#818cf8"/>
-      <circle cx="300" cy="50" r="5" fill="#818cf8"/>
-    </svg>`,
-  },
-  {
-    id: 'ai-hud-target',
-    name: 'Cyber HUD Odak Halkası',
-    category: 'ai',
-    defaultScale: 0.32,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
-      <circle cx="90" cy="90" r="75" fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="14 8"/>
-      <circle cx="90" cy="90" r="50" fill="none" stroke="#06b6d4" stroke-width="2"/>
-      <circle cx="90" cy="90" r="10" fill="#22d3ee"/>
-      <line x1="90" y1="10" x2="90" y2="35" stroke="#22d3ee" stroke-width="4"/>
-      <line x1="90" y1="145" x2="90" y2="170" stroke="#22d3ee" stroke-width="4"/>
-      <line x1="10" y1="90" x2="35" y2="90" stroke="#22d3ee" stroke-width="4"/>
-      <line x1="145" y1="90" x2="170" y2="90" stroke="#22d3ee" stroke-width="4"/>
-    </svg>`,
-  },
-  {
-    id: 'ai-neon-tag',
-    name: 'Neon AI Yazısı',
-    category: 'ai',
-    defaultScale: 0.34,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
-      <rect width="280" height="90" rx="14" fill="#000000" stroke="#a855f7" stroke-width="3"/>
-      <text x="140" y="58" text-anchor="middle" fill="#f43f5e" font-family="Impact, Arial Black, sans-serif" font-weight="900" font-size="40" letter-spacing="4">&lt; AI PRO &gt;</text>
-    </svg>`,
-  },
-  {
-    id: 'ai-neural-node',
-    name: 'Yapay Sinir Ağı Düğümü',
-    category: 'ai',
-    defaultScale: 0.3,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-      <circle cx="80" cy="80" r="60" fill="#0369a1" fill-opacity="0.2" stroke="#38bdf8" stroke-width="3"/>
-      <circle cx="80" cy="80" r="28" fill="#0284c7" stroke="#ffffff" stroke-width="4"/>
-      <circle cx="35" cy="45" r="10" fill="#38bdf8"/>
-      <circle cx="125" cy="45" r="10" fill="#38bdf8"/>
-      <circle cx="35" cy="115" r="10" fill="#38bdf8"/>
-      <circle cx="125" cy="115" r="10" fill="#38bdf8"/>
-      <line x1="80" y1="80" x2="35" y2="45" stroke="#38bdf8" stroke-width="2.5"/>
-      <line x1="80" y1="80" x2="125" y2="45" stroke="#38bdf8" stroke-width="2.5"/>
-      <line x1="80" y1="80" x2="35" y2="115" stroke="#38bdf8" stroke-width="2.5"/>
-      <line x1="80" y1="80" x2="125" y2="115" stroke="#38bdf8" stroke-width="2.5"/>
-    </svg>`,
-  },
+
 
   // =========================================================================
   // 2. TIKTOK & REELS VİRAL TRENDLERİ
   // =========================================================================
   {
     id: 'tiktok-like',
-    name: 'TikTok Beğen',
+    name: 'TikTok Beğeni Kalbi',
     category: 'tiktok',
     defaultScale: 0.35,
     isAnimated: true,
     elementAnimation: 'tiktok-like',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
       <defs>
-        <filter id="tt-like-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="-2" dy="-2" stdDeviation="3" flood-color="#25f4ee" flood-opacity="0.8"/>
-          <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#fe2c55" flood-opacity="0.9"/>
-        </filter>
-        <linearGradient id="tt-heart-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#ff3b69"/>
-          <stop offset="100%" stop-color="#fe2c55"/>
-        </linearGradient>
+        <style>
+          @keyframes railLikeBounce2 {
+            0%, 20% { transform: scale(1); fill: #ffffff; }
+            28% { transform: scale(0.78); fill: #ffffff; }
+            38% { transform: scale(1.42); fill: #fe2c55; }
+            48% { transform: scale(0.96); fill: #fe2c55; }
+            58%, 100% { transform: scale(1); fill: #fe2c55; }
+          }
+          @keyframes railShock2 {
+            0%, 28% { opacity: 0; transform: scale(0.2); }
+            38% { opacity: 0.9; }
+            60%, 100% { opacity: 0; transform: scale(1.5); }
+          }
+          @keyframes railCountPulse2 {
+            0%, 30% { transform: scale(1); fill: #ffffff; }
+            38% { transform: scale(1.15); fill: #fe2c55; }
+            48%, 100% { transform: scale(1); fill: #ffffff; }
+          }
+          .rail-like-heart2 { transform-origin: 60px 52px; animation: railLikeBounce2 2.8s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+          .rail-shock-ring2 { transform-origin: 60px 52px; animation: railShock2 2.8s infinite ease-out; }
+          .rail-count-text2 { transform-origin: 60px 125px; animation: railCountPulse2 2.8s infinite ease-out; }
+        </style>
       </defs>
-      <rect x="3" y="3" width="274" height="84" rx="42" fill="#090a0f" stroke="#fe2c55" stroke-width="2.5"/>
-      <rect x="5" y="5" width="270" height="80" rx="40" fill="none" stroke="#25f4ee" stroke-width="1.5" stroke-opacity="0.6"/>
-      <g transform="translate(52, 45)" filter="url(#tt-like-glow)">
-        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="#25f4ee" opacity="0.7" transform="translate(-2, -1) scale(0.9)"/>
-        <path d="M0 16 C-2 -2 -24 -2 -24 -14 C-24 -24 -12 -28 0 -18 C12 -28 24 -24 24 -14 C24 -2 2 -2 0 16 Z" fill="url(#tt-heart-grad)" transform="scale(0.9)"/>
+      <circle class="rail-shock-ring2" cx="60" cy="52" r="32" fill="none" stroke="#fe2c55" stroke-width="2.5"/>
+      <g class="rail-like-heart2">
+        <path d="M60 84 C57 54 24 54 24 36 C24 20 44 13 60 29 C76 13 96 20 96 36 C96 54 63 54 60 84 Z"/>
       </g>
-      <text x="105" y="44" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="1">BEĞEN</text>
-      <text x="105" y="66" fill="#fe2c55" font-family="Arial, sans-serif" font-weight="800" font-size="15" letter-spacing="0.5">❤️ 1.4M</text>
+      <text class="rail-count-text2" x="60" y="126" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22" letter-spacing="0.3">1.4M</text>
     </svg>`,
   },
   {
@@ -439,84 +350,217 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
     name: 'TikTok Çift Tıkla Kalp',
     category: 'tiktok',
     defaultScale: 0.38,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    isAnimated: true,
+    elementAnimation: 'tiktok-double-tap',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
       <defs>
-        <filter id="tt-pop-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="-3" dy="-2" stdDeviation="6" flood-color="#25f4ee" flood-opacity="0.8"/>
-          <feDropShadow dx="3" dy="3" stdDeviation="6" flood-color="#fe2c55" flood-opacity="0.9"/>
+        <style>
+          @keyframes dtHeartPop2 {
+            0%, 15% { transform: scale(0.2) rotate(-14deg); opacity: 0; }
+            28% { transform: scale(1.32) rotate(-14deg); opacity: 1; }
+            38% { transform: scale(1.0) rotate(-14deg); opacity: 1; }
+            70% { transform: scale(1.04) translateY(-8px) rotate(-14deg); opacity: 1; }
+            88%, 100% { transform: scale(0.85) translateY(-22px) rotate(-14deg); opacity: 0; }
+          }
+          @keyframes dtShock2 {
+            0%, 20% { opacity: 0; transform: scale(0.3); }
+            32% { opacity: 0.9; }
+            60%, 100% { opacity: 0; transform: scale(1.6); }
+          }
+          .dt-heart-group2 { transform-origin: 80px 80px; animation: dtHeartPop2 2.5s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+          .dt-shock-ring2 { transform-origin: 80px 80px; animation: dtShock2 2.5s infinite ease-out; }
+        </style>
+        <filter id="tt-glow-dt2" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="-3" dy="-2" stdDeviation="4" flood-color="#25f4ee" flood-opacity="0.8"/>
+          <feDropShadow dx="3" dy="2" stdDeviation="4" flood-color="#fe2c55" flood-opacity="0.9"/>
         </filter>
       </defs>
-      <circle cx="100" cy="100" r="85" fill="none" stroke="#fe2c55" stroke-width="2" stroke-dasharray="6 12" opacity="0.6"/>
-      <circle cx="45" cy="55" r="5" fill="#25f4ee"/>
-      <circle cx="160" cy="65" r="4" fill="#fe2c55"/>
-      <circle cx="150" cy="145" r="6" fill="#25f4ee"/>
-      <circle cx="50" cy="140" r="4.5" fill="#ffffff"/>
-      <g transform="translate(100, 95)" filter="url(#tt-pop-glow)">
-        <path d="M0 45 C-5 -5 -60 -5 -60 -36 C-60 -60 -30 -70 0 -45 C30 -70 60 -60 60 -36 C60 -5 5 -5 0 45 Z" fill="#25f4ee" opacity="0.6" transform="translate(-4, -2)"/>
-        <path d="M0 45 C-5 -5 -60 -5 -60 -36 C-60 -60 -30 -70 0 -45 C30 -70 60 -60 60 -36 C60 -5 5 -5 0 45 Z" fill="#fe2c55"/>
-        <path d="M-8 -15 C-12 -28 -28 -32 -38 -24 C-46 -18 -42 -2 -34 10 Z" fill="#ffffff" opacity="0.3"/>
+      <circle class="dt-shock-ring2" cx="80" cy="80" r="45" fill="none" stroke="#25f4ee" stroke-width="2.5"/>
+      <g class="dt-heart-group2" filter="url(#tt-glow-dt2)">
+        <path d="M80 110 C76 70 36 70 36 47 C36 28 60 20 80 39 C100 20 124 28 124 47 C124 70 84 70 80 110 Z" fill="#25f4ee" opacity="0.8" transform="translate(-3.5, -2)"/>
+        <path d="M80 110 C76 70 36 70 36 47 C36 28 60 20 80 39 C100 20 124 28 124 47 C124 70 84 70 80 110 Z" fill="#fe2c55"/>
+        <path d="M58 35 C48 38 43 46 43 54 C43 62 49 67 52 69 C49 64 48 58 51 50 C54 42 61 38 69 36 C64 35 61 35 58 35 Z" fill="#ffffff" opacity="0.5"/>
       </g>
-      <text x="100" y="175" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="16" letter-spacing="1">ÇİFT TIKLA ❤️</text>
     </svg>`,
   },
   {
     id: 'tiktok-like-counter',
-    name: 'TikTok Beğeni Sayacı',
+    name: 'TikTok Beğeni Sayacı (842.5K)',
     category: 'tiktok',
     defaultScale: 0.3,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" width="140" height="160">
+    isAnimated: true,
+    elementAnimation: 'tiktok-like',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
       <defs>
         <filter id="tt-icon-glow">
           <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#fe2c55" flood-opacity="0.6"/>
         </filter>
       </defs>
-      <circle cx="70" cy="60" r="44" fill="#18181b" stroke="#ffffff" stroke-width="3" stroke-opacity="0.2"/>
-      <g transform="translate(70, 58) scale(0.9)" filter="url(#tt-icon-glow)">
+      <g transform="translate(60, 50) scale(1.1)" filter="url(#tt-icon-glow)">
         <path d="M0 24 C-3 -3 -32 -3 -32 -18 C-32 -30 -16 -36 0 -24 C16 -36 32 -30 32 -18 C32 -3 3 -3 0 24 Z" fill="#fe2c55"/>
       </g>
-      <text x="70" y="132" text-anchor="middle" fill="#ffffff" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" letter-spacing="0.5">842.5K</text>
+      <text x="60" y="125" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22" letter-spacing="0.3">842.5K</text>
     </svg>`,
   },
   {
     id: 'tiktok-comment',
-    name: 'TikTok Yorum Yap',
+    name: 'TikTok Yorum İkonu & 42.8K',
     category: 'tiktok',
     defaultScale: 0.32,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 90" width="260" height="90">
-      <rect width="260" height="90" rx="45" fill="#18181b" stroke="#ffffff" stroke-width="2.5" stroke-opacity="0.3"/>
-      <path d="M42 30 C30 30 22 38 22 48 C22 55 26 61 32 64 L30 74 L42 67 C44 67 46 67 48 67 C60 67 68 59 68 48 C68 38 60 30 48 30 Z" fill="#ffffff"/>
-      <circle cx="37" cy="48" r="2.5" fill="#18181b"/>
-      <circle cx="45" cy="48" r="2.5" fill="#18181b"/>
-      <circle cx="53" cy="48" r="2.5" fill="#18181b"/>
-      <text x="85" y="56" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="24">YORUM YAP</text>
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+      <path d="M60 22 C38 22 20 36 20 54 C20 64 26 73 36 78 L32 94 L52 85 C55 86 57 86 60 86 C82 86 100 72 100 54 C100 36 82 22 60 22 Z" fill="#ffffff"/>
+      <circle cx="44" cy="54" r="4.5" fill="#18181b"/>
+      <circle cx="60" cy="54" r="4.5" fill="#18181b"/>
+      <circle cx="76" cy="54" r="4.5" fill="#18181b"/>
+      <text x="60" y="125" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22">42.8K</text>
     </svg>`,
   },
   {
     id: 'tiktok-repost',
-    name: 'TikTok Yeniden Paylaş',
+    name: 'TikTok Yeniden Paylaş Rozeti',
     category: 'tiktok',
     defaultScale: 0.32,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
-      <rect width="280" height="90" rx="45" fill="#18181b" stroke="#facc15" stroke-width="3"/>
-      <circle cx="48" cy="45" r="22" fill="#facc15"/>
-      <path d="M38 42 L48 32 L58 42 M48 34 L48 56 M58 48 L48 58 L38 48" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="88" y="56" fill="#facc15" font-family="Arial, sans-serif" font-weight="900" font-size="22">YENİDEN PAYLAŞ</text>
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+      <circle cx="60" cy="54" r="32" fill="#facc15"/>
+      <path d="M46 50 L60 36 L74 50 M60 38 L60 70 M74 58 L60 72 L46 58" fill="none" stroke="#000000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="60" y="125" text-anchor="middle" fill="#facc15" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="20">14.6K</text>
     </svg>`,
   },
   {
     id: 'tiktok-follow-plus',
-    name: 'TikTok Takip Et (+)',
+    name: 'TikTok Takip Et (+ ➔ ✓)',
     category: 'tiktok',
     defaultScale: 0.32,
     isAnimated: true,
-    elementAnimation: 'tiktok-follow',
+    elementAnimation: 'tiktok-follow-avatar',
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" width="140" height="160">
-      <circle cx="70" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="4"/>
-      <circle cx="70" cy="55" r="18" fill="#71717a"/>
-      <path d="M40 98 C40 82 54 75 70 75 C86 75 100 82 100 98 Z" fill="#71717a"/>
-      <circle cx="70" cy="120" r="22" fill="#fe2c55"/>
-      <line x1="70" y1="108" x2="70" y2="132" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
-      <line x1="58" y1="120" x2="82" y2="120" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+      <defs>
+        <style>
+          @keyframes ttAvatarBounce3 {
+            0%, 25% { transform: scale(1); }
+            35% { transform: scale(0.92); }
+            45% { transform: scale(1.08); }
+            55%, 100% { transform: scale(1); }
+          }
+          @keyframes ttBadgeSpin3 {
+            0%, 25% { transform: scale(1) rotate(0deg); fill: #fe2c55; }
+            35% { transform: scale(0.2) rotate(90deg); fill: #fe2c55; }
+            45% { transform: scale(1.2) rotate(90deg); fill: #27272a; }
+            55%, 100% { transform: scale(1) rotate(0deg); fill: #27272a; }
+          }
+          @keyframes ttPlusHide3 {
+            0%, 25% { opacity: 1; transform: scale(1); }
+            32%, 100% { opacity: 0; transform: scale(0); }
+          }
+          @keyframes ttCheckShow3 {
+            0%, 35% { opacity: 0; stroke-dashoffset: 24; }
+            48%, 100% { opacity: 1; stroke-dashoffset: 0; }
+          }
+          .tt-av-wrap3 { transform-origin: 70px 65px; animation: ttAvatarBounce3 3.2s infinite ease-in-out; }
+          .tt-badge-base3 { transform-origin: 70px 125px; animation: ttBadgeSpin3 3.2s infinite ease-in-out; }
+          .tt-plus-g3 { transform-origin: 70px 125px; animation: ttPlusHide3 3.2s infinite ease-in-out; }
+          .tt-check-p3 { stroke-dasharray: 24; animation: ttCheckShow3 3.2s infinite ease-in-out; }
+        </style>
+      </defs>
+      <g class="tt-av-wrap3">
+        <circle cx="70" cy="65" r="50" fill="#18181b" stroke="#ffffff" stroke-width="3"/>
+        <circle cx="70" cy="52" r="18" fill="#71717a"/>
+        <path d="M38 96 C38 78 52 72 70 72 C88 72 102 78 102 96 Z" fill="#71717a"/>
+      </g>
+      <circle class="tt-badge-base3" cx="70" cy="125" r="20" stroke="#ffffff" stroke-width="2"/>
+      <g class="tt-plus-g3">
+        <line x1="70" y1="114" x2="70" y2="136" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+        <line x1="59" y1="125" x2="81" y2="125" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+      </g>
+      <path class="tt-check-p3" d="M62 125 L68 131 L78 119" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-follow-btn',
+    name: 'TikTok Profil Takip Butonu',
+    category: 'tiktok',
+    defaultScale: 0.35,
+    isAnimated: true,
+    elementAnimation: 'tiktok-follow-btn',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 84" width="280" height="84">
+      <defs>
+        <style>
+          @keyframes ttBtnBgMorph2 {
+            0%, 25% { fill: #fe2c55; stroke: #fe2c55; }
+            38%, 100% { fill: #27272a; stroke: #3f3f46; }
+          }
+          @keyframes ttBtnPress2 {
+            0%, 25% { transform: scale(1); }
+            30% { transform: scale(0.92); }
+            40% { transform: scale(1.04); }
+            50%, 100% { transform: scale(1); }
+          }
+          @keyframes ttTxtFollow2 {
+            0%, 25% { opacity: 1; }
+            32%, 100% { opacity: 0; }
+          }
+          @keyframes ttTxtFollowing2 {
+            0%, 32% { opacity: 0; }
+            40%, 100% { opacity: 1; }
+          }
+          .btn-container2 { transform-origin: 140px 42px; animation: ttBtnPress2 3.2s infinite ease-in-out; }
+          .btn-rect2 { animation: ttBtnBgMorph2 3.2s infinite ease-in-out; }
+          .btn-lbl-follow2 { animation: ttTxtFollow2 3.2s infinite ease-in-out; }
+          .btn-lbl-following2 { animation: ttTxtFollowing2 3.2s infinite ease-in-out; }
+        </style>
+      </defs>
+      <g class="btn-container2">
+        <rect class="btn-rect2" x="2" y="2" width="276" height="80" rx="40" stroke-width="2"/>
+        <g class="btn-lbl-follow2">
+          <path d="M48 42 L66 42 M57 33 L57 51" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+          <text x="82" y="50" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-weight="700" font-size="22">Takip Et</text>
+        </g>
+        <g class="btn-lbl-following2">
+          <path d="M38 42 L46 50 L60 34" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="72" y="50" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" font-weight="700" font-size="21">Takip Ediliyor</text>
+        </g>
+      </g>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-share-arrow',
+    name: 'TikTok Paylaş Oku & Sayacı',
+    category: 'tiktok',
+    defaultScale: 0.32,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+      <path d="M36 68 C36 44 56 32 76 32 L76 16 L104 44 L76 72 L76 56 C60 56 48 62 42 74 Z" fill="#ffffff"/>
+      <text x="60" y="125" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22">9.4K</text>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-sound-disc',
+    name: 'TikTok Dönen Müzik Plak',
+    category: 'tiktok',
+    defaultScale: 0.3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+      <defs>
+        <style>
+          @keyframes discRotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          .disc-spin-group { transform-origin: 80px 80px; animation: discRotate 4s linear infinite; }
+        </style>
+      </defs>
+      <g class="disc-spin-group">
+        <circle cx="80" cy="80" r="70" fill="#111827" stroke="#374151" stroke-width="4"/>
+        <circle cx="80" cy="80" r="50" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="80" cy="80" r="28" fill="#fe2c55"/>
+        <circle cx="80" cy="80" r="8" fill="#ffffff"/>
+      </g>
+      <path d="M125 40 Q135 25 145 35 Q135 45 125 40 Z" fill="#25f4ee"/>
+    </svg>`,
+  },
+  {
+    id: 'tiktok-bookmark',
+    name: 'TikTok Kaydet Rozeti',
+    category: 'tiktok',
+    defaultScale: 0.32,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+      <path d="M38 28 L82 28 L82 82 L60 66 L38 82 Z" fill="#facc15"/>
+      <text x="60" y="125" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="22">18.2K</text>
     </svg>`,
   },
   {
@@ -529,41 +573,6 @@ export const ELEMENT_PRESETS: ElementPreset[] = [
       <circle cx="48" cy="45" r="24" fill="#fe2c55"/>
       <text x="48" y="54" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="24">🔥</text>
       <text x="88" y="56" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="26" letter-spacing="1">#FYP • KEŞFET</text>
-    </svg>`,
-  },
-  {
-    id: 'tiktok-share-arrow',
-    name: 'TikTok Paylaş Oku',
-    category: 'tiktok',
-    defaultScale: 0.33,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 90" width="280" height="90">
-      <rect width="280" height="90" rx="45" fill="#18181b" stroke="#25f4ee" stroke-width="3"/>
-      <path d="M35 55 C35 35 55 25 75 25 L75 12 L105 38 L75 64 L75 50 C58 50 48 56 42 68 Z" fill="#25f4ee"/>
-      <text x="120" y="56" fill="#ffffff" font-family="Arial, sans-serif" font-weight="900" font-size="26">PAYLAŞ</text>
-    </svg>`,
-  },
-  {
-    id: 'tiktok-sound-disc',
-    name: 'TikTok Dönen Plak',
-    category: 'tiktok',
-    defaultScale: 0.3,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-      <circle cx="80" cy="80" r="70" fill="#111827" stroke="#374151" stroke-width="4"/>
-      <circle cx="80" cy="80" r="50" fill="none" stroke="#1f2937" stroke-width="3"/>
-      <circle cx="80" cy="80" r="28" fill="#fe2c55"/>
-      <circle cx="80" cy="80" r="8" fill="#ffffff"/>
-      <path d="M125 40 Q135 25 145 35 Q135 45 125 40 Z" fill="#25f4ee"/>
-    </svg>`,
-  },
-  {
-    id: 'tiktok-bookmark',
-    name: 'TikTok Kaydet Rozeti',
-    category: 'tiktok',
-    defaultScale: 0.33,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 90" width="260" height="90">
-      <rect width="260" height="90" rx="45" fill="#facc15" stroke="#ca8a04" stroke-width="3"/>
-      <path d="M45 25 L75 25 L75 68 L60 55 L45 68 Z" fill="#000000"/>
-      <text x="95" y="56" fill="#000000" font-family="Arial, sans-serif" font-weight="900" font-size="26">KAYDET</text>
     </svg>`,
   },
   {
