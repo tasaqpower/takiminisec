@@ -278,6 +278,7 @@ export const VideoEditorSidebar: React.FC<VideoEditorSidebarProps> = ({
                 onAddClip={onAddClip}
                 findTrack={findTrack}
                 getNextClipStartTime={getNextClipStartTime}
+                onAddTrack={onAddTrack}
               />
             )}
 

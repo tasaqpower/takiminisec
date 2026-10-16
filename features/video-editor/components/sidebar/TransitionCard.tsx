@@ -151,15 +151,28 @@ export const TransitionCard: React.FC<TransitionCardProps> = ({
           </span>
         </div>
 
-        {/* Meta row: Category & Duration */}
+        {/* Meta row: Category, Duration & Add Button */}
         <div className="flex items-center justify-between gap-1 mt-1 text-[10px] text-[#929AA8]">
-          <span className="truncate max-w-[65px] font-sans text-[#7E889B]">
+          <span className="truncate max-w-[55px] font-sans text-[#7E889B]">
             {transition.categoryName}
           </span>
-          <span className="font-mono text-[#5A6270] flex items-center gap-0.5 shrink-0 bg-[#0E1117] px-1 py-0.2 rounded-[2px] border border-[#202631]">
-            <Clock size={9} />
-            {transition.defaultDuration.toFixed(1)}s
-          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="font-mono text-[#5A6270] flex items-center gap-0.5 bg-[#0E1117] px-1 py-0.2 rounded-[2px] border border-[#202631]">
+              <Clock size={9} />
+              {transition.defaultDuration.toFixed(1)}s
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDoubleClick?.();
+              }}
+              className="px-1.5 py-0.5 rounded-[2px] bg-[#202631] hover:bg-[#4f6bf5] text-[#E7EAF0] hover:text-white text-[9px] font-medium border border-[#292F39] hover:border-[#4f6bf5] transition-colors"
+              title="Kesim Noktasına Uygula"
+            >
+              + Ekle
+            </button>
+          </div>
         </div>
       </div>
     </div>

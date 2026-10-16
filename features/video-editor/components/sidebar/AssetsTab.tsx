@@ -208,13 +208,28 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
       (a) =>
         a.type !== 'title' &&
         a.type !== 'font' &&
+        a.type !== 'transition' &&
+        a.type !== 'audio' &&
         a.category !== 'Başlık Şablonları' &&
         a.category !== 'Türkçe Uyumlu Fontlar' &&
         a.category !== 'Metin Animasyonları' &&
         a.category !== 'Metin ve Başlık Şablonları' &&
+        a.category !== 'Geçiş Efektleri' &&
+        a.category !== 'Ses Efektleri' &&
+        a.category !== 'Müzik ve Ambiyans' &&
+        a.category !== 'Müzik Döngüleri' &&
         !a.category?.includes('Başlık') &&
         !a.category?.includes('Font') &&
-        !a.category?.includes('Metin')
+        !a.category?.includes('Metin') &&
+        !a.category?.includes('Geçiş') &&
+        !a.category?.includes('Ses') &&
+        !a.category?.includes('Müzik') &&
+        !a.id?.startsWith('trans-') &&
+        !a.id?.startsWith('forma-original-transition-') &&
+        !a.id?.startsWith('music-') &&
+        !a.id?.startsWith('sfx-') &&
+        !a.id?.startsWith('forma-original-music-') &&
+        !a.id?.startsWith('forma-original-sfx-')
     );
   }, [search, selectedCategory, statusFilter, selectedType, aspectRatio, catalogVersion]);
 
@@ -441,11 +456,9 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
 
   // Virtualized calculations
   const isLargePreviewCategory =
-    selectedCategory === 'Geçiş Efektleri' ||
-    selectedCategory === 'Türkçe Uyumlu Fontlar' ||
-    selectedCategory.includes('Başlık') ||
-    selectedCategory.includes('Metin');
-  const ITEM_HEIGHT = isLargePreviewCategory ? 168 : 104; // Height of each card row (2 columns = 2 items per row)
+    selectedCategory === 'Video Katmanları' ||
+    selectedCategory === 'Arka Plan Videoları';
+  const ITEM_HEIGHT = isLargePreviewCategory ? 130 : 104; // Height of each card row (2 columns = 2 items per row)
   const COLS = 2;
   const totalRows = Math.ceil(filteredAssets.length / COLS);
   const visibleRowCount = 12;
@@ -456,13 +469,10 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   const categories = useMemo(() => {
     return [
       { id: 'all', label: 'Tümü' },
-      { id: 'Geçiş Efektleri', label: 'Geçişler (100)', icon: Shuffle },
-      { id: 'Ses Efektleri', label: 'Ses Efektleri', icon: Music },
-      { id: 'Müzik ve Ambiyans', label: 'Müzik', icon: Music },
       { id: 'Arka Plan Videoları', label: 'B-Roll & Video', icon: Video },
       { id: 'Video Katmanları', label: 'Overlays', icon: Layers },
       { id: 'LUT & Renk', label: 'LUT / Renk', icon: Palette },
-      { id: 'Şekiller ve Grafikler', label: 'Grafikler', icon: Shapes },
+      { id: 'Şekiller ve Grafikler', label: 'Grafikler & Şekiller', icon: Shapes },
     ];
   }, []);
 
