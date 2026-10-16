@@ -36,6 +36,80 @@ import {
 import { AssetPacksModal } from './AssetPacksModal';
 import { StorageManagementModal } from './StorageManagementModal';
 import { AssetLicenseModal } from './AssetLicenseModal';
+import { resolveTransitionType, renderTransitionAB } from '../../engine/transitionEngine';
+
+const TransitionAssetPreview: React.FC<{ assetId: string }> = ({ assetId }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const animFrameRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  const transType = useMemo(() => resolveTransitionType(assetId), [assetId]);
+
+  const drawFrame = useCallback(
+    (progress: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      renderTransitionAB(ctx, canvas.width, canvas.height, transType, progress);
+    },
+    [transType]
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (canvas.width !== 128 || canvas.height !== 72) {
+      canvas.width = 128;
+      canvas.height = 72;
+    }
+    drawFrame(0.5);
+  }, [drawFrame]);
+
+  useEffect(() => {
+    if (!isHovered) {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+      drawFrame(0.5);
+      return;
+    }
+
+    startTimeRef.current = performance.now();
+    const DURATION_MS = 1200;
+
+    const loop = (now: number) => {
+      const elapsed = (now - startTimeRef.current) % DURATION_MS;
+      const p = elapsed / DURATION_MS;
+      drawFrame(p);
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    animFrameRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    };
+  }, [isHovered, drawFrame]);
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full aspect-[16/9] rounded-[2px] overflow-hidden bg-black/40 border border-[#232936] my-1"
+    >
+      <canvas ref={canvasRef} className="w-full h-full block" />
+      <div className="absolute bottom-0.5 right-0.5 px-1 py-0.2 bg-black/75 rounded text-[8px] text-gray-300 font-mono pointer-events-none">
+        {transType}
+      </div>
+    </div>
+  );
+};
 
 interface AssetsTabProps {
   project: VideoProject;
@@ -146,8 +220,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   const handleAddToTimeline = useCallback(
     async (asset: CatalogAssetItem) => {
       // 1. Transition Asset Handling (NEVER create dummy video clips for transitions)
-      if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-')) {
-        const transId = asset.id.replace('trans-', '');
+      if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-') || asset.id.startsWith('forma-original-transition-')) {
+        const transType = resolveTransitionType(asset.id);
         const videoTracks = project.tracks.filter((t) => !t.locked && (t.type === 'video' || t.type === 'image'));
         let bestCut: { trackId: string; cutTime: number; leftClipId?: string; rightClipId?: string } | null = null;
         let minDistance = Infinity;
@@ -177,7 +251,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
             cutTime: bestCut.cutTime,
             leftClipId: bestCut.leftClipId,
             rightClipId: bestCut.rightClipId,
-            type: transId as any,
+            type: transType,
             duration: asset.duration || 1.0,
             alignment: 'between',
             easing: 'linear',
@@ -193,7 +267,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
 
         if (targetClip && onUpdateClip) {
           onUpdateClip(targetClip.id, {
-            transitionIn: { type: transId as any, duration: asset.duration || 1.0 },
+            transitionIn: { type: transType, duration: asset.duration || 1.0 },
           });
           return;
         }
@@ -311,7 +385,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   );
 
   // Virtualized calculations
-  const ITEM_HEIGHT = 104; // Height of each card row (2 columns = 2 items per row)
+  const ITEM_HEIGHT = selectedCategory === 'Geçiş Efektleri' ? 168 : 104; // Height of each card row (2 columns = 2 items per row)
   const COLS = 2;
   const totalRows = Math.ceil(filteredAssets.length / COLS);
   const visibleRowCount = 12;
@@ -536,9 +610,9 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                       else if (asset.type === 'overlay') dragType = 'overlay';
                       else if (asset.type === 'element') dragType = 'image';
                       else if (asset.type === 'lut') dragType = 'filter-preset';
-                      else if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-')) {
+                      else if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-') || asset.id.startsWith('forma-original-transition-')) {
                         dragType = 'transition';
-                        payloadId = asset.id.replace('trans-', '');
+                        payloadId = resolveTransitionType(asset.id);
                       }
 
                       startDrag(
@@ -590,10 +664,15 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                   </div>
 
                   {/* Status Badge Tag */}
-                  <div className={`flex items-center gap-1 text-[8.5px] px-1.5 py-0.5 rounded border my-1 w-fit ${statusBadge.badgeClass}`}>
+                  <div className={`flex items-center gap-1 text-[8.5px] px-1.5 py-0.5 rounded border my-0.5 w-fit ${statusBadge.badgeClass}`}>
                     {statusBadge.icon}
                     <span className="font-medium truncate">{statusBadge.label}</span>
                   </div>
+
+                  {/* Live Visual Preview for Transitions */}
+                  {(asset.type === 'transition' || asset.category === 'Geçiş Efektleri') && (
+                    <TransitionAssetPreview assetId={asset.id} />
+                  )}
 
                   {/* Middle: Badges & Tags */}
                   <div className="flex items-center gap-1.5 text-[9px] text-[#828B9B] my-0.5">

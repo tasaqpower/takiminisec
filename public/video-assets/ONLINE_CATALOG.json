@@ -95035,8 +95035,8 @@
   },
   {
     "id": "trans-dynamic-1",
-    "name": "Dinamik Kinetik Geçiş #1",
-    "localizedName": "Dinamik Kinetik Geçiş #1",
+    "name": "Dinamik Whip Savrulma",
+    "localizedName": "Dinamik Whip Savrulma",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95075,8 +95075,8 @@
   },
   {
     "id": "trans-dynamic-2",
-    "name": "Dinamik Kinetik Geçiş #2",
-    "localizedName": "Dinamik Kinetik Geçiş #2",
+    "name": "Dinamik Glitch Paraziti",
+    "localizedName": "Dinamik Glitch Paraziti",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95115,8 +95115,8 @@
   },
   {
     "id": "trans-dynamic-3",
-    "name": "Dinamik Kinetik Geçiş #3",
-    "localizedName": "Dinamik Kinetik Geçiş #3",
+    "name": "Dinamik Sinematik Işık Sızıntısı",
+    "localizedName": "Dinamik Sinematik Işık Sızıntısı",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95155,8 +95155,8 @@
   },
   {
     "id": "trans-dynamic-4",
-    "name": "Dinamik Kinetik Geçiş #4",
-    "localizedName": "Dinamik Kinetik Geçiş #4",
+    "name": "Dinamik Vuruşlu Zoom Punch",
+    "localizedName": "Dinamik Vuruşlu Zoom Punch",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95195,8 +95195,8 @@
   },
   {
     "id": "trans-dynamic-5",
-    "name": "Dinamik Kinetik Geçiş #5",
-    "localizedName": "Dinamik Kinetik Geçiş #5",
+    "name": "Dinamik Film Yanığı (Burn)",
+    "localizedName": "Dinamik Film Yanığı (Burn)",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95235,8 +95235,8 @@
   },
   {
     "id": "trans-dynamic-6",
-    "name": "Dinamik Kinetik Geçiş #6",
-    "localizedName": "Dinamik Kinetik Geçiş #6",
+    "name": "Dinamik RGB Renk Ayrışması",
+    "localizedName": "Dinamik RGB Renk Ayrışması",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95275,8 +95275,8 @@
   },
   {
     "id": "trans-dynamic-7",
-    "name": "Dinamik Kinetik Geçiş #7",
-    "localizedName": "Dinamik Kinetik Geçiş #7",
+    "name": "Dinamik Retro Piksel Dağılma",
+    "localizedName": "Dinamik Retro Piksel Dağılma",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95315,8 +95315,8 @@
   },
   {
     "id": "trans-dynamic-8",
-    "name": "Dinamik Kinetik Geçiş #8",
-    "localizedName": "Dinamik Kinetik Geçiş #8",
+    "name": "Dinamik Manyetik VHS Paraziti",
+    "localizedName": "Dinamik Manyetik VHS Paraziti",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95355,8 +95355,8 @@
   },
   {
     "id": "trans-dynamic-9",
-    "name": "Dinamik Kinetik Geçiş #9",
-    "localizedName": "Dinamik Kinetik Geçiş #9",
+    "name": "Dinamik Prizmatik Işık Kırılması",
+    "localizedName": "Dinamik Prizmatik Işık Kırılması",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95395,8 +95395,8 @@
   },
   {
     "id": "trans-dynamic-10",
-    "name": "Dinamik Kinetik Geçiş #10",
-    "localizedName": "Dinamik Kinetik Geçiş #10",
+    "name": "Dinamik Parlak Flaş Patlaması",
+    "localizedName": "Dinamik Parlak Flaş Patlaması",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95435,8 +95435,8 @@
   },
   {
     "id": "trans-dynamic-11",
-    "name": "Dinamik Kinetik Geçiş #11",
-    "localizedName": "Dinamik Kinetik Geçiş #11",
+    "name": "Dinamik Saat Yönü Radyal Silme",
+    "localizedName": "Dinamik Saat Yönü Radyal Silme",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95475,8 +95475,8 @@
   },
   {
     "id": "trans-dynamic-12",
-    "name": "Dinamik Kinetik Geçiş #12",
-    "localizedName": "Dinamik Kinetik Geçiş #12",
+    "name": "Dinamik 360 Hızlı Dönüş",
+    "localizedName": "Dinamik 360 Hızlı Dönüş",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95515,8 +95515,8 @@
   },
   {
     "id": "trans-dynamic-13",
-    "name": "Dinamik Kinetik Geçiş #13",
-    "localizedName": "Dinamik Kinetik Geçiş #13",
+    "name": "Dinamik Dama Tahtası Geçişi",
+    "localizedName": "Dinamik Dama Tahtası Geçişi",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95555,8 +95555,8 @@
   },
   {
     "id": "trans-dynamic-14",
-    "name": "Dinamik Kinetik Geçiş #14",
-    "localizedName": "Dinamik Kinetik Geçiş #14",
+    "name": "Dinamik Panjur Perde Açılışı",
+    "localizedName": "Dinamik Panjur Perde Açılışı",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95595,8 +95595,8 @@
   },
   {
     "id": "trans-dynamic-15",
-    "name": "Dinamik Kinetik Geçiş #15",
-    "localizedName": "Dinamik Kinetik Geçiş #15",
+    "name": "Dinamik Merkezden İki Yana Yarılma",
+    "localizedName": "Dinamik Merkezden İki Yana Yarılma",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95635,8 +95635,8 @@
   },
   {
     "id": "trans-dynamic-16",
-    "name": "Dinamik Kinetik Geçiş #16",
-    "localizedName": "Dinamik Kinetik Geçiş #16",
+    "name": "Dinamik Çapraz Açıyla Doğrusal Silme",
+    "localizedName": "Dinamik Çapraz Açıyla Doğrusal Silme",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95675,8 +95675,8 @@
   },
   {
     "id": "trans-dynamic-17",
-    "name": "Dinamik Kinetik Geçiş #17",
-    "localizedName": "Dinamik Kinetik Geçiş #17",
+    "name": "Dinamik Dairesel İris Odak Açılışı",
+    "localizedName": "Dinamik Dairesel İris Odak Açılışı",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95715,8 +95715,8 @@
   },
   {
     "id": "trans-dynamic-18",
-    "name": "Dinamik Kinetik Geçiş #18",
-    "localizedName": "Dinamik Kinetik Geçiş #18",
+    "name": "Dinamik Hızlı Sağa İtme",
+    "localizedName": "Dinamik Hızlı Sağa İtme",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95755,8 +95755,8 @@
   },
   {
     "id": "trans-dynamic-19",
-    "name": "Dinamik Kinetik Geçiş #19",
-    "localizedName": "Dinamik Kinetik Geçiş #19",
+    "name": "Dinamik Film Yumuşak Erime",
+    "localizedName": "Dinamik Film Yumuşak Erime",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95795,8 +95795,8 @@
   },
   {
     "id": "trans-dynamic-20",
-    "name": "Dinamik Kinetik Geçiş #20",
-    "localizedName": "Dinamik Kinetik Geçiş #20",
+    "name": "Dinamik 3D Kart Çevirme",
+    "localizedName": "Dinamik 3D Kart Çevirme",
     "type": "transition",
     "category": "Geçiş Efektleri",
     "tags": [
@@ -95837,7 +95837,7 @@
     "id": "anim-typewriter",
     "name": "Daktilo Harf Harf Belirme (Typewriter)",
     "localizedName": "Daktilo Harf Harf Belirme (Typewriter)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -95877,7 +95877,7 @@
     "id": "anim-word-by-word",
     "name": "Kelime Kelime Belirme (Word by Word)",
     "localizedName": "Kelime Kelime Belirme (Word by Word)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -95917,7 +95917,7 @@
     "id": "anim-fade-up",
     "name": "Aşağıdan Yukarı Süzülerek Belirme (Fade Up)",
     "localizedName": "Aşağıdan Yukarı Süzülerek Belirme (Fade Up)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -95957,7 +95957,7 @@
     "id": "anim-fade-down",
     "name": "Yukarıdan Aşağı Süzülme (Fade Down)",
     "localizedName": "Yukarıdan Aşağı Süzülme (Fade Down)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -95997,7 +95997,7 @@
     "id": "anim-pop-in",
     "name": "Baloncuk Pop Belirme (Pop In)",
     "localizedName": "Baloncuk Pop Belirme (Pop In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96037,7 +96037,7 @@
     "id": "anim-bounce-in",
     "name": "Zıplayarak Giriş (Bounce In)",
     "localizedName": "Zıplayarak Giriş (Bounce In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96077,7 +96077,7 @@
     "id": "anim-elastic-in",
     "name": "Elastik Esneme (Elastic In)",
     "localizedName": "Elastik Esneme (Elastic In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96117,7 +96117,7 @@
     "id": "anim-blur-in",
     "name": "Bulanıktan Nete Odaklanma (Blur Focus In)",
     "localizedName": "Bulanıktan Nete Odaklanma (Blur Focus In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96157,7 +96157,7 @@
     "id": "anim-tracking-in",
     "name": "Harf Aralığı Genişlemesi (Tracking In)",
     "localizedName": "Harf Aralığı Genişlemesi (Tracking In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96197,7 +96197,7 @@
     "id": "anim-glitch-in",
     "name": "Siber Glitch Titremesi (Glitch In)",
     "localizedName": "Siber Glitch Titremesi (Glitch In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96237,7 +96237,7 @@
     "id": "anim-neon-flash",
     "name": "Neon Işık Açılması (Neon Flicker)",
     "localizedName": "Neon Işık Açılması (Neon Flicker)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96277,7 +96277,7 @@
     "id": "anim-crash-zoom",
     "name": "Çarpıcı Hızlı Yakınlaşma (Crash Zoom)",
     "localizedName": "Çarpıcı Hızlı Yakınlaşma (Crash Zoom)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96317,7 +96317,7 @@
     "id": "anim-char-cascade",
     "name": "Harf Şelalesi (Character Cascade)",
     "localizedName": "Harf Şelalesi (Character Cascade)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96357,7 +96357,7 @@
     "id": "anim-flip-in",
     "name": "3D Kart Çevirme (3D Flip In)",
     "localizedName": "3D Kart Çevirme (3D Flip In)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96397,7 +96397,7 @@
     "id": "anim-wave-text",
     "name": "Dalgalı Yazı Hareketi (Wave Text)",
     "localizedName": "Dalgalı Yazı Hareketi (Wave Text)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96437,7 +96437,7 @@
     "id": "anim-pulse-loop",
     "name": "Sürekli Nabız Döngüsü (Pulse Loop)",
     "localizedName": "Sürekli Nabız Döngüsü (Pulse Loop)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96477,7 +96477,7 @@
     "id": "anim-heartbeat-loop",
     "name": "Kalp Atışı Döngüsü (Heartbeat Loop)",
     "localizedName": "Kalp Atışı Döngüsü (Heartbeat Loop)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96517,7 +96517,7 @@
     "id": "anim-gentle-float",
     "name": "Hafif Havada Süzülme (Float Loop)",
     "localizedName": "Hafif Havada Süzülme (Float Loop)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96557,7 +96557,7 @@
     "id": "anim-glow-breathe",
     "name": "Nefes Alan Işıma (Glow Breathe Loop)",
     "localizedName": "Nefes Alan Işıma (Glow Breathe Loop)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96597,7 +96597,7 @@
     "id": "anim-color-sweep",
     "name": "Gökkuşağı Renk Akışı (Color Sweep Loop)",
     "localizedName": "Gökkuşağı Renk Akışı (Color Sweep Loop)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96637,7 +96637,7 @@
     "id": "anim-fade-out",
     "name": "Yumuşak Karararak Çıkış (Fade Out)",
     "localizedName": "Yumuşak Karararak Çıkış (Fade Out)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96677,7 +96677,7 @@
     "id": "anim-slide-out-down",
     "name": "Aşağı Kayarak Kaybolma (Slide Out Down)",
     "localizedName": "Aşağı Kayarak Kaybolma (Slide Out Down)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96717,7 +96717,7 @@
     "id": "anim-scale-down-out",
     "name": "Küçülerek Yok Olma (Scale Down Out)",
     "localizedName": "Küçülerek Yok Olma (Scale Down Out)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96757,7 +96757,7 @@
     "id": "anim-blur-out",
     "name": "Bulanıklaşarak Kaybolma (Blur Out)",
     "localizedName": "Bulanıklaşarak Kaybolma (Blur Out)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96797,7 +96797,7 @@
     "id": "anim-char-scatter",
     "name": "Harf Dağılması (Character Scatter Out)",
     "localizedName": "Harf Dağılması (Character Scatter Out)",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96837,7 +96837,7 @@
     "id": "anim-kinetic-1",
     "name": "Kinetik Metin Hareketi #1",
     "localizedName": "Kinetik Metin Hareketi #1",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96877,7 +96877,7 @@
     "id": "anim-kinetic-2",
     "name": "Kinetik Metin Hareketi #2",
     "localizedName": "Kinetik Metin Hareketi #2",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96917,7 +96917,7 @@
     "id": "anim-kinetic-3",
     "name": "Kinetik Metin Hareketi #3",
     "localizedName": "Kinetik Metin Hareketi #3",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96957,7 +96957,7 @@
     "id": "anim-kinetic-4",
     "name": "Kinetik Metin Hareketi #4",
     "localizedName": "Kinetik Metin Hareketi #4",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -96997,7 +96997,7 @@
     "id": "anim-kinetic-5",
     "name": "Kinetik Metin Hareketi #5",
     "localizedName": "Kinetik Metin Hareketi #5",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97037,7 +97037,7 @@
     "id": "anim-kinetic-6",
     "name": "Kinetik Metin Hareketi #6",
     "localizedName": "Kinetik Metin Hareketi #6",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97077,7 +97077,7 @@
     "id": "anim-kinetic-7",
     "name": "Kinetik Metin Hareketi #7",
     "localizedName": "Kinetik Metin Hareketi #7",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97117,7 +97117,7 @@
     "id": "anim-kinetic-8",
     "name": "Kinetik Metin Hareketi #8",
     "localizedName": "Kinetik Metin Hareketi #8",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97157,7 +97157,7 @@
     "id": "anim-kinetic-9",
     "name": "Kinetik Metin Hareketi #9",
     "localizedName": "Kinetik Metin Hareketi #9",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97197,7 +97197,7 @@
     "id": "anim-kinetic-10",
     "name": "Kinetik Metin Hareketi #10",
     "localizedName": "Kinetik Metin Hareketi #10",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97237,7 +97237,7 @@
     "id": "anim-kinetic-11",
     "name": "Kinetik Metin Hareketi #11",
     "localizedName": "Kinetik Metin Hareketi #11",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97277,7 +97277,7 @@
     "id": "anim-kinetic-12",
     "name": "Kinetik Metin Hareketi #12",
     "localizedName": "Kinetik Metin Hareketi #12",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97317,7 +97317,7 @@
     "id": "anim-kinetic-13",
     "name": "Kinetik Metin Hareketi #13",
     "localizedName": "Kinetik Metin Hareketi #13",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97357,7 +97357,7 @@
     "id": "anim-kinetic-14",
     "name": "Kinetik Metin Hareketi #14",
     "localizedName": "Kinetik Metin Hareketi #14",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97397,7 +97397,7 @@
     "id": "anim-kinetic-15",
     "name": "Kinetik Metin Hareketi #15",
     "localizedName": "Kinetik Metin Hareketi #15",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97437,7 +97437,7 @@
     "id": "anim-kinetic-16",
     "name": "Kinetik Metin Hareketi #16",
     "localizedName": "Kinetik Metin Hareketi #16",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97477,7 +97477,7 @@
     "id": "anim-kinetic-17",
     "name": "Kinetik Metin Hareketi #17",
     "localizedName": "Kinetik Metin Hareketi #17",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97517,7 +97517,7 @@
     "id": "anim-kinetic-18",
     "name": "Kinetik Metin Hareketi #18",
     "localizedName": "Kinetik Metin Hareketi #18",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97557,7 +97557,7 @@
     "id": "anim-kinetic-19",
     "name": "Kinetik Metin Hareketi #19",
     "localizedName": "Kinetik Metin Hareketi #19",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97597,7 +97597,7 @@
     "id": "anim-kinetic-20",
     "name": "Kinetik Metin Hareketi #20",
     "localizedName": "Kinetik Metin Hareketi #20",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97637,7 +97637,7 @@
     "id": "anim-kinetic-21",
     "name": "Kinetik Metin Hareketi #21",
     "localizedName": "Kinetik Metin Hareketi #21",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97677,7 +97677,7 @@
     "id": "anim-kinetic-22",
     "name": "Kinetik Metin Hareketi #22",
     "localizedName": "Kinetik Metin Hareketi #22",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97717,7 +97717,7 @@
     "id": "anim-kinetic-23",
     "name": "Kinetik Metin Hareketi #23",
     "localizedName": "Kinetik Metin Hareketi #23",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97757,7 +97757,7 @@
     "id": "anim-kinetic-24",
     "name": "Kinetik Metin Hareketi #24",
     "localizedName": "Kinetik Metin Hareketi #24",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -97797,7 +97797,7 @@
     "id": "anim-kinetic-25",
     "name": "Kinetik Metin Hareketi #25",
     "localizedName": "Kinetik Metin Hareketi #25",
-    "type": "transition",
+    "type": "title",
     "category": "Metin Animasyonları",
     "tags": [
       "animasyon",
@@ -105423,7 +105423,7 @@
     "name": "Whip Pan Sol",
     "localizedName": "Whip Pan Sol",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105476,7 +105476,7 @@
     "name": "Whip Pan Sağ",
     "localizedName": "Whip Pan Sağ",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105529,7 +105529,7 @@
     "name": "Whip Pan Yukarı",
     "localizedName": "Whip Pan Yukarı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105582,7 +105582,7 @@
     "name": "Whip Pan Aşağı",
     "localizedName": "Whip Pan Aşağı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105635,7 +105635,7 @@
     "name": "Whip Pan Çapraz Sol-Üst",
     "localizedName": "Whip Pan Çapraz Sol-Üst",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105688,7 +105688,7 @@
     "name": "Whip Pan Çapraz Sağ-Üst",
     "localizedName": "Whip Pan Çapraz Sağ-Üst",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105741,7 +105741,7 @@
     "name": "Yatay Yönlü Bulanıklık",
     "localizedName": "Yatay Yönlü Bulanıklık",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105794,7 +105794,7 @@
     "name": "Dikey Yönlü Bulanıklık",
     "localizedName": "Dikey Yönlü Bulanıklık",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105847,7 +105847,7 @@
     "name": "Pürüzsüz Yakınlaşma (Smooth Zoom)",
     "localizedName": "Pürüzsüz Yakınlaşma (Smooth Zoom)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105900,7 +105900,7 @@
     "name": "Pürüzsüz Uzaklaşma (Smooth Zoom Out)",
     "localizedName": "Pürüzsüz Uzaklaşma (Smooth Zoom Out)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -105953,7 +105953,7 @@
     "name": "Kamera Depremi Sarsıntısı",
     "localizedName": "Kamera Depremi Sarsıntısı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106006,7 +106006,7 @@
     "name": "Sinematik Bas Rumble Titremesi",
     "localizedName": "Sinematik Bas Rumble Titremesi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106059,7 +106059,7 @@
     "name": "Mikro Twitch Sarsıntısı",
     "localizedName": "Mikro Twitch Sarsıntısı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106112,7 +106112,7 @@
     "name": "Parallaks Derinlik Sol",
     "localizedName": "Parallaks Derinlik Sol",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106165,7 +106165,7 @@
     "name": "Parallaks Derinlik Sağ",
     "localizedName": "Parallaks Derinlik Sağ",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106218,7 +106218,7 @@
     "name": "Mercek Bükülmesi (Fıçı Bozulması)",
     "localizedName": "Mercek Bükülmesi (Fıçı Bozulması)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106271,7 +106271,7 @@
     "name": "Mercek Bükülmesi (İğne Bozulması)",
     "localizedName": "Mercek Bükülmesi (İğne Bozulması)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106324,7 +106324,7 @@
     "name": "Balıkgözü Küresel Bozulma",
     "localizedName": "Balıkgözü Küresel Bozulma",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106377,7 +106377,7 @@
     "name": "RGB Kromatik Yarılma (Split)",
     "localizedName": "RGB Kromatik Yarılma (Split)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106430,7 +106430,7 @@
     "name": "Kromatik Nabız Parlaması",
     "localizedName": "Kromatik Nabız Parlaması",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106483,7 +106483,7 @@
     "name": "Dijital Blok Glitch",
     "localizedName": "Dijital Blok Glitch",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106536,7 +106536,7 @@
     "name": "Satır Yırtılması Glitch",
     "localizedName": "Satır Yırtılması Glitch",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106589,7 +106589,7 @@
     "name": "Analog VHS Manyetik Bozulma",
     "localizedName": "Analog VHS Manyetik Bozulma",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106642,7 +106642,7 @@
     "name": "Turuncu Film Yanığı",
     "localizedName": "Turuncu Film Yanığı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106695,7 +106695,7 @@
     "name": "Kenar Film Yanığı Flash",
     "localizedName": "Kenar Film Yanığı Flash",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106748,7 +106748,7 @@
     "name": "Kehribar Işık Sızıntısı (Light Leak)",
     "localizedName": "Kehribar Işık Sızıntısı (Light Leak)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106801,7 +106801,7 @@
     "name": "Gökkuşağı Prizma Sızıntısı",
     "localizedName": "Gökkuşağı Prizma Sızıntısı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106854,7 +106854,7 @@
     "name": "Anamorfik Işık Çizgisi Streak",
     "localizedName": "Anamorfik Işık Çizgisi Streak",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106907,7 +106907,7 @@
     "name": "Parlaklık Erimesi (Luma Fade Bright)",
     "localizedName": "Parlaklık Erimesi (Luma Fade Bright)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -106960,7 +106960,7 @@
     "name": "Gölgeler Erimesi (Luma Fade Dark)",
     "localizedName": "Gölgeler Erimesi (Luma Fade Dark)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107013,7 +107013,7 @@
     "name": "Gürültü Kaydırma (Displacement Noise)",
     "localizedName": "Gürültü Kaydırma (Displacement Noise)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107066,7 +107066,7 @@
     "name": "Dalga Halka Kaydırma (Ripple)",
     "localizedName": "Dalga Halka Kaydırma (Ripple)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107119,7 +107119,7 @@
     "name": "Sıvı Damlama Silmesi (Liquid Drip)",
     "localizedName": "Sıvı Damlama Silmesi (Liquid Drip)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107172,7 +107172,7 @@
     "name": "Sıvı Sıçrama Silmesi (Splash)",
     "localizedName": "Sıvı Sıçrama Silmesi (Splash)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107225,7 +107225,7 @@
     "name": "Organik Mürekkep Yayılımı (Ink Spread)",
     "localizedName": "Organik Mürekkep Yayılımı (Ink Spread)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107278,7 +107278,7 @@
     "name": "Çapraz Kağıt Yırtığı (Paper Tear)",
     "localizedName": "Çapraz Kağıt Yırtığı (Paper Tear)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107331,7 +107331,7 @@
     "name": "Yatay Piksel Sıralama (Pixel Sort)",
     "localizedName": "Yatay Piksel Sıralama (Pixel Sort)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107384,7 +107384,7 @@
     "name": "Dikey Piksel Sıralama (Pixel Sort)",
     "localizedName": "Dikey Piksel Sıralama (Pixel Sort)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107437,7 +107437,7 @@
     "name": "Datamosh Vektör Sürükleme",
     "localizedName": "Datamosh Vektör Sürükleme",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107490,7 +107490,7 @@
     "name": "Elmas İris Açılışı",
     "localizedName": "Elmas İris Açılışı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107543,7 +107543,7 @@
     "name": "Altıgen İris Açılışı",
     "localizedName": "Altıgen İris Açılışı",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107596,7 +107596,7 @@
     "name": "Kapsül Şekil Maskesi (Pill Reveal)",
     "localizedName": "Kapsül Şekil Maskesi (Pill Reveal)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107649,7 +107649,7 @@
     "name": "Üçgen Panjur Maskesi",
     "localizedName": "Üçgen Panjur Maskesi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107702,7 +107702,7 @@
     "name": "Saat Yönü Radyal Silme (Clock Wipe)",
     "localizedName": "Saat Yönü Radyal Silme (Clock Wipe)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107755,7 +107755,7 @@
     "name": "Çift Kanatlı Fan Silme",
     "localizedName": "Çift Kanatlı Fan Silme",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107808,7 +107808,7 @@
     "name": "3D Kart Çevirme (Perspective Flip)",
     "localizedName": "3D Kart Çevirme (Perspective Flip)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107861,7 +107861,7 @@
     "name": "3D Kapı Açılışı (Door Swing)",
     "localizedName": "3D Kapı Açılışı (Door Swing)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107914,7 +107914,7 @@
     "name": "3D Küp Sola Dönüş (Cube Rotate)",
     "localizedName": "3D Küp Sola Dönüş (Cube Rotate)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -107967,7 +107967,7 @@
     "name": "3D Küp Yukarı Dönüş (Cube Rotate)",
     "localizedName": "3D Küp Yukarı Dönüş (Cube Rotate)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108020,7 +108020,7 @@
     "name": "Hızlı Saat Yönü Fırıldak Dönüşü",
     "localizedName": "Hızlı Saat Yönü Fırıldak Dönüşü",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108073,7 +108073,7 @@
     "name": "Girdap Dönüşü (Vortex Spin)",
     "localizedName": "Girdap Dönüşü (Vortex Spin)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108126,7 +108126,7 @@
     "name": "İtme Sol (Slide Push Left)",
     "localizedName": "İtme Sol (Slide Push Left)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108179,7 +108179,7 @@
     "name": "İtme Sağ (Slide Push Right)",
     "localizedName": "İtme Sağ (Slide Push Right)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108232,7 +108232,7 @@
     "name": "İtme Yukarı (Slide Push Up)",
     "localizedName": "İtme Yukarı (Slide Push Up)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108285,7 +108285,7 @@
     "name": "İtme Aşağı (Slide Push Down)",
     "localizedName": "İtme Aşağı (Slide Push Down)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108338,7 +108338,7 @@
     "name": "Elastik Esneme Yatay (Elastic Stretch)",
     "localizedName": "Elastik Esneme Yatay (Elastic Stretch)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108391,7 +108391,7 @@
     "name": "Elastik Esneme Dikey (Elastic Stretch)",
     "localizedName": "Elastik Esneme Dikey (Elastic Stretch)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108444,7 +108444,7 @@
     "name": "Aynalı Hareket Karosu (Motion Tile)",
     "localizedName": "Aynalı Hareket Karosu (Motion Tile)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108497,7 +108497,7 @@
     "name": "Altıgen Kaleydoskop Geçişi",
     "localizedName": "Altıgen Kaleydoskop Geçişi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108550,7 +108550,7 @@
     "name": "Mandala Kaleydoskop Geçişi",
     "localizedName": "Mandala Kaleydoskop Geçişi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108603,7 +108603,7 @@
     "name": "Optik Prizma Dağılması",
     "localizedName": "Optik Prizma Dağılması",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108656,7 +108656,7 @@
     "name": "Sert Kesim (Hard Cut)",
     "localizedName": "Sert Kesim (Hard Cut)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108709,7 +108709,7 @@
     "name": "Klasik Çapraz Erime (Crossfade Pro)",
     "localizedName": "Klasik Çapraz Erime (Crossfade Pro)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108762,7 +108762,7 @@
     "name": "Kararmaya Solma (Dip to Black)",
     "localizedName": "Kararmaya Solma (Dip to Black)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108815,7 +108815,7 @@
     "name": "Beyaza Parlama (Dip to White)",
     "localizedName": "Beyaza Parlama (Dip to White)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108868,7 +108868,7 @@
     "name": "Yumuşak Erime (Soft Dissolve)",
     "localizedName": "Yumuşak Erime (Soft Dissolve)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108921,7 +108921,7 @@
     "name": "Katkısal Parlama Erimesi (Additive)",
     "localizedName": "Katkısal Parlama Erimesi (Additive)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -108974,7 +108974,7 @@
     "name": "Yatay Perde Açılışı (Venetian Blinds H)",
     "localizedName": "Yatay Perde Açılışı (Venetian Blinds H)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109027,7 +109027,7 @@
     "name": "Dikey Perde Açılışı (Venetian Blinds V)",
     "localizedName": "Dikey Perde Açılışı (Venetian Blinds V)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109080,7 +109080,7 @@
     "name": "Dama Tahtası Geçişi (Checkerboard)",
     "localizedName": "Dama Tahtası Geçişi (Checkerboard)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109133,7 +109133,7 @@
     "name": "Çapraz Doğrusal Silme (Diagonal Wipe)",
     "localizedName": "Çapraz Doğrusal Silme (Diagonal Wipe)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109186,7 +109186,7 @@
     "name": "Ortadan Yatay Yarılma (Split Open H)",
     "localizedName": "Ortadan Yatay Yarılma (Split Open H)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109239,7 +109239,7 @@
     "name": "Ortadan Dikey Yarılma (Split Open V)",
     "localizedName": "Ortadan Dikey Yarılma (Split Open V)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109292,7 +109292,7 @@
     "name": "Merkezden Kapanma (Split Close)",
     "localizedName": "Merkezden Kapanma (Split Close)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109345,7 +109345,7 @@
     "name": "Hızlı Kamera Deklanşör Kararması",
     "localizedName": "Hızlı Kamera Deklanşör Kararması",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109398,7 +109398,7 @@
     "name": "CRT TV Kapanış Çizgisi",
     "localizedName": "CRT TV Kapanış Çizgisi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109451,7 +109451,7 @@
     "name": "Mozaik Pikselleşme Erimesi",
     "localizedName": "Mozaik Pikselleşme Erimesi",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109504,7 +109504,7 @@
     "name": "Girdap Odak Bulanıklığı (Vortex Blur)",
     "localizedName": "Girdap Odak Bulanıklığı (Vortex Blur)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109557,7 +109557,7 @@
     "name": "Kromatik Mercek Parlaması",
     "localizedName": "Kromatik Mercek Parlaması",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",
@@ -109610,7 +109610,7 @@
     "name": "Zaman Atlama Titremesi (Strobe Cut)",
     "localizedName": "Zaman Atlama Titremesi (Strobe Cut)",
     "type": "transition",
-    "category": "Klip Geçişleri",
+    "category": "Geçiş Efektleri",
     "tags": [
       "forma-originals",
       "transition",

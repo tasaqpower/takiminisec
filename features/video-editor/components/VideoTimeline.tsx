@@ -11,7 +11,7 @@ import {
   TransitionType,
   ProceduralSfxType,
 } from '../types';
-import { TRANSITION_DEFINITIONS } from '../engine/transitionEngine';
+import { TRANSITION_DEFINITIONS, resolveTransitionType } from '../engine/transitionEngine';
 import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
 import { generateSfxBlob } from '../engine/sfxGenerator';
 import { saveAssetBlob } from '../db';
@@ -617,11 +617,12 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
       setHoveredTrackId(null);
 
       if (payload.type === 'transition') {
+        const transType = resolveTransitionType(payload.id);
         const cut = hoveredCutPoint || nearestCut;
         if (cut && onAddTimelineTransition) {
           onAddTimelineTransition({
             trackId: cut.trackId,
-            type: payload.id as TransitionType,
+            type: transType,
             duration: payload.duration || 1.0,
             cutTime: cut.cutTime,
             leftClipId: cut.leftClipId,
@@ -635,7 +636,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             project.tracks.flatMap((t) => t.clips)[0];
           if (target && onUpdateClip) {
             onUpdateClip(target.id, {
-              transitionIn: { type: payload.id as TransitionType, duration: payload.duration || 1.0 },
+              transitionIn: { type: transType, duration: payload.duration || 1.0 },
             });
           }
         }
