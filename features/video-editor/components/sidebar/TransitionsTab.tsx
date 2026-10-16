@@ -112,24 +112,34 @@ export const TransitionsTab: React.FC<TransitionsTabProps> = ({
       if (category === 'favorites') return favorites.includes(tr.id);
       if (category === 'recent') return recent.includes(tr.id);
       if (category === 'cinematic') {
-        return (
-          tr.category === 'cinematic-digital' &&
-          (tr.id === 'light-leak' ||
-            tr.id === 'film-burn' ||
-            tr.id === 'lens-flare' ||
-            tr.id === 'blur-dissolve' ||
-            tr.id === 'flash')
-        );
+        const cinematicIds = new Set([
+          'light-leak',
+          'light-leak-rainbow',
+          'light-leak-blue',
+          'film-burn',
+          'film-burn-edges',
+          'lens-flare',
+          'chromatic-flare',
+          'blur-dissolve',
+          'directional-blur',
+          'flash',
+        ]);
+        return cinematicIds.has(tr.id);
       }
       if (category === 'digital') {
-        return (
-          tr.category === 'cinematic-digital' &&
-          (tr.id === 'glitch' ||
-            tr.id === 'rgb-split' ||
-            tr.id === 'pixel-dissolve' ||
-            tr.id === 'vhs-distortion' ||
-            tr.id === 'prism-dissolve')
-        );
+        const digitalIds = new Set([
+          'glitch',
+          'glitch-line-tear',
+          'rgb-split',
+          'pixel-dissolve',
+          'pixel-sort',
+          'vhs-distortion',
+          'crt-tv-off',
+          'prism-dissolve',
+          'kaleidoscope-hex',
+          'datamosh-melt',
+        ]);
+        return digitalIds.has(tr.id);
       }
       if (category === 'cinematic-digital') {
         return tr.category === 'cinematic-digital';
