@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-10-16T19:17:57.588Z",
+  "fonts": {
+    "total": 160,
+    "verified200": 160,
+    "errors": 0,
+    "sampleVerifiedFonts": [
+      {
+        "id": "font-abeezee",
+        "name": "ABeeZee Font",
+        "fontFamily": "ABeeZee",
+        "category": "Sans Serif"
+      },
+      {
+        "id": "font-adlam-display",
+        "name": "ADLaM Display Font",
+        "fontFamily": "ADLaM Display",
+        "category": "Display"
+      },
+      {
+        "id": "font-ar-one-sans",
+        "name": "AR One Sans Font",
+        "fontFamily": "AR One Sans",
+        "category": "Sans Serif"
+      },
+      {
+        "id": "font-abhaya-libre",
+        "name": "Abhaya Libre Font",
+        "fontFamily": "Abhaya Libre",
+        "category": "Serif"
+      },
+      {
+        "id": "font-aboreto",
+        "name": "Aboreto Font",
+        "fontFamily": "Aboreto",
+        "category": "Display"
+      },
+      {
+        "id": "font-abril-fatface",
+        "name": "Abril Fatface Font",
+        "fontFamily": "Abril Fatface",
+        "category": "Display"
+      },
+      {
+        "id": "font-abyssinica-sil",
+        "name": "Abyssinica SIL Font",
+        "fontFamily": "Abyssinica SIL",
+        "category": "Serif"
+      },
+      {
+        "id": "font-aclonica",
+        "name": "Aclonica Font",
+        "fontFamily": "Aclonica",
+        "category": "Sans Serif"
+      },
+      {
+        "id": "font-advent-pro",
+        "name": "Advent Pro Font",
+        "fontFamily": "Advent Pro",
+        "category": "Sans Serif"
+      },
+      {
+        "id": "font-afacad",
+        "name": "Afacad Font",
+        "fontFamily": "Afacad",
+        "category": "Sans Serif"
+      }
+    ],
+    "failures": []
+  },
+  "titles": {
+    "total": 490,
+    "valid": 490,
+    "errors": 0,
+    "breakdown": {
+      "baslikSablonlari": 240,
+      "metinAnimasyonlari": 170,
+      "metinVeBaslik": 80
+    },
+    "sampleVerifiedTitles": [
+      {
+        "id": "title-lower-third-modern",
+        "name": "Modern Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "Ahmet Yılmaz\nKreatif Direktör"
+      },
+      {
+        "id": "title-lower-third-news",
+        "name": "Haber Başlığı Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "SON DAKİKA\nÖnemli Gelişmeler Aktarılıyor"
+      },
+      {
+        "id": "title-lower-third-minimal",
+        "name": "Minimal Çizgili Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "Zeynep Kaya | Fotoğrafçı"
+      },
+      {
+        "id": "title-lower-third-gradient",
+        "name": "Degrade Vurgulu Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "Can Demir\nTeknoloji Editörü"
+      },
+      {
+        "id": "title-lower-third-tech",
+        "name": "Siber & Teknoloji Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "SİSTEM ÇÖZÜMLERİ\nProtokol Başlatıldı"
+      },
+      {
+        "id": "title-lower-third-split",
+        "name": "Bölünmüş Çubuklu Alt Bant",
+        "category": "Başlık Şablonları",
+        "style": "lower-third",
+        "defaultText": "Mehmet Şahin // Tasarımcı"
+      },
+      {
+        "id": "title-cinematic-epic",
+        "name": "Epik Sinematik Başlık",
+        "category": "Başlık Şablonları",
+        "style": "cinematic",
+        "defaultText": "BÜYÜK YOLCULUK"
+      },
+      {
+        "id": "title-cinematic-dramatic",
+        "name": "Dramatik Beliren Başlık",
+        "category": "Başlık Şablonları",
+        "style": "cinematic",
+        "defaultText": "KAYIP ŞEHİR"
+      },
+      {
+        "id": "title-cinematic-minimal",
+        "name": "Minimalist Film Başlığı",
+        "category": "Başlık Şablonları",
+        "style": "cinematic",
+        "defaultText": "S E S S İ Z L İ K"
+      },
+      {
+        "id": "title-cinematic-gold",
+        "name": "Altın Vurgulu Lüks Başlık",
+        "category": "Başlık Şablonları",
+        "style": "cinematic",
+        "defaultText": "PRESTİJ"
+      }
+    ],
+    "failures": []
+  },
+  "status": "PASSED"
+}

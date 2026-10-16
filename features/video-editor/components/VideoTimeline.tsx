@@ -12,6 +12,7 @@ import {
   ProceduralSfxType,
 } from '../types';
 import { TRANSITION_DEFINITIONS, resolveTransitionType } from '../engine/transitionEngine';
+import { loadGoogleFont } from '../engine/fontCatalog';
 import { useEditorDragDrop, DragPayload, DragTargetInfo } from '../context/DragDropContext';
 import { generateSfxBlob } from '../engine/sfxGenerator';
 import { saveAssetBlob } from '../db';
@@ -753,12 +754,64 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             console.warn('Failed to add SFX on drop:', err);
           }
         }
-      } else if (payload.type === 'title-template') {
+      } else if (payload.type === 'title-template' || payload.type === 'font' || payload.type === 'text-animation') {
         const textTrack =
           project.tracks.find((t) => t.id === targetTrackId && t.type === 'text') ||
           project.tracks.find((t) => t.type === 'text') ||
           project.tracks[0];
+
+        // Check if dropped directly onto an existing text clip
+        const existingTextClip = textTrack?.clips.find(
+          (c) => c.type === 'text' && dropTime >= c.startTime && dropTime <= c.startTime + c.duration
+        );
+
+        if (existingTextClip && onUpdateClip) {
+          if (payload.type === 'font') {
+            const fontFam = (payload.data?.fontFamily || payload.data?.textData?.fontFamily || payload.name.replace(/\s+Font$/i, '')).trim();
+            loadGoogleFont(fontFam);
+            onUpdateClip(existingTextClip.id, {
+              textData: {
+                ...(existingTextClip.textData || { text: 'Metin', fontSize: 54, fontWeight: 'bold', color: '#ffffff' }),
+                fontFamily: fontFam,
+              },
+            });
+            onSelectClip?.(existingTextClip.id);
+            return;
+          } else if (payload.type === 'text-animation') {
+            const animKind = payload.data?.metadata?.animKind || 'in';
+            const techId = payload.data?.metadata?.technicalId || payload.id.replace(/^anim-/, '');
+            const updates: any = {};
+            if (animKind === 'in' || techId.startsWith('in-') || techId === 'typewriter') {
+              updates.inAnimation = techId.replace(/^in-/, '');
+              updates.inDuration = payload.duration || 0.8;
+            } else if (animKind === 'loop' || techId.startsWith('loop-')) {
+              updates.loopAnimation = techId.replace(/^loop-/, '');
+            } else if (animKind === 'out' || techId.startsWith('out-')) {
+              updates.outAnimation = techId.replace(/^out-/, '');
+              updates.outDuration = payload.duration || 0.6;
+            }
+            onUpdateClip(existingTextClip.id, {
+              textData: {
+                ...(existingTextClip.textData || { text: 'Metin', fontSize: 54, fontWeight: 'bold', color: '#ffffff' }),
+                ...updates,
+              },
+            });
+            onSelectClip?.(existingTextClip.id);
+            return;
+          }
+        }
+
         if (textTrack && onAddClip) {
+          const resolvedTextData = payload.data?.textData || {
+            text: payload.data?.defaultText || payload.data?.text || payload.name,
+            fontSize: 54,
+            fontWeight: 'bold',
+            color: '#ffffff',
+            fontFamily: payload.type === 'font' ? (payload.data?.fontFamily || payload.name.replace(/\s+Font$/i, '').trim()) : 'Plus Jakarta Sans',
+          };
+          if (resolvedTextData.fontFamily) {
+            loadGoogleFont(resolvedTextData.fontFamily);
+          }
           const newClip = onAddClip(textTrack.id, {
             name: payload.name,
             type: 'text',
@@ -766,10 +819,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             duration: payload.duration || 4.0,
             sourceDuration: payload.duration || 4.0,
             textData: {
-              text: payload.data?.text || payload.name,
-              fontSize: payload.data?.data?.fontSize || 54,
-              fontWeight: payload.data?.data?.fontWeight || 'bold',
-              color: '#ffffff',
+              ...resolvedTextData,
               ...payload.data?.data,
             },
           });

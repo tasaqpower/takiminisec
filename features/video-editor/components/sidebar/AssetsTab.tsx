@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { VideoProject, VideoClip, TimelineTransition } from '../../types';
+import { VideoProject, VideoClip, TimelineTransition, TextLayerData } from '../../types';
 import { assetCatalog, CatalogAssetItem, CatalogFilterOptions } from '../../engine/assetCatalog';
 import { assetDownloader } from '../../engine/assetDownloader';
 import { useEditorDragDrop } from '../../context/DragDropContext';
@@ -37,6 +37,7 @@ import { AssetPacksModal } from './AssetPacksModal';
 import { StorageManagementModal } from './StorageManagementModal';
 import { AssetLicenseModal } from './AssetLicenseModal';
 import { resolveTransitionType, renderTransitionAB } from '../../engine/transitionEngine';
+import { loadGoogleFont } from '../../engine/fontCatalog';
 
 const TransitionAssetPreview: React.FC<{ assetId: string }> = ({ assetId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,6 +107,303 @@ const TransitionAssetPreview: React.FC<{ assetId: string }> = ({ assetId }) => {
       <canvas ref={canvasRef} className="w-full h-full block" />
       <div className="absolute bottom-0.5 right-0.5 px-1 py-0.2 bg-black/75 rounded text-[8px] text-gray-300 font-mono pointer-events-none">
         {transType}
+      </div>
+    </div>
+  );
+};
+
+export function createTitleClipTextData(asset: CatalogAssetItem): Partial<TextLayerData> {
+  if (asset.metadata && (asset.metadata as any).textData) {
+    const td = (asset.metadata as any).textData;
+    if (td.fontFamily) {
+      loadGoogleFont(td.fontFamily).catch(() => {});
+    }
+    return {
+      text: td.text || asset.localizedName,
+      ...td,
+    };
+  }
+
+  if (asset.type === 'font' || asset.category === 'Türkçe Uyumlu Fontlar') {
+    const family = (asset.fontFamily || asset.name.replace(/\s+Font$/i, '')).trim();
+    loadGoogleFont(family).catch(() => {});
+    return {
+      text: `${family} Başlık`,
+      fontSize: 54,
+      fontWeight: 'bold',
+      color: '#ffffff',
+      fillColor: '#ffffff',
+      fontFamily: family,
+      textAlign: 'center',
+      alignment: 'center',
+    };
+  }
+
+  const baseText = asset.defaultText || asset.localizedName || 'Forma Başlık';
+  const style = asset.style || (asset.metadata as any)?.style || 'modern';
+
+  let res: Partial<TextLayerData> = {
+    text: baseText,
+    fontFamily: 'Plus Jakarta Sans',
+    fontSize: 54,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    fillColor: '#ffffff',
+    textAlign: 'center',
+    alignment: 'center',
+  };
+
+  switch (style) {
+    case 'lower-third':
+    case 'lowerthird':
+      res = {
+        text: baseText,
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 44,
+        fontWeight: '600',
+        color: '#ffffff',
+        fillColor: '#ffffff',
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        backgroundOpacity: 0.85,
+        paddingX: 28,
+        paddingY: 14,
+        borderRadius: 6,
+        textAlign: 'left',
+        alignment: 'left',
+      };
+      break;
+    case 'cinematic':
+      loadGoogleFont('Playfair Display').catch(() => {});
+      res = {
+        text: baseText,
+        fontFamily: 'Playfair Display',
+        fontSize: 56,
+        fontWeight: '700',
+        color: '#fbbf24',
+        fillColor: '#fbbf24',
+        strokeColor: '#78350f',
+        strokeWidth: 1.5,
+        shadowColor: 'rgba(245, 158, 11, 0.4)',
+        shadowBlur: 14,
+        letterSpacing: 2,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'news':
+      loadGoogleFont('Oswald').catch(() => {});
+      res = {
+        text: baseText,
+        fontFamily: 'Oswald',
+        fontSize: 44,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        fillColor: '#ffffff',
+        backgroundColor: '#dc2626',
+        backgroundOpacity: 0.95,
+        paddingX: 28,
+        paddingY: 14,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'social':
+      loadGoogleFont('Montserrat').catch(() => {});
+      res = {
+        text: baseText,
+        fontFamily: 'Montserrat',
+        fontSize: 56,
+        fontWeight: '900',
+        color: '#a3e635',
+        fillColor: '#a3e635',
+        strokeColor: '#000000',
+        strokeWidth: 5,
+        shadowColor: 'rgba(0,0,0,0.8)',
+        shadowBlur: 8,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'minimal':
+      res = {
+        text: baseText,
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 48,
+        fontWeight: '500',
+        color: '#ffffff',
+        fillColor: '#ffffff',
+        shadowBlur: 6,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'subtitle':
+      res = {
+        text: baseText,
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 50,
+        fontWeight: '800',
+        color: '#facc15',
+        fillColor: '#facc15',
+        strokeColor: '#000000',
+        strokeWidth: 5,
+        shadowBlur: 6,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'neon':
+      res = {
+        text: baseText,
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 54,
+        fontWeight: '800',
+        color: '#f43f5e',
+        fillColor: '#f43f5e',
+        strokeColor: '#fda4af',
+        strokeWidth: 2,
+        shadowColor: '#ec4899',
+        shadowBlur: 20,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+    case 'tech':
+      loadGoogleFont('JetBrains Mono').catch(() => {});
+      res = {
+        text: baseText,
+        fontFamily: 'JetBrains Mono',
+        fontSize: 42,
+        fontWeight: '700',
+        color: '#38bdf8',
+        fillColor: '#38bdf8',
+        backgroundColor: 'rgba(12, 74, 110, 0.7)',
+        backgroundOpacity: 0.7,
+        paddingX: 20,
+        paddingY: 10,
+        borderRadius: 4,
+        textAlign: 'center',
+        alignment: 'center',
+      };
+      break;
+  }
+
+  // Animation metadata if present
+  if (asset.category === 'Metin Animasyonları' || asset.tags?.includes('text-animation')) {
+    const animKind = (asset.metadata as any)?.animKind || 'in';
+    const technicalId = (asset.metadata as any)?.technicalId || asset.id.replace(/^forma-original-textanim-\d+-/, '').replace(/^anim-/, '');
+    if (animKind === 'in' || technicalId.startsWith('in-') || technicalId === 'typewriter') {
+      res.inAnimation = technicalId.replace(/^in-/, '') as any;
+      res.inDuration = asset.duration || 0.8;
+    } else if (animKind === 'loop' || technicalId.startsWith('loop-')) {
+      res.loopAnimation = technicalId.replace(/^loop-/, '') as any;
+    } else if (animKind === 'out' || technicalId.startsWith('out-')) {
+      res.outAnimation = technicalId.replace(/^out-/, '') as any;
+      res.outDuration = asset.duration || 0.6;
+    }
+  }
+
+  return res;
+}
+
+const FontAssetPreview: React.FC<{ asset: CatalogAssetItem }> = ({ asset }) => {
+  const family = (asset.fontFamily || asset.name.replace(/\s+Font$/i, '')).trim();
+
+  useEffect(() => {
+    loadGoogleFont(family).catch(() => {});
+  }, [family]);
+
+  return (
+    <div
+      onMouseEnter={() => {
+        loadGoogleFont(family).catch(() => {});
+      }}
+      className="relative w-full h-16 rounded-[2px] overflow-hidden bg-[#0A0D12] border border-[#232936] my-1 p-1.5 flex flex-col justify-between group-hover:border-[#4f6bf5]/50 transition-colors"
+    >
+      <div className="flex items-center justify-between text-[8px] text-gray-400">
+        <span className="font-mono text-teal-400 truncate max-w-[80px]">{family}</span>
+        <span className="px-1 py-0.2 bg-[#161a22] rounded border border-[#202531] text-[7.5px] text-gray-400">
+          {asset.fontCategory || 'Font'}
+        </span>
+      </div>
+      <div
+        className="text-[14px] font-semibold text-white truncate text-center leading-tight tracking-wide"
+        style={{ fontFamily: `"${family}", sans-serif` }}
+        title="Türkçe Karakterler: ç Ç ğ Ğ ı İ ö Ö ş Ş ü Ü"
+      >
+        Aa Şş Ğğ 123
+      </div>
+      <div className="text-[7.5px] text-emerald-400/90 text-center truncate flex items-center justify-center gap-0.5">
+        <span>✓</span>
+        <span>Türkçe Uyumlu Tipografi</span>
+      </div>
+    </div>
+  );
+};
+
+const TitleAssetPreview: React.FC<{ asset: CatalogAssetItem }> = ({ asset }) => {
+  const textData = useMemo(() => createTitleClipTextData(asset), [asset]);
+  const styleKind = asset.style || (asset.metadata as any)?.style || 'title';
+  const isAnim = asset.category?.includes('Animasyon') || asset.tags?.includes('text-animation');
+
+  return (
+    <div className="relative w-full h-16 rounded-[2px] overflow-hidden bg-[#0A0D12] border border-[#232936] my-1 p-1.5 flex flex-col justify-center items-center group-hover:border-purple-500/50 transition-colors">
+      {styleKind === 'news' ? (
+        <div className="w-full bg-red-600/90 text-white font-bold text-[9px] px-1 py-1 rounded-none text-center truncate uppercase">
+          {textData.text?.split('\n')[0] || asset.localizedName}
+        </div>
+      ) : styleKind === 'lower-third' || styleKind === 'lowerthird' ? (
+        <div className="w-full flex flex-col items-start px-1.5 bg-slate-900/90 border-l-2 border-indigo-500 py-1 rounded-[1px]">
+          <span className="text-[9px] font-semibold text-white truncate max-w-full">
+            {textData.text?.split('\n')[0] || asset.localizedName}
+          </span>
+          <span className="text-[7.5px] text-gray-400 truncate max-w-full">
+            {textData.text?.split('\n')[1] || 'Alt Başlık Metni'}
+          </span>
+        </div>
+      ) : styleKind === 'cinematic' ? (
+        <div className="text-center px-1">
+          <span
+            className="text-[10px] font-serif text-amber-300 font-bold tracking-widest drop-shadow-[0_1px_4px_rgba(251,191,36,0.5)] truncate block"
+            style={{ fontFamily: textData.fontFamily || 'serif' }}
+          >
+            {textData.text?.split('\n')[0] || asset.localizedName}
+          </span>
+        </div>
+      ) : styleKind === 'social' ? (
+        <div className="text-center px-1">
+          <span
+            className="text-[10.5px] font-black text-lime-400 uppercase tracking-tight block truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+            style={{ WebkitTextStroke: '0.4px black' }}
+          >
+            {textData.text?.split('\n')[0] || asset.localizedName}
+          </span>
+        </div>
+      ) : styleKind === 'neon' ? (
+        <div className="text-center px-1">
+          <span className="text-[10px] font-extrabold text-pink-500 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)] truncate block">
+            {textData.text?.split('\n')[0] || asset.localizedName}
+          </span>
+        </div>
+      ) : isAnim ? (
+        <div className="flex items-center gap-1 text-center px-1">
+          <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+          <span className="text-[9.5px] font-medium text-purple-200 truncate block">
+            {asset.localizedName}
+          </span>
+        </div>
+      ) : (
+        <div className="text-center px-1">
+          <span className="text-[9.5px] font-bold text-white truncate block">
+            {textData.text?.split('\n')[0] || asset.localizedName}
+          </span>
+        </div>
+      )}
+
+      <div className="absolute bottom-0.5 right-1 text-[7px] text-gray-400 font-mono">
+        {styleKind}
       </div>
     </div>
   );
@@ -287,7 +585,9 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
       }
 
       // 3. Font Asset Handling
-      if (asset.type === 'font') {
+      if (asset.type === 'font' || asset.category === 'Türkçe Uyumlu Fontlar') {
+        const resolvedFamily = (asset.fontFamily || asset.name.replace(/\s+Font$/i, '')).trim();
+        loadGoogleFont(resolvedFamily).catch(() => {});
         const targetText =
           (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId && c.type === 'text')) ||
           project.tracks.flatMap((t) => t.clips).find((c) => c.type === 'text' && currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
@@ -295,7 +595,37 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
           onUpdateClip(targetText.id, {
             textData: {
               ...(targetText.textData || { text: 'Metin', fontSize: 54, fontWeight: 'bold', color: '#ffffff' }),
-              fontFamily: asset.name,
+              fontFamily: resolvedFamily,
+            },
+          });
+          return;
+        }
+      }
+
+      // 4. Text Animation Handling (if asset is a text animation and text clip is selected)
+      if (asset.category === 'Metin Animasyonları' || asset.tags?.includes('text-animation')) {
+        const targetText =
+          (selectedClipId && project.tracks.flatMap((t) => t.clips).find((c) => c.id === selectedClipId && c.type === 'text')) ||
+          project.tracks.flatMap((t) => t.clips).find((c) => c.type === 'text' && currentTime >= c.startTime && currentTime <= c.startTime + c.duration);
+
+        const animKind = (asset.metadata as any)?.animKind || 'in';
+        const technicalId = (asset.metadata as any)?.technicalId || asset.id.replace(/^forma-original-textanim-\d+-/, '').replace(/^anim-/, '');
+
+        if (targetText && onUpdateClip) {
+          const updates: any = {};
+          if (animKind === 'in' || technicalId.startsWith('in-') || technicalId === 'typewriter') {
+            updates.inAnimation = technicalId.replace(/^in-/, '');
+            updates.inDuration = asset.duration || 0.8;
+          } else if (animKind === 'loop' || technicalId.startsWith('loop-')) {
+            updates.loopAnimation = technicalId.replace(/^loop-/, '');
+          } else if (animKind === 'out' || technicalId.startsWith('out-')) {
+            updates.outAnimation = technicalId.replace(/^out-/, '');
+            updates.outDuration = asset.duration || 0.6;
+          }
+          onUpdateClip(targetText.id, {
+            textData: {
+              ...(targetText.textData || { text: 'Metin', fontSize: 54, fontWeight: 'bold', color: '#ffffff' }),
+              ...updates,
             },
           });
           return;
@@ -308,7 +638,14 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
       if (asset.type === 'audio') {
         targetTrackType = 'audio';
         clipType = 'audio';
-      } else if (asset.type === 'title' || asset.type === 'font') {
+      } else if (
+        asset.type === 'title' ||
+        asset.type === 'font' ||
+        asset.category === 'Türkçe Uyumlu Fontlar' ||
+        asset.category === 'Başlık Şablonları' ||
+        asset.category === 'Metin Animasyonları' ||
+        asset.category === 'Metin ve Başlık Şablonları'
+      ) {
         targetTrackType = 'text';
         clipType = 'text';
       } else if (asset.type === 'overlay' || asset.type === 'element') {
@@ -346,12 +683,17 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
       }
 
       // On-demand download fallback if still empty
-      if (!sourceUrl && !asset.isBuiltIn) {
+      if (!sourceUrl && !asset.isBuiltIn && clipType !== 'text') {
         const blob = await assetDownloader.downloadAsset(asset);
         if (blob) {
           sourceUrl = URL.createObjectURL(blob);
         }
       }
+
+      const titleTextData =
+        clipType === 'text'
+          ? createTitleClipTextData(asset)
+          : undefined;
 
       onAddClip(trackId, {
         assetId: asset.id,
@@ -363,29 +705,25 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
         sourceDuration: asset.duration || (clipType === 'image' ? 6.0 : 4.0),
         transform: {
           x: 0,
-          y: 0,
+          y: (asset.style === 'lower-third' || asset.style === 'lowerthird') ? 320 : 0,
           scaleX: 1,
           scaleY: 1,
           rotation: 0,
           opacity: 1,
         },
-        textData:
-          asset.type === 'title' || asset.type === 'font'
-            ? {
-                text: asset.defaultText || asset.localizedName || 'Forma Başlık',
-                fontSize: 54,
-                fontWeight: 'bold',
-                color: '#ffffff',
-                fontFamily: asset.type === 'font' ? asset.name : 'Plus Jakarta Sans',
-              }
-            : undefined,
+        textData: titleTextData,
       });
     },
     [findTrack, getNextClipStartTime, onAddClip, project.tracks, selectedClipId, onUpdateClip, currentTime, onAddTimelineTransition]
   );
 
   // Virtualized calculations
-  const ITEM_HEIGHT = selectedCategory === 'Geçiş Efektleri' ? 168 : 104; // Height of each card row (2 columns = 2 items per row)
+  const isLargePreviewCategory =
+    selectedCategory === 'Geçiş Efektleri' ||
+    selectedCategory === 'Türkçe Uyumlu Fontlar' ||
+    selectedCategory.includes('Başlık') ||
+    selectedCategory.includes('Metin');
+  const ITEM_HEIGHT = isLargePreviewCategory ? 168 : 104; // Height of each card row (2 columns = 2 items per row)
   const COLS = 2;
   const totalRows = Math.ceil(filteredAssets.length / COLS);
   const visibleRowCount = 12;
@@ -396,15 +734,17 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
   const categories = useMemo(() => {
     return [
       { id: 'all', label: 'Tümü' },
+      { id: 'Başlık Şablonları', label: 'Başlıklar (240)', icon: Type },
+      { id: 'Türkçe Uyumlu Fontlar', label: 'Fontlar (160)', icon: FileText },
+      { id: 'Metin Animasyonları', label: 'Metin Animasyonu', icon: Sparkles },
+      { id: 'Metin ve Başlık Şablonları', label: 'MOGRT Şablonları', icon: Type },
+      { id: 'Geçiş Efektleri', label: 'Geçişler (100)', icon: Shuffle },
       { id: 'Ses Efektleri', label: 'Ses Efektleri', icon: Music },
       { id: 'Müzik ve Ambiyans', label: 'Müzik', icon: Music },
       { id: 'Arka Plan Videoları', label: 'B-Roll & Video', icon: Video },
       { id: 'Video Katmanları', label: 'Overlays', icon: Layers },
-      { id: 'Başlık Şablonları', label: 'Başlıklar', icon: Type },
       { id: 'LUT & Renk', label: 'LUT / Renk', icon: Palette },
       { id: 'Şekiller ve Grafikler', label: 'Grafikler', icon: Shapes },
-      { id: 'Türkçe Uyumlu Fontlar', label: 'Fontlar', icon: FileText },
-      { id: 'Geçiş Efektleri', label: 'Geçişler', icon: Shuffle },
     ];
   }, []);
 
@@ -606,14 +946,33 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                       let payloadId = asset.id;
                       if (asset.type === 'video') dragType = 'video';
                       else if (asset.type === 'audio') dragType = 'audio';
-                      else if (asset.type === 'title') dragType = 'title-template';
+                      else if (
+                        asset.type === 'title' ||
+                        asset.category === 'Başlık Şablonları' ||
+                        asset.category === 'Metin ve Başlık Şablonları'
+                      )
+                        dragType = 'title-template';
+                      else if (asset.type === 'font' || asset.category === 'Türkçe Uyumlu Fontlar')
+                        dragType = 'font';
+                      else if (asset.category === 'Metin Animasyonları' || asset.tags?.includes('text-animation'))
+                        dragType = 'text-animation';
                       else if (asset.type === 'overlay') dragType = 'overlay';
                       else if (asset.type === 'element') dragType = 'image';
                       else if (asset.type === 'lut') dragType = 'filter-preset';
-                      else if (asset.type === 'transition' || asset.category === 'Geçiş Efektleri' || asset.id.startsWith('trans-') || asset.id.startsWith('forma-original-transition-')) {
+                      else if (
+                        asset.type === 'transition' ||
+                        asset.category === 'Geçiş Efektleri' ||
+                        asset.id.startsWith('trans-') ||
+                        asset.id.startsWith('forma-original-transition-')
+                      ) {
                         dragType = 'transition';
                         payloadId = resolveTransitionType(asset.id);
                       }
+
+                      const textDataPayload =
+                        dragType === 'title-template' || dragType === 'font' || dragType === 'text-animation'
+                          ? createTitleClipTextData(asset)
+                          : undefined;
 
                       startDrag(
                         {
@@ -625,6 +984,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                           data: {
                             ...asset,
                             colorFilter: asset.id,
+                            textData: textDataPayload,
                           },
                         },
                         e.clientX,
@@ -672,6 +1032,19 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
                   {/* Live Visual Preview for Transitions */}
                   {(asset.type === 'transition' || asset.category === 'Geçiş Efektleri') && (
                     <TransitionAssetPreview assetId={asset.id} />
+                  )}
+
+                  {/* Live Typography Preview for Fonts */}
+                  {(asset.type === 'font' || asset.category === 'Türkçe Uyumlu Fontlar') && (
+                    <FontAssetPreview asset={asset} />
+                  )}
+
+                  {/* Live Visual Preview for Titles & Text Animations */}
+                  {(asset.type === 'title' ||
+                    asset.category === 'Başlık Şablonları' ||
+                    asset.category === 'Metin Animasyonları' ||
+                    asset.category === 'Metin ve Başlık Şablonları') && (
+                    <TitleAssetPreview asset={asset} />
                   )}
 
                   {/* Middle: Badges & Tags */}
