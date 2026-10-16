@@ -188,7 +188,8 @@ export type DragPayloadType =
   | 'video'
   | 'audio'
   | 'image'
-  | 'media';
+  | 'media'
+  | 'font';
 
 export interface DragPayload {
   type: DragPayloadType;

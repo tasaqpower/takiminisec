@@ -59,6 +59,7 @@ export interface CatalogAssetItem {
   fontFamily?: string;
   fontCategory?: string;
   blendMode?: string;
+  metadata?: any;
 }
 
 export interface CatalogFilterOptions {

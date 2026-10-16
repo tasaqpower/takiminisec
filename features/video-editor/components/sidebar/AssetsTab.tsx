@@ -433,7 +433,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({
           rotation: 0,
           opacity: 1,
         },
-        textData: titleTextData,
+        textData: titleTextData as TextLayerData | undefined,
       });
     },
     [findTrack, getNextClipStartTime, onAddClip, project.tracks, selectedClipId, onUpdateClip, currentTime, onAddTimelineTransition]

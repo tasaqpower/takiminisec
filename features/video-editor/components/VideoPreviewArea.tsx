@@ -480,7 +480,7 @@ export const VideoPreviewArea: React.FC<PreviewProps> = ({
               rotation: 0,
               opacity: 1,
             },
-            textData: resolvedTextData,
+            textData: resolvedTextData as TextLayerData,
           });
           if (newClip) onSelectClip?.(newClip.id);
         }

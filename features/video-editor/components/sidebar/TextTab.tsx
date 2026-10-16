@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { VideoProject, VideoClip, TextAnimationSegment, TimelineTransition } from '../../types';
+import { VideoProject, VideoClip, TextAnimationSegment, TimelineTransition, TextLayerData } from '../../types';
 import { assetCatalog, CatalogAssetItem } from '../../engine/assetCatalog';
 import { TEXT_ANIMATION_DEFINITIONS } from '../../engine/textRasterizer';
 import { useEditorDragDrop } from '../../context/DragDropContext';
@@ -164,7 +164,7 @@ export const TextTab: React.FC<TextTabProps> = ({
           rotation: 0,
           opacity: 1,
         },
-        textData,
+        textData: textData as TextLayerData,
       });
       showBanner(`"${asset.localizedName}" zaman çizelgesine eklendi!`);
     } else {

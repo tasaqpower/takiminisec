@@ -10,6 +10,7 @@ import {
   TextAnimationSegment,
   TransitionType,
   ProceduralSfxType,
+  TextLayerData,
 } from '../types';
 import { TRANSITION_DEFINITIONS, resolveTransitionType } from '../engine/transitionEngine';
 import { loadGoogleFont } from '../engine/fontCatalog';
@@ -754,7 +755,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             console.warn('Failed to add SFX on drop:', err);
           }
         }
-      } else if (payload.type === 'title-template' || payload.type === 'font' || payload.type === 'text-animation') {
+      } else if ((payload.type as any) === 'title-template' || (payload.type as any) === 'font' || (payload.type as any) === 'text-animation') {
         const textTrack =
           project.tracks.find((t) => t.id === targetTrackId && t.type === 'text') ||
           project.tracks.find((t) => t.type === 'text') ||
@@ -766,7 +767,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
         );
 
         if (existingTextClip && onUpdateClip) {
-          if (payload.type === 'font') {
+          if ((payload.type as any) === 'font') {
             const fontFam = (payload.data?.fontFamily || payload.data?.textData?.fontFamily || payload.name.replace(/\s+Font$/i, '')).trim();
             loadGoogleFont(fontFam);
             onUpdateClip(existingTextClip.id, {
@@ -777,7 +778,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             });
             onSelectClip?.(existingTextClip.id);
             return;
-          } else if (payload.type === 'text-animation') {
+          } else if ((payload.type as any) === 'text-animation') {
             const animKind = payload.data?.metadata?.animKind || 'in';
             const techId = payload.data?.metadata?.technicalId || payload.id.replace(/^anim-/, '');
             const updates: any = {};
@@ -852,7 +853,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               rotation: 0,
               opacity: 1,
             },
-            textData: resolvedTextData,
+            textData: resolvedTextData as TextLayerData,
           });
           if (newClip) onSelectClip?.(newClip.id);
         }
