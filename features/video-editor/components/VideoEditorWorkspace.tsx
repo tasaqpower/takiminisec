@@ -24,6 +24,7 @@ import { assetCatalog } from '../engine/assetCatalog';
 import { assetPacks } from '../engine/assetPacks';
 import { speechRecognitionEngine } from '../engine/speechRecognitionEngine';
 import { inBrowserWhisperEngine } from '../engine/whisperTranscriber';
+import { ELEMENT_PRESETS, createSvgDataUrl } from '../data/elementPresets';
 import '../theme/video-editor.css';
 
 interface WorkspaceProps {
@@ -210,6 +211,8 @@ export const VideoEditorWorkspace: React.FC<WorkspaceProps> = ({ onNavigateHome 
         assetPacks,
         speechRecognitionEngine,
         inBrowserWhisperEngine,
+        elementPresets: ELEMENT_PRESETS,
+        createSvgDataUrl,
       };
       (window as any).__audioMixer = audioMixer;
     } else if (typeof window !== 'undefined' && (window as any).__formaEditor) {

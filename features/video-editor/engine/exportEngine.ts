@@ -3,6 +3,7 @@ import { renderFrameToCanvas, clearLipFreezeCache, clearSmoothCutCache, clearMot
 import { audioMixer } from './audioMixer';
 import { getAssetBlob } from '../db';
 import { loadAndCacheCubeLut } from './filterEngine';
+import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
 
 export interface ExportProgress {
   percent: number;
@@ -138,7 +139,18 @@ class ExportEngine {
       for (const clip of track.clips) {
         if (clip.type === 'video' || clip.type === 'image') {
           let url = clip.sourceUrl;
-          if (clip.assetId) {
+
+          // 1. Direct SVG resolution for element stickers, badges and overlays
+          if (clip.svgContent) {
+            url = createSvgDataUrl(clip.svgContent);
+          } else if (clip.assetId?.startsWith('element-') || clip.elementPresetId) {
+            const svg = getElementSvg(clip.elementPresetId || clip.assetId);
+            if (svg) {
+              url = createSvgDataUrl(svg);
+            }
+          }
+
+          if (!url && clip.assetId) {
             const blob = await getAssetBlob(clip.assetId);
             if (blob) {
               url = URL.createObjectURL(blob);
@@ -155,7 +167,12 @@ class ExportEngine {
               url = `/video-assets/overlays/${name}.svg`;
             } else if (clip.assetId.startsWith('element-')) {
               const name = clip.assetId.replace('element-', '');
-              url = `/video-assets/elements/${name}.svg`;
+              const svg = getElementSvg(name) || getElementSvg(clip.assetId);
+              if (svg) {
+                url = createSvgDataUrl(svg);
+              } else {
+                url = `/video-assets/elements/${name}.svg`;
+              }
             }
           }
 
@@ -202,9 +219,13 @@ class ExportEngine {
               if (clip.assetId) elements.set(clip.assetId, video);
             } else {
               const img = new Image();
-              img.crossOrigin = 'anonymous';
+              // Only apply crossOrigin for external http(s) URLs; never for data: or blob:
+              if (url.startsWith('http://') || url.startsWith('https://')) {
+                img.crossOrigin = 'anonymous';
+              }
               img.src = url;
               await new Promise<void>((res) => {
+                if (img.complete && img.naturalWidth > 0) return res();
                 img.onload = () => res();
                 img.onerror = () => res();
                 setTimeout(res, 2000);

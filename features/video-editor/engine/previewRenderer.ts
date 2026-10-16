@@ -19,6 +19,7 @@ import {
 import { computeTransitionState, TransitionState } from './transitionEngine';
 import { renderTextLayer } from './textRasterizer';
 import { calculateClipBounds } from './clipBounds';
+import { getElementSvg, createSvgDataUrl } from '../data/elementPresets';
 
 export interface RenderContext {
   canvas: HTMLCanvasElement;
@@ -667,10 +668,8 @@ export function renderScene(renderCtx: RenderContext): void {
 
   // 2. Render Tracks (Bottom layer to Top layer)
   // Audio tracks have no visual representation and are skipped.
-  // Video & Image tracks are base layers (drawn first).
-  // Text & Subtitle tracks are overlay layers (drawn on top of video/image).
-  // Within each group, tracks that appear lower in the timeline UI (higher index) are drawn first,
-  // so the topmost track in the timeline UI appears on the very top of the scene.
+  // Video & Image base tracks are drawn first.
+  // Secondary overlay/sticker tracks and Text/Subtitle tracks are drawn on top.
   const tracksToRender = [...project.tracks]
     .filter((t) => !t.muted && t.visible !== false && t.type !== 'audio')
     .sort((a, b) => {
@@ -678,9 +677,29 @@ export function renderScene(renderCtx: RenderContext): void {
       const isOverlayB = b.type === 'text' || b.type === 'subtitle';
       if (!isOverlayA && isOverlayB) return -1;
       if (isOverlayA && !isOverlayB) return 1;
+
+      // Overlay/sticker/element tracks must ALWAYS render on top of base video
+      const isStickersA = Boolean(
+        a.name?.toLowerCase().includes('öğe') ||
+        a.name?.toLowerCase().includes('çıkartma') ||
+        a.name?.toLowerCase().includes('sticker') ||
+        a.name?.toLowerCase().includes('overlay') ||
+        a.name?.toLowerCase().includes('katman')
+      );
+      const isStickersB = Boolean(
+        b.name?.toLowerCase().includes('öğe') ||
+        b.name?.toLowerCase().includes('çıkartma') ||
+        b.name?.toLowerCase().includes('sticker') ||
+        b.name?.toLowerCase().includes('overlay') ||
+        b.name?.toLowerCase().includes('katman')
+      );
+      if (isStickersA && !isStickersB) return 1; // A drawn after B (on top)
+      if (!isStickersA && isStickersB) return -1; // B drawn after A (on top)
+
       const idxA = project.tracks.indexOf(a);
       const idxB = project.tracks.indexOf(b);
-      return idxB - idxA;
+      // Base video track (index 0) drawn first, higher tracks drawn on top
+      return idxA - idxB;
     });
 
   for (const track of tracksToRender) {
@@ -1448,7 +1467,21 @@ export function renderScene(renderCtx: RenderContext): void {
           }
       } else if (clip.type === 'image') {
         try {
-          const img = imageElements.get(clip.assetId || '') || imageElements.get(clip.id);
+          let img = imageElements.get(clip.assetId || '') || imageElements.get(clip.id);
+          if (!img && (clip.svgContent || clip.assetId?.startsWith('element-') || clip.elementPresetId)) {
+            const cached = elementCache.get(clip.id);
+            if (cached instanceof HTMLImageElement && cached.complete && cached.naturalWidth > 0) {
+              img = cached;
+            } else {
+              const svg = clip.svgContent || getElementSvg(clip.elementPresetId || clip.assetId);
+              if (svg) {
+                const instantImg = new Image();
+                instantImg.src = createSvgDataUrl(svg);
+                elementCache.set(clip.id, instantImg);
+                img = instantImg;
+              }
+            }
+          }
           const hasValidImg = Boolean(img && img.complete && img.naturalWidth > 0);
           ctx.save();
           ctx.globalAlpha = Math.max(0, Math.min(1, currentOpacity));
@@ -2116,11 +2149,23 @@ export async function renderFrameToCanvas(
         // Isolate video element per clip instance so split clips never contend or fight over seeking/playback
         let elem =
           preloadedElements?.get(clip.id) ||
+          preloadedElements?.get(clip.assetId || '') ||
           elementCache.get(clip.id);
 
-        if (!elem && (clip.sourceUrl || clip.assetId)) {
+        if (!elem && (clip.sourceUrl || clip.assetId || clip.svgContent || clip.elementPresetId)) {
           let url = clip.sourceUrl;
-          if (clip.assetId) {
+
+          // 1. Direct SVG resolution for element stickers, badges and overlays
+          if (clip.svgContent) {
+            url = createSvgDataUrl(clip.svgContent);
+          } else if (clip.assetId?.startsWith('element-') || clip.elementPresetId) {
+            const svg = getElementSvg(clip.elementPresetId || clip.assetId);
+            if (svg) {
+              url = createSvgDataUrl(svg);
+            }
+          }
+
+          if (!url && clip.assetId) {
             try {
               const { getAssetBlob } = await import('../db');
               const blob = await getAssetBlob(clip.assetId);
@@ -2140,7 +2185,12 @@ export async function renderFrameToCanvas(
               url = `/video-assets/overlays/${name}.svg`;
             } else if (clip.assetId.startsWith('element-')) {
               const name = clip.assetId.replace('element-', '');
-              url = `/video-assets/elements/${name}.svg`;
+              const svg = getElementSvg(name) || getElementSvg(clip.assetId);
+              if (svg) {
+                url = createSvgDataUrl(svg);
+              } else {
+                url = `/video-assets/elements/${name}.svg`;
+              }
             }
           }
 
@@ -2203,15 +2253,30 @@ export async function renderFrameToCanvas(
               }
             } else if (clip.type === 'image') {
               const img = new Image();
-              img.crossOrigin = 'anonymous';
+              // Only apply crossOrigin for external http(s) URLs; never for data: or blob:
+              if (url.startsWith('http://') || url.startsWith('https://')) {
+                img.crossOrigin = 'anonymous';
+              }
               img.src = url;
               elementCache.set(clip.id, img);
               elem = img;
-              if (!img.complete) {
+              if (!img.complete || img.naturalWidth === 0) {
                 await new Promise<void>((resolve) => {
-                  img.onload = () => resolve();
-                  img.onerror = () => resolve();
-                  setTimeout(resolve, 350);
+                  let resolved = false;
+                  const done = () => {
+                    if (!resolved) {
+                      resolved = true;
+                      resolve();
+                    }
+                  };
+                  img.onload = done;
+                  img.onerror = done;
+                  if (img.complete && img.naturalWidth > 0) {
+                    done();
+                  } else if (typeof img.decode === 'function') {
+                    img.decode().then(done).catch(done);
+                  }
+                  setTimeout(done, 500);
                 });
               }
             }
@@ -2315,6 +2380,12 @@ export async function renderFrameToCanvas(
     }
   }
 
+  const needsScale = canvas.width !== project.resolution.width || canvas.height !== project.resolution.height;
+  if (needsScale) {
+    ctx.save();
+    ctx.scale(canvas.width / project.resolution.width, canvas.height / project.resolution.height);
+  }
+
   renderScene({
     canvas,
     ctx,
@@ -2326,7 +2397,12 @@ export async function renderFrameToCanvas(
     showSafeZones: false,
     isPlaying,
     playbackRate,
+    isExport,
   });
+
+  if (needsScale) {
+    ctx.restore();
+  }
 }
 
 /**

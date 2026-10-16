@@ -452,6 +452,10 @@ export interface VideoClip {
   smoothCutDurationMs?: number; // Jump-cut harmanlama süresi (varsayılan: 160ms)
   keyframes?: Keyframe[];
 
+  // Vector SVG Elements & Stickers
+  svgContent?: string;
+  elementPresetId?: string;
+
   // Text
   textData?: TextLayerData;
   animationSegments?: TextAnimationSegment[];

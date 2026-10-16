@@ -812,27 +812,43 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
             (payload.data?.blob ? URL.createObjectURL(payload.data.blob) : undefined);
 
           let assetId = payload.id;
-          if (!sourceUrl && payload.data?.svg) {
+          const svgContent = payload.data?.svgContent || payload.data?.svg;
+          if (svgContent && !sourceUrl) {
+            sourceUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+          }
+
+          if (svgContent) {
             try {
-              const svgBlob = new Blob([payload.data.svg], { type: 'image/svg+xml;charset=utf-8' });
+              const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
               assetId = 'element-' + (payload.id || 'svg') + '-' + Date.now();
               await saveAssetBlob(assetId, svgBlob);
-              sourceUrl = URL.createObjectURL(svgBlob);
             } catch (err) {
               console.warn('Failed to save dropped SVG blob:', err);
             }
           }
 
+          const defaultScale = payload.data?.defaultScale ?? (payload.type === 'image' ? 0.35 : 1);
+
           const newClip = onAddClip(targetTrack.id, {
             assetId,
+            elementPresetId: payload.data?.elementPresetId || payload.id,
+            svgContent,
             name: payload.name,
             type: payload.type,
             sourceUrl,
             startTime: dropTime,
-            duration: payload.duration || (payload.type === 'image' ? 4 : 5),
-            sourceDuration: payload.duration || (payload.type === 'image' ? 4 : 5),
+            duration: payload.duration || (payload.type === 'image' ? 3 : 5),
+            sourceDuration: payload.duration || (payload.type === 'image' ? 3 : 5),
             trimIn: 0,
-            trimOut: payload.duration || (payload.type === 'image' ? 4 : 5),
+            trimOut: payload.duration || (payload.type === 'image' ? 3 : 5),
+            transform: {
+              x: 0,
+              y: 0,
+              scaleX: defaultScale,
+              scaleY: defaultScale,
+              rotation: 0,
+              opacity: 1,
+            },
           });
           if (newClip) onSelectClip?.(newClip.id);
         }
