@@ -27,24 +27,30 @@ export async function extract16kMonoPcm(
   onProgress?: (pct: number, status: string) => void
 ): Promise<{ pcm: Float32Array; duration: number }> {
   onProgress?.(5, 'Ses tamponu (AudioBuffer) okunuyor...');
-  const buffer = await audioMixer.getAudioBuffer(clip);
+  let buffer: AudioBuffer | null = null;
+  try {
+    buffer = await audioMixer.getAudioBuffer(clip);
+  } catch (err) {
+    console.warn('[Whisper] Failed to get AudioBuffer:', err);
+  }
+
   if (!buffer || buffer.length === 0) {
     return { pcm: new Float32Array(0), duration: 0 };
   }
 
-  const speed = clip.speed || 1.0;
-  const trimIn = clip.trimIn ?? 0;
-  const clipDuration = clip.duration;
-  const sourceDuration = Math.min(buffer.duration - trimIn, clipDuration * speed);
+  const speed = Math.max(0.1, clip.speed || 1.0);
+  const trimIn = Math.max(0, clip.trimIn ?? 0);
+  const clipDuration = Math.max(0.1, clip.duration || 1.0);
+  const sourceDuration = Math.max(0.1, Math.min(buffer.duration - trimIn, clipDuration * speed));
 
   if (sourceDuration <= 0) {
     return { pcm: new Float32Array(0), duration: 0 };
   }
 
   const targetSampleRate = 16000;
-  const targetLength = Math.max(1, Math.ceil(sourceDuration * targetSampleRate));
+  const targetLength = Math.max(160, Math.ceil(sourceDuration * targetSampleRate));
 
-  // High-fidelity sinc/FIR downmixing via OfflineAudioContext in browser
+  // High-fidelity downmixing via OfflineAudioContext in browser
   if (typeof window !== 'undefined' && (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)) {
     try {
       const OfflineCtxClass = window.OfflineAudioContext || (window as any).webkitOfflineAudioContext;
@@ -54,11 +60,16 @@ export async function extract16kMonoPcm(
       source.buffer = buffer;
       source.playbackRate.value = speed;
       source.connect(offlineCtx.destination);
-      source.start(0, trimIn, sourceDuration);
+      source.start(0, Math.min(trimIn, Math.max(0, buffer.duration - 0.05)), sourceDuration);
 
       const renderedBuffer = await offlineCtx.startRendering();
       const pcmData = renderedBuffer.getChannelData(0);
-      return { pcm: pcmData, duration: sourceDuration };
+      const cleanPcm = new Float32Array(pcmData.length);
+      for (let i = 0; i < pcmData.length; i++) {
+        const val = pcmData[i];
+        cleanPcm[i] = Number.isFinite(val) ? Math.max(-1, Math.min(1, val)) : 0;
+      }
+      return { pcm: cleanPcm, duration: sourceDuration };
     } catch (e) {
       console.warn('[Whisper] OfflineAudioContext resampling fallback:', e);
     }
@@ -71,7 +82,7 @@ export async function extract16kMonoPcm(
   const rawSlice = channelData.subarray(startSample, endSample);
 
   const ratio = buffer.sampleRate / targetSampleRate;
-  const outSamples = Math.floor(rawSlice.length / ratio);
+  const outSamples = Math.max(160, Math.floor(rawSlice.length / ratio));
   const pcm = new Float32Array(outSamples);
 
   for (let i = 0; i < outSamples; i++) {
@@ -79,7 +90,8 @@ export async function extract16kMonoPcm(
     const i1 = Math.floor(origIdx);
     const i2 = Math.min(rawSlice.length - 1, i1 + 1);
     const frac = origIdx - i1;
-    pcm[i] = rawSlice[i1] * (1 - frac) + rawSlice[i2] * frac;
+    const val = rawSlice[i1] * (1 - frac) + rawSlice[i2] * frac;
+    pcm[i] = Number.isFinite(val) ? Math.max(-1, Math.min(1, val)) : 0;
   }
 
   return { pcm, duration: sourceDuration };
@@ -98,30 +110,35 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
       throw new Error('Whisper in-browser pipeline can only run in client-side browser environment.');
     }
 
-    onProgress?.(15, 'Yapay zeka ses motoru (Transformers.js) başlatılıyor...');
+    onProgress?.(15, 'Yapay zeka ses motoru (Transformers.js) hazırlanıyor...');
     const { pipeline, env } = await import('@huggingface/transformers');
 
-    // Configure Transformers.js to use browser Cache API without local backend
+    // Safe environment settings for browser WASM
     env.allowLocalModels = false;
     env.useBrowserCache = true;
 
-    // Check WebGPU availability
-    const hasWebGpu = Boolean(typeof navigator !== 'undefined' && (navigator as any).gpu);
-    const device = hasWebGpu ? 'webgpu' : 'wasm';
+    if (env.backends?.onnx?.wasm) {
+      env.backends.onnx.wasm.proxy = false; // No proxy worker (avoids script URL resolution failure)
+      env.backends.onnx.wasm.numThreads = 1; // Single thread (avoids SharedArrayBuffer requirement)
+      if (!env.backends.onnx.wasm.wasmPaths) {
+        env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+      }
+    }
 
-    onProgress?.(25, `Yapay zeka modeli hazırlanıyor (${device.toUpperCase()})...`);
+    // Default to WASM for maximum cross-device stability
+    onProgress?.(25, 'Yapay zeka modeli hazırlanıyor (WASM)...');
 
     try {
       const transcriber = await pipeline(
         'automatic-speech-recognition',
         'onnx-community/whisper-tiny',
         {
-          dtype: 'q8', // Quantized q8 is ~39MB, blazing fast on both WebGPU and WASM
-          device,
+          dtype: 'q8',
+          device: 'wasm',
           progress_callback: (info: any) => {
             if (info && info.status === 'progress' && typeof info.progress === 'number') {
               const fileProgress = Math.round(info.progress);
-              const mapped = 25 + Math.round(fileProgress * 0.45); // 25% -> 70%
+              const mapped = 25 + Math.round(fileProgress * 0.45);
               onProgress?.(
                 mapped,
                 `Yapay Zeka Ses Modeli İndiriliyor / Önbelleğe Alınıyor: %${fileProgress}...`
@@ -153,12 +170,17 @@ async function getWhisperPipeline(onProgress?: WhisperProgressCallback): Promise
     }
   })();
 
+  whisperPipelinePromise.catch((err) => {
+    console.warn('[Whisper] Pipeline initialization error caught, resetting singleton:', err);
+    whisperPipelinePromise = null;
+  });
+
   return whisperPipelinePromise;
 }
 
 export class InBrowserWhisperEngine {
   /**
-   * Transcribes raw 16kHz Float32Array PCM using local Whisper WASM/WebGPU.
+   * Transcribes raw 16kHz Float32Array PCM using local Whisper WASM.
    */
   public async transcribePcm(
     pcm16k: Float32Array,
@@ -172,12 +194,24 @@ export class InBrowserWhisperEngine {
     chunks: Array<{ text: string; timestamp: [number, number] }>;
   }> {
     const language = options.language || 'turkish';
-    const transcriber = await getWhisperPipeline(options.onProgress);
 
+    if (!pcm16k || pcm16k.length === 0) {
+      return { text: '', words: [], chunks: [] };
+    }
+
+    // Ensure PCM has at least 1600 samples (0.1s) and no NaN/Inf
+    const minSamples = Math.max(1600, pcm16k.length);
+    const cleanPcm = new Float32Array(minSamples);
+    for (let i = 0; i < pcm16k.length; i++) {
+      const val = pcm16k[i];
+      cleanPcm[i] = Number.isFinite(val) ? Math.max(-1, Math.min(1, val)) : 0;
+    }
+
+    const transcriber = await getWhisperPipeline(options.onProgress);
     options.onProgress?.(72, 'Ses çözümleniyor (Whisper Neural Decoder)...');
 
     // Run Whisper inference
-    const output = await transcriber(pcm16k, {
+    const output = await transcriber(cleanPcm, {
       language,
       task: 'transcribe',
       return_timestamps: 'word',
@@ -241,23 +275,24 @@ export class InBrowserWhisperEngine {
       onProgress?: WhisperProgressCallback;
     } = {}
   ): Promise<SpeechTranscriptionResult> {
-    const { pcm, duration } = await extract16kMonoPcm(clip, options.onProgress);
-    if (pcm.length === 0) {
-      return {
-        segments: [],
-        fullText: '',
-        totalDuration: clip.duration,
-        speechDuration: 0,
-        silenceDuration: clip.duration,
-      };
-    }
+    try {
+      const { pcm, duration } = await extract16kMonoPcm(clip, options.onProgress);
+      if (pcm.length === 0) {
+        return {
+          segments: [],
+          fullText: '',
+          totalDuration: clip.duration,
+          speechDuration: 0,
+          silenceDuration: clip.duration,
+        };
+      }
 
-    options.onProgress?.(15, `${(pcm.length / 16000).toFixed(1)} saniye ses hazırlandı, Whisper modeli yükleniyor...`);
+      options.onProgress?.(15, `${(pcm.length / 16000).toFixed(1)} saniye ses hazırlandı, Whisper modeli yükleniyor...`);
 
-    const { text, words } = await this.transcribePcm(pcm, {
-      language: options.language || 'turkish',
-      onProgress: options.onProgress,
-    });
+      const { text, words } = await this.transcribePcm(pcm, {
+        language: options.language || 'turkish',
+        onProgress: options.onProgress,
+      });
 
     options.onProgress?.(96, 'Konuşma segmentleri ve cümle yapıları oluşturuluyor...');
 
@@ -314,7 +349,19 @@ export class InBrowserWhisperEngine {
       speechDuration: parseFloat(speechDuration.toFixed(3)),
       silenceDuration: parseFloat(silenceDuration.toFixed(3)),
     };
+  } catch (err) {
+    console.warn('[Whisper] transcribeClip caught error, returning fallback:', err);
+    return {
+      segments: [],
+      fullText: '',
+      totalDuration: clip.duration,
+      speechDuration: 0,
+      silenceDuration: clip.duration,
+    };
   }
+}
 }
 
 export const inBrowserWhisperEngine = new InBrowserWhisperEngine();
+
+

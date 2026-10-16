@@ -193,6 +193,17 @@ async function runTortureTest() {
     await cdp.send('Page.navigate', { url: serverUrl });
     await new Promise((r) => setTimeout(r, 4500));
 
+    // If auto-recovery dialog is present from previous runs, dismiss it for a clean workspace
+    await cdp.eval(`
+      (() => {
+        const dismissBtn = Array.from(document.querySelectorAll('button')).find(b =>
+          b.innerText && (b.innerText.includes('Sil & Yeni Proje') || b.innerText.includes('Yeni Proje Başlat'))
+        );
+        if (dismissBtn) dismissBtn.click();
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 600));
+
     // =========================================================================
     // 🧪 TEST 1: Son 4 UI İyileştirmesinin Sayısal DOM Kanıtı
     // =========================================================================
@@ -475,8 +486,10 @@ async function runTortureTest() {
         if (dupsTabBtn) dupsTabBtn.click();
         if (docTabBtn) docTabBtn.click();
 
-        // Load demo speech
-        if (loadDemoBtn) loadDemoBtn.click();
+        // ACTUALLY CLICK "🎙️ Whisper AI ile Konuşmayı Çözümle" button (Real Click, No Demo Button Cheat)
+        if (startTransBtn) {
+          startTransBtn.click();
+        }
 
         return {
           hasDocTab,
@@ -489,21 +502,56 @@ async function runTortureTest() {
         };
       })()
     `);
-    await new Promise((r) => setTimeout(r, 400));
 
-    const checkDemoWords = await cdp.eval(`
-      (() => {
-        const hasDemoWords = Array.from(document.querySelectorAll('*')).some(el =>
-          el.innerText && el.innerText.includes('Herkese')
-        );
-        return { hasDemoWords };
-      })()
-    `);
+    // Poll until transcription finishes and speech segments/words appear in the DOM
+    console.log('   Waiting for Whisper AI / Acoustic PCM transcription to complete...');
+    let transcriptionFinished = false;
+    let transcriptionState = null;
+    const transDeadline = Date.now() + 15000;
+
+    while (Date.now() < transDeadline) {
+      await new Promise((r) => setTimeout(r, 500));
+      transcriptionState = await cdp.eval(`
+        (() => {
+          const banner = document.querySelector('[data-testid="subtitles-status-banner"]');
+          const bannerText = banner ? banner.innerText : '';
+          const hasError = bannerText.toLowerCase().includes('hata');
+          const emptyCard = Array.from(document.querySelectorAll('*')).some(el =>
+            el.innerText && el.innerText.includes('Konuşma Metni Henüz Çıkarılmadı')
+          );
+          const wordElements = document.querySelectorAll('[data-testid^="word-"]');
+          const badge = document.querySelector('[data-testid="transcript-word-count-badge"]');
+          const segmentElements = document.querySelectorAll('[data-testid^="speech-segment-"]');
+          const isTranscribing = !!document.querySelector('[data-testid="subtitles-transcribe-progress"]');
+
+          // Check if speech segments or words are populated
+          const hasWords = wordElements.length > 0 || segmentElements.length > 0 || !!badge;
+
+          return {
+            isTranscribing,
+            hasError,
+            bannerText,
+            hasEmptyCard: emptyCard,
+            renderedWordsCount: wordElements.length,
+            segmentsFound: segmentElements.length,
+            badgeFound: !!badge,
+            isDone: !isTranscribing && hasWords && !emptyCard,
+          };
+        })()
+      `);
+
+      if (transcriptionState && transcriptionState.isDone) {
+        transcriptionFinished = true;
+        break;
+      }
+    }
+
     console.log(`[DOM-1F4] SubtitlesTab Descript Metin Kurgu: docTab = ${subtitlesTabResult.hasDocTab}, dupsTab = ${subtitlesTabResult.hasDupsTab}, srtTab = ${subtitlesTabResult.hasSrtTab}`);
-    console.log(`[DOM-1F5] Whisper AI Transcribe Button: ${subtitlesTabResult.hasStartTransBtn}, In-Browser Whisper Engine: ${subtitlesTabResult.hasWhisperEngine}`);
-    console.log(`[DOM-1F5b] Demo Speech Loaded into Descript Text Editor: ${checkDemoWords.hasDemoWords}`);
-    if (!subtitlesTabResult.hasDocTab || !subtitlesTabResult.hasWhisperEngine || !checkDemoWords.hasDemoWords) {
-      throw new Error('TEST 1F4/1F5 FAILED: Descript Metin Kurgu tab or Whisper engine verification failed!');
+    console.log(`[DOM-1F5] Whisper AI Transcribe Button REAL CLICK: startTransBtn = ${subtitlesTabResult.hasStartTransBtn}, In-Browser Whisper Engine = ${subtitlesTabResult.hasWhisperEngine}`);
+    console.log(`[DOM-1F5b] Real Transcription Finished: isDone = ${transcriptionFinished}, hasError = ${transcriptionState?.hasError}, emptyCard = ${transcriptionState?.hasEmptyCard}, wordsCount = ${transcriptionState?.renderedWordsCount}, banner = "${transcriptionState?.bannerText}"`);
+
+    if (!subtitlesTabResult.hasDocTab || !subtitlesTabResult.hasWhisperEngine || !transcriptionFinished || transcriptionState?.hasError || transcriptionState?.hasEmptyCard) {
+      throw new Error(`TEST 1F4/1F5 FAILED: Real Whisper transcription failed or produced an error! (hasError: ${transcriptionState?.hasError}, hasEmptyCard: ${transcriptionState?.hasEmptyCard}, banner: ${transcriptionState?.bannerText})`);
     }
 
     // 3. Test VideoPropertiesPanel Lip-Sync -50ms/+50ms buttons
