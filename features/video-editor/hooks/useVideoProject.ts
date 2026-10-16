@@ -660,13 +660,16 @@ export function useVideoProject() {
         const rightClip: VideoClip = {
           ...targetClip,
           id: 'clip-' + Math.random().toString(36).substring(2, 9),
-          name: `${targetClip.name} (Bölüm 2)`,
+          name: targetClip.name,
           startTime: effectiveSplit,
           duration: rightDuration,
           trimIn: rightTrimIn,
           trimOut: rightTrimOut,
           transitionIn: undefined, // Clear entry transition on split edge
         };
+
+        // Immediately inherit decoded frame and element from targetClip
+        copyCachedFrame(targetClip.id, rightClip.id);
 
         result = { leftClip, rightClip };
 

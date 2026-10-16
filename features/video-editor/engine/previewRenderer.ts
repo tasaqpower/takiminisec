@@ -183,6 +183,10 @@ export function copyCachedFrame(fromClipId: string, toClipId: string): void {
       lastFrameCanvasCache.set(toClipId, copy);
     }
   }
+  const elem = elementCache.get(fromClipId);
+  if (elem) {
+    elementCache.set(toClipId, elem);
+  }
 }
 
 /**
@@ -462,8 +466,9 @@ function renderProceduralClipInner(
   dh: number,
   currentTime = 0
 ): void {
-  const isKlipA = /440|[kc]lip[-_ ]?a|^a$/i.test(clip.name || clip.id);
-  const isKlipB = /880|[kc]lip[-_ ]?b|^b$/i.test(clip.name || clip.id);
+  const hasRealMedia = Boolean(clip.sourceUrl || clip.assetId || (clip as any).filePath || (clip as any).file);
+  const isKlipA = !hasRealMedia && /440|[kc]lip[-_ ]?a|^a$/i.test(clip.name || clip.id);
+  const isKlipB = !hasRealMedia && /880|[kc]lip[-_ ]?b|^b$/i.test(clip.name || clip.id);
   const t = currentTime || 0;
 
   ctx.save();
@@ -684,7 +689,7 @@ function renderProceduralClipInner(
     if (isElement) {
       drawVectorElementFallback(ctx, clip, dw, dh);
     } else {
-      const isTestClip = /440|[kc]lip[-_ ]?[ab]|^[ab]$/i.test(clip.name || clip.id);
+      const isTestClip = !hasRealMedia && /^(?:440|880|[kc]lip[-_ ]?[ab])$/i.test((clip.name || '').trim());
       if (isTestClip) {
         const hash = (clip.id || clip.name || 'clip').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
         const hue = (hash * 137) % 360;
@@ -1484,8 +1489,30 @@ export function renderScene(renderCtx: RenderContext): void {
               // Frame retention fallback: video is seeking, buffering or decoding
               drawMediaWithLut(ctx, cachedCanvas, -dw / 2, -dh / 2, dw, dh, clip);
             } else {
-              // Procedural / test clip fallback
-              drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+              // Check sibling clips sharing the same media source for an immediate retained frame
+              let siblingCanvas: HTMLCanvasElement | null = null;
+              if (clip.sourceUrl || (clip as any).filePath || clip.assetId) {
+                for (const t of project.tracks) {
+                  for (const c of t.clips) {
+                    if (c.id !== clip.id && (c.sourceUrl === clip.sourceUrl || (c.assetId && c.assetId === clip.assetId))) {
+                      const sibling = lastFrameCanvasCache.get(c.id);
+                      if (sibling) {
+                        siblingCanvas = sibling;
+                        break;
+                      }
+                    }
+                  }
+                  if (siblingCanvas) break;
+                }
+              }
+
+              if (siblingCanvas) {
+                lastFrameCanvasCache.set(clip.id, siblingCanvas);
+                drawMediaWithLut(ctx, siblingCanvas, -dw / 2, -dh / 2, dw, dh, clip);
+              } else if (!clip.sourceUrl && !(clip as any).filePath && !(clip as any).file && !clip.assetId) {
+                // Procedural / test clip fallback ONLY for clips without real media files
+                drawProceduralClipContent(ctx, clip, dw, dh, currentTime);
+              }
             }
 
             // Smooth Jump-Cut / Micro Frame Blend:
