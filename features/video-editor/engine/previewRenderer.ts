@@ -100,6 +100,49 @@ export function isVideoFrameReady(video: HTMLVideoElement | null | undefined): b
 }
 
 /**
+ * Robust frame-accurate seek helper for offline export & frame rendering.
+ * Waits for the exact target frame to be decoded by the browser before proceeding.
+ */
+export function seekVideoFrame(video: HTMLVideoElement, targetTime: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const maxDur = video.duration || 999999;
+    const clampedTime = Math.max(0, Math.min(maxDur - 0.001, targetTime));
+
+    if (
+      Math.abs(video.currentTime - clampedTime) < 0.005 &&
+      !video.seeking &&
+      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+    ) {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        video.removeEventListener('seeked', finish);
+        video.removeEventListener('error', finish);
+        resolve();
+      }
+    };
+
+    // Safety timeout in case browser hangs or media source reaches end
+    const timer = setTimeout(finish, 50);
+
+    video.addEventListener('seeked', finish, { once: true });
+    video.addEventListener('error', finish, { once: true });
+
+    try {
+      video.currentTime = clampedTime;
+    } catch {
+      finish();
+    }
+  });
+}
+
+/**
  * Universal safe rounded rectangle renderer with robust fallbacks
  */
 function safeRoundRect(
@@ -1972,7 +2015,8 @@ export async function renderFrameToCanvas(
   selectedClipIdOrShowGizmo?: string | boolean | null,
   isPlaying = false,
   preloadedElements?: Map<string, HTMLVideoElement | HTMLImageElement>,
-  playbackRate = 1.0
+  playbackRate = 1.0,
+  isExport = false
 ): Promise<void> {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -2172,7 +2216,28 @@ export async function renderFrameToCanvas(
               clipRelSec = frozenTime;
             }
 
-            if (isPlaying && playbackRate > 0) {
+            if (isExport) {
+              if (!elem.paused) {
+                try { elem.pause(); } catch {}
+              }
+              if (Math.abs(elem.currentTime - clipRelSec) > 0.005) {
+                await seekVideoFrame(elem, clipRelSec);
+              }
+              // Immediately sync freshly decoded video frame to lastFrameCanvasCache
+              if (elem.videoWidth > 0 && elem.videoHeight > 0) {
+                let off = lastFrameCanvasCache.get(clip.id);
+                if (!off || off.width !== elem.videoWidth || off.height !== elem.videoHeight) {
+                  off = document.createElement('canvas');
+                  off.width = elem.videoWidth;
+                  off.height = elem.videoHeight;
+                  lastFrameCanvasCache.set(clip.id, off);
+                }
+                const offCtx = off.getContext('2d');
+                if (offCtx) {
+                  offCtx.drawImage(elem, 0, 0);
+                }
+              }
+            } else if (isPlaying && playbackRate > 0) {
               const targetSpeed = (clip.speed || 1.0) * playbackRate;
               if (elem.paused) {
                 if (Math.abs(elem.currentTime - clipRelSec) > 0.08) {

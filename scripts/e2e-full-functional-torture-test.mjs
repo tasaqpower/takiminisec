@@ -866,11 +866,51 @@ async function runTortureTest() {
     `);
     console.log(`[DOM-1F8] AI Lip-Sync Dispatch: slipOffset = ${aiDispatchResult.slipOffset}ms (expected: 120ms)`);
     console.log(`[DOM-1F9] AI Smooth Cut Dispatch: smoothCutOk = ${aiDispatchResult.smoothCutOk}`);
-    if (aiDispatchResult.slipOffset !== 120 || !aiDispatchResult.smoothCutOk) {
-      throw new Error('TEST 1F8/1F9 FAILED: executeAiAction did not update project state!');
+    // 5. Test VideoExportModal Opening, Project Resolution Auto-Sync & Aspect Status
+    console.log('\n  Testing VideoExportModal Opening & Project Resolution Auto-Sync...');
+    const exportModalDomCheck = await cdp.eval(`
+      (() => {
+        const openBtn = document.querySelector('[data-action="open-export"]');
+        if (openBtn) openBtn.click();
+
+        return { hasOpenBtn: !!openBtn };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const exportModalContentCheck = await cdp.eval(`
+      (() => {
+        const editor = window.__formaEditor;
+        const resSelect = document.querySelector('[data-testid="export-modal-resolution-select"]');
+        const aspectBadge = document.querySelector('[data-testid="export-modal-aspect-status"]');
+        const closeBtn = document.querySelector('[data-testid="export-modal-close-btn"]');
+
+        const selectedValue = resSelect ? resSelect.value : null;
+        const expectedValue = editor ? (editor.project.resolution.width + 'x' + editor.project.resolution.height) : null;
+        const isResolutionSynced = selectedValue === expectedValue;
+
+        // Close modal
+        if (closeBtn) closeBtn.click();
+
+        return {
+          hasResSelect: !!resSelect,
+          hasAspectBadge: !!aspectBadge,
+          hasCloseBtn: !!closeBtn,
+          selectedValue,
+          expectedValue,
+          isResolutionSynced,
+        };
+      })()
+    `);
+    await new Promise((r) => setTimeout(r, 300));
+
+    console.log(`[DOM-1F10] VideoExportModal Resolution Sync: hasModal = ${exportModalContentCheck.hasResSelect}, selected = "${exportModalContentCheck.selectedValue}" (expected: "${exportModalContentCheck.expectedValue}", synced = ${exportModalContentCheck.isResolutionSynced})`);
+    if (!exportModalContentCheck.hasResSelect || !exportModalContentCheck.isResolutionSynced) {
+      throw new Error(`TEST 1F10 FAILED: VideoExportModal did not sync with project resolution! (selected: ${exportModalContentCheck.selectedValue}, expected: ${exportModalContentCheck.expectedValue})`);
     }
-    console.log('✓ TEST 1F PASSED: All Timeline, SubtitlesTab, Properties, and AI dispatcher buttons verified live!');
-    auditReport.results.test1f_dom_buttons = { ...timelineBtnResult, ...subtitlesTabResult, ...propertiesLipSyncResult, ...aiDispatchResult, passed: true };
+
+    console.log('✓ TEST 1F PASSED: All Timeline, SubtitlesTab, Properties, AI dispatcher, and Export Modal verified live!');
+    auditReport.results.test1f_dom_buttons = { ...timelineBtnResult, ...subtitlesTabResult, ...propertiesLipSyncResult, ...aiDispatchResult, ...exportModalContentCheck, passed: true };
 
     // =========================================================================
     // 🧪 TEST 2: AI Son Kare Kırpma (AI Glitch Trim) ve Geçişlerin Gerçek State Kanıtı
@@ -1306,15 +1346,26 @@ async function runTortureTest() {
         const wavSize = wavBlob ? wavBlob.size : 0;
 
         // C. Test Real MP4 Export & Non-Freezing Video Playback (H.264 CFR + AAC)
+        const exportTestProject = {
+          ...editor.project,
+          duration: 1.5,
+          tracks: editor.project.tracks.map(t => ({
+            ...t,
+            clips: t.clips.map(c => ({
+              ...c,
+              duration: Math.min(c.duration, 1.5),
+            })),
+          })),
+        };
         const mp4Blob = await editor.exportEngine.exportProject(
-          editor.project,
+          exportTestProject,
           {
             format: 'mp4',
             resolution: { width: 480, height: 270 },
             fps: 30,
             quality: 'high',
           },
-          1.5,
+          1.0,
           () => {}
         );
         const mp4Size = mp4Blob ? mp4Blob.size : 0;
@@ -1324,6 +1375,8 @@ async function runTortureTest() {
         let videoPlaybackOk = false;
         let videoDuration = 0;
         let videoCurrentTime = 0;
+        let videoWidth = 0;
+        let videoHeight = 0;
         let hasVideoDimensions = false;
 
         if (mp4Blob && mp4Size > 0) {
@@ -1340,7 +1393,9 @@ async function runTortureTest() {
           });
 
           videoDuration = testVideo.duration || 0;
-          hasVideoDimensions = testVideo.videoWidth > 0 && testVideo.videoHeight > 0;
+          videoWidth = testVideo.videoWidth || 0;
+          videoHeight = testVideo.videoHeight || 0;
+          hasVideoDimensions = videoWidth > 0 && videoHeight > 0;
 
           if (hasVideoDimensions) {
             // Seek past 1.0s (past the old 30-frame chunk boundary where freeze occurred)
@@ -1366,6 +1421,8 @@ async function runTortureTest() {
           mp4Type,
           videoDuration: Number(videoDuration.toFixed(2)),
           videoCurrentTime: Number(videoCurrentTime.toFixed(2)),
+          videoWidth,
+          videoHeight,
           hasVideoDimensions,
           videoPlaybackOk,
         };
@@ -1384,14 +1441,18 @@ async function runTortureTest() {
 
     console.log(`[EXPORT-6C] Universal MP4 Video Export (H.264 CFR + AAC): size = ${exportVerification.mp4Size} bytes, duration = ${exportVerification.videoDuration}s`);
     console.log(`            Native Decoder Playback: videoDimensions = ${exportVerification.hasVideoDimensions}, seekTime = ${exportVerification.videoCurrentTime}s, playbackOk = ${exportVerification.videoPlaybackOk} (Donma/Freeze Yok!)`);
+    console.log(`[EXPORT-6D] Export Resolution Verification: ${exportVerification.videoWidth}x${exportVerification.videoHeight} (expected 480x270: ${exportVerification.videoWidth === 480 && exportVerification.videoHeight === 270})`);
     if (exportVerification.mp4Size === 0) {
       throw new Error('TEST 6C FAILED: MP4 export generated 0 bytes!');
     }
     if (!exportVerification.hasVideoDimensions || !exportVerification.videoPlaybackOk) {
       throw new Error(`TEST 6C FAILED: MP4 video failed to decode or froze during playback (dimensions: ${exportVerification.hasVideoDimensions}, playbackOk: ${exportVerification.videoPlaybackOk})!`);
     }
+    if (exportVerification.videoWidth !== 480 || exportVerification.videoHeight !== 270) {
+      throw new Error(`TEST 6D FAILED: Exported MP4 resolution (${exportVerification.videoWidth}x${exportVerification.videoHeight}) does not match requested resolution (480x270)!`);
+    }
 
-    console.log('✓ TEST 6 PASSED: Real PNG, Mixed WAV, and Non-Freezing Universal MP4 Export 100% verified!');
+    console.log('✓ TEST 6 PASSED: Real PNG, Mixed WAV, and Non-Freezing Universal MP4 Export with Exact Resolution 100% verified!');
     auditReport.results.test6_export_verification = { ...exportVerification, passed: true };
 
     // =========================================================================

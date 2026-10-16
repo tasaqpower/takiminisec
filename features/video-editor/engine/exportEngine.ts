@@ -69,10 +69,8 @@ class ExportEngine {
     canvas.width = options.resolution.width;
     canvas.height = options.resolution.height;
 
-    // Ensure assets are loaded
-    await this.preloadAssetsForExport(project);
-
-    await renderFrameToCanvas(canvas, project, currentTime, false);
+    const preloadedElements = await this.preloadAssetsForExport(project);
+    await renderFrameToCanvas(canvas, project, currentTime, false, false, preloadedElements, 1.0, true);
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
@@ -274,12 +272,20 @@ class ExportEngine {
 
     const fps = options.fps || project.fps || 30;
     const duration = Math.max(0.5, project.duration || 5);
-    const totalFrames = Math.ceil(duration * fps);
-    const width = options.resolution.width;
-    const height = options.resolution.height;
+    const totalFrames = Math.max(1, Math.round(duration * fps));
+    // Strictly force even width and height for YUV420p & libx264 compatibility
+    const width = Math.max(2, Math.floor(options.resolution.width / 2) * 2);
+    const height = Math.max(2, Math.floor(options.resolution.height / 2) * 2);
     const effectiveProject: VideoProject = {
       ...project,
       resolution: { width, height },
+      canvas: project.canvas
+        ? {
+            ...project.canvas,
+            width,
+            height,
+          }
+        : undefined,
     };
 
     // Load local WASM FFmpeg Core via native browser import (bypassing Vite bundler rewrite)
@@ -325,7 +331,7 @@ class ExportEngine {
         const f = startFrame + fIdx;
         const timeSec = f / fps;
 
-        await renderFrameToCanvas(canvas, effectiveProject, timeSec, false, true, preloadedElements);
+        await renderFrameToCanvas(canvas, effectiveProject, timeSec, false, false, preloadedElements, 1.0, true);
 
         const imgData = ctx.getImageData(0, 0, width, height).data;
         const frameOffset = fIdx * frameByteSize;
@@ -408,6 +414,10 @@ class ExportEngine {
         statusText: 'WebM container mux ediliyor (VP8 + Opus)...',
       });
 
+      const quality = options.quality || 'high';
+      const vpxBitrate = quality === 'ultra' ? '8000k' : quality === 'high' ? '5000k' : '3000k';
+      const opusBitrate = quality === 'ultra' ? '192k' : quality === 'high' ? '160k' : '128k';
+
       const muxArgs = hasAudio
         ? [
             '-f', 'rawvideo',
@@ -417,12 +427,12 @@ class ExportEngine {
             '-i', 'input.yuv',
             '-i', 'audio.wav',
             '-c:v', 'libvpx',
-            '-b:v', '3000k',
+            '-b:v', vpxBitrate,
             '-deadline', 'realtime',
             '-cpu-used', '8',
             '-strict', '-2',
             '-c:a', 'opus',
-            '-b:a', '128k',
+            '-b:a', opusBitrate,
             '-shortest',
             '-f', 'webm',
             'final_export.webm',
@@ -434,7 +444,7 @@ class ExportEngine {
             '-framerate', String(fps),
             '-i', 'input.yuv',
             '-c:v', 'libvpx',
-            '-b:v', '3000k',
+            '-b:v', vpxBitrate,
             '-deadline', 'realtime',
             '-cpu-used', '8',
             '-f', 'webm',
@@ -469,6 +479,10 @@ class ExportEngine {
       statusText: 'MP4 container kodlanıyor (H.264 CFR + AAC + faststart)...',
     });
 
+    const quality = options.quality || 'high';
+    const vBitrate = quality === 'ultra' ? '12000k' : quality === 'high' ? '8000k' : '4000k';
+    const aacBitrate = quality === 'ultra' ? '320k' : quality === 'high' ? '256k' : '192k';
+
     const muxArgs = hasAudio
       ? [
           '-f', 'rawvideo',
@@ -479,11 +493,12 @@ class ExportEngine {
           '-i', 'audio.wav',
           '-c:v', 'libx264',
           '-preset', 'ultrafast',
+          '-b:v', vBitrate,
           '-pix_fmt', 'yuv420p',
           '-g', String(Math.round(fps)),
           '-bf', '0',
           '-c:a', 'aac',
-          '-b:a', '192k',
+          '-b:a', aacBitrate,
           '-ar', '48000',
           '-shortest',
           '-movflags', '+faststart',
@@ -497,6 +512,7 @@ class ExportEngine {
           '-i', 'input.yuv',
           '-c:v', 'libx264',
           '-preset', 'ultrafast',
+          '-b:v', vBitrate,
           '-pix_fmt', 'yuv420p',
           '-g', String(Math.round(fps)),
           '-bf', '0',
@@ -548,15 +564,18 @@ class ExportEngine {
     const frameIntervalMs = 1000 / fps;
 
     // Canvas setup
+    const width = Math.max(2, Math.floor(options.resolution.width / 2) * 2);
+    const height = Math.max(2, Math.floor(options.resolution.height / 2) * 2);
     const canvas = document.createElement('canvas');
-    canvas.width = options.resolution.width;
-    canvas.height = options.resolution.height;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get 2D canvas context for export');
 
     const effectiveProject: VideoProject = {
       ...project,
-      resolution: { width: options.resolution.width, height: options.resolution.height },
+      resolution: { width, height },
+      canvas: project.canvas ? { ...project.canvas, width, height } : undefined,
     };
 
     // Audio setup
@@ -622,6 +641,7 @@ class ExportEngine {
     let onFirstChunk: () => void = () => {};
     const firstChunkPromise = new Promise<void>((r) => {
       onFirstChunk = r;
+      setTimeout(r, 200);
     });
 
     recorder.ondataavailable = (e) => {
@@ -635,18 +655,13 @@ class ExportEngine {
     };
 
     // Prime the initial frame 0 at 0.0s before starting recorder
-    await renderFrameToCanvas(canvas, project, 0, false, false, preloadedElements);
+    await renderFrameToCanvas(canvas, effectiveProject, 0, false, false, preloadedElements, 1.0, true);
     if (videoTrack && typeof videoTrack.requestFrame === 'function') {
       videoTrack.requestFrame();
     }
 
     const startTime = performance.now();
     recorder.start(50);
-    if (audioSource) {
-      try {
-        audioSource.start(0);
-      } catch (_) {}
-    }
 
     const targetTotalDurationMs = duration * 1000;
 
@@ -654,6 +669,13 @@ class ExportEngine {
     await firstChunkPromise;
     const readyTime = performance.now();
     const startupMs = readyTime - startTime;
+
+    // Start audio strictly AFTER firstChunk arrives to eliminate audio lead drift
+    if (audioSource) {
+      try {
+        audioSource.start(0);
+      } catch (_) {}
+    }
 
     // Dynamically calculate pacing for remaining frames so total duration matches targetTotalDurationMs
     const remainingFrames = totalFrames - 1;
@@ -671,7 +693,7 @@ class ExportEngine {
       }
 
       const frameTime = frameIndex / fps;
-      await renderFrameToCanvas(canvas, effectiveProject, frameTime, false, true, preloadedElements);
+      await renderFrameToCanvas(canvas, effectiveProject, frameTime, false, false, preloadedElements, 1.0, true);
       if (videoTrack && typeof videoTrack.requestFrame === 'function') {
         videoTrack.requestFrame();
       }
@@ -786,7 +808,7 @@ class ExportEngine {
     for (let f = 0; f < totalFrames; f++) {
       if (this.isCancelled) return null;
       const t = f / gifFps;
-      await renderFrameToCanvas(canvas, effectiveProject, t, false, false, preloadedElements);
+      await renderFrameToCanvas(canvas, effectiveProject, t, false, false, preloadedElements, 1.0, true);
       framePixelList.push(ctx.getImageData(0, 0, gifW, gifH));
 
       onProgress({

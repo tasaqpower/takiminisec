@@ -303,6 +303,7 @@ export const VideoEditorTopbar: React.FC<TopbarProps> = ({
         <button
           type="button"
           data-action="open-export"
+          data-testid="topbar-btn-export"
           onClick={onOpenExport}
           className="flex items-center gap-1.5 h-6 px-3 rounded-[3px] text-xs font-semibold text-white bg-[#4f6bf5] hover:bg-[#3b55d9] active:bg-[#2e47c7] border border-[#4f6bf5]/60 transition-colors select-none"
           title="Videoyu Dışa Aktar"
