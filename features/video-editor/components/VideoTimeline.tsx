@@ -2192,8 +2192,8 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           </div>
                         )}
 
-                        {/* 2. Transition Badges (Compact Corner Indicators) */}
-                        {clip.transitionIn && clip.transitionIn.type !== 'cut' && clip.transitionIn.type !== 'none' && (
+                        {/* 2. Transition Badges (Only shown for standalone edge transitions without a cut-point transition) */}
+                        {clip.transitionIn && clip.transitionIn.type !== 'cut' && clip.transitionIn.type !== 'none' && !project.transitions?.some((tr) => tr.rightClipId === clip.id || (tr.trackId === track.id && Math.abs(tr.cutTime - clip.startTime) < 0.4)) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2213,7 +2213,7 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
                           </button>
                         )}
 
-                        {clip.transitionOut && clip.transitionOut.type !== 'cut' && clip.transitionOut.type !== 'none' && (
+                        {clip.transitionOut && clip.transitionOut.type !== 'cut' && clip.transitionOut.type !== 'none' && !project.transitions?.some((tr) => tr.leftClipId === clip.id || (tr.trackId === track.id && Math.abs(tr.cutTime - (clip.startTime + clip.duration)) < 0.4)) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2519,113 +2519,127 @@ export const VideoTimeline: React.FC<TimelineProps> = ({
               </div>
             )}
 
-            {/* 2.5 Bowtie / Butterfly Transitions Layer */}
-            {project.transitions && project.transitions.length > 0 && (
-              <div className="absolute inset-0 pointer-events-none z-30">
-                {project.transitions.map((tr) => {
-                  const isSelected = selectedTransitionId === tr.id;
-                  const trDuration = typeof tr.duration === 'number' && !isNaN(tr.duration) ? tr.duration : 1.0;
-                  const trCutTime = typeof tr.cutTime === 'number' && !isNaN(tr.cutTime) ? tr.cutTime : 0.0;
-                  const trWidth = Math.max(36, trDuration * zoom);
-                  const trLeft = (trCutTime - trDuration / 2) * zoom;
-                  const trDef = TRANSITION_DEFINITIONS.find((d) => d.id === tr.type);
+            {/* 2.5 Bowtie / Butterfly Transitions Layer (Deduplicated by cut point & ID) */}
+            {(() => {
+              const seen = new Set<string>();
+              const uniqueTransitions: TimelineTransition[] = [];
+              for (const tr of (project.transitions || [])) {
+                const cutKey = `${tr.trackId}_${Math.round(tr.cutTime * 10)}`;
+                if (!seen.has(cutKey) && !seen.has(tr.id)) {
+                  seen.add(cutKey);
+                  seen.add(tr.id);
+                  uniqueTransitions.push(tr);
+                }
+              }
+              if (uniqueTransitions.length === 0) return null;
 
-                  const trackIdx = project.tracks.findIndex((t) => t.id === tr.trackId);
-                  const topOffset = (trackIdx >= 0 ? trackIdx * 64 : 0) + 24 + 14;
+              return (
+                <div className="absolute inset-0 pointer-events-none z-30">
+                  {uniqueTransitions.map((tr) => {
+                    const isSelected = selectedTransitionId === tr.id;
+                    const trDuration = typeof tr.duration === 'number' && !isNaN(tr.duration) ? tr.duration : 1.0;
+                    const trCutTime = typeof tr.cutTime === 'number' && !isNaN(tr.cutTime) ? tr.cutTime : 0.0;
+                    const trWidth = Math.max(36, trDuration * zoom);
+                    const trLeft = (trCutTime - trDuration / 2) * zoom;
+                    const trDef = TRANSITION_DEFINITIONS.find((d) => d.id === tr.type);
 
-                  return (
-                    <div
-                      key={tr.id}
-                      data-transition-id={tr.id}
-                      data-testid="timeline-transition"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectClip(null);
-                        onSelectTransition?.(tr.id);
-                      }}
-                      style={{
-                        left: `${trLeft}px`,
-                        width: `${trWidth}px`,
-                        top: `${topOffset}px`,
-                        height: '36px',
-                      }}
-                      className={`absolute pointer-events-auto group flex items-center justify-center select-none cursor-pointer transition-all ${
-                        isSelected
-                          ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black z-40'
-                          : 'hover:brightness-125'
-                      }`}
-                      title={`${trDef?.name || tr.type} (${trDuration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
-                    >
-                      {/* Duration Region Overlay */}
-                      <div className="absolute inset-0 bg-amber-500/10 border-t border-b border-amber-500/30 rounded-[2px] pointer-events-none" />
+                    const trackIdx = project.tracks.findIndex((t) => t.id === tr.trackId);
+                    const topOffset = (trackIdx >= 0 ? trackIdx * 64 : 0) + 24 + 14;
 
-                      {/* Compact Center Bowtie (24x22 px) */}
-                      <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none">
-                        <div className="w-6 h-4 relative flex items-center justify-center">
-                          <svg viewBox="0 0 24 14" className="w-6 h-3.5 drop-shadow">
-                            <defs>
-                              <linearGradient id={`bowtie-grad-${tr.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
-                                <stop offset="100%" stopColor="#d97706" stopOpacity="0.95" />
-                              </linearGradient>
-                            </defs>
-                            <polygon points="0,1 11,7 0,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
-                            <polygon points="24,1 13,7 24,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
-                            <line x1="12" y1="0" x2="12" y2="14" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="1 1" />
-                          </svg>
-                        </div>
-                        <span className="text-[8px] font-mono text-amber-300 font-bold px-1 py-0 bg-black/80 rounded leading-none border border-amber-500/40 shadow-sm mt-0.5">
-                          {trDuration.toFixed(1)} sn
-                        </span>
-                      </div>
-
-                      {/* Left Duration Handle */}
+                    return (
                       <div
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          setResizingTransition({
-                            transitionId: tr.id,
-                            initialDuration: tr.duration,
-                            initialMouseX: e.clientX,
-                            edge: 'left',
-                          });
-                        }}
-                        className="absolute left-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-l"
-                        title="Geçiş süresini ayarla (Sol)"
-                      />
-
-                      {/* Right Duration Handle */}
-                      <div
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          setResizingTransition({
-                            transitionId: tr.id,
-                            initialDuration: tr.duration,
-                            initialMouseX: e.clientX,
-                            edge: 'right',
-                          });
-                        }}
-                        className="absolute right-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-r"
-                        title="Geçiş süresini ayarla (Sağ)"
-                      />
-
-                      {/* Delete button on hover */}
-                      <button
-                        type="button"
+                        key={tr.id}
+                        data-transition-id={tr.id}
+                        data-testid="timeline-transition"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteTimelineTransition?.(tr.id);
+                          onSelectClip(null);
+                          onSelectTransition?.(tr.id);
                         }}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity z-30"
-                        title="Geçişi Sil"
+                        style={{
+                          left: `${trLeft}px`,
+                          width: `${trWidth}px`,
+                          top: `${topOffset}px`,
+                          height: '36px',
+                        }}
+                        className={`absolute pointer-events-auto group flex items-center justify-center select-none cursor-pointer transition-all ${
+                          isSelected
+                            ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black z-40'
+                            : 'hover:brightness-125'
+                        }`}
+                        title={`${trDef?.name || tr.type} (${trDuration.toFixed(2)}s) — Tıkla: Özellikler, Sürükle: Süre`}
                       >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        {/* Duration Region Overlay */}
+                        <div className="absolute inset-0 bg-amber-500/10 border-t border-b border-amber-500/30 rounded-[2px] pointer-events-none" />
+
+                        {/* Compact Center Bowtie (24x22 px) */}
+                        <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none">
+                          <div className="w-6 h-4 relative flex items-center justify-center">
+                            <svg viewBox="0 0 24 14" className="w-6 h-3.5 drop-shadow">
+                              <defs>
+                                <linearGradient id={`bowtie-grad-${tr.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
+                                  <stop offset="100%" stopColor="#d97706" stopOpacity="0.95" />
+                                </linearGradient>
+                              </defs>
+                              <polygon points="0,1 11,7 0,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
+                              <polygon points="24,1 13,7 24,13" fill={`url(#bowtie-grad-${tr.id})`} stroke="#fef08a" strokeWidth="0.75" />
+                              <line x1="12" y1="0" x2="12" y2="14" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="1 1" />
+                            </svg>
+                          </div>
+                          <span className="text-[8px] font-mono text-amber-300 font-bold px-1 py-0 bg-black/80 rounded leading-none border border-amber-500/40 shadow-sm mt-0.5">
+                            {trDuration.toFixed(1)} sn
+                          </span>
+                        </div>
+
+                        {/* Left Duration Handle */}
+                        <div
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setResizingTransition({
+                              transitionId: tr.id,
+                              initialDuration: tr.duration,
+                              initialMouseX: e.clientX,
+                              edge: 'left',
+                            });
+                          }}
+                          className="absolute left-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-l"
+                          title="Geçiş süresini ayarla (Sol)"
+                        />
+
+                        {/* Right Duration Handle */}
+                        <div
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setResizingTransition({
+                              transitionId: tr.id,
+                              initialDuration: tr.duration,
+                              initialMouseX: e.clientX,
+                              edge: 'right',
+                            });
+                          }}
+                          className="absolute right-0 top-0 bottom-0 w-1.5 hover:w-2 bg-amber-400/40 hover:bg-amber-400 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-all z-20 rounded-r"
+                          title="Geçiş süresini ayarla (Sağ)"
+                        />
+
+                        {/* Delete button on hover */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTimelineTransition?.(tr.id);
+                          }}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 shadow transition-opacity z-30"
+                          title="Geçişi Sil"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* 2.6 Independent Effect Segments Layer */}
             {project.effectSegments && project.effectSegments.length > 0 && (

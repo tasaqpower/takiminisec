@@ -163,8 +163,12 @@ export const TransitionsTab: React.FC<TransitionsTabProps> = ({
     return TRANSITION_DEFINITIONS.find((t) => t.id === selectedTrId) || null;
   }, [selectedTrId]);
 
-  // Double-click to apply to closest cut point
+  const lastAppliedRef = useRef<number>(0);
+
+  // Apply to closest cut point or selected clip cut
   const handleDoubleClick = (tr: TransitionDef) => {
+    if (Date.now() - lastAppliedRef.current < 450) return;
+    lastAppliedRef.current = Date.now();
     addRecent(tr.id);
 
     // Find unlocked video track
@@ -462,16 +466,27 @@ export const TransitionsTab: React.FC<TransitionsTabProps> = ({
             {selectedDef.description}
           </p>
 
-          <div className="flex items-center justify-between text-[10px] text-[#5A6270] pt-1.5 border-t border-[#1C212A]">
+          <div className="flex items-center justify-between text-[10px] text-[#5A6270] pt-1.5 border-t border-[#1C212A] mb-2">
             <span className="flex items-center gap-1">
               <Clock size={10} />
               Varsayılan: {selectedDef.defaultDuration.toFixed(1)}s
             </span>
             <span className="text-[#4f6bf5] font-medium flex items-center gap-1">
               <Info size={10} />
-              Zaman çizgisine sürükleyin
+              Sürükleyin veya aşağıdan uygulayın
             </span>
           </div>
+
+          <button
+            type="button"
+            data-testid="btn-apply-selected-transition"
+            onClick={() => handleDoubleClick(selectedDef)}
+            className="w-full py-1.5 px-3 rounded-[3px] bg-[#4f6bf5] hover:bg-[#3d57d6] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+            title="Oynatma kafasına veya seçili klibe en yakın kesim çizgisine bu geçişi uygular"
+          >
+            <Sparkles size={13} />
+            <span>⚡ Kesim Noktasına Uygula</span>
+          </button>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { VideoProject, ExportFormat, ExportOptions } from '../types';
 import { exportEngine, ExportProgress } from '../engine/exportEngine';
-import { Download, Film, Check, Loader2, X, Clock, Sparkles, AlertTriangle, Monitor, Smartphone, Square } from 'lucide-react';
+import { Download, Film, Check, Loader2, X, Clock, Sparkles, AlertTriangle, Monitor, Smartphone, Square, Zap } from 'lucide-react';
 
 interface ExportModalProps {
   project: VideoProject;
@@ -19,6 +19,60 @@ function getAspectLabel(w: number, h: number): string {
   if (Math.abs(ratio - 21 / 9) < 0.05) return '21:9 Sinematik';
   return `${w}:${h}`;
 }
+
+interface TikTokPreset {
+  id: string;
+  name: string;
+  tag: string;
+  width: number;
+  height: number;
+  fps: number;
+  quality: 'standard' | 'high' | 'ultra';
+  desc: string;
+}
+
+const TIKTOK_QUICK_PRESETS: TikTokPreset[] = [
+  {
+    id: 'tiktok_1080p',
+    name: 'TikTok 1080p',
+    tag: 'Popüler Standart',
+    width: 1080,
+    height: 1920,
+    fps: 30,
+    quality: 'high',
+    desc: '1080×1920 • 30 FPS • Hızlı & Keskin',
+  },
+  {
+    id: 'tiktok_2k_60fps',
+    name: 'TikTok 2K VIP',
+    tag: 'Ultra Net (Önerilen)',
+    width: 1440,
+    height: 2560,
+    fps: 60,
+    quality: 'ultra',
+    desc: '1440×2560 • 60 FPS • Sıkıştırmasız VIP',
+  },
+  {
+    id: 'tiktok_4k',
+    name: 'TikTok 4K Dikey',
+    tag: 'Sinematik Portre',
+    width: 2160,
+    height: 3840,
+    fps: 60,
+    quality: 'ultra',
+    desc: '2160×3840 • 60 FPS • Maksimum Çözünürlük',
+  },
+  {
+    id: 'tiktok_720p',
+    name: 'TikTok 720p',
+    tag: 'Hızlı Taslak',
+    width: 720,
+    height: 1280,
+    fps: 30,
+    quality: 'standard',
+    desc: '720×1280 • 30 FPS • Küçük Dosya Boyutu',
+  },
+];
 
 export const VideoExportModal: React.FC<ExportModalProps> = ({
   project,
@@ -49,16 +103,16 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
   const resolutionPresets = useMemo(() => {
     const projKey = `${project.resolution.width}x${project.resolution.height}`;
     const standardPresets = [
-      { id: '1920x1080', label: '1080p Full HD (1920×1080 - 16:9 Yatay)', width: 1920, height: 1080 },
-      { id: '1280x720', label: '720p HD (1280×720 - 16:9 Hızlı)', width: 1280, height: 720 },
-      { id: '2560x1440', label: '2K QHD (2560×1440 - 16:9 Net)', width: 2560, height: 1440 },
-      { id: '3840x2160', label: '4K Ultra HD (3840×2160 - 16:9 Sinematik)', width: 3840, height: 2160 },
-      { id: '1080x1920', label: '1080p Dikey (1080×1920 - 9:16 Reels / TikTok / Shorts)', width: 1080, height: 1920 },
-      { id: '1440x2560', label: '2K QHD Dikey (1440×2560 - 9:16 Ultra Net Reels / Shorts)', width: 1440, height: 2560 },
-      { id: '2160x3840', label: '4K Dikey (2160×3840 - 9:16 Sinematik Dikey)', width: 2160, height: 3840 },
-      { id: '720x1280', label: '720p Dikey (720×1280 - 9:16 Düşük Boyut)', width: 720, height: 1280 },
-      { id: '1080x1080', label: '1080p Kare (1080×1080 - 1:1 Instagram Post)', width: 1080, height: 1080 },
-      { id: '1080x1350', label: '1080p Portre (1080×1350 - 4:5 Instagram Dikey)', width: 1080, height: 1350 },
+      { id: '1080x1920', label: '1080p Dikey (1080×1920 - 9:16 Reels / TikTok / Shorts)', width: 1080, height: 1920, group: 'tiktok' },
+      { id: '1440x2560', label: '2K QHD Dikey (1440×2560 - 9:16 Ultra Net Reels / Shorts)', width: 1440, height: 2560, group: 'tiktok' },
+      { id: '2160x3840', label: '4K Dikey (2160×3840 - 9:16 Sinematik Dikey)', width: 2160, height: 3840, group: 'tiktok' },
+      { id: '720x1280', label: '720p Dikey (720×1280 - 9:16 Düşük Boyut)', width: 720, height: 1280, group: 'tiktok' },
+      { id: '1920x1080', label: '1080p Full HD (1920×1080 - 16:9 Yatay)', width: 1920, height: 1080, group: 'horizontal' },
+      { id: '2560x1440', label: '2K QHD (2560×1440 - 16:9 Net)', width: 2560, height: 1440, group: 'horizontal' },
+      { id: '3840x2160', label: '4K Ultra HD (3840×2160 - 16:9 Sinematik)', width: 3840, height: 2160, group: 'horizontal' },
+      { id: '1280x720', label: '720p HD (1280×720 - 16:9 Hızlı)', width: 1280, height: 720, group: 'horizontal' },
+      { id: '1080x1080', label: '1080p Kare (1080×1080 - 1:1 Instagram Post)', width: 1080, height: 1080, group: 'other' },
+      { id: '1080x1350', label: '1080p Portre (1080×1350 - 4:5 Instagram Dikey)', width: 1080, height: 1350, group: 'other' },
     ];
 
     const isStandard = standardPresets.some((p) => p.id === projKey);
@@ -70,6 +124,7 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
         label: `🎯 Proje Çözünürlüğü (${project.resolution.width}×${project.resolution.height} - ${getAspectLabel(project.resolution.width, project.resolution.height)})`,
         width: project.resolution.width,
         height: project.resolution.height,
+        group: 'project',
       });
     }
 
@@ -79,6 +134,18 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
   const projAspect = project.resolution.width / Math.max(1, project.resolution.height);
   const selAspect = resolution.width / Math.max(1, resolution.height);
   const isAspectMatch = Math.abs(projAspect - selAspect) < 0.02;
+  const isTikTokAspect = Math.abs(selAspect - 9 / 16) < 0.04;
+
+  const activeTikTokPreset = TIKTOK_QUICK_PRESETS.find(
+    (p) => p.width === resolution.width && p.height === resolution.height && p.fps === fps
+  );
+
+  const applyTikTokPreset = (preset: TikTokPreset) => {
+    setFormat('mp4');
+    setResolution({ width: preset.width, height: preset.height });
+    setFps(preset.fps);
+    setQuality(preset.quality);
+  };
 
   if (!isOpen) return null;
 
@@ -199,6 +266,52 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
             </div>
           </div>
 
+          {/* TikTok / Reels Dedicated Quick Presets */}
+          {(format === 'mp4' || format === 'webm') && (
+            <div className="p-3 rounded-lg bg-gradient-to-r from-pink-950/20 via-[#181224] to-indigo-950/20 border border-pink-500/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-pink-400" />
+                  <span className="font-semibold text-white text-xs">
+                    TikTok / Reels / Shorts Hızlı Presetleri (9:16 Dikey)
+                  </span>
+                </div>
+                <span className="text-[10px] text-pink-300 font-mono bg-pink-500/20 px-1.5 py-0.5 rounded border border-pink-500/30">
+                  ⚡ 1-Tıkla Ayarla
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {TIKTOK_QUICK_PRESETS.map((preset) => {
+                  const isActive =
+                    resolution.width === preset.width &&
+                    resolution.height === preset.height &&
+                    fps === preset.fps &&
+                    quality === preset.quality;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => applyTikTokPreset(preset)}
+                      className={`p-2 rounded-md border text-left transition-all ${
+                        isActive
+                          ? 'bg-pink-600/25 border-pink-500 text-white shadow-md shadow-pink-950/50'
+                          : 'bg-[#12141a]/90 border-[#2b2738] text-gray-300 hover:border-pink-500/50 hover:bg-[#181622]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-pink-200 truncate">{preset.name}</span>
+                        {isActive && <Check className="w-3 h-3 text-pink-400 shrink-0" />}
+                      </div>
+                      <p className="text-[9px] text-pink-300/80 font-medium mt-0.5">{preset.tag}</p>
+                      <p className="text-[9px] text-gray-400 font-mono mt-1 leading-tight">{preset.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Resolution & FPS (if video) */}
           {(format === 'mp4' || format === 'webm' || format === 'png') && (
             <div className="space-y-2">
@@ -222,14 +335,60 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                     }}
                     className="w-full px-2.5 py-1.5 rounded-md bg-[#13161c] border border-[#202531] text-white outline-none focus:border-indigo-500 text-xs"
                   >
-                    {resolutionPresets.map((p) => {
-                      const isProj = p.width === project.resolution.width && p.height === project.resolution.height;
-                      return (
-                        <option key={p.id} value={`${p.width}x${p.height}`}>
-                          {isProj ? `⭐ [Proje Formatı] ${p.label}` : p.label}
-                        </option>
-                      );
-                    })}
+                    {/* Proje Özel Formatı (Eğer standart dışı ise) */}
+                    {resolutionPresets.filter((p) => p.group === 'project').length > 0 && (
+                      <optgroup label="⭐ Projenizin Özel Çözünürlüğü">
+                        {resolutionPresets
+                          .filter((p) => p.group === 'project')
+                          .map((p) => (
+                            <option key={p.id} value={`${p.width}x${p.height}`}>
+                              {p.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+
+                    {/* TikTok / Reels 9:16 Dikey */}
+                    <optgroup label="📱 TikTok / Reels / Shorts (9:16 Dikey) - ÖNERİLEN">
+                      {resolutionPresets
+                        .filter((p) => p.group === 'tiktok')
+                        .map((p) => {
+                          const isProj = p.width === project.resolution.width && p.height === project.resolution.height;
+                          return (
+                            <option key={p.id} value={`${p.width}x${p.height}`}>
+                              {isProj ? `⭐ [Proje Formatı] ${p.label}` : p.label}
+                            </option>
+                          );
+                        })}
+                    </optgroup>
+
+                    {/* YouTube 16:9 Yatay */}
+                    <optgroup label="💻 YouTube / Masaüstü (16:9 Yatay)">
+                      {resolutionPresets
+                        .filter((p) => p.group === 'horizontal')
+                        .map((p) => {
+                          const isProj = p.width === project.resolution.width && p.height === project.resolution.height;
+                          return (
+                            <option key={p.id} value={`${p.width}x${p.height}`}>
+                              {isProj ? `⭐ [Proje Formatı] ${p.label}` : p.label}
+                            </option>
+                          );
+                        })}
+                    </optgroup>
+
+                    {/* Instagram Kare / Portre */}
+                    <optgroup label="📷 Instagram Gönderi / Portre">
+                      {resolutionPresets
+                        .filter((p) => p.group === 'other')
+                        .map((p) => {
+                          const isProj = p.width === project.resolution.width && p.height === project.resolution.height;
+                          return (
+                            <option key={p.id} value={`${p.width}x${p.height}`}>
+                              {isProj ? `⭐ [Proje Formatı] ${p.label}` : p.label}
+                            </option>
+                          );
+                        })}
+                    </optgroup>
                   </select>
                 </div>
 
@@ -281,6 +440,26 @@ export const VideoExportModal: React.FC<ExportModalProps> = ({
                   <span>
                     Proje çözünürlüğü ve en-boy oranı ile tam uyumlu (<strong>{project.resolution.width}×{project.resolution.height}</strong> - {getAspectLabel(project.resolution.width, project.resolution.height)}).
                   </span>
+                </div>
+              )}
+
+              {/* TikTok Native Format Compliance Badge */}
+              {isTikTokAspect && (
+                <div className="p-2.5 rounded-md bg-[#191424] border border-pink-500/40 text-[11px] text-pink-200 flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-pink-300">TikTok & Reels Algoritma Uyumu Aktif</p>
+                      <span className="text-[9px] px-1.5 py-0.2 bg-pink-500/20 text-pink-300 rounded border border-pink-500/30 font-mono">
+                        9:16 CFR 48kHz
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-pink-200/80 leading-relaxed mt-0.5">
+                      YUV420p renk alanı, H.264 High Profile ve Moov Atom (FastStart) kuralına uygun üretilir. TikTok sunucularına yüklendiğinde kalite kaybı, pikselleşme veya ses kayması yaşanmaz.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

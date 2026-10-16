@@ -2040,9 +2040,10 @@ export function useVideoProject() {
       commitProjectChange((prev) => {
         const isSameCut = (t: TimelineTransition) =>
           t.id === newTransition.id ||
-          (t.trackId === data.trackId && Math.abs(t.cutTime - data.cutTime) < 0.1) ||
-          (data.leftClipId && t.leftClipId === data.leftClipId) ||
-          (data.rightClipId && t.rightClipId === data.rightClipId);
+          (t.trackId === data.trackId && Math.abs(t.cutTime - data.cutTime) < 0.45) ||
+          (Boolean(data.leftClipId && data.rightClipId) && t.leftClipId === data.leftClipId && t.rightClipId === data.rightClipId) ||
+          (Boolean(data.leftClipId) && t.leftClipId === data.leftClipId && Math.abs(t.cutTime - data.cutTime) < 0.8) ||
+          (Boolean(data.rightClipId) && t.rightClipId === data.rightClipId && Math.abs(t.cutTime - data.cutTime) < 0.8);
 
         const nextTransitions = [
           ...(prev.transitions || []).filter((t) => !isSameCut(t)),
@@ -2057,28 +2058,18 @@ export function useVideoProject() {
             ];
 
             const nextClips = track.clips.map((clip) => {
+              // When a cut-point transition exists, clear redundant clip-level transition badges
+              // to prevent duplicate badges and double-rendering on the timeline.
               if (clip.id === data.leftClipId) {
                 return {
                   ...clip,
-                  transitionOut: {
-                    type: data.type,
-                    duration: data.duration ?? 1.0,
-                    easing: data.easing,
-                    intensity: data.intensity,
-                    direction: data.direction,
-                  },
+                  transitionOut: undefined,
                 };
               }
               if (clip.id === data.rightClipId) {
                 return {
                   ...clip,
-                  transitionIn: {
-                    type: data.type,
-                    duration: data.duration ?? 1.0,
-                    easing: data.easing,
-                    intensity: data.intensity,
-                    direction: data.direction,
-                  },
+                  transitionIn: undefined,
                 };
               }
               return clip;
